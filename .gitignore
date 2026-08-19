@@ -1,0 +1,20 @@
+# Node / Next.js
+node_modules/
+.next/
+.env
+.env.local
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Worker runtime
+worker/downloads/*
+!worker/downloads/.gitkeep
+worker/logs/*
+!worker/logs/.gitkeep
+
+# OS
+.DS_Store
+worker/tarefa_real.json

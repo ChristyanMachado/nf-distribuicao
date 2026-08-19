@@ -1,0 +1,88 @@
+@import "tailwindcss";
+
+/*
+  Direção visual: "livro-caixa de produtor rural" — papel quente, tinta de
+  carimbo fiscal, números em monoespaçada (como um recibo/DANFE real).
+  Ferramenta operacional usada de madrugada, no celular, com pouca luz —
+  prioriza contraste, alvos de toque grandes e o mínimo de cliques.
+*/
+
+:root {
+  --paper: #fbf8f2;
+  --paper-raised: #ffffff;
+  --ink: #24261f;
+  --ink-soft: #5b5d4f;
+  --ink-faint: #9a9c8c;
+  --line: #e4ddcb;
+  --line-strong: #d3c9ac;
+
+  --field: #38583f;
+  --field-strong: #24392a;
+  --field-tint: #e7efe3;
+
+  --stamp: #a63a2e;
+  --stamp-tint: #f6e6e2;
+
+  --wheat: #8a6a1f;
+  --wheat-tint: #f7edd6;
+
+  --radius-card: 14px;
+  --radius-control: 10px;
+
+  --font-display: Georgia, "Times New Roman", ui-serif, serif;
+  --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Courier New", monospace;
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  letter-spacing: -0.01em;
+}
+
+.font-mono-tab {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Alvo de toque mínimo de 44px em qualquer controle interativo (mobile) */
+button,
+a.tap-target,
+input,
+select {
+  min-height: 44px;
+}
+
+input,
+select {
+  background: var(--paper-raised);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-control);
+  padding: 0 12px;
+  font-size: 16px; /* evita zoom automático no iOS ao focar */
+  color: var(--ink);
+}
+
+input:focus,
+select:focus {
+  outline: 2px solid var(--field);
+  outline-offset: 1px;
+  border-color: var(--field);
+}
+
+::selection {
+  background: var(--field-tint);
+}

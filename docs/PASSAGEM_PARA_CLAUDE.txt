@@ -1,0 +1,203 @@
+PASSAGEM DE CONTEXTO — PROJETO NF DISTRIBUIÇÃO
+Data: 18/08/2026
+
+1. OBJETIVO DO PROJETO
+
+O projeto NF Distribuição deverá receber tarefas de emissão de nota fiscal,
+preencher o sistema NFP-e da Receita PR e, no futuro, integrar-se ao
+aplicativo, Supabase, fila de tarefas e armazenamento de PDF/XML.
+
+A unidade de execução é uma TAREFA DE EMISSÃO, não um cliente. Uma tarefa
+deve informar emitente, destinatário, itens, valores e demais dados fiscais.
+O modelo esperado entre emitentes e destinatários é N:N.
+
+
+2. DOCUMENTOS E REGRAS PARA LER PRIMEIRO
+
+Antes de alterar qualquer código, ler:
+
+  - docs/AI-CONTEXT.md
+  - docs/ARCHITECTURE.md
+  - docs/HANDOFF.md
+  - este arquivo
+
+As mesmas regras estão em AGENTS.MD e CLAUDE.MD. Em especial:
+
+  - não versionar .env e nunca colocar credenciais no código;
+  - verificar mudanças existentes antes de editar;
+  - não mudar a arquitetura sem registrar a decisão;
+  - executar teste proporcional à alteração e registrar o resultado;
+  - não automatizar emissão definitiva antes da etapa de validação humana.
+
+
+3. ALTERAÇÃO ARQUITETURAL JÁ REALIZADA
+
+O Worker usava Playwright Sync com Browser criado na thread principal e
+ThreadPoolExecutor para atender vários clientes. Essa combinação produziu:
+
+  greenlet.error: Cannot switch to a different thread
+
+Por isso a arquitetura do navegador foi migrada para:
+
+  async_playwright()
+      -> 1 Browser Chromium
+      -> N BrowserContexts independentes
+      -> 1 Page por tarefa/contexto
+      -> asyncio.gather() para concorrência
+
+Cada BrowserContext possui cookies, localStorage e autenticação próprios.
+Ele é a fronteira obrigatória de isolamento entre tarefas. Uma falha em uma
+tarefa deve retornar ResultadoProcessamento com erro e não cancelar as
+demais.
+
+NÃO retornar para Sync Playwright + ThreadPoolExecutor nem compartilhar um
+BrowserContext entre tarefas sem uma justificativa técnica documentada.
+
+
+4. O QUE FOI ALTERADO NO CÓDIGO
+
+worker/src/orquestrador.py
+
+  - Foi convertido para a API Async do Playwright.
+  - processar_tarefas_em_paralelo_async() abre um Chromium.
+  - _processar_uma_tarefa() cria e fecha um BrowserContext por tarefa.
+  - asyncio.gather() executa tarefas de forma concorrente.
+  - Há um wrapper síncrono processar_tarefas_em_paralelo(), que usa
+    asyncio.run() para manter a chamada da main simples.
+
+worker/src/auth.py
+
+  - realizar_login() foi convertido para async.
+  - Faz navegação à URL de login, preenche CPF/usuário e senha, clica em
+    Login e confirma a sessão aguardando o seletor #icons.
+  - navegar_ate_emissao() também foi convertida para async, mas ainda não
+    foi exercitada no fluxo Async real.
+
+worker/main.py
+
+  - Foi criado o smoke test Async (SMOKE_TEST=true).
+  - teste_autenticacao() cria uma Page no contexto próprio, obtém a
+    credencial pelo identificador e chama realizar_login().
+  - O teste não navega, não preenche uma nota e não emite nada.
+
+worker/src/flows/emissao.py
+
+  - Ainda usa Playwright Sync e, portanto, NÃO pode receber uma Page Async.
+  - Ainda há etapas/seletoras pendentes. Alguns dados fiscais confirmados
+    foram documentados; dados ou seletores não confirmados devem falhar de
+    modo explícito, nunca ser inventados.
+
+
+5. TESTES QUE JÁ PASSARAM
+
+Teste 1: um cliente
+
+  SMOKE_TEST=true
+  CLIENTES_ATIVOS=CLIENTE_A
+  HEADLESS=false
+  python main.py tarefa_real.json
+
+Resultado: BrowserContext criado, login na Receita PR confirmado e contexto
+encerrado sem erro.
+
+Teste 2: três clientes em paralelo
+
+  SMOKE_TEST=true
+  CLIENTES_ATIVOS=CLIENTE_A,CLIENTE_B,CLIENTE_C
+  HEADLESS=false
+  python main.py tarefa_real.json
+
+Resultado observado:
+
+  CLIENTE_A -> contexto criado -> login confirmado
+  CLIENTE_B -> contexto criado -> login confirmado
+  CLIENTE_C -> contexto criado -> login confirmado
+
+O log mostra os três fluxos sendo iniciados e concluídos concorrentemente.
+O isolamento por contexto está implementado e a autenticação passou para os
+três identificadores configurados.
+
+O que AINDA NÃO foi provado visualmente: que a página pós-login de cada
+contexto exibe a identidade esperada de A, B e C. A próxima melhoria de
+teste deve registrar/validar um elemento de identidade apresentado pelo site
+após o login, sem registrar CPF, senha ou outros dados sensíveis no log.
+
+
+6. SITUAÇÃO ATUAL E ALERTA IMPORTANTE
+
+O projeto está numa migração gradual. O fluxo de autenticação e a
+orquestração são Async; emissao.py permanece Sync. Não misturar os dois
+tipos de Page.
+
+Também há uma condição atual em worker/main.py que deve ser tratada antes
+de voltar ao fluxo real:
+
+  - a chamada ao orquestrador Async está fora do bloco `if smoke_test`;
+  - logo, ela é executada mesmo quando SMOKE_TEST não está ativo;
+  - há um `return` logo após o processamento Async, portanto o código do
+    fluxo real Sync abaixo dele está inalcançável;
+  - além disso, aquele fluxo antigo chama funções que já são async como se
+    fossem síncronas.
+
+Não corrigir isso com uma migração ampla ou improvisada. Primeiro decidir e
+implementar explicitamente o comportamento de cada modo:
+
+  a) SMOKE_TEST=true: somente login Async;
+  b) modo normal: por enquanto falhar com mensagem clara, ou manter um
+     caminho Sync compatível separado; e
+  c) futuro: fluxo completo Async, somente após converter cada etapa.
+
+Depois, criar/rodar teste que confirme o modo escolhido. Registrar a decisão
+em docs/AI-CONTEXT.md e docs/HANDOFF.md.
+
+
+7. PRÓXIMOS PASSOS RECOMENDADOS
+
+Executar um passo por vez, em ambiente visível quando for necessário
+verificar a interface da Receita PR:
+
+  1. Validar no login a identidade pós-autenticação por contexto.
+  2. Corrigir/testar a separação entre SMOKE_TEST e fluxo normal em main.py.
+  3. Testar navegar_ate_emissao() de forma Async para um cliente.
+  4. Repetir a navegação Async para A, B e C em paralelo.
+  5. Converter e testar consentimento.
+  6. Converter e testar seleção do emitente.
+  7. Converter e testar destinatário, identificação, retirada, produtos e
+     transporte, sempre uma etapa de cada vez.
+  8. Manter validação humana antes da emissão.
+  9. Só após testes suficientes: automatizar emissão e download de PDF/XML.
+
+Antes de cada etapa, confirmar seletores no sistema real. Preferir id,
+label, placeholder, role e texto ao invés de seletores estruturais longos.
+Não usar valores fiscais apenas para 'fazer o fluxo passar'.
+
+
+8. COLABORAÇÃO ENTRE CLAUDE CODE E CODEX
+
+Os dois podem trabalhar no mesmo projeto, mas não devem editar os mesmos
+arquivos simultaneamente no mesmo diretório de trabalho. Isso pode causar
+sobrescrita, testes sobre código em alteração e decisões inconsistentes.
+
+Enquanto o envio for manual, enviar ao Claude pelo menos:
+
+  - AGENTS.MD
+  - CLAUDE.MD
+  - docs/AI-CONTEXT.md
+  - docs/ARCHITECTURE.md
+  - docs/HANDOFF.md
+  - docs/PASSAGEM_PARA_CLAUDE.txt
+
+Ao solicitar uma alteração, informar qual agente está responsável e esperar
+ele terminar. Antes de repassar ao outro, enviar os arquivos alterados e o
+resultado do teste. O agente que encerrar uma alteração deve atualizar
+docs/HANDOFF.md com: alteração, motivo, teste executado, resultado e próximo
+passo.
+
+
+9. LIMITES DE SEGURANÇA
+
+O sistema trata emissão fiscal: efeitos são reais e possivelmente
+irreversíveis. Durante o desenvolvimento, parar antes de emitir, permitir
+conferência humana e preservar evidência em logs. Nunca armazenar
+credenciais, documentos fiscais ou dados pessoais em exemplos, commits ou
+mensagens de log.

@@ -1,0 +1,30 @@
+{
+  "_comentario": "Copie para tarefa_real.json (já no .gitignore) e preencha com dados reais pra testar contra o site de verdade. python main.py tarefa_real.json",
+  "tarefa_id": "teste-real-001",
+  "cliente_id": "CLIENTE_A",
+  "emitente": {
+    "valor_select": "9595048491"
+  },
+  "destinatario": {
+    "cnpj": "00.000.000/0000-00",
+    "indicador_ie": "CONTRIBUINTE",
+    "inscricao_estadual": "0000000000",
+    "razao_social": "",
+    "cep": "00000-000",
+    "numero_endereco": "0"
+  },
+  "itens": [
+    {
+      "produto_descricao": "",
+      "codigo_produto": "",
+      "quantidade": 1,
+      "preco_unitario": 0.0,
+      "cfop_texto": "Venda de produção do estabelecimento",
+      "cfop_codigo": "5101",
+      "situacao_tributaria_icms": "40",
+      "origem_mercadoria": "0",
+      "possui_beneficio_fiscal": true,
+      "codigo_beneficio_fiscal": "PR810128"
+    }
+  ]
+}
