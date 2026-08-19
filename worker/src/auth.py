@@ -17,6 +17,7 @@ testada separadamente após a autenticação estar validada.
 from __future__ import annotations
 
 import logging
+import re
 
 from playwright.async_api import (
     Page,
@@ -34,9 +35,59 @@ SELETOR_CAMPO_USUARIO = "#cpfusuario"
 # elemento presente somente após login bem-sucedido.
 SELETOR_POS_LOGIN = "#icons"
 
+# Confirmado no teste ao vivo: checkbox apresentado ao chegar na emissão.
+SELETOR_POS_NAVEGACAO_EMISSAO = "#div-consentimento input[type=checkbox]"
+URL_EMISSAO = re.compile(r"^https://nfae\.fazenda\.pr\.gov\.br/nfae/produtor/emitir/")
+
 
 class FalhaAutenticacao(Exception):
     """Levantada quando o login não é confirmado dentro do timeout."""
+
+
+class FalhaIdentidadeAutenticada(Exception):
+    """Levantada quando a área autenticada não exibe a identidade esperada."""
+
+
+class FalhaNavegacaoEmissao(Exception):
+    """Levantada quando a tela de emissão não é confirmada após a navegação."""
+
+
+async def validar_identidade_autenticada(
+    page: Page,
+    credencial: CredencialCliente,
+    logger: logging.Logger,
+) -> None:
+    """Confirma a identidade pós-login sem expor o texto esperado nos logs.
+
+    ``CLIENTE_X_IDENTIDADE_ESPERADA`` deve conter um texto que o portal exibe
+    na área autenticada, como o nome do emitente. A validação é opcional
+    durante a transição: quando a variável não está definida, o login segue,
+    mas o log deixa claro que a identidade não foi comprovada.
+    """
+
+    identidade_esperada = credencial.identidade_esperada
+    if not identidade_esperada:
+        logger.warning(
+            "[%s] Identidade pós-login não validada: "
+            "configure %s_IDENTIDADE_ESPERADA no .env.",
+            credencial.cliente_id,
+            credencial.cliente_id,
+        )
+        return
+
+    try:
+        await page.get_by_text(identidade_esperada, exact=False).wait_for(
+            state="visible",
+            timeout=10000,
+        )
+    except PlaywrightTimeoutError as exc:
+        raise FalhaIdentidadeAutenticada(
+            f"[{credencial.cliente_id}] A área autenticada não exibiu a "
+            "identidade configurada. Verifique a credencial, o texto "
+            "esperado no .env ou a interface do portal."
+        ) from exc
+
+    logger.info("[%s] Identidade pós-login confirmada", credencial.cliente_id)
 
 
 async def realizar_login(
@@ -109,6 +160,8 @@ async def realizar_login(
         credencial.cliente_id,
     )
 
+    await validar_identidade_autenticada(page, credencial, logger)
+
 
 async def navegar_ate_emissao(
     page: Page,
@@ -131,17 +184,37 @@ async def navegar_ate_emissao(
         "Navegando: Produtor Rural -> NFP-e -> Emissão"
     )
 
-    await page.locator(
-        "#menulateral > div > a.menos"
+    # Confirmado no teste ao vivo em 19/08. Localizar pelo papel e texto é
+    # mais resistente que a posição estrutural ``a:nth-child(44)``.
+    logger.info("Navegação: abrindo menu Produtor Rural")
+    await page.get_by_role(
+        "link",
+        name="Produtor Rural",
+        exact=True,
     ).click()
 
-    await page.locator(
-        "#menulateral412 > div:nth-child(3) > a"
-    ).click()
+    logger.info("Navegação: abrindo NFP-e")
+    await page.get_by_role("link", name="NFP-e", exact=True).click()
 
-    await page.locator(
-        "#menuLink1119"
-    ).click()
+    logger.info("Navegação: abrindo Emissão")
+    await page.locator("#menuLink1119").click()
+
+    try:
+        await page.wait_for_url(
+            URL_EMISSAO,
+            wait_until="domcontentloaded",
+            timeout=30000,
+        )
+        await page.wait_for_selector(
+            SELETOR_POS_NAVEGACAO_EMISSAO,
+            state="visible",
+            timeout=30000,
+        )
+    except PlaywrightTimeoutError as exc:
+        raise FalhaNavegacaoEmissao(
+            "A tela de emissão não foi confirmada em 30s após a navegação. "
+            "Verifique os seletores de menu ou o seletor pós-navegação."
+        ) from exc
 
     logger.info(
         "Área de emissão carregada"

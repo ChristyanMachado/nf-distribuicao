@@ -66,6 +66,17 @@ não navega até a emissão, não preenche nota e não emite nada. Sem
 voltará a ser habilitado após a migração gradual de todas as etapas para
 Async.
 
+Para testar somente a navegação até a tela de emissão após o login:
+
+```powershell
+$env:TESTAR_NAVEGACAO_EMISSAO="true"
+$env:CLIENTES_ATIVOS="CLIENTE_A"
+python main.py tarefa_real.json
+```
+
+Esse modo confirma a chegada à tela de emissão, mas não marca o
+consentimento, não preenche dados fiscais e não emite nota.
+
 ## Próximos passos
 
 1. Confirmar visualmente/logicamente a identidade autenticada em cada
@@ -74,5 +85,4 @@ Async.
    para três clientes.
 3. Migrar e testar uma etapa de `flows/emissao.py` por vez.
 4. Ligar ao Supabase somente após o fluxo fiscal estar validado.
-
 

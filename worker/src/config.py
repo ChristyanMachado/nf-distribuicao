@@ -21,6 +21,7 @@ class CredencialCliente:
     cliente_id: str
     login: str
     senha: str
+    identidade_esperada: str | None = None
 
 
 @dataclass(frozen=True)
@@ -32,6 +33,7 @@ class Config:
     log_dir: str
     clientes_ativos: tuple[str, ...]
     inspecionar: bool
+    testar_navegacao_emissao: bool
 
 
 def carregar_config() -> Config:
@@ -46,6 +48,9 @@ def carregar_config() -> Config:
         log_dir=os.getenv("LOG_DIR", "./logs"),
         clientes_ativos=clientes_ativos,
         inspecionar=os.getenv("INSPECIONAR", "false").lower() == "true",
+        testar_navegacao_emissao=(
+            os.getenv("TESTAR_NAVEGACAO_EMISSAO", "false").lower() == "true"
+        ),
     )
 
 
@@ -59,6 +64,7 @@ def carregar_credencial(prefixo_cliente: str) -> CredencialCliente:
         cliente_id=prefixo_cliente,
         login=_obrigatorio(f"{prefixo_cliente}_LOGIN"),
         senha=_obrigatorio(f"{prefixo_cliente}_SENHA"),
+        identidade_esperada=os.getenv(f"{prefixo_cliente}_IDENTIDADE_ESPERADA") or None,
     )
 
 

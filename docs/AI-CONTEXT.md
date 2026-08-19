@@ -132,8 +132,9 @@ Observação:
 O teste confirma três autenticações bem-sucedidas em três contextos
 independentes.
 
-Ainda falta validar de forma explícita a identidade autenticada de cada
-contexto após o login.
+A validação explícita de identidade foi implementada, mas ainda precisa de
+confirmação ao vivo: cada `CLIENTE_X_IDENTIDADE_ESPERADA` no `.env` deve
+receber um texto visível após o login (por exemplo, o nome do emitente).
 
 ---
 
@@ -234,8 +235,8 @@ completo permanece intencionalmente desabilitado.
 Ordem:
 
 1. autenticação ✅
-2. confirmação da identidade autenticada
-3. navegação até emissão
+2. configurar e confirmar ao vivo a identidade autenticada
+3. navegação até emissão 🔄 cliques e confirmação final refinados; repetir teste ao vivo
 4. consentimento
 5. seleção do emitente
 6. destinatário
@@ -374,7 +375,7 @@ gratuita.
 
 ✅ 3 logins simultâneos testados
 
-🔄 Navegação Async
+✅ Navegação Async — testes unitários aprovados; teste ao vivo pendente
 
 🔄 Fluxo fiscal Async
 

@@ -40,7 +40,9 @@ def test_etapa_bem_sucedida_nao_tira_screenshot_nem_pausa():
     assert page.pausado is False
 
 
-def test_etapa_com_falha_tira_screenshot_e_repropaga_excecao():
+def test_etapa_com_falha_tira_screenshot_e_repropaga_excecao(monkeypatch):
+    # O comportamento esperado deste teste independe do .env local.
+    monkeypatch.delenv("INSPECIONAR", raising=False)
     page = PageFalsa()
 
     def falha():

@@ -13,7 +13,7 @@ import sys
 
 from playwright.async_api import BrowserContext
 
-from src.auth import realizar_login
+from src.auth import navegar_ate_emissao, realizar_login
 from src.config import Config, carregar_config, carregar_credencial
 from src.orquestrador import processar_tarefas_em_paralelo
 from src.utils.logging import configurar_logger
@@ -39,6 +39,11 @@ async def teste_autenticacao(
             logger=logger,
         )
         logger.info("[%s] TESTE DE AUTENTICAÇÃO OK", tarefa_id)
+
+        if config.testar_navegacao_emissao:
+            logger.info("[%s] Iniciando teste de navegação até emissão", tarefa_id)
+            await navegar_ate_emissao(page, logger)
+            logger.info("[%s] TESTE DE NAVEGAÇÃO ATÉ EMISSÃO OK", tarefa_id)
 
         # Mantém a página visível brevemente para conferência manual.
         if not config.headless:
