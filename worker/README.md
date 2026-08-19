@@ -4,7 +4,7 @@ Python + Playwright, executando localmente por enquanto (seção 14 do
 documento de visão), migrando para uma VM (Oracle Cloud Always Free) depois
 de validado (Fase 6).
 
-## Estado atual (15/08)
+## Estado atual (18/08)
 
 - Reconhecimento manual avançado até a etapa de produtos, contra o sistema
   real (`receita.pr.gov.br` — NFP-e/Sefaz-PR). Detalhes em `RECON.md`.
@@ -26,18 +26,22 @@ de validado (Fase 6).
   simultâneos podiam disputar o mesmo terminal.
 - `CLIENTES_ATIVOS` no `.env` controla quantos/quais clientes rodam (útil
   pra testar 1 por vez antes de habilitar os 3 em paralelo).
-- `src/orquestrador.py`: 3 sessões paralelas (RF14), falha isolada por
-  cliente (RF24) — testado sem depender de navegador real.
+- `src/orquestrador.py`: BrowserContexts Async independentes (RF14), com
+  falha isolada por tarefa (RF24). O login Async foi validado contra a
+  Receita PR com um e com três clientes em paralelo.
+- `src/auth.py`: autenticação e navegação inicial já usam Playwright Async.
+- `src/flows/emissao.py`: ainda usa Playwright Sync; não pode receber uma
+  `Page` Async e ainda não integra o fluxo executável.
 
 ## Rodando os testes (não precisa de login nem de navegador instalado)
 
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-pytest tests/ -v   # 7 testes: orquestrador (2) + debug (4) + concorrência (1)
+pytest tests/ -v
 ```
 
-## Rodando o fluxo real (primeiro teste)
+## Rodando o smoke test de autenticação
 
 ```bash
 source .venv/bin/activate
@@ -50,24 +54,25 @@ cp .env.example .env
 cp tarefa_real.json.template tarefa_real.json   # já está no .gitignore
 # preencher com dados reais
 
+$env:SMOKE_TEST="true"
+$env:CLIENTES_ATIVOS="CLIENTE_A,CLIENTE_B,CLIENTE_C"
+$env:HEADLESS="false"
 python main.py tarefa_real.json
 ```
 
-Vai rodar em janela visível (headless=false), etapa por etapa. Quando parar
-num seletor não confirmado, o Playwright Inspector abre sozinho — clique no
-elemento certo, copie o seletor da aba "Explore", cole no arquivo
-correspondente (`src/auth.py` ou `src/flows/emissao.py`), clique ▶ Resume
-no Inspector, e rode de novo pra confirmar que colou certo.
+O smoke test abre uma página por contexto, autentica cada cliente ativo e
+não navega até a emissão, não preenche nota e não emite nada. Sem
+`SMOKE_TEST=true`, o Worker encerra com mensagem clara: o fluxo completo só
+voltará a ser habilitado após a migração gradual de todas as etapas para
+Async.
 
 ## Próximos passos
 
-1. Primeiro teste ao vivo — capturar os seletores que ainda faltam (ver
-   lista em `RECON.md`), um de cada vez, com o Inspector.
-2. Depois de 1 cliente funcionar de ponta a ponta, trocar
-   `CLIENTES_ATIVOS` pra `CLIENTE_A,CLIENTE_B,CLIENTE_C` e testar os 3 em
-   paralelo.
-3. Ligar ao Supabase: substituir `tarefa_real.json` por uma consulta real
-   às tarefas `PENDENTE` (Fase 4).
-
+1. Confirmar visualmente/logicamente a identidade autenticada em cada
+   contexto, sem gravar dados pessoais no log.
+2. Testar `navegar_ate_emissao()` em modo Async para um cliente e depois
+   para três clientes.
+3. Migrar e testar uma etapa de `flows/emissao.py` por vez.
+4. Ligar ao Supabase somente após o fluxo fiscal estar validado.
 
 

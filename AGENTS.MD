@@ -14,6 +14,9 @@ Antes de trabalhar:
 - Manter documentação atualizada.
 - Não colocar credenciais no código.
 - Não versionar `.env`.
+- Ler `docs/COLABORACAO.md` antes de iniciar trabalho compartilhado.
+- Registrar alterações no Git com a identidade do programador responsável;
+  IA é ferramenta de apoio, não autoria humana.
 
 ## Playwright
 

@@ -227,7 +227,9 @@ Não misturar `Page` síncrona com `Page` assíncrona.
 
 # 6. Próximo passo imediato
 
-Migrar gradualmente o fluxo fiscal para Async.
+Migrar gradualmente o fluxo fiscal para Async. Enquanto isso, o Worker só
+permite o smoke test de autenticação quando `SMOKE_TEST=true`; o fluxo fiscal
+completo permanece intencionalmente desabilitado.
 
 Ordem:
 

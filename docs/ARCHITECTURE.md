@@ -35,3 +35,7 @@ fluxo completo.
 O modo de desenvolvimento deve parar antes da emissão para conferência humana.
 Emissão automática e downloads só serão ativados após testes suficientes e
 validação explícita dos dados e seletores.
+
+No estado atual, `worker/main.py` permite somente o smoke test de
+autenticação com `SMOKE_TEST=true`. O fluxo fiscal completo permanece
+intencionalmente desabilitado até a migração Async estar concluída.

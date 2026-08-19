@@ -2,6 +2,25 @@
 
 ## Última alteração
 
+`worker/main.py` foi reorganizado para separar explicitamente o smoke test
+Async do fluxo fiscal completo. Sem `SMOKE_TEST=true`, o Worker encerra sem
+executar automação fiscal. Isso remove o caminho Sync incompatível e evita
+chamar funções Async como se fossem Sync durante a migração.
+
+Os testes do orquestrador foram atualizados para a interface Async atual e
+verificam o fechamento do contexto tanto em sucesso quanto em falha.
+
+Validação executada em 18/08/2026:
+
+    worker/.venv/Scripts/python.exe -m pytest tests -v
+
+Resultado: 7 testes aprovados.
+
+Também foi adicionada `docs/COLABORACAO.md`, com convenção de autoria humana,
+branches e uso seguro de Codex/Claude Code.
+
+## Alteração anterior
+
 Migramos o orquestrador de:
 
     Sync Playwright + ThreadPoolExecutor

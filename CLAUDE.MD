@@ -5,6 +5,7 @@ Leia antes de modificar qualquer código:
 - `docs/AI-CONTEXT.md`
 - `docs/ARCHITECTURE.md`
 - `docs/HANDOFF.md`
+- `docs/COLABORACAO.md`
 
 ## Regra
 
