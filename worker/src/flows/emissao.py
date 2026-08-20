@@ -1,14 +1,13 @@
 """
 RF13 (passos 4-10), RF15: preenchimento da NFP-e a partir do reconhecimento
-manual de 13/08 (worker/RECON.md), contra o sistema real da Receita/PR.
+manual de 13/08 (worker/RECON.md) e do reconhecimento ao vivo de 20/08,
+contra o sistema real da Receita/PR.
 
 Princípio seguido neste arquivo (importante, não é só estilo de código):
-seletor incerto é aceitável — vamos rodar em modo visível amanhã e corrigir
-o que quebrar, é o fluxo normal de desenvolver com Playwright. DADO FISCAL
+seletor incerto é aceitável — vamos rodar em modo visível e corrigir o que
+quebrar, é o fluxo normal de desenvolver com Playwright. DADO FISCAL
 inventado não é aceitável — nunca preenchemos CFOP, código de benefício
 fiscal, PIS/COFINS/IPI etc. com um valor chutado só para o fluxo continuar.
-Por isso a função de produtos PARA deliberadamente (DadosFiscaisIncompletos)
-no código de benefício fiscal, que ainda não foi localizado.
 """
 from __future__ import annotations
 
@@ -63,9 +62,9 @@ class ItemTarefa:
     quantidade: float
     preco_unitario: float
     cfop_texto: str = "Venda de produção do estabelecimento"  # confirmado no reconhecimento
-    cfop_codigo: str = "5101"  # confirmado na transcrição bruta de 15/08 (value do <option>)
-    situacao_tributaria_icms: str = "40"  # confirmado 15/08 — opções observadas: 40, 41, 50
-    origem_mercadoria: str = "0"  # confirmado 15/08 — 0 = Nacional
+    cfop_codigo: str = "5101"  # confirmado — value do <option> (reconhecimento ao vivo 20/08)
+    situacao_tributaria_icms: str = "40"  # confirmado — opções observadas: 40, 41, 50
+    origem_mercadoria: str = "0"  # confirmado — 0 = Nacional
     possui_beneficio_fiscal: bool = True  # confirmado no reconhecimento
     # Confirmado 15/08: código único, compartilhado por todos os produtos
     # ("é do produto, todo produto tem que colocar ele... seria o mesmo pra
@@ -80,14 +79,45 @@ class Tarefa:
     emitente: Emitente
     destinatario: Destinatario
     itens: list[ItemTarefa] = field(default_factory=list)
-    # Confirmados no reconhecimento, mas o próprio RECON.md pede validação
-    # documental antes de virar regra definitiva (seção 10) — mantidos como
-    # default editável, não como constante fixa no meio do código.
+    # Confirmados no reconhecimento ao vivo de 20/08 — o texto aqui precisa
+    # bater exatamente com o texto visível da <option> real (usado como
+    # âncora em _selecionar_select_por_opcao_ancora), não é só descritivo.
     natureza_operacao: str = "Venda"
     tipo_operacao: str = "Saída"
-    finalidade_emissao: str = "Nota fiscal eletrônica normal"
-    indicador_presenca: str = "Operação não presencial pela internet"
-    modalidade_frete: str = "3"  # confirmado 15/08: "Transporte próprio por conta do remetente"
+    finalidade_emissao: str = "NF-e normal"
+    indicador_presenca: str = "Operação não presencial, pela Internet"
+    modalidade_frete: str = "3"  # confirmado: "Transporte Próprio por conta do Remetente"
+
+
+# ---------------------------------------------------------------------------
+# Mapeamento texto de opção -> value real do <option>, confirmado via
+# reconhecimento ao vivo de 20/08 direto no HTML dos <select> reais.
+# ---------------------------------------------------------------------------
+
+TIPO_OPERACAO_OPCOES = {
+    "Entrada": "0",
+    "Saída": "1",
+}
+FINALIDADE_EMISSAO_OPCOES = {
+    "NF-e normal": "1",
+    "NF-e complementar": "2",
+    "NF-e de ajuste": "3",
+    "Devolução de Mercadoria": "4",
+}
+INDICADOR_PRESENCA_OPCOES = {
+    "Não se aplica": "0",
+    "Operação presencial": "1",
+    "Operação não presencial, pela Internet": "2",
+    "Operação não presencial, Teleatendimento": "3",
+    "Operação não presencial, outros": "9",
+}
+
+# Âncoras únicas por combobox: um texto que só existe naquele <select>
+# específico, usado para localizá-lo sem depender da estrutura/posição do
+# layout (mais robusto que nth-child, e não exige um id estável).
+_ANCORA_TIPO_OPERACAO = "Entrada"
+_ANCORA_FINALIDADE_EMISSAO = "NF-e complementar"
+_ANCORA_INDICADOR_PRESENCA = "Teleatendimento"
 
 
 # ---------------------------------------------------------------------------
@@ -101,21 +131,19 @@ def clicar_avancar(page: Page, logger: logging.Logger) -> None:
 
 def aceitar_consentimento(page: Page, logger: logging.Logger) -> None:
     logger.info("Aceitando consentimento inicial")
+    # Confirmado via reconhecimento ao vivo 20/08.
     page.locator("#div-consentimento input[type=checkbox]").check()
 
 
 def selecionar_emitente(page: Page, emitente: Emitente, logger: logging.Logger) -> None:
     logger.info(f"Selecionando emitente (value={emitente.valor_select})")
-    # ⚠️ Seletor estrutural longo no reconhecimento — simplificado para o
-    # <select> dentro de #div-identificacao. Confirmar amanhã se é o único
-    # <select> da seção; se não for, restringir mais.
+    # Seletor simplificado (<select> dentro de #div-identificacao) —
+    # reconfirmado como válido no reconhecimento ao vivo de 20/08.
     page.locator("#div-identificacao select").select_option(value=emitente.valor_select)
 
     # O sistema preenche razão social/CNPJ/endereço automaticamente após a
     # seleção (RECON.md seção 4). Esperar a rede assentar é mais confiável
-    # que um tempo fixo — TODO: trocar por wait_for_selector de um campo
-    # específico assim que soubermos qual, se o auto-preenchimento não
-    # disparar requisição de rede (nesse caso o networkidle não ajuda).
+    # que um tempo fixo.
     page.wait_for_load_state("networkidle", timeout=5000)
 
     clicar_avancar(page, logger)
@@ -124,21 +152,26 @@ def selecionar_emitente(page: Page, emitente: Emitente, logger: logging.Logger) 
 def preencher_destinatario(page: Page, destinatario: Destinatario, logger: logging.Logger) -> None:
     logger.info(f"Preenchendo destinatário: {destinatario.razao_social}")
 
-    # Tipo de identificação: CNPJ (confirmado). Heurística por texto — mais
-    # robusta que o seletor estrutural bruto do reconhecimento.
+    # Tipo de identificação: CNPJ (confirmado, inclusive no reconhecimento
+    # ao vivo de 20/08 — label "CNPJ" com id dinâmico por sessão, por isso
+    # localizamos pelo texto e não pelo id).
     page.get_by_text("CNPJ", exact=True).first.click()
 
-    # ⚠️ TODO confirmar amanhã: qual input recebe o CNPJ (o reconhecimento só
-    # capturou o seletor estrutural). Usando a posição documentada por ora.
+    # Confirmado 20/08 (classe slds-form-element.slds-col.slds-size_3-of-12;
+    # a classe slds-has-error observada no reconhecimento é só estado de
+    # validação do momento da captura, não faz parte do seletor estável).
     campo_cnpj = page.locator(
         "div.slds-form-element.slds-col.slds-size_3-of-12 input"
     ).first
     campo_cnpj.fill(destinatario.cnpj)
 
-    # Confirmado em 14/08: "1 — Contribuinte ICMS (informar a IE do
-    # destinatário)" é a opção usada no fluxo real. Localizando pelo texto
-    # (não por posição) — seletor exato do combobox ainda não capturado,
-    # então usamos get_by_text como fallback razoável.
+    # ⚠️ DISCREPÂNCIA A CONFIRMAR (20/08): o reconhecimento ao vivo mais
+    # recente foi direto do clique em "CNPJ" para o campo de Inscrição
+    # Estadual, sem passar por uma seleção explícita de "Contribuinte ICMS
+    # (informar a IE do destinatário)". Está mantido abaixo por ser o único
+    # fluxo já confirmado anteriormente (14/08), mas se travar aqui no
+    # próximo teste ao vivo, o mais provável é que este clique deva ser
+    # removido — não decidir isso sem repetir o teste observando a tela.
     if destinatario.indicador_ie != "CONTRIBUINTE":
         raise DadosFiscaisIncompletos(
             "Só o fluxo CONTRIBUINTE (1 — Contribuinte ICMS) foi reconhecido "
@@ -157,7 +190,12 @@ def preencher_destinatario(page: Page, destinatario: Destinatario, logger: loggi
         "div.slds-form-element.slds-col.slds-size_12-of-12 input"
     ).first.fill(destinatario.razao_social)
 
-    page.locator("#div-endereco div:nth-child(2) input").fill(destinatario.cep)
+    # Confirmado 20/08: campo de CEP é o único slds-size_12-of-12 dentro de
+    # #div-endereco (o antigo "div:nth-child(2)" era só uma hipótese de
+    # posição). O campo de Número usa slds-size_1-of-12, já confirmado antes.
+    page.locator(
+        "#div-endereco div.slds-form-element.slds-col.slds-size_12-of-12 input"
+    ).fill(destinatario.cep)
     # Sair do campo para disparar o preenchimento automático por CEP (RECON.md seção 5)
     page.keyboard.press("Tab")
     page.wait_for_load_state("networkidle", timeout=5000)
@@ -171,30 +209,56 @@ def preencher_destinatario(page: Page, destinatario: Destinatario, logger: loggi
 
 def selecionar_combobox_por_texto(page: Page, combobox_selector: str, texto: str, logger: logging.Logger) -> None:
     """
-    Helper genérico para os comboboxes estilo SLDS (Salesforce Lightning).
-    Localiza a opção pelo TEXTO em vez de posição (nth-child) — é
-    exatamente a melhoria que o próprio RECON.md (seção 6) recomenda sobre
-    o seletor bruto copiado do DevTools.
+    Helper genérico para os comboboxes estilo SLDS (Salesforce Lightning) —
+    ex: Natureza da operação, campo de texto com dropdown/listbox.
+    Localiza a opção pelo TEXTO em vez de posição.
     """
     page.locator(combobox_selector).click()
     page.get_by_text(texto, exact=True).click()
 
 
+def _selecionar_select_por_opcao_ancora(
+    page: Page, texto_ancora: str, valor: str, logger: logging.Logger
+) -> None:
+    """
+    Localiza um <select> comum (não-combobox SLDS) através de uma <option>
+    com texto ÚNICO daquele combobox específico ("âncora"), e seleciona a
+    opção desejada pelo VALUE. Mais robusto que nth-child porque depende só
+    do conteúdo do próprio <select>, não da posição no layout — os três
+    comboboxes de Identificação da Operação (Tipo/Finalidade/Indicador)
+    tinham caminhos estruturais praticamente idênticos no reconhecimento ao
+    vivo de 20/08, o que tornaria nth-child frágil e ambíguo.
+    """
+    select = page.locator("select").filter(
+        has=page.locator("option", has_text=texto_ancora)
+    )
+    select.select_option(value=valor)
+
+
 def preencher_identificacao_operacao(page: Page, tarefa: Tarefa, logger: logging.Logger) -> None:
     logger.info(f"Identificação da operação: natureza={tarefa.natureza_operacao}")
 
-    # Confirmado: #combobox-id-1 é a Natureza da operação.
+    # Confirmado: #combobox-id-1 é a Natureza da operação (campo de texto
+    # com listbox, não um <select> comum).
     selecionar_combobox_por_texto(page, "#combobox-id-1", tarefa.natureza_operacao, logger)
 
-    # ⚠️ TODO: ids dos comboboxes de tipo de operação, finalidade e
-    # indicador de presença não foram capturados no reconhecimento — só a
-    # hipótese de valor (RECON.md seção 6). Puramente cosmético/estrutural
-    # o quanto der pra inferir (#combobox-id-2/3/4) não é seguro assumir
-    # sem confirmar ao vivo amanhã.
-    logger.warning(
-        "Tipo de operação / finalidade / indicador de presença: seletores "
-        "ainda não confirmados — preencher manualmente no primeiro teste "
-        "ao vivo e capturar os ids reais (prováveis #combobox-id-2/3/4)."
+    # Confirmado no reconhecimento ao vivo 20/08 — os três abaixo já são
+    # <select> comuns de verdade (não comboboxes SLDS), com value/texto de
+    # opção confirmados em TIPO_OPERACAO_OPCOES / FINALIDADE_EMISSAO_OPCOES /
+    # INDICADOR_PRESENCA_OPCOES.
+    logger.info(f"Tipo de operação: {tarefa.tipo_operacao}")
+    _selecionar_select_por_opcao_ancora(
+        page, _ANCORA_TIPO_OPERACAO, TIPO_OPERACAO_OPCOES[tarefa.tipo_operacao], logger
+    )
+
+    logger.info(f"Finalidade da emissão: {tarefa.finalidade_emissao}")
+    _selecionar_select_por_opcao_ancora(
+        page, _ANCORA_FINALIDADE_EMISSAO, FINALIDADE_EMISSAO_OPCOES[tarefa.finalidade_emissao], logger
+    )
+
+    logger.info(f"Indicador de presença: {tarefa.indicador_presenca}")
+    _selecionar_select_por_opcao_ancora(
+        page, _ANCORA_INDICADOR_PRESENCA, INDICADOR_PRESENCA_OPCOES[tarefa.indicador_presenca], logger
     )
 
     clicar_avancar(page, logger)
@@ -206,94 +270,153 @@ def avancar_local_retirada(page: Page, logger: logging.Logger) -> None:
     clicar_avancar(page, logger)
 
 
+# ---------------------------------------------------------------------------
+# Produtos — seletores confirmados no reconhecimento ao vivo de 20/08.
+#
+# Descoberta importante deste reconhecimento: a etapa de produtos NÃO é uma
+# tela única. Ela tem DOIS "Avançar" internos:
+#   1) Descrição/Código/CFOP/Unidade/Quantidade/Valor/Benefício fiscal
+#      -> Avançar
+#   2) ICMS: Situação tributária + Origem da mercadoria
+#      -> Avançar
+# Só depois desse segundo Avançar é que aparece (se houver mais produtos) o
+# botão "Adicionar Produto", que reabre o formulário do passo 1 para o
+# próximo item. O último Avançar (sem mais produtos a adicionar) segue para
+# Transporte. Isso mudou a estrutura de preencher_item()/preencher_produtos()
+# abaixo — antes elas assumiam uma tela única.
+# ---------------------------------------------------------------------------
+
+# Base comum dos seletores estruturais da seção "Dados do Produto" —
+# confirmada ao vivo, mas ainda é um caminho estrutural (⚠️ frágil a
+# mudanças de layout — reconfirmar se algo aqui parar de funcionar).
+_BASE_DADOS_PRODUTO = (
+    "#app > div:nth-child(1) > div > div.slds-tabs_default__content > div > div > div > div > div:nth-child(2)"
+)
+
+
 def buscar_produto(page: Page, item: ItemTarefa, logger: logging.Logger) -> None:
     """
-    RECON.md seção 8 — busca por código é preferível à busca por descrição.
-
-    Tentativa com base educada: todo o formulário usa componentes SLDS
-    (Salesforce Lightning) — o mesmo padrão de combobox que já funciona pra
-    "Venda" na identificação da operação. É razoável supor que a busca de
-    produto seja um combobox/lookup SLDS parecido: digita, aparece uma
-    lista, clica na opção. Não é confirmado — se a estrutura real for
-    diferente, isso falha rápido e limpo (INSPECIONAR=true assume dali).
+    RECON.md seção 8 — confirmado ao vivo 20/08: o campo certo é "Código do
+    Produto" (não "Descrição do Produto" — a descrição é preenchida
+    automaticamente depois de digitar o código). O campo tem um
+    aria-controls apontando pra uma listbox de sugestões com id dinâmico
+    por sessão (ex: "415-suggestions"), por isso não dá pra confiar nesse
+    id — localizamos pela posição confirmada dentro da seção de produto.
     """
     logger.info(f"Buscando produto por código: {item.codigo_produto}")
+
+    campo_codigo = page.locator(
+        f"{_BASE_DADOS_PRODUTO} > div:nth-child(2) > div.slds-form-element__control > div > div > input"
+    )
+    campo_codigo.fill(item.codigo_produto)
+
+    # Tentativa educada: se aparecer uma sugestão (autocomplete), clicar na
+    # primeira. Alguns sistemas SLDS preenchem por match exato sem precisar
+    # de clique — por isso isso é best-effort, não uma etapa obrigatória.
     try:
-        campo_busca = page.get_by_role("combobox", name=re.compile("produto", re.IGNORECASE))
-        campo_busca.fill(item.codigo_produto)
-        page.get_by_role("option").first.click()
-        logger.info(f"Produto selecionado via combobox: {item.codigo_produto}")
-        return
-    except Exception as e:  # noqa: BLE001 — tentativa educada, não é o seletor confirmado
-        logger.warning(
-            f"Tentativa automática de busca de produto não funcionou ({e}). "
-            "Seletor real ainda não confirmado — usar o Inspector (INSPECIONAR=true) "
-            "pra capturar o campo certo."
+        page.get_by_role("option").first.click(timeout=3000)
+        logger.info("Sugestão de produto selecionada via clique.")
+    except Exception:  # noqa: BLE001 — best-effort, não é seletor confirmado
+        logger.info(
+            "Nenhuma sugestão clicável apareceu após preencher o código — "
+            "seguindo o fluxo assumindo preenchimento automático."
         )
-        raise DadosFiscaisIncompletos(
-            "Seletor do campo de busca de produto ainda não reconhecido "
-            "(tentativa automática via combobox SLDS falhou)."
-        ) from e
+
+    page.wait_for_load_state("networkidle", timeout=5000)
 
 
 def preencher_item(page: Page, item: ItemTarefa, logger: logging.Logger) -> None:
     """
-    RECON.md seção 8 — após selecionar o produto: CFOP, quantidade, valor
-    unitário, benefício fiscal. Para aqui, de propósito, no código do
-    benefício fiscal: é o ÚNICO dado que falta (não seletor) para fechar a
-    etapa de produtos com segurança.
-
-    Ordem confirmada na transcrição bruta de 15/08: situação tributária do
-    ICMS e origem da mercadoria só ficam disponíveis/corretas DEPOIS do
-    benefício fiscal ser preenchido — por isso vêm depois no fluxo abaixo,
-    não em paralelo.
+    RECON.md seção 8 — confirmado ao vivo 20/08. Preenche o produto,
+    clica Avançar (fecha a 1ª sub-tela de produto), preenche ICMS e clica
+    Avançar de novo (fecha a 2ª sub-tela). Depois disso é que o chamador
+    decide se clica "Adicionar Produto" (mais itens) ou segue pra Transporte.
     """
-    buscar_produto(page, item, logger)  # já levanta DadosFiscaisIncompletos hoje
+    buscar_produto(page, item, logger)
 
     logger.info(f"Selecionando CFOP: {item.cfop_codigo} ({item.cfop_texto})")
-    # Confirmado 15/08: value do <option> é "5101" — muito mais robusto que
-    # localizar por texto ou posição. ⚠️ O <select> em si ainda usa o
-    # seletor estrutural do reconhecimento original (RECON.md seção 8).
     page.locator(
-        "#app > div:nth-child(1) > div > div.slds-tabs_default__content > div > div > div > div > div:nth-child(2) "
-        "> div.slds-form-element.slds-col.slds-size_12-of-12 > div.slds-form-element__control > div > select"
+        f"{_BASE_DADOS_PRODUTO} > div.slds-form-element.slds-col.slds-size_12-of-12"
+        " > div.slds-form-element__control > div > select"
     ).select_option(value=item.cfop_codigo)
 
-    logger.info(f"Quantidade: {item.quantidade} · Valor unitário: R$ {item.preco_unitario}")
-    # TODO: seletores dos campos de quantidade/valor unitário ainda não capturados.
+    logger.info(f"Quantidade: {item.quantidade}")
+    page.locator(
+        f"{_BASE_DADOS_PRODUTO} > div.slds-form-element.slds-col.slds-size_4-of-12"
+        " > div.slds-form-element__control > input"
+    ).fill(str(item.quantidade))
+
+    logger.info(f"Valor unitário: R$ {item.preco_unitario}")
+    page.locator(
+        f"{_BASE_DADOS_PRODUTO} > div:nth-child(8) > div.slds-form-element__control > input"
+    ).fill(str(item.preco_unitario))
 
     if not item.possui_beneficio_fiscal:
+        clicar_avancar(page, logger)
         return
 
-    logger.info(f"Código do benefício fiscal: {item.codigo_beneficio_fiscal}")
-    # TODO: seletor do campo ainda não capturado — o DADO já está confirmado
-    # (PR810128, fixo para todos os produtos), só falta achar o input.
+    logger.info("Marcando 'Possui benefício fiscal? Sim'")
+    page.get_by_text("Sim", exact=True).first.click()
 
-    # A partir daqui, só funciona DEPOIS do benefício fiscal preenchido (confirmado 15/08).
+    logger.info(f"Código do benefício fiscal: {item.codigo_beneficio_fiscal}")
+    page.locator(
+        f"{_BASE_DADOS_PRODUTO} > div:nth-child(11)"
+        " > div.slds-form-element.slds-col.slds-size_8-of-12"
+        " > div.slds-form-element__control > div > div > input"
+    ).fill(item.codigo_beneficio_fiscal or "")
+
+    # 1º Avançar: fecha "Dados do Produto", abre a sub-tela "ICMS".
+    clicar_avancar(page, logger)
+
     logger.info(f"Situação tributária do ICMS: {item.situacao_tributaria_icms}")
-    # TODO: seletor ainda não capturado. Opções observadas: 40, 41, 50.
+    page.locator(
+        f"{_BASE_DADOS_PRODUTO} > div.slds-grid.slds-wrap"
+        " > div > div.slds-form-element__control > div > select"
+    ).select_option(value=item.situacao_tributaria_icms)
 
     logger.info(f"Origem da mercadoria: {item.origem_mercadoria}")
-    # TODO: seletor ainda não capturado. 0 = Nacional (confirmado 15/08).
+    page.locator(
+        f"{_BASE_DADOS_PRODUTO} > div.slds-grid.slds-wrap.slds-gutters"
+        " > div:nth-child(1) > div.slds-form-element__control > div > select"
+    ).select_option(value=item.origem_mercadoria)
+
+    # 2º Avançar: fecha a sub-tela "ICMS" deste item.
+    clicar_avancar(page, logger)
 
 
 def preencher_produtos(page: Page, tarefa: Tarefa, logger: logging.Logger) -> None:
-    for item in tarefa.itens:
+    """
+    Confirmado ao vivo 20/08: entre um item e outro é preciso clicar
+    "Adicionar Produto" pra reabrir o formulário — não é automático. Depois
+    do ÚLTIMO item, não se clica nesse botão: o Avançar final de
+    preencher_item() já segue para Transporte.
+    """
+    total = len(tarefa.itens)
+    for indice, item in enumerate(tarefa.itens, start=1):
+        logger.info(f"Produto {indice}/{total}: {item.produto_descricao}")
         preencher_item(page, item, logger)
+
+        if indice < total:
+            logger.info("Clicando 'Adicionar Produto' para o próximo item")
+            page.get_by_role("button", name="Adicionar Produto").click()
 
 
 def preencher_transporte(page: Page, tarefa: Tarefa, logger: logging.Logger) -> None:
     """
-    RECON.md seção 9 — modalidade de frete. Confirmado na transcrição bruta
-    de 15/08: valor "3" = "Transporte próprio por conta do remetente".
+    RECON.md seção 9 — confirmado ao vivo 20/08: campo "Modalidade do
+    Frete", value "3" = "Transporte Próprio por conta do Remetente".
     """
-    logger.info(f"Transporte: modalidade={tarefa.modalidade_frete} (Transporte próprio por conta do remetente)")
-    # ⚠️ TODO: seletor do campo ainda não capturado — só o valor e o
-    # significado estão confirmados.
-    raise DadosFiscaisIncompletos(
-        "Seletor do campo de modalidade de transporte ainda não reconhecido "
-        "(o valor '3' = Transporte próprio por conta do remetente já está confirmado)."
+    logger.info(
+        f"Transporte: modalidade={tarefa.modalidade_frete} "
+        "(Transporte Próprio por conta do Remetente)"
     )
+    page.locator(
+        "#app > div:nth-child(1) > div > div.slds-tabs_default__content"
+        " > div.slds-panel__section.slds-size_12-of-12"
+        " > div:nth-child(2) > div > div.slds-form-element__control > div > select"
+    ).select_option(value=tarefa.modalidade_frete)
+
+    clicar_avancar(page, logger)
 
 
 def validar_antes_de_emitir(page: Page, tarefa: Tarefa, logger: logging.Logger) -> bool:
@@ -305,7 +428,7 @@ def validar_antes_de_emitir(page: Page, tarefa: Tarefa, logger: logging.Logger) 
 
 
 def emitir(page: Page, tarefa: Tarefa, logger: logging.Logger) -> None:
-    """Fluxo final confirmado em 15/08: Produtos → Transporte → Resumo total → botão Emitir."""
+    """Fluxo final: Produtos → Transporte → Resumo total → botão Emitir."""
     logger.info(f"[{tarefa.tarefa_id}] Emitindo nota")
     try:
         page.get_by_role("button", name=re.compile("emitir", re.IGNORECASE)).click()
