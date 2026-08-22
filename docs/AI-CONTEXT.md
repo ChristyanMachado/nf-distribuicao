@@ -217,20 +217,28 @@ Credenciais não devem ser hardcoded.
 
 ## src/flows/emissao.py
 
-Ainda contém grande parte do fluxo fiscal original baseado na API
-síncrona.
+Migrado para Async em 20/08 (junto com o reconhecimento ao vivo que
+confirmou os seletores até o fim de Transporte). Todas as funções que
+tocam o Playwright são `async def`. Exceção: `validar_antes_de_emitir()`
+continua síncrona de propósito (só faz `input()`, não usa Playwright).
 
-Ainda NÃO foi completamente migrado para Async.
+Também ganhou `carregar_tarefa_de_json()`, que monta o dataclass `Tarefa` a
+partir de `tarefa_real.json`.
 
-Não misturar `Page` síncrona com `Page` assíncrona.
+Não misturar `Page` síncrona com `Page` assíncrona (não há mais nenhum
+módulo do projeto em Sync, mas o princípio continua valendo pra qualquer
+código novo).
 
 ---
 
 # 6. Próximo passo imediato
 
-Migrar gradualmente o fluxo fiscal para Async. Enquanto isso, o Worker só
-permite o smoke test de autenticação quando `SMOKE_TEST=true`; o fluxo fiscal
-completo permanece intencionalmente desabilitado.
+O fluxo fiscal já está todo em Async e ligado ao `main.py` via a flag
+`TESTAR_PREENCHIMENTO_COMPLETO` (preenche até Transporte, nunca clica em
+"Emitir"). O que falta agora não é mais migração — é validação ao vivo e a
+etapa de emissão/resumo em si. Enquanto isso, o Worker só permite emissão de
+verdade quando essa etapa for explicitamente implementada e testada; hoje
+mesmo com todas as flags ligadas o fluxo para antes de `emitir()`.
 
 Ordem:
 
@@ -352,6 +360,15 @@ gratuita.
 - Documentar decisões arquiteturais.
 - Manter o Worker desacoplado da aplicação web.
 - A unidade de execução é a tarefa, não o cliente.
+- Nenhum dataclass com dado sensível (senha, CPF) deve confiar no `__repr__`
+  automático — sobrescrever explicitamente pra nunca vazar em log.
+- `INSPECIONAR`/`page.pause()` só fazem sentido com `HEADLESS=false`; em
+  servidor (`HEADLESS=true`) isso precisa ser automaticamente ignorado, não
+  travar a tarefa esperando um humano.
+- Concorrência (`asyncio.gather`) deve ter um limite configurável
+  (`MAX_CONCORRENCIA`) disponível antes do Worker crescer de 3 pra N
+  tarefas — mesmo que hoje, sem configurar nada, o comportamento continue
+  sem limite (idêntico ao já validado).
 
 ---
 
@@ -377,11 +394,24 @@ gratuita.
 
 ✅ Navegação Async — testes unitários aprovados; teste ao vivo pendente
 
-🔄 Fluxo fiscal Async
+✅ Fluxo fiscal Async — todas as etapas até Transporte implementadas e
+ligadas ao `main.py` (`TESTAR_PREENCHIMENTO_COMPLETO`); primeiro teste ao
+vivo (20/08) revelou um bug real (seletor de CNPJ) e um problema de
+processo (poluição do histórico fiscal) — ambos endereçados em 21/08, novo
+teste ao vivo pendente
 
-⏳ Preenchimento completo
+✅ Revisão de segurança/robustez/desempenho (20/08) — ver
+`docs/HANDOFF.md` pro detalhe: repr seguro de credenciais, guard de
+headless no Inspector, `debug.py` migrado pra Async, limite de
+concorrência configurável (`MAX_CONCORRENCIA`)
 
-⏳ Validação
+✅ Ambiente de TESTE/homologação (21/08) — `AMBIENTE_EMISSAO=teste` como
+padrão, caminho NFP-e TESTES → Emissão - TESTE implementado e testado
+(sem navegador); nada é registrado no histórico fiscal real enquanto
+esse for o modo ativo
+
+⏳ Validação (etapa de resumo/revisão antes de emitir — não alcançada no
+reconhecimento ao vivo ainda)
 
 ⏳ Emissão
 

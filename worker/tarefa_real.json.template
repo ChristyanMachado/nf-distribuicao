@@ -17,6 +17,7 @@
     {
       "produto_descricao": "",
       "codigo_produto": "",
+      "unidade": "",
       "quantidade": 1,
       "preco_unitario": 0.0,
       "cfop_texto": "Venda de produção do estabelecimento",

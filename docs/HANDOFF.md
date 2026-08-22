@@ -1,148 +1,264 @@
-# Handoff — Estado Atual
+Handoff — Estado Atual
 
-## Última alteração
+Última alteração — preenchimento completo da NFP-e em homologação validado
 
-O primeiro seletor da navegação falhou no teste ao vivo porque o elemento
-atual é o link "Produtor Rural" (`a.mais`) e não o antigo seletor estrutural
-com classe `menos`. Ele foi substituído por `get_by_role("link",
-name="Produtor Rural", exact=True)`, que não depende de posição no menu.
+O teste ao vivo de 21/08/2026 foi concluído com sucesso no ambiente de TESTE (homologação), sem clicar em Emitir.
 
-Executar novamente com somente `CLIENTE_A`; não avançar para o teste de três
-logins até confirmar a navegação com uma conta.
+Resultado validado ao vivo
 
-Não foi localizada uma regra pública da Receita PR com limite de logins por
-IP. Durante desenvolvimento, evitar execuções repetidas e paralelas sem
-necessidade. Concorrência em produção será tratada como parâmetro
-conservador, a ser confirmado em testes controlados.
+O fluxo completo de preenchimento percorreu:
 
-O teste seguinte confirmou o clique no primeiro menu, mas não confirmou a
-tela de emissão. A navegação agora registra cada passo, aguarda a URL do
-domínio NFP-e e espera diretamente o checkbox dentro de `#div-consentimento`.
-Executar novamente com `CLIENTE_A` para confirmar o caminho completo.
+Login → Produtor Rural → NFP-e → NFP-e TESTES → Emissão - TESTE → Consentimento → Emitente → Destinatário → Identificação da operação → Local de retirada/entrega → Produtos → ICMS → tela Adicionar Produto/Avançar → Transporte
 
-## Alteração anterior
+Foram validados:
 
-A navegação Async até a tela de emissão foi ligada ao smoke test de forma
-opcional. Com `TESTAR_NAVEGACAO_EMISSAO=true`, cada tarefa autenticada segue
-o caminho Produtor Rural -> NFP-e -> Emissão e confirma a tela aguardando
-`#div-consentimento`. O teste não marca consentimento, não preenche campos e
-não emite nota.
+1 produto: preenchimento completo até Transporte.
 
-Falta executar este modo ao vivo, primeiro com `CLIENTE_A` e somente depois
-com A/B/C em paralelo.
+2 produtos: mesmo fluxo, usando Adicionar Produto entre os itens, com sucesso.
 
-Validação executada em 19/08/2026:
+Transporte: Modalidade do Frete = 3 selecionado e Avançar executado com sucesso.
 
-    worker/.venv/Scripts/python.exe -m pytest tests -v -p no:cacheprovider
+O fluxo termina antes de validar_antes_de_emitir() / emitir() de propósito.
 
-Resultado: 12 testes aprovados.
+Log final validado:
 
-## Alteração anterior
+PREENCHIMENTO COMPLETO OK — parado antes de 'Emitir' (não implementado/testado de propósito)
+Concluído com sucesso
+AUTENTICAÇÃO OK
 
-Foi adicionada validação opcional de identidade pós-login. Quando
-`CLIENTE_X_IDENTIDADE_ESPERADA` está definido no `.env`, o Worker procura
-esse texto na área autenticada e falha apenas naquela tarefa se ele não for
-encontrado. O valor esperado não é escrito nos logs.
+Principais correções implementadas durante o reconhecimento ao vivo
 
-Ainda falta executar este teste contra o portal com os textos reais exibidos
-por cada conta. O próximo passo permanece testar a navegação Async até a
-emissão para um cliente.
+1. Destinatário / CEP e número
 
-Também foi corrigido um teste de depuração para não herdar
-`INSPECIONAR=true` do `.env` local; a suíte deve produzir o mesmo resultado
-em qualquer máquina.
+O CEP dispara uma atualização dinâmica da seção de endereço e pode recriar/apagar o campo Número. O fluxo validado ficou:
 
-Validação executada em 19/08/2026:
+CEP → Tab → aguarda loading → 1s → localiza Número novamente → preenche Número → valida valor → Avançar
 
-    worker/.venv/Scripts/python.exe -m pytest tests -v -p no:cacheprovider
+O indicador de carregamento observado foi:
 
-Resultado: 10 testes aprovados.
+#app > div.slds-align_absolute-center.loading
 
-## Alteração anterior
+Não usar Enter no CEP: durante os testes, Enter podia submeter o formulário em vez de apenas disparar a atualização.
 
-`worker/main.py` foi reorganizado para separar explicitamente o smoke test
-Async do fluxo fiscal completo. Sem `SMOKE_TEST=true`, o Worker encerra sem
-executar automação fiscal. Isso remove o caminho Sync incompatível e evita
-chamar funções Async como se fossem Sync durante a migração.
+2. Produto / Código do Produto
 
-Os testes do orquestrador foram atualizados para a interface Async atual e
-verificam o fechamento do contexto tanto em sucesso quanto em falha.
+O seletor genérico input.default-input.slds-input[aria-controls] encontrou três autocompletes visíveis e foi abandonado.
 
-Validação executada em 18/08/2026:
+O seletor final usa o label como âncora:
 
-    worker/.venv/Scripts/python.exe -m pytest tests -v
+label("Código do Produto") → pai → input.default-input.slds-input
 
-Resultado: 7 testes aprovados.
+Fluxo validado:
 
-Também foi adicionada `docs/COLABORACAO.md`, com convenção de autoria humana,
-branches e uso seguro de Codex/Claude Code.
+click → fill(código) → ArrowDown → Enter
 
-## Alteração anterior
+3. Campos do produto
 
-Migramos o orquestrador de:
+Foi confirmado que Unidade Comercial, Quantidade Comercial e Valor Unitário Comercial são três campos distintos no mesmo layout. Não usar nth-child genérico para quantidade/valor.
 
-    Sync Playwright + ThreadPoolExecutor
+Os campos passaram a ser localizados pelo respectivo label:
 
-para:
+Unidade Comercial → autocomplete → ArrowDown + Enter
 
-    Async Playwright
-    +
-    1 Browser
-    +
-    N BrowserContexts
-    +
-    asyncio.gather()
+Quantidade Comercial → input do bloco do label
 
-## Por que?
+Valor Unitário Comercial → input do bloco do label
 
-O Browser Sync estava sendo criado na thread principal e utilizado
-em threads do ThreadPoolExecutor, provocando:
+4. Benefício fiscal
 
-    greenlet.error:
-    Cannot switch to a different thread
+Localização pelo legend Possui benefício fiscal? e seleção de Sim dentro do bloco.
 
-## O que foi testado?
+Código do benefício pelo label Código de Benefício Fiscal na UF e input do bloco correspondente.
 
-### Smoke test
+Valor usado e validado no ambiente de teste: PR810128.
 
-1 Browser + 1 Context + 1 login
+5. ICMS
 
-✅
+Ambos os campos passaram a usar label → pai → select.slds-select:
 
-### Concorrência
+Situação Tributária ICMS → value 40
 
-1 Browser + 3 Contexts + 3 logins
+Origem da mercadoria → value 0
 
-✅
+6. Fluxo real de múltiplos produtos
 
-## O que NÃO foi alterado ainda?
+Foi corrigida uma interpretação anterior do fluxo. A etapa de Produtos possui uma tela intermediária depois do segundo Avançar de cada item:
 
-`flows/emissao.py` ainda contém funções baseadas na Sync API.
+Produto
+  ↓ Avançar
+ICMS
+  ↓ Avançar
+Tela: Adicionar Produto / Avançar
+  ├─ outro produto → Adicionar Produto → próximo Produto
+  └─ último produto → Avançar → Transporte
 
-Não tentar passar `Page` Async para funções Sync.
+Portanto:
 
-## Próximo passo
+preencher_item() preenche um único produto e termina na tela Adicionar Produto / Avançar.
 
-1. Confirmar identidade autenticada de A/B/C.
-2. Migrar `navegar_ate_emissao()` para Async.
-3. Testar A.
-4. Testar A+B+C.
-5. Migrar consentimento.
-6. Continuar etapa por etapa.
+preencher_produtos() decide se chama Adicionar Produto ou se clica Avançar para Transporte.
 
-## Regra de colaboração
+Esse comportamento foi validado com dois produtos reais de teste.
+
+7. Botão Avançar nas etapas de Produto
+
+As etapas de produto podem apresentar mais de um botão Avançar em alguns estados. Foi criado fluxo específico para produtos, em vez de alterar o helper global usado nas demais etapas.
+
+8. Transporte
+
+O campo foi validado pelo padrão:
+
+label("Modalidade do Frete") → pai → select.slds-select
+
+Valor testado:
+
+3 = Transporte Próprio por conta do Remetente
+
+Também foi necessário tratar o Avançar da etapa de transporte separadamente porque a tela pode conter mais de um botão com o mesmo nome em alguns estados.
+
+Regra de seletores consolidada
+
+O reconhecimento ao vivo confirmou que os componentes desse formulário reutilizam classes e estruturas. A estratégia que funcionou melhor foi:
+
+label/legend → elemento pai → input/select
+
+Para autocompletes:
+
+label → pai → input → click → fill → ArrowDown → Enter
+
+Evitar cadeias longas de nth-child sempre que um label, role, texto ou outro atributo estável estiver disponível.
+
+Ambiente de teste
+
+AMBIENTE_EMISSAO=teste continua sendo o padrão.
+
+Caminho:
+
+Login → Produtor Rural → NFP-e → NFP-e TESTES → Emissão - TESTE
+
+O fluxo usa o ambiente de homologação da Receita PR e o teste atual não executa a emissão.
+
+Estado atual do projeto
+
+Funcionando e validado ao vivo:
+
+autenticação
+
+navegação até homologação
+
+consentimento
+
+emitente
+
+destinatário
+
+CEP + sincronização do endereço
+
+número do endereço
+
+identificação da operação
+
+local de retirada/entrega
+
+busca/seleção de produto
+
+CFOP
+
+unidade comercial
+
+quantidade
+
+valor unitário
+
+benefício fiscal
+
+código do benefício
+
+situação tributária ICMS
+
+origem da mercadoria
+
+múltiplos produtos
+
+transição para Transporte
+
+modalidade do frete
+
+transição após Transporte
+
+Ainda não implementado/testado:
+
+tela de resumo/validação fiscal final em detalhe
+
+botão Emitir
+
+download de PDF/XML
+
+cancelamento
+
+fluxo completo de emissão real
+
+Próximo passo
+
+Reconhecer a tela de Resumo/Validação final no ambiente de teste, documentar seus campos/validações e identificar o botão de emissão sem clicar nele.
+
+Depois disso, implementar o fluxo de download de documentos e somente então decidir como conduzir o teste controlado de emissão.
+
+Histórico anterior
+
+Ambiente de TESTE (homologação) + correção de bug real
+
+O teste ao vivo de 20/08 confirmou que tentativas no ambiente fiscal normal ficam registradas no histórico do governo mesmo sem clicar em Emitir. Por isso foi criado e ligado por padrão o ambiente de homologação (NFP-e TESTES → Emissão - TESTE).
+
+src/auth.py: navegar_ate_emissao() ganhou ambiente: Literal["normal", "teste"] = "normal".
+
+src/config.py: adicionada AMBIENTE_EMISSAO com default "teste".
+
+main.py: passa o ambiente para a navegação e registra warning explícito quando está em teste.
+
+worker/RECON.md: adicionada a seção do ambiente de teste.
+
+O bug inicial do CNPJ também foi confirmado e corrigido: o seletor amplo pegava o radio de CPF em vez do input de CNPJ. A solução foi restringir o input com :not([type=radio]) e :visible.
+
+Revisão de segurança, robustez e desempenho
+
+Mantidas as correções já documentadas para:
+
+CredencialCliente.__repr__() sem vazamento de credenciais.
+
+mensagens protegidas em erros de preenchimento de login.
+
+INSPECIONAR=true sem page.pause() em headless.
+
+src/utils/debug.py convertido para Async.
+
+MAX_CONCORRENCIA via asyncio.Semaphore.
+
+isolamento por BrowserContext.
+
+fechamento de contextos/browser em finally.
+
+falha isolada de uma tarefa sem derrubar as demais.
+
+Migração para Async Playwright
+
+O projeto foi migrado de Sync Playwright + ThreadPoolExecutor para:
+
+Async Playwright + 1 Browser + N BrowserContexts + asyncio.gather()
+
+Não misturar Page Sync com Page Async.
+
+Regra de colaboração
 
 Antes de alterar código:
 
-    git status
-    git diff
+git status
+git diff
 
 Após alterar:
 
-    testar
-    documentar
-    atualizar este arquivo
+testar
+documentar
+atualizar este arquivo
 
-Não assumir que uma alteração feita por outro agente está ausente.
-
-Ler `docs/AI-CONTEXT.md` antes de tomar decisões arquiteturais.
+Ler docs/AI-CONTEXT.md antes de decisões arquiteturais.

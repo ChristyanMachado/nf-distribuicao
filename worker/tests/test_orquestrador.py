@@ -66,3 +66,69 @@ def test_falha_da_tarefa_retorna_resultado_e_fecha_contexto():
     assert resultado.tipo_erro == "RuntimeError"
     assert resultado.erro == "login falhou"
     assert browser.contextos[0].fechado is True
+
+
+def test_sem_semaphore_tarefas_rodam_de_verdade_em_paralelo():
+    """
+    Comportamento de hoje (sem MAX_CONCORRENCIA configurado): nada limita
+    quantos contextos ficam abertos ao mesmo tempo — os 3 picos simultâneos
+    já validados manualmente (CLIENTE_A/B/C) continuam possíveis.
+    """
+    em_andamento: list[int] = []
+    picos: list[int] = []
+
+    async def tarefa_lenta(tarefa_id: str, context: ContextoFalso) -> None:
+        em_andamento.append(1)
+        picos.append(len(em_andamento))
+        await asyncio.sleep(0.05)
+        em_andamento.pop()
+
+    browser = BrowserFalso()
+
+    async def rodar():
+        return await asyncio.gather(
+            *(
+                _processar_uma_tarefa(f"T{i}", browser, tarefa_lenta, _logger_silencioso())
+                for i in range(3)
+            )
+        )
+
+    resultados = asyncio.run(rodar())
+
+    assert all(r.sucesso for r in resultados)
+    assert max(picos) == 3, "sem limite configurado, as 3 tarefas deveriam rodar juntas"
+
+
+def test_com_semaphore_limita_contextos_simultaneos():
+    """
+    MAX_CONCORRENCIA=1: mesmo pedindo 3 tarefas de uma vez, no máximo 1
+    contexto deve estar aberto em cada instante — as outras esperam a vez,
+    sem serem canceladas (todas devem terminar com sucesso).
+    """
+    em_andamento: list[int] = []
+    picos: list[int] = []
+
+    async def tarefa_lenta(tarefa_id: str, context: ContextoFalso) -> None:
+        em_andamento.append(1)
+        picos.append(len(em_andamento))
+        await asyncio.sleep(0.05)
+        em_andamento.pop()
+
+    browser = BrowserFalso()
+
+    async def rodar():
+        semaphore = asyncio.Semaphore(1)
+        return await asyncio.gather(
+            *(
+                _processar_uma_tarefa(f"T{i}", browser, tarefa_lenta, _logger_silencioso(), semaphore)
+                for i in range(3)
+            )
+        )
+
+    resultados = asyncio.run(rodar())
+
+    assert len(resultados) == 3
+    assert all(r.sucesso for r in resultados), "nenhuma tarefa deveria ser cancelada, só esperar a vez"
+    assert max(picos) == 1, "com MAX_CONCORRENCIA=1, nunca deveria haver 2 contextos abertos ao mesmo tempo"
+    assert len(browser.contextos) == 3, "as 3 tarefas ainda deveriam rodar, uma de cada vez"
+    assert all(c.fechado for c in browser.contextos)

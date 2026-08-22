@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import logging
 import re
+from typing import Literal
 
 from playwright.async_api import (
     Page,
@@ -36,8 +37,32 @@ SELETOR_CAMPO_USUARIO = "#cpfusuario"
 SELETOR_POS_LOGIN = "#icons"
 
 # Confirmado no teste ao vivo: checkbox apresentado ao chegar na emissão.
+# O mesmo seletor vale pros dois ambientes (normal e teste) — a tela de
+# consentimento é idêntica nos dois.
 SELETOR_POS_NAVEGACAO_EMISSAO = "#div-consentimento input[type=checkbox]"
 URL_EMISSAO = re.compile(r"^https://nfae\.fazenda\.pr\.gov\.br/nfae/produtor/emitir/")
+
+# ---------------------------------------------------------------------------
+# Ambiente de TESTE (homologação) — "NFP-e TESTES" da Receita PR.
+#
+# Adicionado em 21/08: as tentativas de desenvolvimento no ambiente normal
+# ficam registradas no histórico fiscal do governo mesmo sem finalizar a
+# emissão. Esse ambiente de homologação existe justamente pra evitar isso
+# durante o desenvolvimento — mesmo fluxo de tela, sem valor fiscal.
+# ---------------------------------------------------------------------------
+
+AmbienteEmissao = Literal["normal", "teste"]
+
+# Confirmado no reconhecimento de 21/08 (menu lateral, após "NFP-e").
+SELETOR_MENU_NFPE_TESTES = "#menulateral412 > div:nth-child(4) > a"
+# Confirmado — "Emissão - TESTE" dentro do submenu NFP-e TESTES.
+SELETOR_MENU_EMISSAO_TESTE = "#menuLink1131"
+# Domínio de homologação é diferente do de produção (nfae.fazenda.pr.gov.br
+# -> homologacao.nfae.fazenda.pr.gov.br), inclusive sem HTTPS no exemplo
+# observado — aceitando http/https por segurança caso o site redirecione.
+URL_EMISSAO_TESTE = re.compile(
+    r"^https?://homologacao\.nfae\.fazenda\.pr\.gov\.br/nfae/produtor/emitir/"
+)
 
 
 class FalhaAutenticacao(Exception):
@@ -119,17 +144,27 @@ async def realizar_login(
         credencial.cliente_id,
     )
 
-    await page.locator(
-        SELETOR_CAMPO_USUARIO
-    ).fill(
-        credencial.login
-    )
+    # RNF02: se o Playwright falhar exatamente nestas duas linhas (elemento
+    # sumiu, timeout etc.), a mensagem de erro do Playwright pode, em
+    # algumas versões, ecoar o valor que estava sendo digitado no log de
+    # chamadas. Por isso o try/except abaixo troca a exceção por uma
+    # mensagem própria, sem encadear a original (`from None`) e sem nunca
+    # formatar `str(exc)` — CPF e senha nunca chegam a este ponto do log.
+    try:
+        await page.locator(SELETOR_CAMPO_USUARIO).fill(credencial.login)
+    except Exception:
+        raise FalhaAutenticacao(
+            f"[{credencial.cliente_id}] Falha ao preencher o campo de usuário "
+            f"({SELETOR_CAMPO_USUARIO}) — elemento não encontrado ou timeout."
+        ) from None
 
-    await page.get_by_placeholder(
-        "Senha"
-    ).fill(
-        credencial.senha
-    )
+    try:
+        await page.get_by_placeholder("Senha").fill(credencial.senha)
+    except Exception:
+        raise FalhaAutenticacao(
+            f"[{credencial.cliente_id}] Falha ao preencher o campo de senha "
+            "— elemento não encontrado ou timeout."
+        ) from None
 
     await page.get_by_role(
         "button",
@@ -166,23 +201,25 @@ async def realizar_login(
 async def navegar_ate_emissao(
     page: Page,
     logger: logging.Logger,
+    ambiente: AmbienteEmissao = "teste",
 ) -> None:
     """
     RF13 — passo 3.
 
-    Caminho:
-        Login
-        -> Produtor Rural
-        -> NFP-e
-        -> Emissão
+    Caminho (normal):
+        Login -> Produtor Rural -> NFP-e -> Emissão
 
-    Esta função foi convertida para Async, mas ainda não será
-    executada no primeiro teste de autenticação.
+    Caminho (teste/homologação, 21/08):
+        Login -> Produtor Rural -> NFP-e -> NFP-e TESTES -> Emissão - TESTE
+
+    Os dois primeiros cliques (Produtor Rural, NFP-e) são idênticos nos
+    dois ambientes — só o que vem depois de "NFP-e" muda. O parâmetro
+    `ambiente` decide qual caminho seguir; o padrão continua sendo
+    "normal" (comportamento já validado), então nada muda pra quem chama
+    esta função sem especificar nada.
     """
 
-    logger.info(
-        "Navegando: Produtor Rural -> NFP-e -> Emissão"
-    )
+    logger.info("Navegando: Produtor Rural -> NFP-e -> %s", "Emissão" if ambiente == "normal" else "NFP-e TESTES -> Emissão - TESTE")
 
     # Confirmado no teste ao vivo em 19/08. Localizar pelo papel e texto é
     # mais resistente que a posição estrutural ``a:nth-child(44)``.
@@ -196,12 +233,30 @@ async def navegar_ate_emissao(
     logger.info("Navegação: abrindo NFP-e")
     await page.get_by_role("link", name="NFP-e", exact=True).click()
 
-    logger.info("Navegação: abrindo Emissão")
-    await page.locator("#menuLink1119").click()
+    if ambiente == "teste":
+        # ⚠️ Log alto de propósito (WARNING, não INFO) — precisa ficar
+        # óbvio em qualquer leitura de log que esta execução não usou o
+        # sistema fiscal de produção.
+        logger.warning(
+            "AMBIENTE DE TESTE (NFP-e TESTES / homologação) — nenhuma "
+            "operação real será registrada no histórico fiscal."
+        )
+        logger.info("Navegação: abrindo submenu NFP-e TESTES")
+        await page.locator(SELETOR_MENU_NFPE_TESTES).click()
+
+        logger.info("Navegação: abrindo Emissão - TESTE")
+        await page.locator(SELETOR_MENU_EMISSAO_TESTE).click()
+
+        url_esperada = URL_EMISSAO_TESTE
+    else:
+        logger.info("Navegação: abrindo Emissão")
+        await page.locator("#menuLink1119").click()
+
+        url_esperada = URL_EMISSAO
 
     try:
         await page.wait_for_url(
-            URL_EMISSAO,
+            url_esperada,
             wait_until="domcontentloaded",
             timeout=30000,
         )
@@ -212,10 +267,9 @@ async def navegar_ate_emissao(
         )
     except PlaywrightTimeoutError as exc:
         raise FalhaNavegacaoEmissao(
-            "A tela de emissão não foi confirmada em 30s após a navegação. "
-            "Verifique os seletores de menu ou o seletor pós-navegação."
+            f"A tela de emissão (ambiente={ambiente}) não foi confirmada em "
+            "30s após a navegação. Verifique os seletores de menu ou o "
+            "seletor pós-navegação."
         ) from exc
 
-    logger.info(
-        "Área de emissão carregada"
-    )
+    logger.info("Área de emissão carregada (ambiente=%s)", ambiente)

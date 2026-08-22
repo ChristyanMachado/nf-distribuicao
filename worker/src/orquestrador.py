@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from contextlib import nullcontext
 from dataclasses import dataclass
 from typing import Awaitable, Callable
 
@@ -45,61 +46,69 @@ async def _processar_uma_tarefa(
     browser: Browser,
     processar_tarefa: ProcessarTarefa,
     logger: logging.Logger,
+    semaphore: asyncio.Semaphore | None = None,
 ) -> ResultadoProcessamento:
 
     context: BrowserContext | None = None
 
-    try:
-        logger.info(
-            "[%s] Criando contexto independente",
-            tarefa_id,
-        )
+    # RNF: concorrência hoje é limitada só pelo tamanho de CLIENTES_ATIVOS
+    # (3 testados). Pra crescer de 3 pra N tarefas num servidor sem abrir N
+    # Chromiums simultâneos, MAX_CONCORRENCIA (opcional) limita quantas
+    # tarefas têm um BrowserContext aberto ao mesmo tempo — as demais
+    # esperam a vez, sem serem canceladas nem perder isolamento (RF24).
+    # Sem configurar nada, o comportamento é idêntico ao de antes (sem limite).
+    async with (semaphore if semaphore is not None else nullcontext()):
+        try:
+            logger.info(
+                "[%s] Criando contexto independente",
+                tarefa_id,
+            )
 
-        # Cada tarefa possui sua própria sessão.
-        context = await browser.new_context()
+            # Cada tarefa possui sua própria sessão.
+            context = await browser.new_context()
 
-        logger.info(
-            "[%s] Contexto criado",
-            tarefa_id,
-        )
+            logger.info(
+                "[%s] Contexto criado",
+                tarefa_id,
+            )
 
-        await processar_tarefa(
-            tarefa_id,
-            context,
-        )
+            await processar_tarefa(
+                tarefa_id,
+                context,
+            )
 
-        logger.info(
-            "[%s] Concluído com sucesso",
-            tarefa_id,
-        )
+            logger.info(
+                "[%s] Concluído com sucesso",
+                tarefa_id,
+            )
 
-        return ResultadoProcessamento(
-            tarefa_id=tarefa_id,
-            sucesso=True,
-        )
+            return ResultadoProcessamento(
+                tarefa_id=tarefa_id,
+                sucesso=True,
+            )
 
-    except Exception as exc:
-        logger.exception(
-            "[%s] Falha isolada",
-            tarefa_id,
-        )
+        except Exception as exc:
+            logger.exception(
+                "[%s] Falha isolada",
+                tarefa_id,
+            )
 
-        return ResultadoProcessamento(
-            tarefa_id=tarefa_id,
-            sucesso=False,
-            erro=str(exc),
-            tipo_erro=type(exc).__name__,
-        )
+            return ResultadoProcessamento(
+                tarefa_id=tarefa_id,
+                sucesso=False,
+                erro=str(exc),
+                tipo_erro=type(exc).__name__,
+            )
 
-    finally:
-        if context is not None:
-            try:
-                await context.close()
-            except Exception:
-                logger.exception(
-                    "[%s] Erro ao fechar contexto",
-                    tarefa_id,
-                )
+        finally:
+            if context is not None:
+                try:
+                    await context.close()
+                except Exception:
+                    logger.exception(
+                        "[%s] Erro ao fechar contexto",
+                        tarefa_id,
+                    )
 
 
 async def processar_tarefas_em_paralelo_async(
@@ -107,10 +116,15 @@ async def processar_tarefas_em_paralelo_async(
     processar_tarefa: ProcessarTarefa,
     logger: logging.Logger,
     headless: bool = False,
+    max_concorrencia: int | None = None,
 ) -> list[ResultadoProcessamento]:
 
     if not tarefas_ids:
         return []
+
+    semaphore = asyncio.Semaphore(max_concorrencia) if max_concorrencia else None
+    if max_concorrencia:
+        logger.info("Concorrência limitada a %d contexto(s) simultâneo(s)", max_concorrencia)
 
     async with async_playwright() as playwright:
 
@@ -131,6 +145,7 @@ async def processar_tarefas_em_paralelo_async(
                         browser=browser,
                         processar_tarefa=processar_tarefa,
                         logger=logger,
+                        semaphore=semaphore,
                     )
                     for tarefa_id in tarefas_ids
                 )
@@ -147,6 +162,7 @@ def processar_tarefas_em_paralelo(
     processar_tarefa: ProcessarTarefa,
     logger: logging.Logger,
     headless: bool = False,
+    max_concorrencia: int | None = None,
 ) -> list[ResultadoProcessamento]:
     """
     Wrapper síncrono para manter a main.py simples.
@@ -160,5 +176,6 @@ def processar_tarefas_em_paralelo(
             processar_tarefa=processar_tarefa,
             logger=logger,
             headless=headless,
+            max_concorrencia=max_concorrencia,
         )
     )

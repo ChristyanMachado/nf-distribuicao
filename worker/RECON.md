@@ -1,319 +1,507 @@
-# Reconhecimento manual do sistema fiscal
+Reconhecimento manual do sistema fiscal
 
-> **Status em 20/08:** reconhecimento ao vivo avançou do checkbox de
-> consentimento até o fim da etapa de Produtos (Transporte também
-> confirmado, embutido no mesmo teste). `src/flows/emissao.py` já foi
-> atualizado com todos os seletores abaixo — ver `docs/HANDOFF.md` pro
-> resumo da alteração. O que falta capturar agora é só a partir da tela de
-> **Resumo/Validação final** (o próprio botão "Emitir" continua com uma
-> tentativa automática por nome, ainda não confirmada ao vivo).
->
-> **Descoberta importante desta rodada:** a etapa de Produtos não é uma
-> tela única — tem dois "Avançar" internos (Dados do Produto → Avançar →
-> ICMS → Avançar) antes de aparecer "Adicionar Produto" pro próximo item.
-> Ver seção 8 e 11 abaixo.
->
-> **Dois pontos em aberto, ainda não confirmados com certeza:**
-> 1. Destinatário: o teste ao vivo mais recente foi direto do clique em
->    "CNPJ" pro campo de Inscrição Estadual, sem passar pela seleção
->    explícita de "Contribuinte ICMS (informar a IE do destinatário)" que o
->    código ainda faz (herdada da confirmação de 14/08). Repetir o teste
->    observando se esse clique é necessário, redundante ou quebra o fluxo.
-> 2. Botão "Emitir" e tudo a partir da tela de resumo/validação final —
->    ainda não alcançado no reconhecimento ao vivo.
->
-> **Dica:** com `INSPECIONAR=true` no `.env` (já é o padrão do
-> `.env.example`), toda etapa que falhar abre o **Playwright Inspector**
-> sozinho, parado exatamente naquele ponto.
+Status em 21/08/2026: o fluxo de preenchimento da NFP-e foi validado ao vivo no ambiente de TESTE (homologação), incluindo 1 e 2 produtos, ICMS, tela intermediária de Adicionar Produto / Avançar e Transporte. O fluxo ainda para antes de Emitir.
 
----
+2-A. Ambiente de TESTE (NFP-e TESTES / homologação) — confirmado
 
-## 1. Login
+Caminho completo:
 
-* **URL da tela de login:**
-  `https://receita.pr.gov.br/login`
+Login → Produtor Rural → NFP-e → NFP-e TESTES → Emissão - TESTE
 
-* **Campo de usuário:**
+NFP-e TESTES: #menulateral412 > div:nth-child(4) > a
 
-  * ID/seletor: `#cpfusuario`
-  * Placeholder: `Usuário (CPF)`
-  * Classe observada: `.form-control-placeholder-no-fixed.valid`
+Emissão - TESTE: #menuLink1131
 
-* **Campo de senha:**
+Domínio de homologação: homologacao.nfae.fazenda.pr.gov.br
 
-  * Tipo: `password`
-  * Placeholder: `Senha`
-  * Seletor CSS (bruto, do DevTools):
-    `body > div.content > form.login-form.text-center > div:nth-child(3) > div > input`
-  * **No código:** usamos `page.get_by_placeholder("Senha")` em vez do
-    seletor acima — mais estável.
+AMBIENTE_EMISSAO=teste é o padrão.
 
-* **Botão de submit:**
+O fluxo após Emissão - TESTE usa as mesmas telas/campos reconhecidos no ambiente normal.
 
-  * Texto: `Login`
-  * Tipo: `submit`
-  * Classes observadas: `BTN blue pull-right`
-  * **No código:** `page.get_by_role("button", name="Login")`.
+O teste atual não chama Emitir.
 
-* **Existe captcha / 2FA / certificado digital no navegador?**
+Observação operacional
 
-  * Não. Login manual realizado com sucesso sem captcha, 2FA ou certificado.
+O ambiente de homologação existe justamente para permitir testes repetidos sem registrar as tentativas no histórico fiscal de produção. A precaução de evitar execuções repetidas volta a ser necessária somente se alguém trocar explicitamente para AMBIENTE_EMISSAO=normal.
 
-* **Qual elemento confirma que o login deu certo?**
+1. Login
 
-  * Não existe mensagem explícita de "login realizado" — o sistema
-    redireciona para a página inicial autenticada.
-  * Elemento usado como confirmação: `#icons`
-  * O menu lateral também pode servir de indicador alternativo.
+URL: https://receita.pr.gov.br/login
 
-* **URL após login bem-sucedido:**
-  `https://receita.pr.gov.br/`
+Usuário: #cpfusuario
 
----
+Senha: placeholder Senha — no código, preferir get_by_placeholder("Senha").
 
-## 2. Navegação até a área de emissão
+Botão: get_by_role("button", name="Login").
 
-### Menu principal
+Não há captcha/2FA/certificado no fluxo reconhecido.
 
-* **"Produtor Rural":** `#menulateral > div > a.menos`
+Confirmação pós-login: #icons / página inicial autenticada.
 
-### NFP-e
+2. Navegação até a área de emissão
 
-* **NFP-e:** `#menulateral412 > div:nth-child(3) > a`
-* Existe também **NFP-e Testes** (ambiente de testes) — não usado ainda.
+Caminho de produção
 
-### Emissão
+Login → Produtor Rural → NFP-e → Emissão
 
-* **Emissão:** `#menuLink1119`
-* **Consulta:** seletor ainda não identificado.
+Caminho de teste
 
-### Caminho confirmado
+Login → Produtor Rural → NFP-e → NFP-e TESTES → Emissão - TESTE
 
-`Login → Produtor Rural → NFP-e → Emissão`
+O helper de Avançar usa role/texto, não um seletor estrutural.
 
----
+3. Consentimento inicial
 
-## 3. Consentimento inicial da emissão
-
-* **Checkbox de consentimento:** `#div-consentimento > input[type=checkbox]`
+Checkbox: #div-consentimento > input[type=checkbox]
 
 Necessário marcar para liberar o preenchimento.
 
----
+4. Identificação do emitente
 
-## 4. Identificação do emitente
+<select> dentro de #div-identificacao
 
-* **Campo de seleção do emitente:** `<select>` dentro de `#div-identificacao`
-  (seletor bruto original tem uma cadeia `nth-child` longa — no código
-  simplificamos para `#div-identificacao select`, a confirmar se é único).
-* **Value observado numa option:** `9595048491`
+Value confirmado no teste: 9595048491
 
-### Preenchimento automático
+O sistema preenche automaticamente dados derivados do emitente.
 
-Após selecionar o emitente, o sistema carrega automaticamente: razão
-social, CPF/CNPJ, endereço, CEP, logradouro, número, demais dados.
+Avançar: get_by_role("button", name="Avançar") quando existe um único candidato.
 
-### Avançar
+5. Destinatário — confirmado ao vivo em 21/08
 
-* Botão "Avançar" — **no código:** `page.get_by_role("button", name="Avançar")`
-  em vez do seletor estrutural bruto.
+Testado com CNPJ.
 
----
+Dados usados
 
-## 5. Destinatário
+CNPJ: 48.188.487/0001-04
 
-Testado com **CNPJ** (opção intermediária dos tipos de identificação).
+IE: 9096853200
 
-* **CNPJ usado no reconhecimento:** `48.188.487/0001-04`
-* **Indicador da IE do destinatário:** testado como **Contribuinte**
-  (exige inscrição estadual). Demais opções conceituais: Contribuinte
-  isento (identifica como isento), Não contribuinte (não exige IE).
-* **CEP:** confirmado ao vivo (20/08) como o único campo
-  `slds-form-element.slds-col.slds-size_12-of-12` dentro de
-  `#div-endereco` — a hipótese anterior (`div:nth-child(2)`) estava certa
-  na posição, mas o seletor por classe é mais estável.
-* **Inscrição estadual usada:** `9096853200`
-* **Nome/Razão social usado:** `COOPERATIVA DOS AGRICULTORES FAMILIARES DOS MUN. DA AMENORTE`
-* **País:** já vem preenchido como Brasil por padrão.
-* **Número usado:** `968`
+Razão social: COOPERATIVA DOS AGRICULTORES FAMILIARES DOS MUN. DA AMENORTE
 
-> ⚠️ **Ponto em aberto (20/08):** no reconhecimento ao vivo mais recente, a
-> sequência observada foi Tipo de Documento (CNPJ) → CNPJ → Inscrição
-> Estadual → Nome/Razão Social → CEP → Número → Avançar, **sem** nenhuma
-> etapa visível de "Contribuinte ICMS (informar a IE do destinatário)".
-> O código ainda faz esse clique (herdado da confirmação de 14/08) — pode
-> ser redundante, pode já estar marcado por padrão, ou pode ser necessário
-> mas não ter sido registrado neste reconhecimento específico. Confirmar no
-> próximo teste ao vivo antes de remover.
+CEP: 87209-064
 
-> Regra fiscal (Contribuinte vs. isento vs. não contribuinte) ainda precisa
-> validação documental antes de virar regra rígida — não travar a
-> automação numa hipótese não confirmada.
+Número: 968
 
----
+Ordem validada
 
-## 6. Identificação da operação
+CNPJ
+→ Inscrição Estadual
+→ Razão Social
+→ CEP
+→ Tab
+→ aguarda loading
+→ 1 segundo
+→ localiza Número novamente
+→ preenche Número
+→ valida valor
+→ Avançar
 
-* **Natureza da operação:** `Venda` — combobox confirmado: `#combobox-id-1`.
-  No código, a opção é selecionada **pelo texto** (`get_by_text`), não por
-  posição — o próprio reconhecimento já apontava esse risco
-  (`li:nth-child(26)` era só provisório).
-* **Tipo de operação:** confirmado ao vivo (20/08) — é um `<select>` comum
-  (não combobox SLDS), com `Saída` = value `"1"` e `Entrada` = value `"0"`.
-* **Finalidade da emissão:** confirmado ao vivo — `<select>` comum, texto
-  real da opção usada é **"NF-e normal"** = value `"1"` (não "Nota fiscal
-  eletrônica normal", que era só a hipótese anterior).
-* **Indicador de presença:** confirmado ao vivo — `<select>` comum, texto
-  real da opção usada é **"Operação não presencial, pela Internet"**
-  (com vírgula) = value `"2"`.
-* **Demais indicadores:** mantidos no padrão do sistema, não alterados.
+Loading do CEP
 
-> Os três `<select>` acima tinham caminhos estruturais (`nth-child`) quase
-> idênticos entre si no DOM real capturado em 20/08 — usar nth-child
-> teria sido ambíguo. Por isso `emissao.py` localiza cada um pelo texto de
-> uma `<option>` única daquele combobox ("Entrada", "NF-e complementar",
-> "Teleatendimento") em vez de posição. Essas ainda não são hipóteses —
-> já estão implementadas e preenchidas de verdade no código.
+Seletor observado:
 
----
+#app > div.slds-align_absolute-center.loading
 
-## 7. Local de retirada/entrega
+Durante a consulta o elemento fica visível; depois desaparece.
 
-Valores permaneceram no padrão durante o reconhecimento. Etapa tratada no
-código como "avançar sem alterar" — seletores específicos ainda não
-registrados (só serão necessários se a operação exigir mudança aqui).
+Importante
 
----
+Não usar Enter para sair do CEP. Nos testes, Enter podia submeter o formulário; Tab é o evento que foi validado para disparar o comportamento esperado.
 
-## 8. Produtos — confirmado ao vivo em 20/08
+O campo Número é localizado novamente depois da consulta porque a aplicação pode recriar/limpar os inputs.
 
-Campos observados na etapa: descrição, código, CFOP, unidade comercial,
-quantidade, valor unitário, benefício fiscal, código do benefício fiscal,
-situação tributária do ICMS, origem da mercadoria.
+Seletor do CNPJ
 
-**Descoberta estrutural importante:** a etapa de Produtos não é uma tela
-única. É preciso clicar "Avançar" DUAS vezes por produto:
+O formulário reutiliza classes no fieldset de CPF/CNPJ. O seletor amplo podia capturar o radio de CPF. No código, usar input visível que não seja radio:
 
-```
-Dados do Produto (descrição/código/CFOP/unidade/qtd/valor/benefício)
-  → Avançar
-ICMS (situação tributária + origem da mercadoria)
-  → Avançar
-  → se houver mais produtos: botão "Adicionar Produto" reabre "Dados do
-    Produto" pro próximo item
-  → se não houver mais produtos: segue direto pra Transporte
-```
+input:not([type=radio]):visible
 
-### Confirmado
+6. Identificação da operação — confirmado
 
-* Campo certo pra buscar produto é **"Código do Produto"**, não
-  "Descrição do Produto" — a descrição é preenchida automaticamente depois.
-  O campo tem `aria-controls` apontando pra uma listbox de sugestões com id
-  dinâmico por sessão (ex: `415-suggestions`) — não confiar nesse id.
-* CFOP: `<select>` com value `"5101"` = "Venda de produção do estabelecimento".
-* Quantidade e Valor unitário: campos de texto simples, seletores
-  estruturais confirmados (ver `emissao.py`).
-* Benefício fiscal: radio "Sim" (label de texto simples, sem id estável —
-  localizado por texto), seguido do input de código do benefício.
-* Situação tributária do ICMS: `<select>` com value `"40"` =
-  "Tributação Isenta, Não tributada ou Suspensão" (opções observadas no
-  próprio HTML real: apenas essa opção 40/41/50 combinada).
-* Origem da mercadoria: `<select>` com value `"0"` = "Nacional, exceto as
-  indicadas nos códigos 3, 4, 5 e 8".
-* Botão "Adicionar Produto" (pra mais de um item): `<button>` com texto
-  próprio "Adicionar Produto" — localizado por role/nome, não por posição.
+Natureza: Venda — combobox #combobox-id-1.
 
-### Ainda não confirmado
+Tipo de operação: <select> comum; Saída = "1", Entrada = "0".
 
-* Se a 1ª sugestão da busca (quando aparece) é sempre a correta.
-* Comportamento de PIS/COFINS/IPI — não apareceram como campos visíveis
-  no reconhecimento ao vivo; hipótese é que sejam automáticos/derivados,
-  mas isso não está confirmado.
-* Editar/remover um produto já adicionado (só o fluxo de adicionar foi
-  reconhecido).
+Finalidade: <select> comum; NF-e normal = "1".
 
----
+Indicador de presença: <select> comum; Operação não presencial, pela Internet = "2".
 
-## 9. Transporte — confirmado ao vivo em 20/08
+Quando os <select> possuem estruturas quase idênticas, localizar por texto de uma <option> âncora é preferível a nth-child.
 
-* **Campo:** "Modalidade do Frete", `<select>` comum.
-* **Modalidade usada:** value `"3"` = "Transporte Próprio por conta do
-  Remetente".
-* Demais opções do combobox (CIF, FOB, por conta de terceiros, do
-  destinatário, sem ocorrência de transporte) ficaram visíveis no
-  reconhecimento, mas só a opção 3 foi testada/usada até agora.
+7. Local de retirada/entrega
 
----
+No fluxo validado, os valores permaneceram no padrão e a etapa foi somente avançada.
 
-## 10. Validação fiscal pendente
+8. Produtos — fluxo completo confirmado ao vivo
 
-### Confirmado no reconhecimento
+A etapa de Produtos possui uma tela intermediária após o ICMS que é parte essencial do fluxo.
 
-* Indicador da IE do destinatário testado: Contribuinte
-* Natureza da operação: Venda
-* CFOP (descrição): Venda de produção do estabelecimento
-* Benefício fiscal: Sim
-* Existência de código de benefício fiscal (valor ainda não localizado)
-* Modalidade de transporte: `3`
-* Busca de produtos por código
-* Existência de unidade comercial associada ao produto
+Fluxo real por produto
 
-### Ainda pendente de confirmação definitiva
+Dados do Produto
+  ↓ Avançar
+ICMS
+  ↓ Avançar
+Tela: Adicionar Produto / Avançar
 
-* Código numérico do CFOP
-* Código específico do benefício fiscal ⚠️ **bloqueador atual**
-* Tipo de operação (Entrada/Saída)
-* Finalidade da emissão
-* Indicador de presença
-* PIS, COFINS, IPI, origem da mercadoria
-* Nome exato do campo de modalidade de transporte
-* Demais indicadores mantidos no padrão
+A partir dessa tela:
 
----
+se houver outro item:
+    Adicionar Produto
+    ↓
+    próximo produto
 
-## 11. Sequência do fluxo manual (referência)
+se for o último item:
+    Avançar
+    ↓
+    Transporte
 
-```text
+Fluxo validado com 2 produtos
+
+Produto 1
+→ Avançar
+→ ICMS
+→ Avançar
+→ Adicionar Produto
+→ Produto 2
+→ Avançar
+→ ICMS
+→ Avançar
+→ Avançar
+→ Transporte
+
+8.1 Código do Produto
+
+O campo correto é Código do Produto, não descrição.
+
+Seletor final validado:
+
+label("Código do Produto") → pai → input.default-input.slds-input
+
+Fluxo:
+
+click
+fill(código)
+ArrowDown
+Enter
+
+Não depender de aria-controls/IDs de sugestões, pois eles são dinâmicos e havia três autocompletes visíveis na tela.
+
+8.2 CFOP
+
+HTML confirmado:
+
+label("CFOP") → pai → select.slds-select
+
+Valor testado:
+
+5101 = Venda de produção do estabelecimento
+
+8.3 Unidade Comercial
+
+HTML confirmado como autocomplete no bloco do label Unidade Comercial.
+
+Fluxo validado:
+
+label("Unidade Comercial")
+→ pai
+→ input.default-input.slds-input
+→ click
+→ fill("KG")
+→ ArrowDown
+→ Enter
+
+Valor testado: KG.
+
+8.4 Quantidade Comercial
+
+Localização:
+
+label("Quantidade Comercial") → pai → input.slds-input
+
+Valor de teste: 10.
+
+O formulário exibiu o valor formatado como 10,0000.
+
+8.5 Valor Unitário Comercial
+
+Localização:
+
+label("Valor Unitário Comercial") → pai → input.slds-input
+
+Valor de tarefa: 4.0.
+
+O formulário exibiu o valor formatado como 40,0000000000 no teste, comportamento do próprio sistema que deve ser preservado/validado conforme a regra do campo.
+
+8.6 Benefício fiscal
+
+Bloco identificado pelo legend:
+
+Possui benefício fiscal?
+
+Fluxo:
+
+localizar legend
+→ pai
+→ clicar "Sim"
+
+8.7 Código do Benefício Fiscal na UF
+
+Localização:
+
+label("Código de Benefício Fiscal na UF") → pai → input.default-input.slds-input
+
+Valor validado em homologação: PR810128.
+
+Até o teste atual, o fill() do código foi suficiente para seguir o fluxo; não foi necessário confirmar a sugestão com ArrowDown/Enter.
+
+8.8 Situação Tributária ICMS
+
+Localização:
+
+label("Situação Tributária ICMS") → pai → select.slds-select
+
+Valor testado:
+
+40
+
+HTML observado: uma única opção efetiva 40,41,50 - Tributação Isenta, Não tributada ou Suspensão.
+
+8.9 Origem da mercadoria
+
+Localização:
+
+label("Origem da mercadoria") → pai → select.slds-select
+
+Valor testado:
+
+0 = Nacional, exceto as indicadas nos códigos 3, 4, 5 e 8
+
+8.10 Adicionar Produto
+
+Botão localizado por role/nome:
+
+get_by_role("button", name="Adicionar Produto")
+
+Validado ao vivo com 2 produtos.
+
+9. Transporte — confirmado ao vivo em 21/08
+
+Modalidade do Frete
+
+HTML confirmado:
+
+label("Modalidade do Frete") → pai → select.slds-select
+
+Valor testado:
+
+3 = Transporte Próprio por conta do Remetente
+
+Fluxo validado:
+
+Produto(s) concluído(s)
+→ tela Transporte
+→ selecionar Modalidade do Frete = 3
+→ Avançar
+
+O campo foi localizado usando o mesmo padrão estável de label + pai + select.
+
+10. Resumo / validação final
+
+A transição após Transporte foi executada com sucesso no teste de 21/08, mas o conteúdo da tela de resumo ainda não foi reconhecido/documentado em detalhe.
+
+Próximo reconhecimento
+
+Capturar:
+
+título/identidade da tela;
+
+totais;
+
+mensagens de validação;
+
+campos eventualmente editáveis;
+
+botão Emitir;
+
+qualquer confirmação/modal antes da emissão.
+
+Não clicar em Emitir durante o reconhecimento atual.
+
+11. Validação atual do fluxo
+
+Confirmado ao vivo
+
+ambiente de homologação
+
+login
+
+navegação
+
+consentimento
+
+emitente
+
+CNPJ do destinatário
+
+IE
+
+razão social
+
+CEP
+
+sincronização de endereço
+
+número
+
+identificação da operação
+
+local de retirada/entrega
+
+busca de produto por código
+
+CFOP
+
+unidade comercial
+
+quantidade
+
+valor unitário
+
+benefício fiscal
+
+código de benefício
+
+situação tributária ICMS
+
+origem da mercadoria
+
+múltiplos produtos
+
+Adicionar Produto
+
+transição para Transporte
+
+modalidade do frete
+
+transição após Transporte
+
+Ainda não confirmado
+
+conteúdo detalhado do Resumo
+
+validações finais do resumo
+
+comportamento do botão Emitir
+
+emissão real
+
+download PDF/XML
+
+cancelamento
+
+PIS/COFINS/IPI, caso apareçam em telas posteriores
+
+12. Sequência do fluxo manual validado
+
 Login
 → Produtor Rural
 → NFP-e
-→ Emissão
+→ NFP-e TESTES
+→ Emissão - TESTE
 → Consentimento
-→ Identificação do emitente
+→ Emitente
 → Destinatário
 → Identificação da operação
 → Local de retirada/entrega
-→ Produtos            ← reconhecimento parou aqui (código de benefício fiscal)
+→ Produto 1
+→ ICMS
+→ Adicionar Produto / Avançar
+→ [Produto 2 → ICMS → Adicionar Produto / Avançar]*
 → Transporte
-→ Validação/revisão   ← ainda não alcançado
-→ Emissão             ← ainda não alcançado
-→ Download dos documentos  ← ainda não alcançado
-```
+→ Resumo / Validação
+→ Emitir                ← ainda não implementado/testado
+→ Download documentos   ← ainda não implementado
 
-Sequência de reconhecimento desejada para cada produto (próximo passo):
+13. Estratégia de seletores consolidada
 
-`Produto → Código → Seleção → NCM → CFOP → Unidade → Quantidade → Valor
-unitário → Benefício fiscal → Código do benefício → PIS → COFINS → IPI →
-Origem da mercadoria → Validação do item`
+A experiência do teste ao vivo mostrou que a página reutiliza intensivamente classes e estruturas.
 
----
+Prioridade atual:
 
-## 12. Observação sobre seletores
+label/legend semântico;
 
-Seletores copiados direto do DevTools (`nth-child`, cadeias longas) são
-úteis pro reconhecimento inicial, mas frágeis. Na implementação (já
-aplicado em `src/auth.py` e `src/flows/emissao.py` onde possível), a
-prioridade é:
+id/name estável;
 
-1. `id`
-2. `name`
-3. `label`
-4. `placeholder`
-5. `role`
-6. texto visível
-7. atributos estáveis
-8. seletor CSS estrutural — só quando nenhuma das opções acima está disponível
+placeholder;
 
-Onde o código ainda usa seletor estrutural (ex: destinatário, CFOP), está
-marcado com `⚠️ TODO` — funciona hoje pra essa sessão específica, mas deve
-ser hardenizado assim que testarmos ao vivo.
+role + nome;
+
+texto visível;
+
+atributos estáveis;
+
+seletor estrutural somente quando necessário.
+
+Padrão dominante do formulário
+
+Para <input> / <select> vinculados a rótulos:
+
+campo = (
+    page.locator("label")
+    .filter(has_text="Nome do Campo")
+    .locator("..")
+    .locator("input")  # ou select.slds-select
+)
+
+Para legend/radio:
+
+bloco = (
+    page.locator("legend")
+    .filter(has_text="Nome do grupo")
+    .locator("..")
+)
+
+Evitar depender de IDs dinâmicos de autocomplete, como 251-suggestions, 281-suggestions, etc.
+
+14. Histórico de reconhecimento
+
+21/08/2026 — rodada de fechamento do preenchimento
+
+confirmado fluxo destinatário + CEP + número;
+
+confirmado Código do Produto por label;
+
+confirmado CFOP por label;
+
+confirmado Unidade Comercial por label + autocomplete;
+
+confirmado Quantidade Comercial por label;
+
+confirmado Valor Unitário Comercial por label;
+
+confirmado benefício fiscal e código por label/legend;
+
+confirmado Situação Tributária ICMS por label;
+
+confirmado Origem da Mercadoria por label;
+
+descoberto e implementado o passo intermediário Adicionar Produto / Avançar;
+
+validado 1 produto;
+
+validado 2 produtos;
+
+confirmado Transporte e Modalidade do Frete;
+
+fluxo completo de preenchimento chegou ao fim e parou antes de Emitir.
+
+20/08/2026 — ambiente de teste e primeiros seletores
+
+ambiente NFP-e TESTES / Emissão - TESTE criado/ligado por padrão;
+
+CNPJ corrigido para excluir radios;
+
+identificação da operação confirmada;
+
+estrutura inicial da etapa de Produtos reconhecida.

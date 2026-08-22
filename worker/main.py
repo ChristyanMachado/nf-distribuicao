@@ -1,8 +1,11 @@
 """Ponto de entrada do Worker durante a migração para Playwright Async.
 
 Enquanto a migração está em andamento, este ponto de entrada executa somente
-o smoke test de autenticação Async. O fluxo fiscal completo permanece
-desabilitado até que todas as etapas sejam convertidas e testadas.
+testes controlados sobre Async Playwright: autenticação, navegação até a
+emissão e (opcionalmente) o preenchimento completo do formulário — sem
+nunca clicar em "Emitir". O fluxo fiscal completo automatizado (emissão de
+verdade) permanece desabilitado até que todas as etapas sejam validadas ao
+vivo.
 """
 
 from __future__ import annotations
@@ -15,8 +18,28 @@ from playwright.async_api import BrowserContext
 
 from src.auth import navegar_ate_emissao, realizar_login
 from src.config import Config, carregar_config, carregar_credencial
+from src.flows import emissao as fluxo_emissao
+from src.flows.emissao import Tarefa
 from src.orquestrador import processar_tarefas_em_paralelo
 from src.utils.logging import configurar_logger
+
+
+async def preencher_formulario_completo(page, tarefa: Tarefa, logger) -> None:
+    """
+    RF13 passos 4-10 — parte da tela de emissão (já alcançada por
+    navegar_ate_emissao) e vai até o fim de Transporte. NÃO chama
+    validar_antes_de_emitir() nem emitir() — este teste é só de
+    preenchimento, a etapa de emissão de verdade continua fora do escopo
+    até ser explicitamente decidida e testada à parte (docs/ARCHITECTURE.md
+    — "limite operacional atual").
+    """
+    await fluxo_emissao.aceitar_consentimento(page, logger)
+    await fluxo_emissao.selecionar_emitente(page, tarefa.emitente, logger)
+    await fluxo_emissao.preencher_destinatario(page, tarefa.destinatario, logger)
+    await fluxo_emissao.preencher_identificacao_operacao(page, tarefa, logger)
+    await fluxo_emissao.avancar_local_retirada(page, logger)
+    await fluxo_emissao.preencher_produtos(page, tarefa, logger)
+    await fluxo_emissao.preencher_transporte(page, tarefa, logger)
 
 
 async def teste_autenticacao(
@@ -24,6 +47,7 @@ async def teste_autenticacao(
     context: BrowserContext,
     config: Config,
     logger,
+    tarefa: Tarefa | None,
 ) -> None:
     """Valida Context -> Page -> login -> confirmação, sem emitir nota."""
 
@@ -45,6 +69,20 @@ async def teste_autenticacao(
             await navegar_ate_emissao(page, logger)
             logger.info("[%s] TESTE DE NAVEGAÇÃO ATÉ EMISSÃO OK", tarefa_id)
 
+            if config.testar_preenchimento_completo:
+                if tarefa is None:
+                    raise RuntimeError(
+                        f"[{tarefa_id}] TESTAR_PREENCHIMENTO_COMPLETO=true mas nenhuma "
+                        "tarefa foi carregada — isso não deveria acontecer (bug em main())."
+                    )
+                logger.info("[%s] Iniciando preenchimento completo (sem emitir)", tarefa_id)
+                await preencher_formulario_completo(page, tarefa, logger)
+                logger.info(
+                    "[%s] PREENCHIMENTO COMPLETO OK — parado antes de 'Emitir' "
+                    "(não implementado/testado de propósito)",
+                    tarefa_id,
+                )
+
         # Mantém a página visível brevemente para conferência manual.
         if not config.headless:
             await asyncio.sleep(5)
@@ -52,20 +90,21 @@ async def teste_autenticacao(
         await page.close()
 
 
-def executar_smoke_test(config: Config, logger) -> int:
+def executar_smoke_test(config: Config, logger, tarefa: Tarefa | None) -> int:
     """Executa o teste Async para todos os clientes ativos configurados."""
 
     async def callback_autenticacao(
         tarefa_id: str,
         context: BrowserContext,
     ) -> None:
-        await teste_autenticacao(tarefa_id, context, config, logger)
+        await teste_autenticacao(tarefa_id, context, config, logger, tarefa)
 
     resultados = processar_tarefas_em_paralelo(
         tarefas_ids=list(config.clientes_ativos),
         processar_tarefa=callback_autenticacao,
         logger=logger,
         headless=config.headless,
+        max_concorrencia=config.max_concorrencia,
     )
 
     for resultado in resultados:
@@ -103,8 +142,13 @@ def main() -> int:
         )
         return 2
 
+    tarefa: Tarefa | None = None
+    if config.testar_preenchimento_completo:
+        logger.info("TESTAR_PREENCHIMENTO_COMPLETO=true — carregando %s", tarefa_path)
+        tarefa = fluxo_emissao.carregar_tarefa_de_json(tarefa_path)
+
     logger.info("SMOKE_TEST=true — testando Async Playwright + autenticação")
-    return executar_smoke_test(config, logger)
+    return executar_smoke_test(config, logger, tarefa)
 
 
 if __name__ == "__main__":

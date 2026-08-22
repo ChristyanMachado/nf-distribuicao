@@ -85,3 +85,31 @@ def test_sem_configuracao_nao_procura_identidade():
     )
 
     assert pagina.texto_procurado is None
+
+
+def test_repr_da_credencial_nunca_expoe_login_nem_senha():
+    """
+    RNF02: dataclass gera __repr__ por padrão expondo todos os campos —
+    isso foi sobrescrito em CredencialCliente pra nunca vazar login/senha
+    se alguém logar/formatar o objeto inteiro por engano.
+    """
+    credencial = CredencialCliente(
+        cliente_id="CLIENTE_A",
+        login="12345678900",
+        senha="minha-senha-secreta",
+    )
+
+    texto = repr(credencial)
+
+    assert "12345678900" not in texto
+    assert "minha-senha-secreta" not in texto
+    assert "CLIENTE_A" in texto
+    assert "***" in texto
+
+
+def test_str_da_credencial_tambem_nao_expoe_segredo():
+    # str() cai no __repr__ quando __str__ não é definido — confirma que
+    # não existe um caminho alternativo (ex: __str__ próprio) vazando o dado.
+    credencial = CredencialCliente(cliente_id="CLIENTE_B", login="000", senha="segredo")
+    assert "segredo" not in str(credencial)
+    assert "000" not in str(credencial)
