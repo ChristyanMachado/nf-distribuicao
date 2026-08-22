@@ -22,7 +22,8 @@ class CredencialCliente:
     login: str
     senha: str
     identidade_esperada: str | None = None
-
+    emitente: str | None = None
+    
     def __repr__(self) -> str:
         # RNF02: dataclass por padrão gera um __repr__ que expõe TODOS os
         # campos em texto puro — incluindo senha e o CPF de login. Isso é
@@ -120,6 +121,7 @@ def carregar_credencial(prefixo_cliente: str) -> CredencialCliente:
         login=_obrigatorio(f"{prefixo_cliente}_LOGIN"),
         senha=_obrigatorio(f"{prefixo_cliente}_SENHA"),
         identidade_esperada=os.getenv(f"{prefixo_cliente}_IDENTIDADE_ESPERADA") or None,
+        emitente=_obrigatorio(f"{prefixo_cliente}_EMITENTE"),
     )
 
 

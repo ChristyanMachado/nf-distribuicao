@@ -13,13 +13,14 @@ from __future__ import annotations
 import asyncio
 import os
 import sys
+from dataclasses import replace
 
 from playwright.async_api import BrowserContext
 
 from src.auth import navegar_ate_emissao, realizar_login
 from src.config import Config, carregar_config, carregar_credencial
 from src.flows import emissao as fluxo_emissao
-from src.flows.emissao import Tarefa
+from src.flows.emissao import Emitente, Tarefa
 from src.orquestrador import processar_tarefas_em_paralelo
 from src.utils.logging import configurar_logger
 
@@ -52,6 +53,22 @@ async def teste_autenticacao(
     """Valida Context -> Page -> login -> confirmação, sem emitir nota."""
 
     credencial = carregar_credencial(tarefa_id)
+    
+    tarefa_cliente = tarefa
+
+    if tarefa is not None:
+     if not credencial.emitente:
+        raise RuntimeError(
+            f"[{tarefa_id}] Emitente não configurado para este cliente."
+        )
+
+    tarefa_cliente = replace(
+        tarefa,
+        emitente=Emitente(
+            valor_select=credencial.emitente
+        ),
+    )
+    
     page = await context.new_page()
 
     try:
@@ -76,7 +93,7 @@ async def teste_autenticacao(
                         "tarefa foi carregada — isso não deveria acontecer (bug em main())."
                     )
                 logger.info("[%s] Iniciando preenchimento completo (sem emitir)", tarefa_id)
-                await preencher_formulario_completo(page, tarefa, logger)
+                await preencher_formulario_completo(page, tarefa_cliente, logger)
                 logger.info(
                     "[%s] PREENCHIMENTO COMPLETO OK — parado antes de 'Emitir' "
                     "(não implementado/testado de propósito)",
