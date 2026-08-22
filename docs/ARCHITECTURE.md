@@ -1,41 +1,68 @@
 # Arquitetura — NF Distribuição
 
-## Worker de automação fiscal
+## Visão geral
 
-O Worker usa Playwright Async para manter sessões fiscais isoladas:
+O sistema possui duas partes desacopladas:
+
+```text
+Aplicação web → banco/filas de tarefas → Worker fiscal → Receita PR
+                                      ← status, PDF/XML e logs ←
+```
+
+A aplicação web cadastra emitentes, clientes, produtos e distribuições. Ela gera tarefas de emissão; o Worker é responsável por executá-las no sistema fiscal. A integração automática entre as duas partes ainda não foi ligada.
+
+## Worker fiscal
+
+O Worker usa exclusivamente Playwright Async:
 
 ```text
 1 Chromium Browser
-    ├── BrowserContext da tarefa A -> Page A
-    ├── BrowserContext da tarefa B -> Page B
-    └── BrowserContext da tarefa C -> Page C
+    ├── BrowserContext da tarefa A → Page A
+    ├── BrowserContext da tarefa B → Page B
+    └── BrowserContext da tarefa C → Page C
 ```
 
-Cada `BrowserContext` é exclusivo de uma tarefa. Ele não pode ser
-compartilhado entre emitentes/tarefas, pois contém cookies, armazenamento
-local e autenticação.
+Cada `BrowserContext` é exclusivo de uma tarefa. Cookies, local storage e a sessão autenticada nunca são compartilhados entre emitentes.
 
-## Concorrência
+`asyncio.gather()` coordena as tarefas; cada falha vira um `ResultadoProcessamento` próprio. A concorrência pode ser limitada por `MAX_CONCORRENCIA` para adequar o consumo de memória da máquina/servidor.
 
-`asyncio.gather()` coordena tarefas independentes. A falha de uma retorna um
-`ResultadoProcessamento` próprio e não deve interromper as demais.
+Não usar `sync_playwright()` com browser compartilhado entre threads. Essa abordagem já causou `greenlet.error: Cannot switch to a different thread`.
 
-Não usar `sync_playwright()` com um Browser compartilhado entre threads:
-essa combinação causou `greenlet.error: Cannot switch to a different thread`.
+## Fluxo fiscal no estado atual
 
-## Migração gradual
+`src/auth.py` e `src/flows/emissao.py` já usam API Async. No ambiente de homologação, foi validado ao vivo o preenchimento até a etapa posterior a Transporte, para um e dois produtos. O Worker para antes de `validar_antes_de_emitir()` e nunca clica em **Emitir**.
 
-`src/orquestrador.py` e `src/auth.py` usam a API Async. `src/flows/emissao.py`
-ainda usa a API Sync e não deve receber `Page` Async. Cada etapa do fluxo
-fiscal deve ser convertida e testada individualmente antes de integrá-la ao
-fluxo completo.
+O padrão é `AMBIENTE_EMISSAO=teste`, com o caminho NFP-e TESTES → Emissão - TESTE. Produção só poderá ser usada após validação explícita.
 
-## Limite operacional atual
+Ainda faltam o reconhecimento da tela final de resumo/validação, emissão, download de PDF/XML, cancelamento e a integração real com a fila.
 
-O modo de desenvolvimento deve parar antes da emissão para conferência humana.
-Emissão automática e downloads só serão ativados após testes suficientes e
-validação explícita dos dados e seletores.
+## Modelo de domínio
 
-No estado atual, `worker/main.py` permite somente o smoke test de
-autenticação com `SMOKE_TEST=true`. O fluxo fiscal completo permanece
-intencionalmente desabilitado até a migração Async estar concluída.
+Uma tarefa de emissão deve guardar a escolha efetiva de emitente e cliente, além dos itens e valores. A regra de produto aprovada é relação N:N:
+
+```text
+Emitente A ──┐
+             ├── Cliente X
+Emitente B ──┘
+```
+
+O código usa `cliente_emitentes`, `distribuicoes.emitenteId` e
+`tarefas.emitenteId`. A migração `0001_emitente_por_tarefa.sql` foi aplicada
+ao banco de teste em 22/08; ela copiou o vínculo legado de
+`clientes.emitente_id`, criou as relações N:N e preencheu os registros de
+teste. O campo legado é preservado temporariamente para auditoria; não deve
+ser usado pela aplicação nova.
+
+O preço padrão é por **produto + cliente/mercado**, independentemente do emitente. A distribuição pode substituir esse preço em uma promoção, e o comportamento atual salva o último preço usado como padrão do par.
+
+## Agendamento futuro
+
+O requisito operacional é que as tarefas pendentes sejam executadas automaticamente entre 00:00 e 06:00, não apenas aceitas quando alguém abre o Worker nesse intervalo. A implementação deverá ter um agendador que acorde o Worker, busque as tarefas elegíveis, respeite a janela e registre o resultado. Definir antes a zona horária operacional, política de repetição e tratamento de tarefa que não terminar dentro da janela.
+
+## Segurança e operação
+
+- Não colocar credenciais no código, logs, documentos ou commits.
+- Não versionar `.env`.
+- Dados fiscais reais e emissão em produção exigem conferência humana até a fase de validação estar concluída.
+- `INSPECIONAR`/`page.pause()` não pode bloquear execução headless.
+- PDFs/XMLs e logs deverão retornar ao armazenamento da aplicação após a integração com o Worker.

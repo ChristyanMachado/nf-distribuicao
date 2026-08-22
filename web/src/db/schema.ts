@@ -58,8 +58,8 @@ export const emitentes = fiscalSchema.table("emitentes", {
 });
 
 // ---------------------------------------------------------------------------
-// RF01 — Clientes (destinatário da NFP-e). Um emitente pode ter vários
-// clientes (RF03) — por isso emitenteId fica aqui, na ponta "muitos".
+// RF01 — Clientes (destinatário da NFP-e). A relação com emitentes é N:N:
+// o emitente efetivo é escolhido na distribuição e gravado na tarefa.
 // ---------------------------------------------------------------------------
 
 export const clientes = fiscalSchema.table("clientes", {
@@ -71,11 +71,25 @@ export const clientes = fiscalSchema.table("clientes", {
   destinatarioNome: text("destinatario_nome"), // razão social usada na nota, se diferente de "nome"
   cep: text("cep"),
   numeroEndereco: text("numero_endereco"),
-  emitenteId: uuid("emitente_id").references(() => emitentes.id),
   ativo: boolean("ativo").notNull().default(true),
   observacoes: text("observacoes"),
   criadoEm: timestamp("criado_em").notNull().defaultNow(),
 });
+
+// Emitentes habilitados para atender cada cliente. A tabela não substitui a
+// escolha na tarefa: ela define as opções operacionais permitidas na tela.
+export const clienteEmitentes = fiscalSchema.table(
+  "cliente_emitentes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    clienteId: uuid("cliente_id").notNull().references(() => clientes.id),
+    emitenteId: uuid("emitente_id").notNull().references(() => emitentes.id),
+    criadoEm: timestamp("criado_em").notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("cliente_emitentes_cliente_emitente_idx").on(table.clienteId, table.emitenteId),
+  ]
+);
 
 // ---------------------------------------------------------------------------
 // RF04 — Produtos
@@ -133,6 +147,8 @@ export const distribuicoes = fiscalSchema.table("distribuicoes", {
   id: uuid("id").primaryKey().defaultRandom(),
   disponibilidadeId: uuid("disponibilidade_id").notNull().references(() => disponibilidades.id),
   clienteId: uuid("cliente_id").notNull().references(() => clientes.id),
+  // Mesmo emitente escolhido para a tarefa originada por esta distribuição.
+  emitenteId: uuid("emitente_id").notNull().references(() => emitentes.id),
   quantidadeDistribuida: numeric("quantidade_distribuida", { precision: 12, scale: 3 }).notNull(),
   quantidadeTroca: numeric("quantidade_troca", { precision: 12, scale: 3 }).notNull().default("0"),
   // quantidadeFaturavel = quantidadeDistribuida - quantidadeTroca (calculado em código, ver lib/calculos.ts)
@@ -150,6 +166,8 @@ export const distribuicoes = fiscalSchema.table("distribuicoes", {
 export const tarefas = fiscalSchema.table("tarefas", {
   id: uuid("id").primaryKey().defaultRandom(),
   clienteId: uuid("cliente_id").notNull().references(() => clientes.id),
+  // Snapshot da escolha na distribuição. Não inferir pelo cadastro do cliente.
+  emitenteId: uuid("emitente_id").notNull().references(() => emitentes.id),
   data: text("data").notNull(), // YYYY-MM-DD — dia da distribuição/produção, controle interno
   status: statusTarefaEnum("status").notNull().default("PENDENTE"),
   valorTotal: numeric("valor_total", { precision: 12, scale: 2 }).notNull().default("0"),

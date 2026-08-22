@@ -7,7 +7,7 @@ import PrimaryButton from "@/components/PrimaryButton";
 import { calcularFaturavel, validarDistribuicaoTotal } from "@/lib/calculos";
 import { processarDistribuicao } from "./actions";
 
-type Cliente = { id: string; nome: string };
+type Cliente = { id: string; nome: string; emitentes: { id: string; nome: string }[] };
 type Produto = { id: string; descricao: string; precoPadrao: string; unidade: string };
 
 type Linha = {
@@ -39,6 +39,11 @@ export default function DistribuicaoForm({
   const [clientesSelecionados, setClientesSelecionados] = useState<Set<string>>(
     () => new Set(clientes.map((c) => c.id))
   );
+  const [emitentePorCliente, setEmitentePorCliente] = useState<Record<string, string>>(() =>
+    Object.fromEntries(
+      clientes.map((cliente) => [cliente.id, cliente.emitentes[0]?.id ?? ""])
+    )
+  );
   const [produtosDistribuicao, setProdutosDistribuicao] = useState<ProdutoNaDistribuicao[]>([]);
   const [produtoParaAdicionar, setProdutoParaAdicionar] = useState("");
   const [quantidadeParaAdicionar, setQuantidadeParaAdicionar] = useState("");
@@ -60,6 +65,10 @@ export default function DistribuicaoForm({
       else novo.add(clienteId);
       return novo;
     });
+  }
+
+  function selecionarEmitente(clienteId: string, emitenteId: string) {
+    setEmitentePorCliente((atual) => ({ ...atual, [clienteId]: emitenteId }));
   }
 
   function adicionarProduto() {
@@ -179,7 +188,13 @@ export default function DistribuicaoForm({
   const algumaLinhaPreenchida = previewPorProduto.some((p) =>
     p.resultados.some((r) => r.quantidadeDistribuida > 0)
   );
-  const podeEnviar = produtosDistribuicao.length > 0 && algumaLinhaPreenchida && !temErro && !enviando;
+  const faltaEmitente = previewPorProduto.some((produto) =>
+    produto.resultados.some(
+      (resultado) =>
+        resultado.quantidadeFaturavel > 0 && !emitentePorCliente[resultado.clienteId]
+    )
+  );
+  const podeEnviar = produtosDistribuicao.length > 0 && algumaLinhaPreenchida && !temErro && !faltaEmitente && !enviando;
 
   async function handleSubmit() {
     setEnviando(true);
@@ -194,6 +209,7 @@ export default function DistribuicaoForm({
             .filter((l) => clientesSelecionados.has(l.clienteId))
             .map((l) => ({
               clienteId: l.clienteId,
+              emitenteId: emitentePorCliente[l.clienteId] ?? "",
               quantidadeDistribuida: Number(l.quantidadeDistribuida || 0),
               quantidadeTroca: Number(l.quantidadeTroca || 0),
               precoUnitario: Number(l.precoUnitario || 0),
@@ -242,6 +258,34 @@ export default function DistribuicaoForm({
               );
             })}
           </div>
+        </div>
+
+        <div className="mt-4 space-y-2">
+          <Label>Emitente para cada cliente</Label>
+          {clientes
+            .filter((cliente) => clientesSelecionados.has(cliente.id))
+            .map((cliente) => (
+              <div key={cliente.id} className="flex items-center justify-between gap-3 text-sm">
+                <span>{cliente.nome}</span>
+                <select
+                  value={emitentePorCliente[cliente.id] ?? ""}
+                  onChange={(event) => selecionarEmitente(cliente.id, event.target.value)}
+                  className="max-w-[60%]"
+                >
+                  <option value="">Selecionar emitente...</option>
+                  {cliente.emitentes.map((emitente) => (
+                    <option key={emitente.id} value={emitente.id}>
+                      {emitente.nome}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ))}
+          {clientes.some((cliente) => clientesSelecionados.has(cliente.id) && cliente.emitentes.length === 0) && (
+            <p className="text-[12px] text-[var(--stamp)]">
+              Há cliente sem emitente habilitado. Cadastre a relação antes de processar uma quantidade para ele.
+            </p>
+          )}
         </div>
       </Card>
 
@@ -434,6 +478,12 @@ export default function DistribuicaoForm({
           }`}
         >
           {status.texto}
+        </p>
+      )}
+
+      {faltaEmitente && (
+        <p className="mt-4 text-sm text-[var(--stamp)]">
+          Selecione um emitente para cada cliente que receberá itens faturáveis.
         </p>
       )}
 

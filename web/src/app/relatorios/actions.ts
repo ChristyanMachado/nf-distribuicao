@@ -30,6 +30,7 @@ export async function carregarRelatorio(
   const trocas = await db
     .select({
       data: disponibilidades.data,
+      status: tarefas.status,
       clienteId: distribuicoes.clienteId,
       clienteNome: clientes.nome,
       produtoId: disponibilidades.produtoId,
@@ -41,6 +42,14 @@ export async function carregarRelatorio(
     .innerJoin(disponibilidades, eq(distribuicoes.disponibilidadeId, disponibilidades.id))
     .innerJoin(clientes, eq(distribuicoes.clienteId, clientes.id))
     .innerJoin(produtos, eq(disponibilidades.produtoId, produtos.id))
+    .innerJoin(
+      tarefas,
+      and(
+        eq(tarefas.clienteId, distribuicoes.clienteId),
+        eq(tarefas.emitenteId, distribuicoes.emitenteId),
+        eq(tarefas.data, disponibilidades.data)
+      )
+    )
     .where(and(gte(disponibilidades.data, dataInicio), lte(disponibilidades.data, dataFim)));
 
   return {

@@ -4,11 +4,14 @@ import Card from "@/components/Card";
 import { Label } from "@/components/Field";
 import PrimaryButton from "@/components/PrimaryButton";
 import { criarCliente, listarClientes, listarEmitentes } from "./actions";
+import { db } from "@/db";
+import { clienteEmitentes } from "@/db/schema";
 
 export default async function ClientesPage() {
-  const [clientes, emitentes] = await Promise.all([
+  const [clientes, emitentes, relacoes] = await Promise.all([
     listarClientes(),
     listarEmitentes(),
+    db.select().from(clienteEmitentes),
   ]);
 
   return (
@@ -21,8 +24,8 @@ export default async function ClientesPage() {
 
       {emitentes.length === 0 && (
         <Card className="mt-5 p-4 text-sm text-[var(--wheat)]">
-          Cadastre um emitente antes — é ele quem faz login no sistema
-          fiscal para emitir a nota deste cliente.
+          Cadastre um emitente antes — ele será selecionado ao distribuir
+          produtos para um cliente.
         </Card>
       )}
 
@@ -49,15 +52,18 @@ export default async function ClientesPage() {
             <input name="numeroEndereco" className="font-mono-tab w-full" />
           </div>
           <div className="col-span-2">
-            <Label>Emitente responsável</Label>
-            <select name="emitenteId" required className="w-full">
-              <option value="">Selecionar...</option>
+            <Label>Emitentes habilitados</Label>
+            <div className="flex flex-wrap gap-2">
               {emitentes.map((e) => (
-                <option key={e.id} value={e.id}>
+                <label key={e.id} className="flex items-center gap-2 rounded border border-[var(--line)] px-3 py-2 text-sm">
+                  <input type="checkbox" name="emitenteIds" value={e.id} />
                   {e.nome}
-                </option>
+                </label>
               ))}
-            </select>
+            </div>
+            <p className="mt-1 text-[12px] text-[var(--ink-faint)]">
+              Escolha os emitentes que podem atender este cliente. A escolha final é feita em cada distribuição.
+            </p>
           </div>
           <div className="col-span-2 mt-1">
             <PrimaryButton type="submit" className="w-full py-2.5 sm:w-auto">
@@ -73,7 +79,10 @@ export default async function ClientesPage() {
         </p>
         <Card className="divide-y divide-[var(--line)]">
           {clientes.map((c) => {
-            const emitente = emitentes.find((e) => e.id === c.emitenteId);
+            const emitentesDoCliente = relacoes
+              .filter((relacao) => relacao.clienteId === c.id)
+              .map((relacao) => emitentes.find((e) => e.id === relacao.emitenteId))
+              .filter((emitente): emitente is NonNullable<typeof emitente> => Boolean(emitente));
             return (
               <div key={c.id} className="px-4 py-3 text-sm">
                 <div className="flex items-center justify-between">
@@ -82,9 +91,9 @@ export default async function ClientesPage() {
                     <span className="font-mono-tab text-[var(--ink-faint)]">{c.cnpj}</span>
                   )}
                 </div>
-                {emitente && (
+                {emitentesDoCliente.length > 0 && (
                   <p className="mt-0.5 text-[13px] text-[var(--ink-faint)]">
-                    via {emitente.nome}
+                    emitentes: {emitentesDoCliente.map((emitente) => emitente.nome).join(", ")}
                   </p>
                 )}
               </div>

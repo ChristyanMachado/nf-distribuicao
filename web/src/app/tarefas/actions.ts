@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
-import { tarefas, tarefaItens, clientes, produtos } from "@/db/schema";
+import { tarefas, tarefaItens, clientes, produtos, emitentes } from "@/db/schema";
 import { desc, eq, and } from "drizzle-orm";
 
 export async function listarTarefasComItens() {
@@ -13,9 +13,11 @@ export async function listarTarefasComItens() {
       status: tarefas.status,
       valorTotal: tarefas.valorTotal,
       clienteNome: clientes.nome,
+      emitenteNome: emitentes.nome,
     })
     .from(tarefas)
     .innerJoin(clientes, eq(tarefas.clienteId, clientes.id))
+    .innerJoin(emitentes, eq(tarefas.emitenteId, emitentes.id))
     .orderBy(desc(tarefas.criadoEm));
 
   const todosItens = await db

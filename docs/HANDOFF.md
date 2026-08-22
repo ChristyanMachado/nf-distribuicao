@@ -1,4 +1,46 @@
-Handoff — Estado Atual
+# Handoff — Estado Atual
+
+## Atualização de contexto — 22/08/2026
+
+O commit atual é `9224655` (`navegacao worker multicliente funcionando, dados hardcoded`). O teste/demonstração mais recente confirmou preenchimento em homologação com múltiplos contextos, sem clicar em **Emitir**. A carga local (transmissão e outros programas) afetou a velocidade, mas falhas continuaram isoladas por contexto.
+
+Decisões de domínio registradas em `docs/REUNIAO-2026-08-22.md`:
+
+- execução automática de tarefas entre 00:00 e 06:00;
+- relação N:N entre emitentes e clientes, escolhida por tarefa;
+- preço padrão por produto+cliente, com override promocional;
+- relatório operacional bruto separado do financeiro líquido futuro.
+
+### Atenções antes da próxima implementação
+
+1. A relação N:N foi implementada e a migração `web/src/db/migrations/0001_emitente_por_tarefa.sql` foi aplicada ao banco de teste. Ela mantém `clientes.emitente_id` apenas como legado. Os logins de emitentes não foram alterados.
+2. O Worker ainda usa dados hardcoded para a demonstração. Priorizar contrato de tarefa + carregamento do banco/fila em vez de adicionar novos valores fixos.
+3. Confirmar visualmente o relatório após aplicar a migração. A causa de troca cancelada no KPI foi corrigida e coberta por teste unitário.
+4. Antes de ligar a emissão, reconhecer a tela final em homologação e apenas identificar (sem clicar) o botão de emitir.
+
+### Implementado nesta rodada — 22/08/2026
+
+- tabela N:N `cliente_emitentes`, com migração dos vínculos antigos;
+- `tarefas.emitente_id`, gravado no momento da distribuição;
+- tarefas pendentes agora são agrupadas por cliente + emitente + data;
+- cadastro de cliente permite habilitar múltiplos emitentes;
+- distribuição exige a escolha de emitente para cada cliente com quantidade faturável;
+- listagem de tarefas exibe o emitente escolhido;
+- 25 testes unitários, verificação de tipos e build de produção passaram.
+
+`npm run db:generate` e `npm run db:migrate` continuam falhando nesta máquina
+devido ao erro do sistema operacional (`uv_os_get_passwd ... ENOMEM`). A
+migração foi aplicada por um executor direto que usa a mesma transação e o
+mesmo histórico/hash do Drizzle, sem expor credenciais. Validação posterior:
+1 emitente preservado, 2 relações cliente↔emitente e zero tarefas ou
+distribuições sem emitente.
+
+Também foi corrigido o cálculo de **Perdido em trocas**: trocas associadas a
+tarefa cancelada não entram mais no KPI. A correção grava o emitente na
+distribuição, relaciona distribuição→tarefa no relatório e filtra
+`CANCELADA` no cálculo.
+
+---
 
 Última alteração — preenchimento completo da NFP-e em homologação validado
 

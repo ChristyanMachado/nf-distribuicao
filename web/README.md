@@ -52,7 +52,11 @@ src/
 ## Modelo de dados — pontos importantes
 
 - **Login pertence ao emitente**, não ao cliente — é o emitente quem
-  autentica no sistema fiscal (corrigido em 14/08).
+  autentica no sistema fiscal.
+- **Emitente e cliente têm relação N:N**. O cadastro define os emitentes
+  habilitados para atender o cliente e a distribuição registra qual deles foi
+  escolhido na tarefa. Aplicar a migração `0001_emitente_por_tarefa.sql`
+  antes de usar esse fluxo em banco existente.
 - **Preço é por produto + cliente**, não só por produto — a tabela
   `precos_cliente` aprende sozinha: toda vez que uma distribuição é
   processada, o preço usado vira o padrão daquele par pra próxima vez.
@@ -75,6 +79,7 @@ pra ter faturamento, ranking de clientes/produtos e valor perdido em
 trocas. A tela busca só o intervalo de datas selecionado (chips: Hoje/7
 dias/30 dias/Este mês), agrega em `lib/relatorios.ts` (puro, testado) e
 mostra KPIs + gráfico + rankings num único scroll, sem navegação extra.
+Trocas ligadas a tarefa cancelada não entram no indicador "Perdido em trocas".
 
 ## O que falta
 

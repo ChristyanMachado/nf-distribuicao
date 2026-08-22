@@ -19,6 +19,7 @@ type Tarefa = {
   status: string;
   valorTotal: string;
   clienteNome: string;
+  emitenteNome: string;
   itens: Item[];
 };
 
@@ -43,6 +44,7 @@ export default function TarefaCard({ tarefa }: { tarefa: Tarefa }) {
           <p className="font-mono-tab text-[13px] text-[var(--ink-faint)]">
             {tarefa.data} · {tarefa.itens.length} item(ns)
           </p>
+          <p className="text-[12px] text-[var(--ink-faint)]">emitente: {tarefa.emitenteNome}</p>
         </div>
         <div className="text-right">
           <Stamp status={tarefa.status} />

@@ -17,6 +17,7 @@ export type ItemRelatorio = {
 
 export type TrocaRelatorio = {
   data: string;
+  status: string;
   clienteId: string;
   clienteNome: string;
   produtoId: string;
@@ -54,6 +55,10 @@ function itensValidos(itens: ItemRelatorio[]): ItemRelatorio[] {
   return itens.filter((i) => i.status !== STATUS_EXCLUIDO_DO_FATURAMENTO);
 }
 
+function trocasValidas(trocas: TrocaRelatorio[]): TrocaRelatorio[] {
+  return trocas.filter((troca) => troca.status !== STATUS_EXCLUIDO_DO_FATURAMENTO);
+}
+
 /**
  * KPIs do período. Tarefas CANCELADA não entram no faturamento — as
  * demais (mesmo PENDENTE) entram, porque o valor já está comprometido
@@ -65,7 +70,7 @@ export function calcularKpis(itens: ItemRelatorio[], trocas: TrocaRelatorio[]): 
   const numeroNotas = new Set(validos.map((i) => i.tarefaId)).size;
   const ticketMedio = numeroNotas > 0 ? arredondarMoeda(faturamentoTotal / numeroNotas) : 0;
   const perdidoEmTrocas = arredondarMoeda(
-    trocas.reduce((s, t) => s + t.quantidadeTroca * t.precoUnitario, 0)
+    trocasValidas(trocas).reduce((s, t) => s + t.quantidadeTroca * t.precoUnitario, 0)
   );
 
   return { faturamentoTotal, numeroNotas, ticketMedio, perdidoEmTrocas };

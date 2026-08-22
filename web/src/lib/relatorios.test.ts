@@ -59,6 +59,7 @@ const itens: ItemRelatorio[] = [
 const trocas: TrocaRelatorio[] = [
   {
     data: "2026-08-10",
+    status: "EMITIDA",
     clienteId: "a",
     clienteNome: "Mercado A",
     produtoId: "p1",
@@ -86,6 +87,19 @@ describe("calcularKpis", () => {
 
   it("calcula o valor perdido em trocas", () => {
     const kpis = calcularKpis(itens, trocas);
+    expect(kpis.perdidoEmTrocas).toBeCloseTo(3 * 4.5);
+  });
+
+  it("não contabiliza troca de tarefa cancelada", () => {
+    const kpis = calcularKpis(itens, [
+      ...trocas,
+      {
+        ...trocas[0],
+        status: "CANCELADA",
+        quantidadeTroca: 10,
+      },
+    ]);
+
     expect(kpis.perdidoEmTrocas).toBeCloseTo(3 * 4.5);
   });
 

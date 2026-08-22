@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import {
   clientes,
+  emitentes,
+  clienteEmitentes,
   produtos,
   precosCliente,
   disponibilidades,
@@ -15,10 +17,15 @@ import { calcularFaturavel, validarDistribuicaoTotal } from "@/lib/calculos";
 import { eq, and } from "drizzle-orm";
 
 export async function carregarDadosDistribuicao() {
-  const [listaClientes, listaProdutos, listaPrecos] = await Promise.all([
+  const [listaClientes, listaProdutos, listaPrecos, relacoes] = await Promise.all([
     db.select().from(clientes).where(eq(clientes.ativo, true)),
     db.select().from(produtos).where(eq(produtos.ativo, true)),
     db.select().from(precosCliente),
+    db
+      .select({ clienteId: clienteEmitentes.clienteId, id: emitentes.id, nome: emitentes.nome })
+      .from(clienteEmitentes)
+      .innerJoin(emitentes, eq(clienteEmitentes.emitenteId, emitentes.id))
+      .where(eq(emitentes.ativo, true)),
   ]);
 
   // chave "produtoId:clienteId" -> preço praticado — usado pra pré-preencher
@@ -28,11 +35,27 @@ export async function carregarDadosDistribuicao() {
     precos[`${p.produtoId}:${p.clienteId}`] = p.preco;
   }
 
-  return { clientes: listaClientes, produtos: listaProdutos, precos };
+  const emitentesPorCliente: Record<string, { id: string; nome: string }[]> = {};
+  for (const relacao of relacoes) {
+    (emitentesPorCliente[relacao.clienteId] ??= []).push({
+      id: relacao.id,
+      nome: relacao.nome,
+    });
+  }
+
+  return {
+    clientes: listaClientes.map((cliente) => ({
+      ...cliente,
+      emitentes: emitentesPorCliente[cliente.id] ?? [],
+    })),
+    produtos: listaProdutos,
+    precos,
+  };
 }
 
 type LinhaDistribuicao = {
   clienteId: string;
+  emitenteId: string;
   quantidadeDistribuida: number;
   quantidadeTroca: number;
   precoUnitario: number;
@@ -64,6 +87,33 @@ export async function processarDistribuicao(input: {
   }
 
   await db.transaction(async (tx) => {
+    const paresComFaturamento = new Map<string, LinhaDistribuicao>();
+    for (const produto of input.produtos) {
+      for (const linha of produto.linhas) {
+        if (linha.quantidadeDistribuida <= linha.quantidadeTroca) continue;
+        if (!linha.emitenteId) {
+          throw new Error("Selecione o emitente de cada cliente com quantidade faturável.");
+        }
+        paresComFaturamento.set(`${linha.clienteId}:${linha.emitenteId}`, linha);
+      }
+    }
+
+    for (const linha of paresComFaturamento.values()) {
+      const [relacao] = await tx
+        .select({ id: clienteEmitentes.id })
+        .from(clienteEmitentes)
+        .where(
+          and(
+            eq(clienteEmitentes.clienteId, linha.clienteId),
+            eq(clienteEmitentes.emitenteId, linha.emitenteId)
+          )
+        )
+        .limit(1);
+      if (!relacao) {
+        throw new Error("O emitente escolhido não está habilitado para um dos clientes.");
+      }
+    }
+
     for (const produto of input.produtos) {
       const [disponibilidade] = await tx
         .insert(disponibilidades)
@@ -82,6 +132,7 @@ export async function processarDistribuicao(input: {
         await tx.insert(distribuicoes).values({
           disponibilidadeId: disponibilidade.id,
           clienteId: linha.clienteId,
+          emitenteId: linha.emitenteId,
           quantidadeDistribuida: String(linha.quantidadeDistribuida),
           quantidadeTroca: String(linha.quantidadeTroca),
           quantidadeFaturavel: String(faturavel.quantidadeFaturavel),
@@ -111,6 +162,7 @@ export async function processarDistribuicao(input: {
           .where(
             and(
               eq(tarefas.clienteId, linha.clienteId),
+              eq(tarefas.emitenteId, linha.emitenteId),
               eq(tarefas.data, input.data),
               eq(tarefas.status, "PENDENTE")
             )
@@ -124,6 +176,7 @@ export async function processarDistribuicao(input: {
               .insert(tarefas)
               .values({
                 clienteId: linha.clienteId,
+                emitenteId: linha.emitenteId,
                 data: input.data,
                 status: "PENDENTE",
                 valorTotal: "0",

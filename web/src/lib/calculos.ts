@@ -6,6 +6,9 @@
 
 export type ItemDistribuicao = {
   clienteId: string;
+  // Só é obrigatório quando o item será agrupado em uma tarefa. Mantê-lo
+  // opcional permite reutilizar os cálculos puros no preview da interface.
+  emitenteId?: string;
   quantidadeDistribuida: number;
   quantidadeTroca: number;
   precoUnitario: number;
@@ -64,6 +67,7 @@ export function validarDistribuicaoTotal(
  */
 export type TarefaPreparada = {
   clienteId: string;
+  emitenteId: string;
   itens: {
     produtoId: string;
     quantidade: number;
@@ -80,15 +84,22 @@ export function agruparEmTarefas(
     itens: ItemDistribuicao[];
   }[]
 ): TarefaPreparada[] {
-  const porCliente = new Map<string, TarefaPreparada>();
+  const porClienteEEmitente = new Map<string, TarefaPreparada>();
 
   for (const { produtoId, itens } of distribuicoesPorProduto) {
     for (const item of itens) {
       const faturavel = calcularFaturavel(item);
       if (faturavel.quantidadeFaturavel <= 0) continue; // nada a faturar
+      if (!item.emitenteId) {
+        throw new DistribuicaoInvalidaError(
+          "Emitente é obrigatório para gerar uma tarefa de emissão."
+        );
+      }
 
-      const existente = porCliente.get(item.clienteId) ?? {
+      const chave = `${item.clienteId}:${item.emitenteId}`;
+      const existente = porClienteEEmitente.get(chave) ?? {
         clienteId: item.clienteId,
+        emitenteId: item.emitenteId,
         itens: [],
         valorTotal: 0,
       };
@@ -103,11 +114,11 @@ export function agruparEmTarefas(
         existente.valorTotal + faturavel.subtotal
       );
 
-      porCliente.set(item.clienteId, existente);
+      porClienteEEmitente.set(chave, existente);
     }
   }
 
-  return Array.from(porCliente.values());
+  return Array.from(porClienteEEmitente.values());
 }
 
 function arredondarMoeda(valor: number): number {
