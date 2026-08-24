@@ -214,9 +214,8 @@ async def navegar_ate_emissao(
 
     Os dois primeiros cliques (Produtor Rural, NFP-e) são idênticos nos
     dois ambientes — só o que vem depois de "NFP-e" muda. O parâmetro
-    `ambiente` decide qual caminho seguir; o padrão continua sendo
-    "normal" (comportamento já validado), então nada muda pra quem chama
-    esta função sem especificar nada.
+    `ambiente` decide qual caminho seguir; o padrão é "teste" para impedir
+    que um teste de desenvolvimento acesse produção por acidente.
     """
 
     logger.info("Navegando: Produtor Rural -> NFP-e -> %s", "Emissão" if ambiente == "normal" else "NFP-e TESTES -> Emissão - TESTE")

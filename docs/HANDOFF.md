@@ -1,8 +1,8 @@
 # Handoff — Estado Atual
 
-## Atualização de contexto — 22/08/2026
+## Atualização de contexto — 24/08/2026
 
-O commit atual é `9224655` (`navegacao worker multicliente funcionando, dados hardcoded`). O teste/demonstração mais recente confirmou preenchimento em homologação com múltiplos contextos, sem clicar em **Emitir**. A carga local (transmissão e outros programas) afetou a velocidade, mas falhas continuaram isoladas por contexto.
+O marco anterior `59da6cc` implementou a relação emitente por tarefa no Web. O teste/demonstração mais recente confirmou preenchimento em homologação com múltiplos contextos, sem clicar em **Emitir**. A carga local (transmissão e outros programas) afetou a velocidade, mas falhas continuaram isoladas por contexto.
 
 Decisões de domínio registradas em `docs/REUNIAO-2026-08-22.md`:
 
@@ -17,6 +17,23 @@ Decisões de domínio registradas em `docs/REUNIAO-2026-08-22.md`:
 2. O Worker ainda usa dados hardcoded para a demonstração. Priorizar contrato de tarefa + carregamento do banco/fila em vez de adicionar novos valores fixos.
 3. Confirmar visualmente o relatório após aplicar a migração. A causa de troca cancelada no KPI foi corrigida e coberta por teste unitário.
 4. Antes de ligar a emissão, reconhecer a tela final em homologação e apenas identificar (sem clicar) o botão de emitir.
+5. Não integrar Web e Worker por leitura direta improvisada. Primeiro definir e testar o contrato de tarefa, estados e reserva/retorno; ver `docs/ROADMAP.md`.
+
+### Implementado nesta rodada — 24/08/2026
+
+- Corrigida a separação entre smoke test e preenchimento: autenticação ou
+  navegação sem `tarefa_real.json` não tenta mais alterar uma tarefa ausente.
+- `CLIENTE_X_EMITENTE` deixou de ser obrigatório para login/navegação; é
+  validado com mensagem clara apenas quando há preenchimento completo.
+- `AMBIENTE_EMISSAO` agora é repassado por `main.py` para
+  `navegar_ate_emissao()`. Assim, o valor configurado controla de fato o
+  caminho de homologação/produção.
+- Atualizados `.env.example` e testes unitários. Testes do Worker: **37
+  passando**; `compileall` e `git diff --check` também passaram.
+
+Próxima implementação recomendada: documentar e implementar o contrato de
+leitura de tarefas Web → Worker, inicialmente com uma fonte local/testável e
+sem emissão real. O detalhamento por fases está em `docs/ROADMAP.md`.
 
 ### Implementado nesta rodada — 22/08/2026
 
@@ -252,7 +269,7 @@ Ambiente de TESTE (homologação) + correção de bug real
 
 O teste ao vivo de 20/08 confirmou que tentativas no ambiente fiscal normal ficam registradas no histórico do governo mesmo sem clicar em Emitir. Por isso foi criado e ligado por padrão o ambiente de homologação (NFP-e TESTES → Emissão - TESTE).
 
-src/auth.py: navegar_ate_emissao() ganhou ambiente: Literal["normal", "teste"] = "normal".
+src/auth.py: navegar_ate_emissao() ganhou ambiente: Literal["normal", "teste"] = "teste".
 
 src/config.py: adicionada AMBIENTE_EMISSAO com default "teste".
 

@@ -5,7 +5,7 @@ máquina de quem estiver rodando o teste.
 """
 import pytest
 
-from src.config import carregar_config
+from src.config import carregar_config, carregar_credencial
 
 
 def _preparar_env_minimo(monkeypatch):
@@ -117,3 +117,23 @@ def test_ambiente_emissao_invalido_falha_com_mensagem_clara(monkeypatch):
 
     with pytest.raises(RuntimeError, match="AMBIENTE_EMISSAO"):
         carregar_config()
+
+
+def test_emitente_e_opcional_para_login_e_navegacao(monkeypatch):
+    monkeypatch.setenv("CLIENTE_TESTE_LOGIN", "login-de-teste")
+    monkeypatch.setenv("CLIENTE_TESTE_SENHA", "senha-de-teste")
+    monkeypatch.delenv("CLIENTE_TESTE_EMITENTE", raising=False)
+
+    credencial = carregar_credencial("CLIENTE_TESTE")
+
+    assert credencial.emitente is None
+
+
+def test_emitente_e_carregado_quando_configurado(monkeypatch):
+    monkeypatch.setenv("CLIENTE_TESTE_LOGIN", "login-de-teste")
+    monkeypatch.setenv("CLIENTE_TESTE_SENHA", "senha-de-teste")
+    monkeypatch.setenv("CLIENTE_TESTE_EMITENTE", "  opcao-emitente  ")
+
+    credencial = carregar_credencial("CLIENTE_TESTE")
+
+    assert credencial.emitente == "opcao-emitente"

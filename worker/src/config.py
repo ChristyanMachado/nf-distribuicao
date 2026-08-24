@@ -121,7 +121,9 @@ def carregar_credencial(prefixo_cliente: str) -> CredencialCliente:
         login=_obrigatorio(f"{prefixo_cliente}_LOGIN"),
         senha=_obrigatorio(f"{prefixo_cliente}_SENHA"),
         identidade_esperada=os.getenv(f"{prefixo_cliente}_IDENTIDADE_ESPERADA") or None,
-        emitente=_obrigatorio(f"{prefixo_cliente}_EMITENTE"),
+        # Necessário apenas quando TESTAR_PREENCHIMENTO_COMPLETO=true. Login
+        # e navegação têm de continuar possíveis sem esse dado fiscal.
+        emitente=(os.getenv(f"{prefixo_cliente}_EMITENTE") or "").strip() or None,
     )
 
 

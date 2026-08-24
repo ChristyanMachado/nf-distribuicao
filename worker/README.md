@@ -4,10 +4,11 @@ Python + Playwright, executando localmente por enquanto (seção 14 do
 documento de visão), migrando para uma VM (Oracle Cloud Always Free) depois
 de validado (Fase 6).
 
-## Estado atual (18/08)
+## Estado atual (24/08)
 
-- Reconhecimento manual avançado até a etapa de produtos, contra o sistema
-  real (`receita.pr.gov.br` — NFP-e/Sefaz-PR). Detalhes em `RECON.md`.
+- Reconhecimento e preenchimento validados em homologação até a transição
+  posterior a **Transporte**, para uma e duas linhas de produto. O Worker
+  para antes de **Emitir**. Detalhes em `RECON.md` e `docs/HANDOFF.md`.
 - **Todos os dados fiscais confirmados** (CFOP `5101`, situação tributária
   `40`, origem `0`, transporte `3`, indicador de IE, e o código do
   benefício fiscal `PR810128`). O que falta agora é só **seletor** (onde
@@ -30,8 +31,10 @@ de validado (Fase 6).
   falha isolada por tarefa (RF24). O login Async foi validado contra a
   Receita PR com um e com três clientes em paralelo.
 - `src/auth.py`: autenticação e navegação inicial já usam Playwright Async.
-- `src/flows/emissao.py`: ainda usa Playwright Sync; não pode receber uma
-  `Page` Async e ainda não integra o fluxo executável.
+- `src/flows/emissao.py`: usa Playwright Async e é chamado apenas quando
+  `TESTAR_PREENCHIMENTO_COMPLETO=true`; continua sem emissão real.
+- O Worker ainda recebe `tarefa_real.json` local. A integração Web → Worker
+  será implementada pelo contrato registrado em `docs/ROADMAP.md`.
 
 ## Rodando os testes (não precisa de login nem de navegador instalado)
 
@@ -49,6 +52,7 @@ playwright install chromium   # baixa o navegador, só precisa rodar 1x
 
 cp .env.example .env
 # preencher CLIENTE_A_LOGIN / CLIENTE_A_SENHA (login é o CPF do emitente)
+# CLIENTE_A_EMITENTE só é necessário para TESTAR_PREENCHIMENTO_COMPLETO=true
 # CLIENTES_ATIVOS já vem como "CLIENTE_A" só, e INSPECIONAR="true" por padrão
 
 cp tarefa_real.json.template tarefa_real.json   # já está no .gitignore
@@ -79,10 +83,7 @@ consentimento, não preenche dados fiscais e não emite nota.
 
 ## Próximos passos
 
-1. Confirmar visualmente/logicamente a identidade autenticada em cada
-   contexto, sem gravar dados pessoais no log.
-2. Testar `navegar_ate_emissao()` em modo Async para um cliente e depois
-   para três clientes.
-3. Migrar e testar uma etapa de `flows/emissao.py` por vez.
-4. Ligar ao Supabase somente após o fluxo fiscal estar validado.
-
+1. Reconhecer a tela final de resumo/validação em homologação, sem emitir.
+2. Definir e testar o contrato de uma tarefa entre Web e Worker.
+3. Integrar leitura, reserva e retorno de status da tarefa.
+4. Só então validar emissão/download em homologação e planejar produção.

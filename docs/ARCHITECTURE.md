@@ -9,7 +9,7 @@ Aplicação web → banco/filas de tarefas → Worker fiscal → Receita PR
                                       ← status, PDF/XML e logs ←
 ```
 
-A aplicação web cadastra emitentes, clientes, produtos e distribuições. Ela gera tarefas de emissão; o Worker é responsável por executá-las no sistema fiscal. A integração automática entre as duas partes ainda não foi ligada.
+A aplicação web cadastra emitentes, clientes, produtos e distribuições. Ela gera tarefas de emissão; o Worker é responsável por executá-las no sistema fiscal. A integração automática entre as duas partes ainda não foi ligada: hoje o Worker recebe um JSON local de demonstração, com dados fiscais hardcoded.
 
 ## Worker fiscal
 
@@ -36,6 +36,13 @@ O padrão é `AMBIENTE_EMISSAO=teste`, com o caminho NFP-e TESTES → Emissão -
 
 Ainda faltam o reconhecimento da tela final de resumo/validação, emissão, download de PDF/XML, cancelamento e a integração real com a fila.
 
+Para testes, há três níveis deliberadamente separados:
+
+- login: exige apenas `CLIENTE_X_LOGIN` e `CLIENTE_X_SENHA`;
+- navegação: usa as mesmas credenciais e respeita `AMBIENTE_EMISSAO`;
+- preenchimento completo: exige também `CLIENTE_X_EMITENTE`, pois seleciona
+  o emitente na tela NFP-e. Continua parando antes de **Emitir**.
+
 ## Modelo de domínio
 
 Uma tarefa de emissão deve guardar a escolha efetiva de emitente e cliente, além dos itens e valores. A regra de produto aprovada é relação N:N:
@@ -58,6 +65,9 @@ O preço padrão é por **produto + cliente/mercado**, independentemente do emit
 ## Agendamento futuro
 
 O requisito operacional é que as tarefas pendentes sejam executadas automaticamente entre 00:00 e 06:00, não apenas aceitas quando alguém abre o Worker nesse intervalo. A implementação deverá ter um agendador que acorde o Worker, busque as tarefas elegíveis, respeite a janela e registre o resultado. Definir antes a zona horária operacional, política de repetição e tratamento de tarefa que não terminar dentro da janela.
+
+O plano de entrega detalhado e a ordem segura das fases estão em
+`docs/ROADMAP.md`.
 
 ## Segurança e operação
 

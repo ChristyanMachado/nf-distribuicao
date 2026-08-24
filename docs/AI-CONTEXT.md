@@ -6,13 +6,16 @@ Fonte de contexto compartilhada para pessoas e ferramentas de IA que trabalham n
 
 O sistema organiza a distribuição de produtos e automatiza, futuramente, a emissão de NFP-e na Receita PR. A aplicação web e o Worker fiscal ainda estão integrados apenas conceitualmente.
 
-## Estado validado em 22/08/2026
+## Estado validado em 24/08/2026
 
 - A aplicação web já possui cadastros de emitentes, clientes e produtos; distribuição de múltiplos itens; preços por produto+cliente; tarefas; e relatórios de faturamento bruto, notas, ticket médio, rankings e gráfico.
 - O Worker usa 1 Chromium + N `BrowserContext`s independentes, Async Playwright e concorrência isolada.
 - Três fluxos concorrentes foram demonstrados ao vivo, concluindo o preenchimento em homologação. Em máquina sobrecarregada houve lentidão e uma falha isolada, sem invalidar o modelo de contextos.
 - O fluxo de homologação foi validado até depois de Transporte com uma e duas linhas de produto. Ele para antes da tela final/ação de emitir.
 - `AMBIENTE_EMISSAO=teste` é o padrão. Não executar testes de preenchimento no ambiente fiscal normal sem uma decisão consciente.
+- O smoke test de login/navegação não precisa mais de `CLIENTE_X_EMITENTE`.
+  Esse valor só é exigido ao ativar `TESTAR_PREENCHIMENTO_COMPLETO=true`,
+  pois é nesse modo que o Worker seleciona o emitente no formulário fiscal.
 
 O resultado técnico detalhado e seletores reconhecidos estão em `docs/HANDOFF.md` e `worker/RECON.md`.
 
@@ -32,6 +35,9 @@ O resultado técnico detalhado e seletores reconhecidos estão em `docs/HANDOFF.
 - Definir sem ambiguidade quais status entram no faturamento. Hoje a regra de código exclui somente `CANCELADA`; tarefas pendentes entram por serem valores já comprometidos na distribuição.
 - Implementar agendador, estratégia de retries, fuso operacional e tratamento de tarefas fora da janela.
 - Reconhecer resumo/validação final de homologação antes de implementar emissão, downloads e produção.
+- Definir o contrato de uma tarefa entre a aplicação web e o Worker antes de
+  qualquer integração: origem dos dados, campos fiscais, estados, reserva da
+  tarefa, retorno de erro e armazenamento de PDF/XML.
 
 ## Princípios imutáveis
 

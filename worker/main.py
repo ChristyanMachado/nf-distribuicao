@@ -43,6 +43,33 @@ async def preencher_formulario_completo(page, tarefa: Tarefa, logger) -> None:
     await fluxo_emissao.preencher_transporte(page, tarefa, logger)
 
 
+def preparar_tarefa_para_cliente(
+    tarefa: Tarefa | None,
+    tarefa_id: str,
+    emitente: str | None,
+) -> Tarefa | None:
+    """Associa o emitente da sessão à tarefa somente quando ela existe.
+
+    O smoke test de autenticação/navegação não carrega ``tarefa_real.json``.
+    Portanto, ele não deve exigir ``CLIENTE_X_EMITENTE`` nem tentar alterar
+    uma tarefa inexistente. O emitente passa a ser obrigatório somente no
+    modo de preenchimento completo, que de fato seleciona esse campo.
+    """
+    if tarefa is None:
+        return None
+
+    if not emitente:
+        raise RuntimeError(
+            f"[{tarefa_id}] Emitente não configurado para este cliente. "
+            "Defina CLIENTE_X_EMITENTE antes do preenchimento completo."
+        )
+
+    return replace(
+        tarefa,
+        emitente=Emitente(valor_select=emitente),
+    )
+
+
 async def teste_autenticacao(
     tarefa_id: str,
     context: BrowserContext,
@@ -53,22 +80,11 @@ async def teste_autenticacao(
     """Valida Context -> Page -> login -> confirmação, sem emitir nota."""
 
     credencial = carregar_credencial(tarefa_id)
-    
-    tarefa_cliente = tarefa
-
-    if tarefa is not None:
-     if not credencial.emitente:
-        raise RuntimeError(
-            f"[{tarefa_id}] Emitente não configurado para este cliente."
-        )
-
-    tarefa_cliente = replace(
+    tarefa_cliente = preparar_tarefa_para_cliente(
         tarefa,
-        emitente=Emitente(
-            valor_select=credencial.emitente
-        ),
+        tarefa_id,
+        credencial.emitente,
     )
-    
     page = await context.new_page()
 
     try:
@@ -83,11 +99,15 @@ async def teste_autenticacao(
 
         if config.testar_navegacao_emissao:
             logger.info("[%s] Iniciando teste de navegação até emissão", tarefa_id)
-            await navegar_ate_emissao(page, logger)
+            await navegar_ate_emissao(
+                page,
+                logger,
+                ambiente=config.ambiente_emissao,
+            )
             logger.info("[%s] TESTE DE NAVEGAÇÃO ATÉ EMISSÃO OK", tarefa_id)
 
             if config.testar_preenchimento_completo:
-                if tarefa is None:
+                if tarefa_cliente is None:
                     raise RuntimeError(
                         f"[{tarefa_id}] TESTAR_PREENCHIMENTO_COMPLETO=true mas nenhuma "
                         "tarefa foi carregada — isso não deveria acontecer (bug em main())."
