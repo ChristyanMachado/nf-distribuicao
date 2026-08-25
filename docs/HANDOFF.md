@@ -69,8 +69,8 @@ emitentes e reconhecer a tela final em homologação sem clicar em **Emitir**.
 - `TESTAR_EMISSAO_HOMOLOGACAO=true` liga o circuito
   preenchimento → conferência humana → Emitir → XML → DANFE.
 - Há bloqueio em configuração e no instante do clique: ambiente precisa ser
-  `teste`, host precisa ser exatamente o da homologação, `HEADLESS=false` e
-  apenas um cliente pode estar ativo.
+  `teste`, host precisa ser exatamente o da homologação e `HEADLESS=false`.
+  Mais de um cliente só pode emitir sequencialmente com `MAX_CONCORRENCIA=1`.
 - Downloads inválidos, vazios, acima de 20 MB ou com assinatura incompatível
   são recusados e removidos.
 - O navegador permanece aberto após o download para captura do status
@@ -79,6 +79,13 @@ emitentes e reconhecer a tela final em homologação sem clicar em **Emitir**.
 - A autorização observada ao vivo é `<span class="autorizada">AUTORIZADA</span>`.
   O Worker agora exige classe + texto exato antes de iniciar XML/DANFE; não
   infere mais sucesso apenas pela presença dos botões de download.
+- Teste ao vivo em 25/08/2026: emissão em homologação autorizada, XML e DANFE
+  capturados com sucesso. Não há mais prompt antes do clique: a flag explícita
+  de homologação e as travas técnicas autorizam o teste. Após os downloads, o
+  Chromium permanece aberto até Enter para inspeção.
+- Sem `AUTORIZADA`, o Worker não baixa documentos e salva HTML + captura local
+  de diagnóstico na pasta ignorada `worker/downloads/`, sem incluir o conteúdo
+  fiscal no log.
 - O cadastro Web de mercados passou a exigir todos os dados fiscais hoje
   confirmados e ganhou edição dos registros existentes.
 - O cadastro de emitentes também exige CNPJ, IE, referência da credencial e

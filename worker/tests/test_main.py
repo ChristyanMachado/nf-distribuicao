@@ -8,7 +8,12 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from main import executar_emissao_homologacao, preparar_tarefa_para_cliente
-from src.flows.emissao import Destinatario, Emitente, Tarefa
+from src.flows.emissao import (
+    Destinatario,
+    Emitente,
+    FalhaConfirmacaoEmissao,
+    Tarefa,
+)
 
 
 def _tarefa_de_teste() -> Tarefa:
@@ -57,7 +62,6 @@ def test_emissao_controlada_encadeia_emitir_e_downloads():
     logger = logging.getLogger("teste-main-emissao")
 
     with (
-        patch("main.fluxo_emissao.validar_antes_de_emitir", return_value=True),
         patch("main.fluxo_emissao.emitir", new_callable=AsyncMock) as emitir_mock,
         patch(
             "main.fluxo_emissao.aguardar_autorizacao", new_callable=AsyncMock
@@ -87,51 +91,31 @@ def test_emissao_controlada_encadeia_emitir_e_downloads():
     )
 
 
-def test_emissao_cancelada_na_conferencia_nao_clica_nem_baixa():
-    tarefa = _tarefa_de_teste()
-    config = SimpleNamespace(ambiente_emissao="teste", download_dir="downloads")
-    logger = logging.getLogger("teste-main-cancelamento")
-
-    with (
-        patch("main.fluxo_emissao.validar_antes_de_emitir", return_value=False),
-        patch("main.fluxo_emissao.emitir", new_callable=AsyncMock) as emitir_mock,
-        patch(
-            "main.fluxo_emissao.aguardar_autorizacao", new_callable=AsyncMock
-        ) as autorizacao_mock,
-        patch(
-            "main.fluxo_emissao.baixar_documentos", new_callable=AsyncMock
-        ) as baixar_mock,
-    ):
-        resultado = asyncio.run(
-            executar_emissao_homologacao(object(), tarefa, config, logger)
-        )
-
-    assert resultado is None
-    emitir_mock.assert_not_awaited()
-    autorizacao_mock.assert_not_awaited()
-    baixar_mock.assert_not_awaited()
-
-
 def test_emissao_sem_autorizacao_confirmada_nao_baixa():
     tarefa = _tarefa_de_teste()
     config = SimpleNamespace(ambiente_emissao="teste", download_dir="downloads")
     logger = logging.getLogger("teste-main-sem-autorizacao")
 
     with (
-        patch("main.fluxo_emissao.validar_antes_de_emitir", return_value=True),
         patch("main.fluxo_emissao.emitir", new_callable=AsyncMock),
         patch(
             "main.fluxo_emissao.aguardar_autorizacao",
             new_callable=AsyncMock,
-            side_effect=RuntimeError("status não confirmado"),
+            side_effect=FalhaConfirmacaoEmissao("status não confirmado"),
         ),
+        patch(
+            "main.fluxo_emissao.salvar_diagnostico_resultado",
+            new_callable=AsyncMock,
+            return_value=("resultado.html", "resultado.png"),
+        ) as diagnostico_mock,
         patch(
             "main.fluxo_emissao.baixar_documentos", new_callable=AsyncMock
         ) as baixar_mock,
     ):
-        with pytest.raises(RuntimeError, match="status não confirmado"):
+        with pytest.raises(FalhaConfirmacaoEmissao, match="status não confirmado"):
             asyncio.run(
                 executar_emissao_homologacao(object(), tarefa, config, logger)
             )
 
     baixar_mock.assert_not_awaited()
+    diagnostico_mock.assert_awaited_once()

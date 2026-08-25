@@ -190,7 +190,7 @@ def test_emissao_homologacao_no_ambiente_normal_e_bloqueada(monkeypatch):
         carregar_config()
 
 
-def test_primeira_emissao_headless_ou_multicliente_e_bloqueada(monkeypatch):
+def test_emissao_homologacao_headless_ou_multicliente_paralelo_e_bloqueada(monkeypatch):
     _habilitar_emissao_homologacao(monkeypatch)
     monkeypatch.setenv("HEADLESS", "true")
     with pytest.raises(RuntimeError, match="HEADLESS=false"):
@@ -198,8 +198,19 @@ def test_primeira_emissao_headless_ou_multicliente_e_bloqueada(monkeypatch):
 
     monkeypatch.setenv("HEADLESS", "false")
     monkeypatch.setenv("CLIENTES_ATIVOS", "CLIENTE_A,CLIENTE_B")
-    with pytest.raises(RuntimeError, match="exatamente 1 cliente"):
+    with pytest.raises(RuntimeError, match="MAX_CONCORRENCIA=1"):
         carregar_config()
+
+
+def test_emissao_homologacao_multicliente_sequencial_e_permitida(monkeypatch):
+    _habilitar_emissao_homologacao(monkeypatch)
+    monkeypatch.setenv("CLIENTES_ATIVOS", "CLIENTE_A,CLIENTE_B,CLIENTE_C")
+    monkeypatch.setenv("MAX_CONCORRENCIA", "1")
+
+    config = carregar_config()
+
+    assert config.clientes_ativos == ("CLIENTE_A", "CLIENTE_B", "CLIENTE_C")
+    assert config.max_concorrencia == 1
 
 
 def test_emitente_e_opcional_para_login_e_navegacao(monkeypatch):

@@ -1,8 +1,8 @@
 # Teste controlado do Worker — emissão em homologação
 
-Este roteiro libera **uma única tarefa por execução**, pede confirmação humana
-antes do clique e bloqueia qualquer página fora do domínio oficial de
-homologação. Ele não habilita produção nem polling do banco.
+Este roteiro libera emissão apenas na homologação e bloqueia qualquer página
+fora do domínio oficial. A própria flag explícita substitui a confirmação por
+terminal; ele não habilita produção nem polling do banco.
 
 ## Antes de executar
 
@@ -15,8 +15,8 @@ homologação. Ele não habilita produção nem polling do banco.
 3. Feche transmissões/programas pesados e use somente um cliente no primeiro
    teste.
 4. O teste deve abrir visivelmente o caminho **NFP-e TESTES → Emissão - TESTE**.
-   Se a interface mostrar o ambiente normal, responda `N` no terminal ou feche
-   o navegador.
+   Se a interface mostrar o ambiente normal, feche o navegador: o código
+   também bloqueará o clique pela URL.
 
 Este primeiro teste usa `tarefa_real.json`, não as 8 tarefas antigas do banco.
 O polling está desligado porque os cadastros de teste ainda precisam ser
@@ -39,25 +39,21 @@ $env:INSPECIONAR="false"
 python main.py tarefa_real.json
 ```
 
-## Momento da confirmação
+## Travas antes do clique
 
-Depois do preenchimento e da chegada ao Resumo, o terminal exibirá:
-
-```text
-Conferir tarefa ... e confirmar emissão? [s/N]
-```
-
-Antes de responder, confira visualmente emitente, destinatário, itens,
-quantidades, preços e que a tela pertence ao ambiente **TESTE**. Responda
-somente `s` para prosseguir. Qualquer outra resposta cancela o clique.
-
-Além dessa conferência, o código valida imediatamente antes do clique:
+Definir `TESTAR_EMISSAO_HOMOLOGACAO=true` é a autorização explícita para o
+teste. Antes do clique, o código valida:
 
 - `AMBIENTE_EMISSAO=teste`;
 - URL HTTPS;
 - host exato `homologacao.nfae.fazenda.pr.gov.br`;
 - caminho iniciado por `/nfae/`;
-- um único cliente e navegador visível.
+- navegador visível.
+
+Para um cliente, basta `CLIENTES_ATIVOS="CLIENTE_A"`. Para testar A, B e C
+sem disparos simultâneos, use `CLIENTES_ATIVOS="CLIENTE_A,CLIENTE_B,CLIENTE_C"`
+e `MAX_CONCORRENCIA="1"`. O Worker abre e conclui um contexto por vez; após
+cada download ele aguardará Enter antes de iniciar o próximo.
 
 ## Resultado esperado
 
@@ -82,6 +78,10 @@ terminal. A autorização já é reconhecida por `span.autorizada` + texto exato
 Aproveite esse momento para copiar o HTML ou seletor do estado **Rejeitada**,
 número da nota e chave de acesso, sem incluir dados sensíveis na documentação
 pública.
+
+Se `AUTORIZADA` não aparecer, XML/DANFE não são baixados. O Worker salva um
+HTML e uma captura local em `worker/downloads/`, registra apenas os caminhos
+nos logs e encerra a tarefa como não autorizada/não confirmada.
 
 Log final esperado:
 

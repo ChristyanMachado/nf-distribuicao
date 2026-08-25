@@ -400,8 +400,9 @@ e eventual modal intermediário.
 Atualização posterior: o `main.py` pode executar uma emissão **somente em
 homologação** quando `TESTAR_EMISSAO_HOMOLOGACAO=true`. A flag é bloqueada em
 ambiente normal e o próprio `emitir()` confere o host da Page antes de clicar.
-O fluxo pede confirmação humana e aceita apenas um cliente visível neste
-primeiro teste. Produção continua indisponível.
+Não há confirmação por terminal: a flag é a autorização explícita do teste.
+Mais de um cliente exige `MAX_CONCORRENCIA=1`, portanto as emissões ocorrem
+em sequência. Produção continua indisponível.
 
 11. Validação atual do fluxo
 

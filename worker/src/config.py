@@ -49,9 +49,9 @@ class Config:
     # testar_navegacao_emissao=true, porque depende de já estar na tela de
     # emissão. Validado em carregar_config() abaixo.
     testar_preenchimento_completo: bool
-    # Libera uma única emissão controlada somente em homologação. Além desta
-    # flag, o código exige AMBIENTE_EMISSAO=teste, HEADLESS=false, um único
-    # cliente e confere o domínio da Page no instante do clique.
+    # Libera emissão controlada somente em homologação. Além desta flag, o
+    # código exige AMBIENTE_EMISSAO=teste, HEADLESS=false e confere o domínio
+    # da Page no instante do clique. Vários clientes só podem rodar em série.
     testar_emissao_homologacao: bool
     # Limite opcional de contextos/abas simultâneos. None = sem limite (hoje
     # equivalente a len(clientes_ativos), já que só 3 foram testados). Existe
@@ -130,9 +130,10 @@ def carregar_config() -> Config:
             raise RuntimeError(
                 "O primeiro teste de emissão exige HEADLESS=false para conferência visual."
             )
-        if len(clientes_ativos) != 1:
+        if len(clientes_ativos) > 1 and max_concorrencia != 1:
             raise RuntimeError(
-                "O primeiro teste de emissão exige exatamente 1 cliente em CLIENTES_ATIVOS."
+                "Emissão de homologação com mais de um cliente exige "
+                "MAX_CONCORRENCIA=1 para executar em sequência."
             )
 
     modo_operacao = os.getenv("MODO_OPERACAO", "conferencia").strip().lower()

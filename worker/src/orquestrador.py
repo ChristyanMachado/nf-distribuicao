@@ -10,7 +10,7 @@ só pra provar que os 3 contextos funcionam de forma isolada e em paralelo.
 
 Quando os seletores de src/auth.py e src/flows/emissao.py estiverem prontos,
 troque `processar_uma_tarefa` para chamar o fluxo real (realizar_login →
-preencher_nota → validar_antes_de_emitir → emitir → baixar_documentos).
+preencher_nota → emitir → aguardar_autorizacao → baixar_documentos).
 """
 from __future__ import annotations
 

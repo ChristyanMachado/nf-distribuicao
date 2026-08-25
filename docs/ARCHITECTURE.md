@@ -35,8 +35,8 @@ homologação, foi validado ao vivo o preenchimento até Transporte para um e
 dois produtos; Resumo, Emitir e os botões XML/DANFE foram reconhecidos
 manualmente. Por padrão o Worker para antes de **Emitir**. O ponto de entrada
 possui uma exceção de teste explícita que exige homologação, navegador visível,
-uma tarefa, confirmação humana e nova validação da URL imediatamente antes do
-clique.
+nova validação da URL imediatamente antes do clique. Vários clientes de teste
+só são permitidos em sequência, com `MAX_CONCORRENCIA=1`.
 
 O padrão é `AMBIENTE_EMISSAO=teste`, com o caminho NFP-e TESTES → Emissão - TESTE. Produção só poderá ser usada após validação explícita.
 
@@ -52,9 +52,9 @@ Para testes, há três níveis deliberadamente separados:
 - preenchimento completo: exige também `CLIENTE_X_EMITENTE`, pois seleciona
   o emitente na tela NFP-e. Continua parando antes de **Emitir**.
 - emissão controlada de homologação: exige todas as etapas anteriores,
-  `TESTAR_EMISSAO_HOMOLOGACAO=true`, um único cliente, navegador visível,
-  confirmação humana e validação do host da Page. Nunca aceita o ambiente
-  `normal`.
+  `TESTAR_EMISSAO_HOMOLOGACAO=true`, navegador visível e validação do host da
+  Page. Nunca aceita o ambiente `normal`; múltiplos clientes exigem execução
+  sequencial.
 
 ## Modelo de domínio
 

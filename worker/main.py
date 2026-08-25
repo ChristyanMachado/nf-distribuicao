@@ -4,8 +4,7 @@ Enquanto a migração está em andamento, este ponto de entrada executa somente
 testes controlados sobre Async Playwright: autenticação, navegação até a
 emissão e (opcionalmente) o preenchimento completo do formulário — sem
 nunca emitir no ambiente normal. Uma emissão controlada em homologação pode
-ser liberada por flag explícita e confirmação humana; produção permanece
-desabilitada.
+ser liberada por flag explícita; produção permanece desabilitada.
 """
 
 from __future__ import annotations
@@ -28,11 +27,9 @@ from src.utils.logging import configurar_logger
 async def preencher_formulario_completo(page, tarefa: Tarefa, logger) -> None:
     """
     RF13 passos 4-10 — parte da tela de emissão (já alcançada por
-    navegar_ate_emissao) e vai até o fim de Transporte. NÃO chama
-    validar_antes_de_emitir() nem emitir() — este teste é só de
-    preenchimento, a etapa de emissão de verdade continua fora do escopo
-    até ser explicitamente decidida e testada à parte (docs/ARCHITECTURE.md
-    — "limite operacional atual").
+    navegar_ate_emissao) e vai até o fim de Transporte. A emissão continua
+    desabilitada por padrão e só é chamada posteriormente quando a flag de
+    homologação estiver explícita.
     """
     await fluxo_emissao.aceitar_consentimento(page, logger)
     await fluxo_emissao.selecionar_emitente(page, tarefa.emitente, logger)
@@ -44,23 +41,33 @@ async def preencher_formulario_completo(page, tarefa: Tarefa, logger) -> None:
 
 
 async def executar_emissao_homologacao(page, tarefa: Tarefa, config: Config, logger):
-    """Executa o trecho irreversível somente após a conferência humana."""
-    if not fluxo_emissao.validar_antes_de_emitir(page, tarefa, logger):
-        logger.warning("[%s] Emissão cancelada pela conferência humana", tarefa.tarefa_id)
-        return None
-
+    """Executa emissão de teste após as travas técnicas de homologação."""
     await fluxo_emissao.emitir(
         page,
         tarefa,
         logger,
         ambiente=config.ambiente_emissao,
     )
-    await fluxo_emissao.aguardar_autorizacao(
-        page,
-        tarefa,
-        logger,
-        ambiente=config.ambiente_emissao,
-    )
+    try:
+        await fluxo_emissao.aguardar_autorizacao(
+            page,
+            tarefa,
+            logger,
+            ambiente=config.ambiente_emissao,
+        )
+    except fluxo_emissao.FalhaConfirmacaoEmissao:
+        caminhos = await fluxo_emissao.salvar_diagnostico_resultado(
+            page,
+            tarefa,
+            config.download_dir,
+            logger,
+        )
+        logger.warning(
+            "[%s] RESULTADO NÃO AUTORIZADO OU NÃO CONFIRMADO; diagnóstico local: %s",
+            tarefa.tarefa_id,
+            ", ".join(caminhos),
+        )
+        raise
     return await fluxo_emissao.baixar_documentos(
         page,
         tarefa,
@@ -141,8 +148,7 @@ async def teste_autenticacao(
                 logger.info("[%s] Iniciando preenchimento completo (sem emitir)", tarefa_id)
                 await preencher_formulario_completo(page, tarefa_cliente, logger)
                 logger.info(
-                    "[%s] PREENCHIMENTO COMPLETO OK — parado antes de 'Emitir' "
-                    "(emissão desabilitada por padrão)",
+                    "[%s] PREENCHIMENTO COMPLETO OK",
                     tarefa_id,
                 )
 

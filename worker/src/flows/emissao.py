@@ -15,32 +15,17 @@ fiscal, PIS/COFINS/IPI etc. com um valor chutado só para o fluxo continuar.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
 import re
-import threading
 from datetime import datetime, timezone
 from dataclasses import dataclass, field
 from urllib.parse import urlsplit
 from xml.etree import ElementTree
 
 from playwright.async_api import Page, TimeoutError as PlaywrightTimeoutError
-
-# Protege input() de concorrência: com RF14 (3 sessões em paralelo), se dois
-# clientes chegarem na conferência humana ao mesmo tempo, dois input()
-# simultâneos disputam o mesmo terminal e a resposta pode ir pro cliente
-# errado. O lock serializa — um prompt de cada vez, na ordem de chegada.
-#
-# ⚠️ Nota (20/08, pós-migração Async): com asyncio.gather() todas as tarefas
-# rodam na MESMA thread (event loop único), diferente do ThreadPoolExecutor
-# anterior. Um input() bloqueante já trava o loop inteiro sozinho, então
-# esse lock virou redundante para o caso Async — mas inofensivo, e ainda
-# necessário caso este módulo volte a ser chamado por múltiplas threads no
-# futuro. Não removido por precaução; revisar se/quando validar_antes_de_emitir
-# for chamada de fato pelo fluxo Async orquestrado.
-_LOCK_CONFIRMACAO_HUMANA = threading.Lock()
-
 
 class DadosFiscaisIncompletos(Exception):
     """
@@ -1109,20 +1094,6 @@ async def preencher_transporte(
 
     await page.wait_for_timeout(1000)
 
-def validar_antes_de_emitir(page: Page, tarefa: Tarefa, logger: logging.Logger) -> bool:
-    """
-    RF15 — Modo 2: interrompe aqui e aguarda confirmação humana.
-
-    Permanece síncrona de propósito (não faz nenhuma chamada ao Playwright,
-    só input() protegido por lock) — ver nota junto de _LOCK_CONFIRMACAO_HUMANA
-    sobre o comportamento desse lock agora que a orquestração é Async.
-    """
-    logger.info(f"[{tarefa.tarefa_id}] Dados preenchidos. Aguardando conferência humana.")
-    with _LOCK_CONFIRMACAO_HUMANA:
-        resposta = input(f"Conferir tarefa {tarefa.tarefa_id} e confirmar emissão? [s/N] ")
-    return resposta.strip().lower() == "s"
-
-
 async def emitir(
     page: Page,
     tarefa: Tarefa,
@@ -1156,12 +1127,44 @@ async def aguardar_autorizacao(
     ``nth-child`` copiada do DevTools.
     """
     _exigir_pagina_homologacao(page.url, ambiente)
-    status = page.locator("span.autorizada").filter(
+    status_autorizada = page.locator("span.autorizada").filter(
         has_text=re.compile(r"^\s*AUTORIZADA\s*$")
     ).first
+    status_rejeitada = page.get_by_text(
+        re.compile(r"^\s*REJEITAD[AO]\s*$", re.IGNORECASE), exact=True
+    ).first
+    espera_autorizada = asyncio.create_task(
+        status_autorizada.wait_for(state="visible", timeout=timeout_ms)
+    )
+    espera_rejeitada = asyncio.create_task(
+        status_rejeitada.wait_for(state="visible", timeout=timeout_ms)
+    )
     try:
-        await status.wait_for(state="visible", timeout=timeout_ms)
-        texto = (await status.inner_text()).strip()
+        concluidas, pendentes = await asyncio.wait(
+            {espera_autorizada, espera_rejeitada},
+            return_when=asyncio.FIRST_COMPLETED,
+        )
+        for espera in pendentes:
+            espera.cancel()
+        await asyncio.gather(*pendentes, return_exceptions=True)
+
+        if espera_autorizada in concluidas:
+            espera_autorizada.result()
+            texto = (await status_autorizada.inner_text()).strip()
+            if texto != "AUTORIZADA":
+                raise FalhaConfirmacaoEmissao(
+                    "O status fiscal recebido não corresponde a AUTORIZADA."
+                )
+        elif espera_rejeitada in concluidas:
+            espera_rejeitada.result()
+            texto = (await status_rejeitada.inner_text()).strip().upper()
+            raise FalhaConfirmacaoEmissao(
+                f"Resultado fiscal não autorizado: {texto}."
+            )
+        else:
+            raise FalhaConfirmacaoEmissao(
+                "A emissão não retornou um resultado fiscal reconhecível."
+            )
     except PlaywrightTimeoutError as exc:
         raise FalhaConfirmacaoEmissao(
             "A emissão não foi confirmada como AUTORIZADA dentro do prazo. "
@@ -1170,11 +1173,43 @@ async def aguardar_autorizacao(
 
     # Defesa contra mudança de página entre o clique e a resposta do portal.
     _exigir_pagina_homologacao(page.url, ambiente)
-    if texto != "AUTORIZADA":
-        raise FalhaConfirmacaoEmissao(
-            "O status fiscal recebido não corresponde a AUTORIZADA."
-        )
     logger.info("[%s] Emissão confirmada como AUTORIZADA", tarefa.tarefa_id)
+
+
+async def salvar_diagnostico_resultado(
+    page: Page,
+    tarefa: Tarefa,
+    download_dir: str,
+    logger: logging.Logger,
+) -> tuple[str, ...]:
+    """Salva HTML e captura locais quando a autorização não é confirmada.
+
+    Os artefatos podem conter dados fiscais; permanecem na pasta ignorada pelo
+    Git, recebem permissão restritiva quando suportada e seu conteúdo nunca é
+    escrito no log.
+    """
+    os.makedirs(download_dir, exist_ok=True)
+    base = _caminho_documento(download_dir, tarefa.tarefa_id, "resultado", "html")
+    html_path = base
+    screenshot_path = os.path.splitext(base)[0] + ".png"
+    salvos: list[str] = []
+
+    try:
+        with open(html_path, "w", encoding="utf-8", newline="") as arquivo:
+            arquivo.write(await page.content())
+        _restringir_permissoes(html_path)
+        salvos.append(html_path)
+    except Exception:  # noqa: BLE001 — diagnóstico não pode ocultar o erro fiscal
+        logger.exception("[%s] Não foi possível salvar HTML de diagnóstico", tarefa.tarefa_id)
+
+    try:
+        await page.screenshot(path=screenshot_path, full_page=True)
+        _restringir_permissoes(screenshot_path)
+        salvos.append(screenshot_path)
+    except Exception:  # noqa: BLE001 — diagnóstico não pode ocultar o erro fiscal
+        logger.exception("[%s] Não foi possível salvar captura de diagnóstico", tarefa.tarefa_id)
+
+    return tuple(salvos)
 
 
 def _exigir_pagina_homologacao(url_atual: str, ambiente: str) -> None:
@@ -1267,11 +1302,7 @@ async def _baixar_documento(
             f"[{tarefa_id}] Não foi possível baixar o documento fiscal solicitado."
         ) from exc
 
-    try:
-        os.chmod(destino, 0o600)
-    except OSError:
-        # ACLs da VM complementam a proteção quando o SO não usa permissões POSIX.
-        pass
+    _restringir_permissoes(destino)
     logger.info("[%s] %s salvo", tarefa_id, nome_botao)
     return destino
 
@@ -1325,4 +1356,12 @@ def _remover_download_invalido(caminho: str) -> None:
     try:
         os.unlink(caminho)
     except FileNotFoundError:
+        pass
+
+
+def _restringir_permissoes(caminho: str) -> None:
+    try:
+        os.chmod(caminho, 0o600)
+    except OSError:
+        # ACLs da VM complementam a proteção quando o SO não usa permissões POSIX.
         pass
