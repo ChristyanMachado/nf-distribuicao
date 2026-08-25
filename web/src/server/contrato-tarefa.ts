@@ -5,6 +5,7 @@ import { db } from "@/db";
 import {
   clientes,
   emitentes,
+  lotesDistribuicao,
   produtos,
   regrasFiscais,
   tarefaItens,
@@ -23,6 +24,7 @@ export async function gerarContratoTarefaPendente(tarefaId: string) {
       status: tarefas.status,
       clienteId: tarefas.clienteId,
       emitenteId: tarefas.emitenteId,
+      numeroDistribuicao: lotesDistribuicao.numero,
       clienteNome: clientes.nome,
       destinatarioNome: clientes.destinatarioNome,
       cnpj: clientes.cnpj,
@@ -36,6 +38,7 @@ export async function gerarContratoTarefaPendente(tarefaId: string) {
     .from(tarefas)
     .innerJoin(clientes, eq(tarefas.clienteId, clientes.id))
     .innerJoin(emitentes, eq(tarefas.emitenteId, emitentes.id))
+    .innerJoin(lotesDistribuicao, eq(tarefas.loteId, lotesDistribuicao.id))
     .where(and(eq(tarefas.id, tarefaId), eq(tarefas.status, "PENDENTE")))
     .limit(1);
   if (!cabecalho) throw new Error("Tarefa pendente não encontrada.");
@@ -71,6 +74,7 @@ export async function gerarContratoTarefaPendente(tarefaId: string) {
       status: cabecalho.status,
       clienteId: cabecalho.clienteId,
       emitenteId: cabecalho.emitenteId,
+      numeroDistribuicao: cabecalho.numeroDistribuicao,
     },
     cliente: {
       nome: cabecalho.clienteNome,

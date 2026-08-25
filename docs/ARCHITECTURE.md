@@ -95,8 +95,13 @@ lote. A página `/entregas` usa o lote para montar uma folha de motorista por
 cliente, com endereço, produtos, quantidades e trocas, mas sem preço ou total
 monetário. Como o motorista já conhece as rotas, o roteiro usa o CEP (e,
 quando presente, o número) do cadastro existente; não cria campos extras de
-endereço. O lote mais recente é aberto por padrão e pode ser impresso. A
-migração `0003` foi aplicada ao banco de teste em 24/08/2026.
+endereço. O lote mais recente é aberto por padrão e pode ser impresso.
+
+Cada lote recebe também um número operacional sequencial, visível como
+`Distribuição 000001`. Novas tarefas guardam o `lote_id`, evitando que duas
+rodadas do mesmo cliente no mesmo dia sejam fundidas. Esse número segue no
+contrato Web → Worker e compõe os nomes de XML/DANFE. A migração `0006` está
+aplicada e conferida no banco de teste.
 
 ## Agendamento futuro
 

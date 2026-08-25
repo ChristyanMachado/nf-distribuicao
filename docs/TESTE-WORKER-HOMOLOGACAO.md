@@ -61,9 +61,14 @@ O Worker deve clicar em **Emitir**, aguardar `AUTORIZADA` e somente então
 tentar baixar:
 
 ```text
-worker/downloads/xml_<tarefa>_<UTC>.xml
-worker/downloads/danfe_<tarefa>_<UTC>.pdf
+worker/downloads/xml_<cliente>_Distribuicao-000001_<UTC>.xml
+worker/downloads/danfe_<cliente>_Distribuicao-000001_<UTC>.pdf
 ```
+
+No JSON local, `nome_cliente` é opcional e tem prioridade; sem ele, o Worker
+usa a razão social do destinatário. `numero_distribuicao` também é opcional
+apenas nesta fase local: quando ausente, o nome deixa claro que se trata de
+uma distribuição local, sem fingir ser o contador oficial do sistema.
 
 Os arquivos são validados por tamanho e assinatura básica de formato. O XML
 precisa ser bem-formado e ter raiz de NF-e; uma página HTML, resposta vazia ou

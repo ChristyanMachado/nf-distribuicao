@@ -8,6 +8,7 @@ function dadosValidos(): DadosContratoTarefa {
       status: "PENDENTE",
       clienteId: "22222222-2222-4222-8222-222222222222",
       emitenteId: "33333333-3333-4333-8333-333333333333",
+      numeroDistribuicao: 42,
     },
     cliente: {
       nome: "Mercado",
@@ -52,6 +53,8 @@ describe("montarContratoTarefaV1", () => {
     expect(contrato.ambiente).toBe("teste");
     expect(contrato.tarefa.destinatario.cnpj).toBe("48188487000104");
     expect(contrato.tarefa.itens[0].quantidade).toBe(2.5);
+    expect(contrato.tarefa.nomeCliente).toBe("Mercado");
+    expect(contrato.tarefa.numeroDistribuicao).toBe(42);
     expect(JSON.stringify(contrato)).not.toMatch(/senha|password|loginUsuario/);
   });
 

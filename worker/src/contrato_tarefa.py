@@ -108,6 +108,10 @@ def carregar_contrato_tarefa(dados: Mapping[str, Any]) -> TarefaContratada:
             ),
             inscricao_estadual=inscricao_estadual,
         ),
+        nome_cliente=_texto(tarefa_raw.get("nomeCliente"), "tarefa.nomeCliente", 160),
+        numero_distribuicao=_numero_inteiro_positivo(
+            tarefa_raw.get("numeroDistribuicao"), "tarefa.numeroDistribuicao"
+        ),
         itens=itens,
         natureza_operacao=_opcao(
             operacao_raw.get("natureza"),
@@ -203,6 +207,12 @@ def _objeto(valor: Any, caminho: str) -> Mapping[str, Any]:
 def _lista(valor: Any, caminho: str) -> list[Any]:
     if not isinstance(valor, list):
         raise ContratoTarefaInvalido(f"{caminho} deve ser uma lista.")
+    return valor
+
+
+def _numero_inteiro_positivo(valor: Any, caminho: str) -> int:
+    if isinstance(valor, bool) or not isinstance(valor, int) or not 1 <= valor <= 1_000_000_000:
+        raise ContratoTarefaInvalido(f"{caminho} deve ser um inteiro positivo válido.")
     return valor
 
 

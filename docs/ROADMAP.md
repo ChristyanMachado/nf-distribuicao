@@ -14,10 +14,11 @@ produção antes da validação controlada.
 - **Web:** cadastros, distribuição, tarefas, relatório operacional e relação
   N:N cliente↔emitente já existem e foram migrados no banco de teste. O
   roteiro por lote foi aplicado e validado no banco de teste pela migração
-  `0003`.
+  `0003`; a migração `0006` também foi aplicada, criando número sequencial de
+  distribuição e o vínculo da tarefa com sua rodada de origem.
 - **Worker:** usa 1 Chromium e N contextos isolados; login, navegação e
-  preenchimento até Transporte foram validados em homologação. Ele nunca
-  clica em **Emitir**.
+  preenchimento, emissão autorizada, XML e DANFE foram validados em
+  homologação. Documentos só são baixados após confirmação `AUTORIZADA`.
 - **Lacuna principal:** consumidor e produtor internos do contrato v1 já
   existem e foram endurecidos contra payloads maliciosos, mas ainda não há
   reserva/fila ligando os dois, retorno de status ou documentos. O Worker
@@ -74,10 +75,10 @@ necessidade de abrir navegador.
 **Saída da fase:** uma tarefa criada no Web percorre o Worker em homologação
 até o limite seguro, com status visível no Web.
 
-**Gate atual:** a emissão controlada e os downloads estão prontos localmente.
-Executar primeiro o roteiro `docs/TESTE-WORKER-HOMOLOGACAO.md`; após a prova,
-implementar lease atômica/polling e Storage. A topologia será Web e Worker em
-máquinas/redes distintas coordenados pelo banco Supabase na nuvem.
+**Gate atual:** emissão controlada e downloads foram validados ao vivo em
+homologação; a migração `0006` está aplicada. A seguir, implementar lease
+atômica/polling e Storage. A topologia será Web e Worker em máquinas/redes
+distintas coordenados pelo banco Supabase na nuvem.
 
 ### 4. Emitir em homologação sob controle
 
@@ -111,7 +112,10 @@ continuação automática das fases anteriores.
 ## Próxima ação de código
 
 Preparar estados, tentativas e lease atômica antes de permitir que o Worker
-consulte o banco. Depois ligar produtor e consumidor por uma fonte de tarefas
-testável, ainda limitada a homologação e sem emitir.
-Em paralelo, o próximo teste humano continua sendo o reconhecimento da tela
-final da homologação, sem clicar em **Emitir**.
+consulte o banco. Em seguida, ligar produtor e consumidor por uma fonte de
+tarefas testável, ainda limitada à homologação.
+
+O painel de relatórios ganhará, após o retorno de status do Worker, os KPIs
+históricos de emissões autorizadas e tempo economizado. O tempo será calculado
+com a média real observada no comparativo manual versus Worker, não por uma
+estimativa fixa.

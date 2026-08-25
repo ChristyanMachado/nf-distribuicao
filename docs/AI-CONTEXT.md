@@ -77,6 +77,11 @@ O resultado técnico detalhado e seletores reconhecidos estão em `docs/HANDOFF.
 - Cada confirmação de distribuição é um lote operacional. O roteiro do
   motorista usa esse lote, nunca apenas a data, para não misturar entregas de
   rodadas diferentes. Ele não exibe valores monetários.
+- A migração `0006_lote_numerado_por_tarefa.sql` foi aplicada no banco de
+  teste: os 5 lotes existentes receberam número sequencial e o vínculo
+  `tarefas.lote_id` existe. Novos XML/DANFE usarão nome do mercado, número de
+  distribuição e data; as 8 tarefas antigas sem lote ficam fora da integração
+  até revisão.
 - O contrato v1 agora rejeita UUIDs/formato/opções inválidas, `NaN`, infinito,
   valores excessivos e mais de 200 itens antes de abrir o navegador.
 - O cadastro de mercados agora exige razão social, CNPJ válido, IE, CEP,

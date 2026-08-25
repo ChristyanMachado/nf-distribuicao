@@ -20,6 +20,7 @@ import json
 import logging
 import os
 import re
+import unicodedata
 from datetime import datetime, timezone
 from dataclasses import dataclass, field
 from urllib.parse import urlsplit
@@ -89,6 +90,12 @@ class Tarefa:
     cliente_id: str
     emitente: Emitente
     destinatario: Destinatario
+    # Nome operacional do mercado, quando o contrato Web o fornecer. No JSON
+    # local ele é opcional e a razão social continua sendo o fallback seguro.
+    nome_cliente: str | None = None
+    # Número sequencial do lote/distribuição. Só será definitivo quando vier
+    # do banco; tarefa_real.json pode omiti-lo durante a fase local.
+    numero_distribuicao: int | None = None
     itens: list[ItemTarefa] = field(default_factory=list)
     # Confirmados no reconhecimento ao vivo de 20/08 — o texto aqui precisa
     # bater exatamente com o texto visível da <option> real (usado como
@@ -122,6 +129,7 @@ def carregar_tarefa_de_json(caminho: str) -> Tarefa:
     campos_restantes = {
         chave: valor for chave, valor in dados.items() if chave not in _CAMPOS_JSON_ESPECIAIS
     }
+    _validar_metadados_arquivo(campos_restantes)
 
     return Tarefa(
         emitente=emitente,
@@ -129,6 +137,24 @@ def carregar_tarefa_de_json(caminho: str) -> Tarefa:
         itens=itens,
         **campos_restantes,
     )
+
+
+def _validar_metadados_arquivo(campos: dict[str, object]) -> None:
+    """Valida somente os metadados usados para nomear artefatos locais."""
+    nome_cliente = campos.get("nome_cliente")
+    if nome_cliente is not None:
+        if not isinstance(nome_cliente, str) or not nome_cliente.strip() or len(nome_cliente.strip()) > 160:
+            raise ValueError("nome_cliente deve ser um texto preenchido de até 160 caracteres.")
+        campos["nome_cliente"] = nome_cliente.strip()
+
+    numero_distribuicao = campos.get("numero_distribuicao")
+    if numero_distribuicao is not None:
+        if (
+            isinstance(numero_distribuicao, bool)
+            or not isinstance(numero_distribuicao, int)
+            or not 1 <= numero_distribuicao <= 1_000_000_000
+        ):
+            raise ValueError("numero_distribuicao deve ser um inteiro positivo válido.")
 
 
 # ---------------------------------------------------------------------------
@@ -1189,7 +1215,7 @@ async def salvar_diagnostico_resultado(
     escrito no log.
     """
     os.makedirs(download_dir, exist_ok=True)
-    base = _caminho_documento(download_dir, tarefa.tarefa_id, "resultado", "html")
+    base = _caminho_documento(download_dir, tarefa, "resultado", "html")
     html_path = base
     screenshot_path = os.path.splitext(base)[0] + ".png"
     salvos: list[str] = []
@@ -1260,7 +1286,7 @@ async def baixar_documentos(page: Page, tarefa: Tarefa, download_dir: str, logge
     xml_path = await _baixar_documento(
         page=page,
         nome_botao="Baixar XML",
-        destino=_caminho_documento(download_dir, tarefa.tarefa_id, "xml", "xml"),
+        destino=_caminho_documento(download_dir, tarefa, "xml", "xml"),
         extensao="xml",
         tarefa_id=tarefa.tarefa_id,
         logger=logger,
@@ -1268,7 +1294,7 @@ async def baixar_documentos(page: Page, tarefa: Tarefa, download_dir: str, logge
     pdf_path = await _baixar_documento(
         page=page,
         nome_botao="Visualizar DANFE",
-        destino=_caminho_documento(download_dir, tarefa.tarefa_id, "danfe", "pdf"),
+        destino=_caminho_documento(download_dir, tarefa, "danfe", "pdf"),
         extensao="pdf",
         tarefa_id=tarefa.tarefa_id,
         logger=logger,
@@ -1307,11 +1333,22 @@ async def _baixar_documento(
     return destino
 
 
-def _caminho_documento(download_dir: str, tarefa_id: str, tipo: str, extensao: str) -> str:
-    """Gera nome estável, sem usar o nome genérico fornecido pela Receita."""
-    identificador = re.sub(r"[^A-Za-z0-9_-]+", "-", tarefa_id).strip("-") or "tarefa"
+def _caminho_documento(download_dir: str, tarefa: Tarefa, tipo: str, extensao: str) -> str:
+    """Nomeia artefatos de forma legível, única e segura para o sistema de arquivos."""
+    cliente = _slug_nome_arquivo(tarefa.nome_cliente or tarefa.destinatario.razao_social, 72)
+    if tarefa.numero_distribuicao is not None:
+        distribuicao = f"Distribuicao-{tarefa.numero_distribuicao:06d}"
+    else:
+        distribuicao = f"Distribuicao-local-{_slug_nome_arquivo(tarefa.tarefa_id, 36)}"
     instante = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
-    return os.path.join(download_dir, f"{tipo}_{identificador}_{instante}.{extensao}")
+    return os.path.join(download_dir, f"{tipo}_{cliente}_{distribuicao}_{instante}.{extensao}")
+
+
+def _slug_nome_arquivo(valor: str, maximo: int) -> str:
+    """Remove caracteres de caminho, preservando uma leitura humana razoável."""
+    normalizado = unicodedata.normalize("NFKD", valor).encode("ascii", "ignore").decode()
+    slug = re.sub(r"[^A-Za-z0-9]+", "-", normalizado).strip("-")
+    return (slug[:maximo].rstrip("-") or "cliente")
 
 
 def _validar_arquivo_baixado(caminho: str, extensao: str) -> None:

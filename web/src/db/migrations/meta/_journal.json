@@ -43,6 +43,13 @@
       "when": 1787917482845,
       "tag": "0005_identificador_emitente_nfpe",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1788003882845,
+      "tag": "0006_lote_numerado_por_tarefa",
+      "breakpoints": true
     }
   ]
 }

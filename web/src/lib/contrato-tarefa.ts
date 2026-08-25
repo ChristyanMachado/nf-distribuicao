@@ -11,9 +11,10 @@ type IndicadorIe = "CONTRIBUINTE" | "CONTRIBUINTE_ISENTO" | "NAO_CONTRIBUINTE";
 export type DadosContratoTarefa = {
   tarefa: {
     id: string;
-    status: string;
-    clienteId: string;
-    emitenteId: string;
+      status: string;
+      clienteId: string;
+      emitenteId: string;
+      numeroDistribuicao: number | null;
   };
   cliente: {
     nome: string;
@@ -94,6 +95,12 @@ export function montarContratoTarefaV1(dados: DadosContratoTarefa) {
     32,
   );
   if (!razaoSocial || !numeroEndereco) throw new Error("Destinatário fiscal incompleto.");
+  const nomeCliente = limitarTexto(dados.cliente.nome, "Nome do cliente", 160);
+  const numeroDistribuicao = exigirNumeroFinito(
+    dados.tarefa.numeroDistribuicao,
+    "Número da distribuição",
+    { minimo: 1, maximo: 1_000_000_000 },
+  );
 
   const inscricaoEstadual = limitarTexto(
     dados.cliente.inscricaoEstadual ?? "",
@@ -136,6 +143,8 @@ export function montarContratoTarefaV1(dados: DadosContratoTarefa) {
     tarefa: {
       id: exigirUuid(dados.tarefa.id, "Tarefa"),
       clienteId: exigirUuid(dados.tarefa.clienteId, "Cliente"),
+      nomeCliente,
+      numeroDistribuicao,
       emitente: {
         id: exigirUuid(dados.tarefa.emitenteId, "Emitente"),
         valorSelect,

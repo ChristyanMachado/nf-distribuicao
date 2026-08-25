@@ -47,8 +47,26 @@ try {
     where ativo = true
   `;
   const [tarefas] = await sql`
-    select count(*) filter (where status = 'PENDENTE')::int as pendentes
+    select
+      count(*) filter (where status = 'PENDENTE')::int as pendentes,
+      count(*) filter (where status = 'PENDENTE' and lote_id is null)::int as pendentes_sem_lote
     from fiscal.tarefas
+  `;
+  const [lotes] = await sql`
+    select
+      count(*)::int as total,
+      count(*) filter (where numero is not null)::int as numerados,
+      count(*) filter (where numero is null)::int as sem_numero
+    from fiscal.lotes_distribuicao
+  `;
+  const colunasLote = await sql`
+    select table_name, column_name
+    from information_schema.columns
+    where table_schema = 'fiscal'
+      and (
+        (table_name = 'lotes_distribuicao' and column_name = 'numero')
+        or (table_name = 'tarefas' and column_name = 'lote_id')
+      )
   `;
 
   console.log(JSON.stringify({
@@ -56,6 +74,8 @@ try {
     emitentes,
     produtos,
     tarefas,
+    lotes,
+    contratoDistribuicaoPronto: colunasLote.length === 2,
   }));
 } finally {
   await sql.end();

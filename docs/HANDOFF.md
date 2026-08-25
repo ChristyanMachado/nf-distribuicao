@@ -86,6 +86,12 @@ emitentes e reconhecer a tela final em homologação sem clicar em **Emitir**.
 - Sem `AUTORIZADA`, o Worker não baixa documentos e salva HTML + captura local
   de diagnóstico na pasta ignorada `worker/downloads/`, sem incluir o conteúdo
   fiscal no log.
+- A nomenclatura local de XML/DANFE agora usa tipo, nome curto do mercado (ou
+  razão social), número da distribuição e data. `0006` adiciona o contador
+  sequencial dos lotes e `tarefas.lote_id`, para que o número oficial venha do
+  banco e não seja inventado no Worker. A migração foi aplicada e verificada:
+  5 lotes numerados, colunas presentes e 8 tarefas pendentes antigas sem lote
+  preservadas para revisão; polling segue desligado para elas.
 - O cadastro Web de mercados passou a exigir todos os dados fiscais hoje
   confirmados e ganhou edição dos registros existentes.
 - O cadastro de emitentes também exige CNPJ, IE, referência da credencial e

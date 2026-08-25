@@ -3,6 +3,7 @@ import {
   uuid,
   text,
   numeric,
+  bigint,
   timestamp,
   boolean,
   uniqueIndex,
@@ -168,6 +169,8 @@ export const precosCliente = fiscalSchema.table(
 // diferentes feitas no mesmo dia.
 export const lotesDistribuicao = fiscalSchema.table("lotes_distribuicao", {
   id: uuid("id").primaryKey().defaultRandom(),
+  // Número sequencial visível ao usuário: Distribuição 000001, 000002...
+  numero: bigint("numero", { mode: "number" }),
   data: text("data").notNull(),
   criadoEm: timestamp("criado_em").notNull().defaultNow(),
 });
@@ -210,6 +213,9 @@ export const distribuicoes = fiscalSchema.table("distribuicoes", {
 
 export const tarefas = fiscalSchema.table("tarefas", {
   id: uuid("id").primaryKey().defaultRandom(),
+  // Cada tarefa pertence à rodada que a originou. Registros legados de teste
+  // podem permanecer nulos até revisão; novas distribuições sempre preenchem.
+  loteId: uuid("lote_id").references(() => lotesDistribuicao.id),
   clienteId: uuid("cliente_id").notNull().references(() => clientes.id),
   // Snapshot da escolha na distribuição. Não inferir pelo cadastro do cliente.
   emitenteId: uuid("emitente_id").notNull().references(() => emitentes.id),

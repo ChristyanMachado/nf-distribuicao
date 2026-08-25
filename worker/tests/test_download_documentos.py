@@ -87,6 +87,8 @@ def _tarefa() -> Tarefa:
             cep="80000000",
             numero_endereco="1",
         ),
+        nome_cliente="Mercado do Bairro",
+        numero_distribuicao=42,
     )
 
 
@@ -107,7 +109,8 @@ def test_baixa_xml_e_danfe_com_nomes_proprios(tmp_path: Path) -> None:
     assert Path(resultado["pdf_path"]).is_file()
     assert Path(resultado["xml_path"]).suffix == ".xml"
     assert Path(resultado["pdf_path"]).suffix == ".pdf"
-    assert "TAREFA-TESTE" in resultado["pdf_path"]
+    assert "Mercado-do-Bairro" in resultado["pdf_path"]
+    assert "Distribuicao-000042" in resultado["pdf_path"]
 
 
 def test_falha_de_download_para_sem_expor_resposta_fiscal(tmp_path: Path) -> None:

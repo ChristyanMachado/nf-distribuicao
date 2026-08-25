@@ -214,7 +214,7 @@ export async function processarDistribuicao(input: {
             and(
               eq(tarefas.clienteId, linha.clienteId),
               eq(tarefas.emitenteId, linha.emitenteId),
-              eq(tarefas.data, input.data),
+              eq(tarefas.loteId, lote.id),
               eq(tarefas.status, "PENDENTE")
             )
           )
@@ -226,6 +226,7 @@ export async function processarDistribuicao(input: {
             await tx
               .insert(tarefas)
               .values({
+                loteId: lote.id,
                 clienteId: linha.clienteId,
                 emitenteId: linha.emitenteId,
                 data: input.data,
