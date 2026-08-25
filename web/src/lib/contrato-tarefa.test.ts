@@ -12,7 +12,7 @@ function dadosValidos(): DadosContratoTarefa {
     cliente: {
       nome: "Mercado",
       destinatarioNome: "Mercado de Teste Ltda.",
-      cnpj: "00.000.000/0001-00",
+      cnpj: "48.188.487/0001-04",
       indicadorIe: "CONTRIBUINTE",
       inscricaoEstadual: "1234567890",
       cep: "80000-000",
@@ -50,7 +50,7 @@ describe("montarContratoTarefaV1", () => {
     const contrato = montarContratoTarefaV1(dadosValidos());
 
     expect(contrato.ambiente).toBe("teste");
-    expect(contrato.tarefa.destinatario.cnpj).toBe("00000000000100");
+    expect(contrato.tarefa.destinatario.cnpj).toBe("48188487000104");
     expect(contrato.tarefa.itens[0].quantidade).toBe(2.5);
     expect(JSON.stringify(contrato)).not.toMatch(/senha|password|loginUsuario/);
   });

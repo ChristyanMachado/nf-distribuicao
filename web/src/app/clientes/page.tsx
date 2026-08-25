@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import Card from "@/components/Card";
 import { Label } from "@/components/Field";
 import PrimaryButton from "@/components/PrimaryButton";
-import { criarCliente, listarClientes, listarEmitentes } from "./actions";
+import { atualizarCliente, criarCliente, listarClientes, listarEmitentes } from "./actions";
 import { db } from "@/db";
 import { clienteEmitentes } from "@/db/schema";
 
@@ -39,25 +39,26 @@ export default async function ClientesPage() {
             <Label>Razão social para a nota</Label>
             <input
               name="destinatarioNome"
+              required
               className="w-full"
-              placeholder="Se vazio, usa o nome acima"
+              placeholder="Razão social do destinatário"
             />
           </div>
           <div>
             <Label>CNPJ</Label>
-            <input name="cnpj" className="font-mono-tab w-full" />
+            <input name="cnpj" required inputMode="numeric" className="font-mono-tab w-full" placeholder="00.000.000/0000-00" />
           </div>
           <div>
             <Label>Inscrição estadual (do cliente)</Label>
-            <input name="inscricaoEstadual" className="font-mono-tab w-full" />
+            <input name="inscricaoEstadual" required inputMode="numeric" className="font-mono-tab w-full" />
           </div>
           <div>
             <Label>CEP</Label>
-            <input name="cep" className="font-mono-tab w-full" placeholder="00000-000" />
+            <input name="cep" required inputMode="numeric" className="font-mono-tab w-full" placeholder="00000-000" />
           </div>
           <div>
             <Label>Número</Label>
-            <input name="numeroEndereco" className="font-mono-tab w-full" />
+            <input name="numeroEndereco" required className="font-mono-tab w-full" />
           </div>
           <div className="sm:col-span-2">
             <Label>Emitentes habilitados</Label>
@@ -71,6 +72,9 @@ export default async function ClientesPage() {
             </div>
             <p className="mt-1 text-[12px] text-[var(--ink-faint)]">
               Escolha os emitentes que podem atender este cliente. A escolha final é feita em cada distribuição.
+            </p>
+            <p className="mt-1 text-[12px] text-[var(--ink-faint)]">
+              O fluxo atual considera o destinatário contribuinte de ICMS; por isso a inscrição estadual é obrigatória.
             </p>
           </div>
           <div className="sm:col-span-2 mt-1">
@@ -104,6 +108,59 @@ export default async function ClientesPage() {
                     emitentes: {emitentesDoCliente.map((emitente) => emitente.nome).join(", ")}
                   </p>
                 )}
+                <details className="mt-3 border-t border-[var(--line)] pt-3">
+                  <summary className="tap-target cursor-pointer text-[13px] font-medium text-[var(--ink-soft)]">
+                    Revisar ou corrigir cadastro fiscal
+                  </summary>
+                  <form action={atualizarCliente} className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <input type="hidden" name="clienteId" value={c.id} />
+                    <div className="sm:col-span-2">
+                      <Label>Nome curto</Label>
+                      <input name="nome" required defaultValue={c.nome} className="w-full" />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <Label>Razão social para a nota</Label>
+                      <input name="destinatarioNome" required defaultValue={c.destinatarioNome ?? ""} className="w-full" />
+                    </div>
+                    <div>
+                      <Label>CNPJ</Label>
+                      <input name="cnpj" required inputMode="numeric" defaultValue={c.cnpj ?? ""} className="font-mono-tab w-full" />
+                    </div>
+                    <div>
+                      <Label>Inscrição estadual</Label>
+                      <input name="inscricaoEstadual" required inputMode="numeric" defaultValue={c.inscricaoEstadual ?? ""} className="font-mono-tab w-full" />
+                    </div>
+                    <div>
+                      <Label>CEP</Label>
+                      <input name="cep" required inputMode="numeric" defaultValue={c.cep ?? ""} className="font-mono-tab w-full" />
+                    </div>
+                    <div>
+                      <Label>Número</Label>
+                      <input name="numeroEndereco" required defaultValue={c.numeroEndereco ?? ""} className="font-mono-tab w-full" />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <Label>Emitentes habilitados</Label>
+                      <div className="flex flex-wrap gap-2">
+                        {emitentes.map((emitente) => (
+                          <label key={emitente.id} className="flex items-center gap-2 rounded border border-[var(--line)] px-3 py-2 text-sm">
+                            <input
+                              type="checkbox"
+                              name="emitenteIds"
+                              value={emitente.id}
+                              defaultChecked={emitentesDoCliente.some((item) => item.id === emitente.id)}
+                            />
+                            {emitente.nome}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="sm:col-span-2">
+                      <PrimaryButton type="submit" className="w-full py-2.5 sm:w-auto">
+                        Salvar cadastro fiscal
+                      </PrimaryButton>
+                    </div>
+                  </form>
+                </details>
               </div>
             );
           })}

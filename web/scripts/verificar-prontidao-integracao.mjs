@@ -1,0 +1,62 @@
+import postgres from "postgres";
+
+const connectionString = process.env.DATABASE_URL;
+if (!connectionString) throw new Error("DATABASE_URL não definida.");
+
+const sql = postgres(connectionString, { prepare: false });
+
+try {
+  const [clientes] = await sql`
+    select
+      count(*)::int as total_ativos,
+      count(*) filter (
+        where nullif(trim(destinatario_nome), '') is null
+           or length(regexp_replace(coalesce(cnpj, ''), '\\D', '', 'g')) <> 14
+           or nullif(trim(inscricao_estadual), '') is null
+           or length(regexp_replace(coalesce(cep, ''), '\\D', '', 'g')) <> 8
+           or nullif(trim(numero_endereco), '') is null
+      )::int as cadastros_incompletos
+    from fiscal.clientes
+    where ativo = true
+  `;
+  const [semEmitente] = await sql`
+    select count(*)::int as clientes_sem_emitente
+    from fiscal.clientes c
+    where c.ativo = true
+      and not exists (
+        select 1 from fiscal.cliente_emitentes ce where ce.cliente_id = c.id
+      )
+  `;
+  const [emitentes] = await sql`
+    select
+      count(*)::int as total_ativos,
+      count(*) filter (
+        where nullif(trim(credencial_referencia), '') is null
+           or nullif(trim(valor_select_nfpe), '') is null
+      )::int as integracao_incompleta
+    from fiscal.emitentes
+    where ativo = true
+  `;
+  const [produtos] = await sql`
+    select
+      count(*)::int as total_ativos,
+      count(*) filter (
+        where nullif(trim(codigo_fiscal), '') is null or regra_fiscal_id is null
+      )::int as cadastros_incompletos
+    from fiscal.produtos
+    where ativo = true
+  `;
+  const [tarefas] = await sql`
+    select count(*) filter (where status = 'PENDENTE')::int as pendentes
+    from fiscal.tarefas
+  `;
+
+  console.log(JSON.stringify({
+    clientes: { ...clientes, ...semEmitente },
+    emitentes,
+    produtos,
+    tarefas,
+  }));
+} finally {
+  await sql.end();
+}

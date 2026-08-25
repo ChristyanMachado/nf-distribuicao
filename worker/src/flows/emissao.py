@@ -21,6 +21,7 @@ import os
 import re
 import threading
 from datetime import datetime, timezone
+from urllib.parse import urlsplit
 from dataclasses import dataclass, field
 
 from playwright.async_api import Page
@@ -47,6 +48,10 @@ class DadosFiscaisIncompletos(Exception):
     inventando o valor — a correção é obter o dado real e completar o
     cadastro do produto/tarefa.
     """
+
+
+class EmissaoBloqueada(RuntimeError):
+    """A trava de homologação impediu o clique fiscal."""
 
 
 # ---------------------------------------------------------------------------
@@ -1113,8 +1118,15 @@ def validar_antes_de_emitir(page: Page, tarefa: Tarefa, logger: logging.Logger) 
     return resposta.strip().lower() == "s"
 
 
-async def emitir(page: Page, tarefa: Tarefa, logger: logging.Logger) -> None:
-    """Fluxo final: Produtos → Transporte → Resumo total → botão Emitir."""
+async def emitir(
+    page: Page,
+    tarefa: Tarefa,
+    logger: logging.Logger,
+    *,
+    ambiente: str,
+) -> None:
+    """Clica em Emitir somente quando a Page está no domínio de homologação."""
+    _exigir_pagina_homologacao(page.url, ambiente)
     logger.info(f"[{tarefa.tarefa_id}] Emitindo nota")
     try:
         await page.get_by_role("button", name="Emitir", exact=True).click()
@@ -1122,6 +1134,20 @@ async def emitir(page: Page, tarefa: Tarefa, logger: logging.Logger) -> None:
     except Exception as e:  # noqa: BLE001 — tentativa educada, não é seletor confirmado
         logger.warning(f"Botão 'Emitir' não encontrado ({e}) — confirmar seletor com o Inspector.")
         raise NotImplementedError("Botão de emissão não está disponível.") from e
+
+
+def _exigir_pagina_homologacao(url_atual: str, ambiente: str) -> None:
+    """Defesa final contra emissão acidental no ambiente fiscal normal."""
+    url = urlsplit(url_atual)
+    if (
+        ambiente != "teste"
+        or url.scheme != "https"
+        or url.hostname != "homologacao.nfae.fazenda.pr.gov.br"
+        or not url.path.startswith("/nfae/")
+    ):
+        raise EmissaoBloqueada(
+            "Emissão bloqueada: a página atual não pertence à homologação NFP-e TESTES."
+        )
 
 
 async def cancelar_nota(page: Page, numero_nota: str, motivo: str, logger: logging.Logger) -> None:
@@ -1159,6 +1185,7 @@ async def baixar_documentos(page: Page, tarefa: Tarefa, download_dir: str, logge
         page=page,
         nome_botao="Baixar XML",
         destino=_caminho_documento(download_dir, tarefa.tarefa_id, "xml", "xml"),
+        extensao="xml",
         tarefa_id=tarefa.tarefa_id,
         logger=logger,
     )
@@ -1166,6 +1193,7 @@ async def baixar_documentos(page: Page, tarefa: Tarefa, download_dir: str, logge
         page=page,
         nome_botao="Visualizar DANFE",
         destino=_caminho_documento(download_dir, tarefa.tarefa_id, "danfe", "pdf"),
+        extensao="pdf",
         tarefa_id=tarefa.tarefa_id,
         logger=logger,
     )
@@ -1177,16 +1205,20 @@ async def _baixar_documento(
     page: Page,
     nome_botao: str,
     destino: str,
+    extensao: str,
     tarefa_id: str,
     logger: logging.Logger,
 ) -> str:
     try:
-        async with page.expect_download(timeout=30_000) as evento_download:
-            await page.get_by_role("button", name=nome_botao, exact=True).click()
+        async with page.expect_download(timeout=60_000) as evento_download:
+            await page.get_by_role("button", name=nome_botao, exact=True).click(
+                timeout=60_000
+            )
         download = await evento_download.value
         if await download.failure():
             raise FalhaDownloadDocumento("O navegador informou falha no download.")
         await download.save_as(destino)
+        _validar_arquivo_baixado(destino, extensao)
     except FalhaDownloadDocumento:
         raise
     except Exception as exc:  # noqa: BLE001 — não registrar resposta fiscal bruta
@@ -1206,5 +1238,32 @@ async def _baixar_documento(
 def _caminho_documento(download_dir: str, tarefa_id: str, tipo: str, extensao: str) -> str:
     """Gera nome estável, sem usar o nome genérico fornecido pela Receita."""
     identificador = re.sub(r"[^A-Za-z0-9_-]+", "-", tarefa_id).strip("-") or "tarefa"
-    instante = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    instante = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
     return os.path.join(download_dir, f"{tipo}_{identificador}_{instante}.{extensao}")
+
+
+def _validar_arquivo_baixado(caminho: str, extensao: str) -> None:
+    """Recusa resposta vazia, HTML de erro disfarçado ou arquivo excessivo."""
+    tamanho = os.path.getsize(caminho)
+    if tamanho < 1 or tamanho > 20 * 1024 * 1024:
+        _remover_download_invalido(caminho)
+        raise FalhaDownloadDocumento("Documento baixado possui tamanho inválido.")
+
+    with open(caminho, "rb") as arquivo:
+        inicio = arquivo.read(1024)
+    if extensao == "pdf":
+        valido = inicio.startswith(b"%PDF-")
+    else:
+        valido = inicio.lstrip(b"\xef\xbb\xbf \t\r\n").startswith(b"<")
+    if not valido:
+        _remover_download_invalido(caminho)
+        raise FalhaDownloadDocumento(
+            "Documento baixado não corresponde ao formato esperado."
+        )
+
+
+def _remover_download_invalido(caminho: str) -> None:
+    try:
+        os.unlink(caminho)
+    except FileNotFoundError:
+        pass

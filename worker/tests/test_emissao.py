@@ -3,12 +3,22 @@ Testa que a confirmação humana (validar_antes_de_emitir) é serializada
 entre threads — sem isso, com RF14 (3 sessões em paralelo), dois clientes
 podem disputar o mesmo input() do terminal ao mesmo tempo.
 """
+import asyncio
 import logging
 import threading
 import time
 from unittest.mock import patch
 
-from src.flows.emissao import Destinatario, Emitente, Tarefa, validar_antes_de_emitir
+import pytest
+
+from src.flows.emissao import (
+    Destinatario,
+    Emitente,
+    EmissaoBloqueada,
+    Tarefa,
+    emitir,
+    validar_antes_de_emitir,
+)
 
 
 def _logger_silencioso() -> logging.Logger:
@@ -66,3 +76,57 @@ def test_confirmacao_humana_e_serializada_entre_threads():
 
     assert max(picos_simultaneos) == 1, "mais de um input() rodou ao mesmo tempo — lock não está funcionando"
     assert resultados == [True, True, True]
+
+
+class BotaoEmitirFalso:
+    def __init__(self) -> None:
+        self.clicado = False
+
+    async def click(self) -> None:
+        self.clicado = True
+
+
+class PaginaEmissaoFalsa:
+    def __init__(self, url: str) -> None:
+        self.url = url
+        self.botao = BotaoEmitirFalso()
+
+    def get_by_role(self, papel: str, *, name: str, exact: bool):
+        assert papel == "button"
+        assert name == "Emitir"
+        assert exact is True
+        return self.botao
+
+
+def test_emitir_clica_somente_no_dominio_de_homologacao():
+    pagina = PaginaEmissaoFalsa(
+        "https://homologacao.nfae.fazenda.pr.gov.br/nfae/produtor/emitir/resumo"
+    )
+
+    asyncio.run(emitir(pagina, _tarefa_fake("T1"), _logger_silencioso(), ambiente="teste"))
+
+    assert pagina.botao.clicado is True
+
+
+@pytest.mark.parametrize(
+    ("url", "ambiente"),
+    [
+        ("https://nfae.fazenda.pr.gov.br/nfae/produtor/emitir/resumo", "teste"),
+        ("https://homologacao.nfae.fazenda.pr.gov.br/nfae/produtor/emitir/resumo", "normal"),
+        ("https://homologacao.nfae.fazenda.pr.gov.br.evil.example/nfae/x", "teste"),
+    ],
+)
+def test_emitir_bloqueia_fora_da_homologacao(url, ambiente):
+    pagina = PaginaEmissaoFalsa(url)
+
+    with pytest.raises(EmissaoBloqueada, match="homologação"):
+        asyncio.run(
+            emitir(
+                pagina,
+                _tarefa_fake("T1"),
+                _logger_silencioso(),
+                ambiente=ambiente,
+            )
+        )
+
+    assert pagina.botao.clicado is False

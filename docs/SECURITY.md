@@ -83,5 +83,14 @@ testes.
 - [ ] revisão manual do diff e teste de autorização em ambiente de preview;
 - [ ] emissão de produção continua desabilitada até aprovação explícita.
 
+### Trava do teste fiscal
+
+`TESTAR_EMISSAO_HOMOLOGACAO` não é uma liberação genérica. O Worker recusa o
+clique se a configuração não for `teste` ou se a URL atual não pertencer ao
+host HTTPS exato da homologação. O primeiro teste também exige uma única
+tarefa visível e confirmação humana. A integração futura deverá preservar
+essa separação e possuir uma trava diferente, explicitamente aprovada, para
+produção.
+
 Referências de implementação: [CSP no Next.js](https://nextjs.org/docs/app/guides/content-security-policy)
 e [cabeçalhos no Next.js](https://nextjs.org/docs/app/api-reference/config/next-config-js/headers).

@@ -1,4 +1,10 @@
-import { exigirNumeroFinito, exigirUuid, limitarTexto } from "./validacao";
+import {
+  exigirCep,
+  exigirCnpj,
+  exigirNumeroFinito,
+  exigirUuid,
+  limitarTexto,
+} from "./validacao";
 
 type IndicadorIe = "CONTRIBUINTE" | "CONTRIBUINTE_ISENTO" | "NAO_CONTRIBUINTE";
 
@@ -75,8 +81,8 @@ export function montarContratoTarefaV1(dados: DadosContratoTarefa) {
     throw new Error("Emitente sem identificador NFP-e válido.");
   }
 
-  const cnpj = somenteDigitos(dados.cliente.cnpj, "CNPJ", 14);
-  const cep = somenteDigitos(dados.cliente.cep, "CEP", 8);
+  const cnpj = exigirCnpj(dados.cliente.cnpj ?? "");
+  const cep = exigirCep(dados.cliente.cep ?? "");
   const razaoSocial = limitarTexto(
     dados.cliente.destinatarioNome || dados.cliente.nome,
     "Razão social",
@@ -173,12 +179,6 @@ export function montarContratoTarefaV1(dados: DadosContratoTarefa) {
 function textoObrigatorio(valor: string | null, campo: string, maximo: number) {
   const texto = limitarTexto(valor ?? "", campo, maximo);
   if (!texto) throw new Error(`${campo} obrigatório.`);
-  return texto;
-}
-
-function somenteDigitos(valor: string | null, campo: string, tamanho: number) {
-  const texto = (valor ?? "").replace(/\D/g, "");
-  if (texto.length !== tamanho) throw new Error(`${campo} inválido.`);
   return texto;
 }
 

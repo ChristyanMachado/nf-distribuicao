@@ -48,6 +48,10 @@ Para testes, há três níveis deliberadamente separados:
 - navegação: usa as mesmas credenciais e respeita `AMBIENTE_EMISSAO`;
 - preenchimento completo: exige também `CLIENTE_X_EMITENTE`, pois seleciona
   o emitente na tela NFP-e. Continua parando antes de **Emitir**.
+- emissão controlada de homologação: exige todas as etapas anteriores,
+  `TESTAR_EMISSAO_HOMOLOGACAO=true`, um único cliente, navegador visível,
+  confirmação humana e validação do host da Page. Nunca aceita o ambiente
+  `normal`.
 
 ## Modelo de domínio
 

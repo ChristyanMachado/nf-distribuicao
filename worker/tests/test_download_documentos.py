@@ -17,8 +17,9 @@ from src.flows.emissao import (
 
 
 class DownloadFalso:
-    def __init__(self, falha: str | None = None) -> None:
+    def __init__(self, falha: str | None = None, conteudo: bytes | None = None) -> None:
         self.falha = falha
+        self.conteudo = conteudo
         self.destino: str | None = None
 
     async def failure(self) -> str | None:
@@ -26,7 +27,12 @@ class DownloadFalso:
 
     async def save_as(self, destino: str) -> None:
         self.destino = destino
-        Path(destino).write_text("documento de teste", encoding="utf-8")
+        conteudo = self.conteudo or (
+            b"%PDF-1.7\nconteudo"
+            if destino.endswith(".pdf")
+            else b"<?xml version='1.0'?><nfe/>"
+        )
+        Path(destino).write_bytes(conteudo)
 
 
 class EsperaDownloadFalsa:
@@ -48,7 +54,8 @@ class BotaoFalso:
         self.nome = nome
         self.cliques = cliques
 
-    async def click(self) -> None:
+    async def click(self, *, timeout: int) -> None:
+        assert timeout == 60_000
         self.cliques.append(self.nome)
 
 
@@ -58,7 +65,7 @@ class PaginaFalsa:
         self.cliques: list[str] = []
 
     def expect_download(self, *, timeout: int):
-        assert timeout == 30_000
+        assert timeout == 60_000
         return EsperaDownloadFalsa(self.downloads.pop(0))
 
     def get_by_role(self, papel: str, *, name: str, exact: bool) -> BotaoFalso:
@@ -110,3 +117,12 @@ def test_falha_de_download_para_sem_expor_resposta_fiscal(tmp_path: Path) -> Non
         asyncio.run(baixar_documentos(pagina, _tarefa(), str(tmp_path), _logger()))
 
     assert pagina.cliques == ["Baixar XML"]
+
+
+def test_resposta_html_disfarcada_de_xml_e_removida(tmp_path: Path) -> None:
+    pagina = PaginaFalsa([DownloadFalso(conteudo=b"erro sem formato fiscal")])
+
+    with pytest.raises(FalhaDownloadDocumento, match="formato esperado"):
+        asyncio.run(baixar_documentos(pagina, _tarefa(), str(tmp_path), _logger()))
+
+    assert list(tmp_path.iterdir()) == []

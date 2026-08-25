@@ -34,3 +34,34 @@ export function limitarTexto(valor: string, campo: string, maximo: number): stri
   if (texto.length > maximo) throw new Error(`${campo} é muito longo.`);
   return texto;
 }
+
+export function exigirCnpj(valor: string, campo = "CNPJ"): string {
+  const cnpj = valor.replace(/\D/g, "");
+  if (cnpj.length !== 14 || /^(\d)\1{13}$/.test(cnpj)) {
+    throw new Error(`${campo} inválido.`);
+  }
+
+  const calcularDigito = (base: string, pesos: number[]) => {
+    const soma = base
+      .split("")
+      .reduce((total, digito, indice) => total + Number(digito) * pesos[indice], 0);
+    const resto = soma % 11;
+    return resto < 2 ? 0 : 11 - resto;
+  };
+  const primeiro = calcularDigito(cnpj.slice(0, 12), [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]);
+  const segundo = calcularDigito(`${cnpj.slice(0, 12)}${primeiro}`, [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]);
+  if (cnpj.slice(-2) !== `${primeiro}${segundo}`) throw new Error(`${campo} inválido.`);
+  return cnpj;
+}
+
+export function exigirCep(valor: string, campo = "CEP"): string {
+  const cep = valor.replace(/\D/g, "");
+  if (cep.length !== 8 || cep === "00000000") throw new Error(`${campo} inválido.`);
+  return cep;
+}
+
+export function exigirInscricaoEstadual(valor: string): string {
+  const ie = valor.replace(/\D/g, "");
+  if (ie.length < 2 || ie.length > 20) throw new Error("Inscrição estadual inválida.");
+  return ie;
+}

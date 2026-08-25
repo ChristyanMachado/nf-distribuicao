@@ -17,6 +17,10 @@ O sistema organiza a distribuição de produtos e automatiza, futuramente, a emi
 - XML e DANFE são capturados por `expect_download()` e recebem nome próprio
   baseado na tarefa; a confirmação textual de autorizado/rejeitado ainda não
   foi reconhecida para automação.
+- A emissão controlada pode ser ativada somente por
+  `TESTAR_EMISSAO_HOMOLOGACAO=true`. Configuração e URL da Page são validadas,
+  há confirmação humana e somente um cliente visível pode executar. Roteiro:
+  `docs/TESTE-WORKER-HOMOLOGACAO.md`.
 - `AMBIENTE_EMISSAO=teste` é o padrão. Não executar testes de preenchimento no ambiente fiscal normal sem uma decisão consciente.
 - O smoke test de login/navegação não precisa mais de `CLIENTE_X_EMITENTE`.
   Esse valor só é exigido ao ativar `TESTAR_PREENCHIMENTO_COMPLETO=true`,
@@ -70,6 +74,13 @@ O resultado técnico detalhado e seletores reconhecidos estão em `docs/HANDOFF.
   rodadas diferentes. Ele não exibe valores monetários.
 - O contrato v1 agora rejeita UUIDs/formato/opções inválidas, `NaN`, infinito,
   valores excessivos e mais de 200 itens antes de abrir o navegador.
+- O cadastro de mercados agora exige razão social, CNPJ válido, IE, CEP,
+  número e emitente ativo; registros existentes podem ser corrigidos na
+  própria página `/clientes`.
+- Auditoria de prontidão do banco de teste em 25/08: 2/2 clientes ativos
+  incompletos, 1/1 emitente sem referência/identificador NFP-e, 3/3 produtos
+  completos e 8 tarefas pendentes. Não ligar polling enquanto esses registros
+  e tarefas antigas não forem revisados.
 
 ## Princípios imutáveis
 

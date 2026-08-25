@@ -376,6 +376,12 @@ Ainda falta capturar o seletor/texto de status da autorização, os totais do
 Resumo e eventual modal intermediário. Nenhum código de execução automática
 de emissão foi ligado ao `main.py` nesta etapa.
 
+Atualização posterior: o `main.py` pode executar uma emissão **somente em
+homologação** quando `TESTAR_EMISSAO_HOMOLOGACAO=true`. A flag é bloqueada em
+ambiente normal e o próprio `emitir()` confere o host da Page antes de clicar.
+O fluxo pede confirmação humana e aceita apenas um cliente visível neste
+primeiro teste. Produção continua indisponível.
+
 11. Validação atual do fluxo
 
 Confirmado ao vivo

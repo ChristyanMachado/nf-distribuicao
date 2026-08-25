@@ -3,9 +3,9 @@
 Enquanto a migração está em andamento, este ponto de entrada executa somente
 testes controlados sobre Async Playwright: autenticação, navegação até a
 emissão e (opcionalmente) o preenchimento completo do formulário — sem
-nunca clicar em "Emitir". O fluxo fiscal completo automatizado (emissão de
-verdade) permanece desabilitado até que todas as etapas sejam validadas ao
-vivo.
+nunca emitir no ambiente normal. Uma emissão controlada em homologação pode
+ser liberada por flag explícita e confirmação humana; produção permanece
+desabilitada.
 """
 
 from __future__ import annotations
@@ -41,6 +41,26 @@ async def preencher_formulario_completo(page, tarefa: Tarefa, logger) -> None:
     await fluxo_emissao.avancar_local_retirada(page, logger)
     await fluxo_emissao.preencher_produtos(page, tarefa, logger)
     await fluxo_emissao.preencher_transporte(page, tarefa, logger)
+
+
+async def executar_emissao_homologacao(page, tarefa: Tarefa, config: Config, logger):
+    """Executa o trecho irreversível somente após a conferência humana."""
+    if not fluxo_emissao.validar_antes_de_emitir(page, tarefa, logger):
+        logger.warning("[%s] Emissão cancelada pela conferência humana", tarefa.tarefa_id)
+        return None
+
+    await fluxo_emissao.emitir(
+        page,
+        tarefa,
+        logger,
+        ambiente=config.ambiente_emissao,
+    )
+    return await fluxo_emissao.baixar_documentos(
+        page,
+        tarefa,
+        config.download_dir,
+        logger,
+    )
 
 
 def preparar_tarefa_para_cliente(
@@ -116,9 +136,32 @@ async def teste_autenticacao(
                 await preencher_formulario_completo(page, tarefa_cliente, logger)
                 logger.info(
                     "[%s] PREENCHIMENTO COMPLETO OK — parado antes de 'Emitir' "
-                    "(não implementado/testado de propósito)",
+                    "(emissão desabilitada por padrão)",
                     tarefa_id,
                 )
+
+                if config.testar_emissao_homologacao:
+                    logger.warning(
+                        "[%s] TESTE CONTROLADO DE EMISSÃO EM HOMOLOGAÇÃO habilitado",
+                        tarefa_id,
+                    )
+                    documentos = await executar_emissao_homologacao(
+                        page,
+                        tarefa_cliente,
+                        config,
+                        logger,
+                    )
+                    if documentos is None:
+                        return
+                    logger.info(
+                        "[%s] EMISSÃO DE HOMOLOGAÇÃO E DOWNLOADS CONCLUÍDOS (%s)",
+                        tarefa_id,
+                        ", ".join(sorted(documentos)),
+                    )
+                    input(
+                        "Resultado aberto para inspeção. Capture o HTML/status "
+                        "necessário e pressione Enter para fechar o Chromium..."
+                    )
 
         # Mantém a página visível brevemente para conferência manual.
         if not config.headless:

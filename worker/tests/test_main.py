@@ -1,8 +1,13 @@
 """Testes puros para a separação entre smoke test e preenchimento fiscal."""
 
+import asyncio
+import logging
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, patch
+
 import pytest
 
-from main import preparar_tarefa_para_cliente
+from main import executar_emissao_homologacao, preparar_tarefa_para_cliente
 from src.flows.emissao import Destinatario, Emitente, Tarefa
 
 
@@ -44,3 +49,46 @@ def test_preenchimento_substitui_emitente_pela_sessao_do_cliente():
     assert tarefa_cliente is not None
     assert tarefa_cliente.emitente.valor_select == "emitente-da-sessao"
     assert tarefa.emitente.valor_select == "emitente-original"
+
+
+def test_emissao_controlada_encadeia_emitir_e_downloads():
+    tarefa = _tarefa_de_teste()
+    config = SimpleNamespace(ambiente_emissao="teste", download_dir="downloads")
+    logger = logging.getLogger("teste-main-emissao")
+
+    with (
+        patch("main.fluxo_emissao.validar_antes_de_emitir", return_value=True),
+        patch("main.fluxo_emissao.emitir", new_callable=AsyncMock) as emitir_mock,
+        patch(
+            "main.fluxo_emissao.baixar_documentos",
+            new_callable=AsyncMock,
+            return_value={"xml_path": "x.xml", "pdf_path": "x.pdf"},
+        ) as baixar_mock,
+    ):
+        resultado = asyncio.run(
+            executar_emissao_homologacao(object(), tarefa, config, logger)
+        )
+
+    assert resultado == {"xml_path": "x.xml", "pdf_path": "x.pdf"}
+    emitir_mock.assert_awaited_once()
+    assert emitir_mock.await_args.kwargs["ambiente"] == "teste"
+    baixar_mock.assert_awaited_once()
+
+
+def test_emissao_cancelada_na_conferencia_nao_clica_nem_baixa():
+    tarefa = _tarefa_de_teste()
+    config = SimpleNamespace(ambiente_emissao="teste", download_dir="downloads")
+    logger = logging.getLogger("teste-main-cancelamento")
+
+    with (
+        patch("main.fluxo_emissao.validar_antes_de_emitir", return_value=False),
+        patch("main.fluxo_emissao.emitir", new_callable=AsyncMock) as emitir_mock,
+        patch("main.fluxo_emissao.baixar_documentos", new_callable=AsyncMock) as baixar_mock,
+    ):
+        resultado = asyncio.run(
+            executar_emissao_homologacao(object(), tarefa, config, logger)
+        )
+
+    assert resultado is None
+    emitir_mock.assert_not_awaited()
+    baixar_mock.assert_not_awaited()

@@ -63,6 +63,36 @@ emitentes e reconhecer a tela final em homologação sem clicar em **Emitir**.
 - Validação desta continuação: **63 testes Worker**, `compileall` e
   `git diff --check` passaram.
 
+## Continuação — emissão controlada pronta para teste
+
+- `TESTAR_EMISSAO_HOMOLOGACAO=true` liga o circuito
+  preenchimento → conferência humana → Emitir → XML → DANFE.
+- Há bloqueio em configuração e no instante do clique: ambiente precisa ser
+  `teste`, host precisa ser exatamente o da homologação, `HEADLESS=false` e
+  apenas um cliente pode estar ativo.
+- Downloads inválidos, vazios, acima de 20 MB ou com assinatura incompatível
+  são recusados e removidos.
+- O navegador permanece aberto após o download para captura do status
+  Autorizada/Rejeitada. Passo a passo em
+  `docs/TESTE-WORKER-HOMOLOGACAO.md`.
+- O cadastro Web de mercados passou a exigir todos os dados fiscais hoje
+  confirmados e ganhou edição dos registros existentes.
+- Validação local: **74 testes Worker**, **46 testes Web**, `tsc --noEmit` e
+  build de produção passaram.
+
+Próximo gate: executar uma emissão em homologação seguindo o roteiro. Somente
+depois do resultado real implementar polling/reserva atômica do banco e envio
+de documentos ao Storage, para não misturar diagnóstico do Playwright com o
+da integração distribuída.
+
+Auditoria do banco de teste, sem exibir dados: 2 clientes ativos e os 2 ainda
+estão fiscalmente incompletos; nenhum está sem vínculo de emitente. Há 1
+emitente ativo sem `credencial_referencia`/`valor_select_nfpe`, 3 produtos
+ativos completos e 8 tarefas pendentes. Portanto, o polling permanece
+desligado: primeiro corrigir os cadastros pela nova edição em `/clientes` e
+completar o emitente; tarefas antigas deverão ser revisadas antes de serem
+consideradas elegíveis.
+
 ## Atualização de contexto — 24/08/2026
 
 O marco anterior `59da6cc` implementou a relação emitente por tarefa no Web. O teste/demonstração mais recente confirmou preenchimento em homologação com múltiplos contextos, sem clicar em **Emitir**. A carga local (transmissão e outros programas) afetou a velocidade, mas falhas continuaram isoladas por contexto.

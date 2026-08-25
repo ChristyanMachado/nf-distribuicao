@@ -14,8 +14,11 @@ def _preparar_env_minimo(monkeypatch):
     monkeypatch.setenv("SISTEMA_FISCAL_URL", "https://receita.pr.gov.br/login")
     monkeypatch.delenv("TESTAR_NAVEGACAO_EMISSAO", raising=False)
     monkeypatch.delenv("TESTAR_PREENCHIMENTO_COMPLETO", raising=False)
+    monkeypatch.delenv("TESTAR_EMISSAO_HOMOLOGACAO", raising=False)
     monkeypatch.delenv("MAX_CONCORRENCIA", raising=False)
     monkeypatch.delenv("AMBIENTE_EMISSAO", raising=False)
+    monkeypatch.setenv("CLIENTES_ATIVOS", "CLIENTE_A")
+    monkeypatch.setenv("HEADLESS", "false")
 
 
 def test_preenchimento_completo_sem_navegacao_emissao_falha_claro(monkeypatch):
@@ -150,6 +153,52 @@ def test_ambiente_emissao_invalido_falha_com_mensagem_clara(monkeypatch):
     monkeypatch.setenv("AMBIENTE_EMISSAO", "producao")
 
     with pytest.raises(RuntimeError, match="AMBIENTE_EMISSAO"):
+        carregar_config()
+
+
+def _habilitar_emissao_homologacao(monkeypatch):
+    _preparar_env_minimo(monkeypatch)
+    monkeypatch.setenv("TESTAR_NAVEGACAO_EMISSAO", "true")
+    monkeypatch.setenv("TESTAR_PREENCHIMENTO_COMPLETO", "true")
+    monkeypatch.setenv("TESTAR_EMISSAO_HOMOLOGACAO", "true")
+
+
+def test_emissao_homologacao_controlada_carrega_com_todas_as_travas(monkeypatch):
+    _habilitar_emissao_homologacao(monkeypatch)
+
+    config = carregar_config()
+
+    assert config.testar_emissao_homologacao is True
+    assert config.ambiente_emissao == "teste"
+    assert config.headless is False
+    assert config.clientes_ativos == ("CLIENTE_A",)
+
+
+def test_emissao_homologacao_sem_preenchimento_e_bloqueada(monkeypatch):
+    _habilitar_emissao_homologacao(monkeypatch)
+    monkeypatch.setenv("TESTAR_PREENCHIMENTO_COMPLETO", "false")
+
+    with pytest.raises(RuntimeError, match="TESTAR_PREENCHIMENTO_COMPLETO"):
+        carregar_config()
+
+
+def test_emissao_homologacao_no_ambiente_normal_e_bloqueada(monkeypatch):
+    _habilitar_emissao_homologacao(monkeypatch)
+    monkeypatch.setenv("AMBIENTE_EMISSAO", "normal")
+
+    with pytest.raises(RuntimeError, match="AMBIENTE_EMISSAO=teste"):
+        carregar_config()
+
+
+def test_primeira_emissao_headless_ou_multicliente_e_bloqueada(monkeypatch):
+    _habilitar_emissao_homologacao(monkeypatch)
+    monkeypatch.setenv("HEADLESS", "true")
+    with pytest.raises(RuntimeError, match="HEADLESS=false"):
+        carregar_config()
+
+    monkeypatch.setenv("HEADLESS", "false")
+    monkeypatch.setenv("CLIENTES_ATIVOS", "CLIENTE_A,CLIENTE_B")
+    with pytest.raises(RuntimeError, match="exatamente 1 cliente"):
         carregar_config()
 
 

@@ -74,6 +74,11 @@ necessidade de abrir navegador.
 **Saída da fase:** uma tarefa criada no Web percorre o Worker em homologação
 até o limite seguro, com status visível no Web.
 
+**Gate atual:** a emissão controlada e os downloads estão prontos localmente.
+Executar primeiro o roteiro `docs/TESTE-WORKER-HOMOLOGACAO.md`; após a prova,
+implementar lease atômica/polling e Storage. A topologia será Web e Worker em
+máquinas/redes distintas coordenados pelo banco Supabase na nuvem.
+
 ### 4. Emitir em homologação sob controle
 
 1. Implementar validações de pré-emissão e uma trava explícita de ambiente.

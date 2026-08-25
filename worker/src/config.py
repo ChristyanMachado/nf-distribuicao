@@ -49,6 +49,10 @@ class Config:
     # testar_navegacao_emissao=true, porque depende de já estar na tela de
     # emissão. Validado em carregar_config() abaixo.
     testar_preenchimento_completo: bool
+    # Libera uma única emissão controlada somente em homologação. Além desta
+    # flag, o código exige AMBIENTE_EMISSAO=teste, HEADLESS=false, um único
+    # cliente e confere o domínio da Page no instante do clique.
+    testar_emissao_homologacao: bool
     # Limite opcional de contextos/abas simultâneos. None = sem limite (hoje
     # equivalente a len(clientes_ativos), já que só 3 foram testados). Existe
     # pra quando o worker crescer de 3 pra N tarefas num servidor com CPU/RAM
@@ -75,6 +79,9 @@ def carregar_config() -> Config:
     testar_navegacao_emissao = os.getenv("TESTAR_NAVEGACAO_EMISSAO", "false").lower() == "true"
     testar_preenchimento_completo = (
         os.getenv("TESTAR_PREENCHIMENTO_COMPLETO", "false").lower() == "true"
+    )
+    testar_emissao_homologacao = (
+        os.getenv("TESTAR_EMISSAO_HOMOLOGACAO", "false").lower() == "true"
     )
 
     if testar_preenchimento_completo and not testar_navegacao_emissao:
@@ -107,13 +114,34 @@ def carregar_config() -> Config:
             f"AMBIENTE_EMISSAO precisa ser 'normal' ou 'teste', recebeu: {ambiente_emissao!r}"
         )
 
+    headless = os.getenv("HEADLESS", "false").lower() == "true"
+    if testar_emissao_homologacao:
+        if not testar_preenchimento_completo:
+            raise RuntimeError(
+                "TESTAR_EMISSAO_HOMOLOGACAO=true exige "
+                "TESTAR_PREENCHIMENTO_COMPLETO=true."
+            )
+        if ambiente_emissao != "teste":
+            raise RuntimeError(
+                "TESTAR_EMISSAO_HOMOLOGACAO só é permitido com "
+                "AMBIENTE_EMISSAO=teste."
+            )
+        if headless:
+            raise RuntimeError(
+                "O primeiro teste de emissão exige HEADLESS=false para conferência visual."
+            )
+        if len(clientes_ativos) != 1:
+            raise RuntimeError(
+                "O primeiro teste de emissão exige exatamente 1 cliente em CLIENTES_ATIVOS."
+            )
+
     modo_operacao = os.getenv("MODO_OPERACAO", "conferencia").strip().lower()
     if modo_operacao not in {"simulacao", "conferencia", "automatico"}:
         raise RuntimeError("MODO_OPERACAO deve ser simulacao, conferencia ou automatico.")
 
     return Config(
         sistema_fiscal_url=_url_sistema_fiscal(_obrigatorio("SISTEMA_FISCAL_URL")),
-        headless=os.getenv("HEADLESS", "false").lower() == "true",
+        headless=headless,
         modo_operacao=modo_operacao,
         download_dir=os.getenv("DOWNLOAD_DIR", "./downloads"),
         log_dir=os.getenv("LOG_DIR", "./logs"),
@@ -121,6 +149,7 @@ def carregar_config() -> Config:
         inspecionar=os.getenv("INSPECIONAR", "false").lower() == "true",
         testar_navegacao_emissao=testar_navegacao_emissao,
         testar_preenchimento_completo=testar_preenchimento_completo,
+        testar_emissao_homologacao=testar_emissao_homologacao,
         max_concorrencia=max_concorrencia,
         ambiente_emissao=ambiente_emissao,
     )
