@@ -80,7 +80,10 @@ Cada ação concluída em Distribuição cria um `lotes_distribuicao`. As
 disponibilidades e distribuições originadas naquela ação pertencem ao mesmo
 lote. A página `/entregas` usa o lote para montar uma folha de motorista por
 cliente, com endereço, produtos, quantidades e trocas, mas sem preço ou total
-monetário. O lote mais recente é aberto por padrão e pode ser impresso.
+monetário. Como o motorista já conhece as rotas, o roteiro usa o CEP (e,
+quando presente, o número) do cadastro existente; não cria campos extras de
+endereço. O lote mais recente é aberto por padrão e pode ser impresso. A
+migração `0003` foi aplicada ao banco de teste em 24/08/2026.
 
 ## Agendamento futuro
 

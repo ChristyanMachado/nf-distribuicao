@@ -13,8 +13,8 @@ produção antes da validação controlada.
 
 - **Web:** cadastros, distribuição, tarefas, relatório operacional e relação
   N:N cliente↔emitente já existem e foram migrados no banco de teste. O
-  roteiro por lote foi preparado na migração `0003`, ainda pendente de
-  aplicação controlada.
+  roteiro por lote foi aplicado e validado no banco de teste pela migração
+  `0003`.
 - **Worker:** usa 1 Chromium e N contextos isolados; login, navegação e
   preenchimento até Transporte foram validados em homologação. Ele nunca
   clica em **Emitir**.

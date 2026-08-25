@@ -63,7 +63,7 @@ src/
   regra padrão automaticamente quando só há uma ativa; a tarefa preserva a
   referência escolhida no momento da distribuição.
 - **Roteiro de entrega:** cada confirmação de distribuição gera um lote. A
-  página `/entregas` imprime o lote selecionado com cliente, endereço,
+  página `/entregas` imprime o lote selecionado com cliente, CEP,
   produtos, quantidades e trocas — sem valores monetários. A migração
   `0003_lotes_e_endereco_entrega.sql` é necessária para esse recurso.
 - **Preço é por produto + cliente**, não só por produto — a tabela

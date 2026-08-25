@@ -58,25 +58,27 @@ sem emissão real. O detalhamento por fases está em `docs/ROADMAP.md`.
   a regra ativa quando houver apenas uma, reduzindo cliques no celular.
 - A listagem exibe a regra aplicada ao produto; o formulário virou uma coluna
   no mobile e duas colunas apenas a partir de telas maiores.
-- **Ainda não aplicada ao banco:** a migração exige aplicação controlada no
-  banco de teste antes de abrir/deployar a tela nova.
+- Aplicada ao banco de teste em 24/08 junto com a migração `0003`.
 - Validação local: 25 testes do Web, `tsc --noEmit` e build de produção
   passaram.
 
 ### Continuação — roteiro profissional de entrega
 
 - Criada a página Web `/entregas`, com impressão de roteiro da **Graalys**.
-  Ela agrupa cada lote por cliente e mostra endereço, produto, quantidade e
+  Ela agrupa cada lote por cliente e mostra CEP, produto, quantidade e
   troca; não há preços, subtotais ou faturamento nessa tela.
 - A migração `0003_lotes_e_endereco_entrega.sql` cria um lote por confirmação
-  de distribuição e adiciona endereço completo opcional ao cliente. O legado
-  é agrupado por data apenas para manter histórico; novas rodadas são exatas.
+  de distribuição. O legado é agrupado por data apenas para manter histórico;
+  novas rodadas são exatas.
 - A página abre o lote mais recente por padrão, permite selecionar outro lote
   e ocultar endereço/trocas antes de imprimir. Ação de imprimir usa o diálogo
   nativo do dispositivo, inclusive em celular/tablet.
 - Validação local: 26 testes do Web, TypeScript e build de produção passaram.
-- **Ainda não aplicada ao banco:** as migrações `0002` e `0003` devem ser
-  aplicadas juntas, de forma controlada, antes de usar a tela nova.
+- As migrações `0002` e `0003` foram aplicadas e conferidas no banco de
+  teste: 1 regra fiscal, 5 lotes históricos e zero produto/item/
+  disponibilidade sem a referência nova.
+- Após feedback operacional, o roteiro foi simplificado: usa CEP e número
+  existente; não adiciona campos de endereço no cadastro de cliente.
 
 ### Implementado nesta rodada — 22/08/2026
 

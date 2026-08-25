@@ -70,10 +70,6 @@ export const clientes = fiscalSchema.table("clientes", {
   indicadorIe: indicadorIeEnum("indicador_ie").notNull().default("CONTRIBUINTE"),
   destinatarioNome: text("destinatario_nome"), // razão social usada na nota, se diferente de "nome"
   cep: text("cep"),
-  logradouro: text("logradouro"),
-  bairro: text("bairro"),
-  cidade: text("cidade"),
-  uf: text("uf"),
   numeroEndereco: text("numero_endereco"),
   ativo: boolean("ativo").notNull().default(true),
   observacoes: text("observacoes"),

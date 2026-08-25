@@ -1,6 +1,6 @@
 -- Lote identifica uma rodada única de distribuição e alimenta o roteiro do
--- motorista. Endereço completo é opcional para preservar cadastros antigos,
--- mas novos clientes devem preenchê-lo para gerar um roteiro útil.
+-- motorista. O motorista já conhece as rotas; o roteiro usa o CEP já
+-- existente no cadastro, sem acrescentar campos de endereço.
 
 CREATE TABLE "fiscal"."lotes_distribuicao" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
@@ -8,15 +8,6 @@ CREATE TABLE "fiscal"."lotes_distribuicao" (
 	"criado_em" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-ALTER TABLE "fiscal"."clientes" ADD COLUMN "logradouro" text;
---> statement-breakpoint
-ALTER TABLE "fiscal"."clientes" ADD COLUMN "bairro" text;
---> statement-breakpoint
-ALTER TABLE "fiscal"."clientes" ADD COLUMN "cidade" text;
---> statement-breakpoint
-ALTER TABLE "fiscal"."clientes" ADD COLUMN "uf" text;
---> statement-breakpoint
-
 -- Histórico anterior não possuía identificador de rodada. Agrupa o legado
 -- pela data; distribuições novas passam a criar um lote por confirmação.
 INSERT INTO "fiscal"."lotes_distribuicao" ("data")

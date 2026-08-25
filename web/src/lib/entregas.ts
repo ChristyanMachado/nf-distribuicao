@@ -1,11 +1,7 @@
 export type LinhaEntrega = {
   clienteId: string;
   clienteNome: string;
-  logradouro: string | null;
   numeroEndereco: string | null;
-  bairro: string | null;
-  cidade: string | null;
-  uf: string | null;
   cep: string | null;
   produtoId: string;
   produtoDescricao: string;
@@ -14,7 +10,11 @@ export type LinhaEntrega = {
   quantidadeTroca: number;
 };
 
-export type ParadaEntrega = Omit<LinhaEntrega, "produtoId" | "produtoDescricao" | "unidade" | "quantidadeDistribuida" | "quantidadeTroca"> & {
+export type ParadaEntrega = {
+  clienteId: string;
+  clienteNome: string;
+  numeroEndereco: string | null;
+  cep: string | null;
   itens: Array<{
     produtoId: string;
     produtoDescricao: string;
@@ -31,11 +31,7 @@ export function agruparRoteiroEntrega(linhas: LinhaEntrega[]): ParadaEntrega[] {
     const parada = porCliente.get(linha.clienteId) ?? {
       clienteId: linha.clienteId,
       clienteNome: linha.clienteNome,
-      logradouro: linha.logradouro,
       numeroEndereco: linha.numeroEndereco,
-      bairro: linha.bairro,
-      cidade: linha.cidade,
-      uf: linha.uf,
       cep: linha.cep,
       itens: [],
     };

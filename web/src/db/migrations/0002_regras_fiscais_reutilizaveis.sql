@@ -30,19 +30,19 @@ INSERT INTO "fiscal"."regras_fiscais" (
 	"natureza_operacao", "tipo_operacao", "finalidade_emissao",
 	"indicador_presenca", "modalidade_frete"
 ) VALUES (
-	"NFPE_VENDA_PADRAO",
-	"Venda padrão NFP-e",
-	"Venda de produção do estabelecimento",
-	"5101",
-	"40",
-	"0",
+	'NFPE_VENDA_PADRAO',
+	'Venda padrão NFP-e',
+	'Venda de produção do estabelecimento',
+	'5101',
+	'40',
+	'0',
 	true,
-	"PR810128",
-	"Venda",
-	"Saída",
-	"NF-e normal",
-	"Operação não presencial, pela Internet",
-	"3"
+	'PR810128',
+	'Venda',
+	'Saída',
+	'NF-e normal',
+	'Operação não presencial, pela Internet',
+	'3'
 ) ON CONFLICT ("codigo") DO NOTHING;
 --> statement-breakpoint
 
@@ -50,7 +50,7 @@ ALTER TABLE "fiscal"."produtos" ADD COLUMN "regra_fiscal_id" uuid;
 --> statement-breakpoint
 UPDATE "fiscal"."produtos"
 SET "regra_fiscal_id" = (
-	SELECT "id" FROM "fiscal"."regras_fiscais" WHERE "codigo" = "NFPE_VENDA_PADRAO"
+	SELECT "id" FROM "fiscal"."regras_fiscais" WHERE "codigo" = 'NFPE_VENDA_PADRAO'
 )
 WHERE "regra_fiscal_id" IS NULL;
 --> statement-breakpoint

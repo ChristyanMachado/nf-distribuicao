@@ -8,13 +8,9 @@ import type { ParadaEntrega } from "@/lib/entregas";
 type Lote = { id: string; data: string; criadoEm: string };
 
 function endereco(parada: ParadaEntrega) {
-  const primeiraLinha = [parada.logradouro, parada.numeroEndereco && `nº ${parada.numeroEndereco}`]
-    .filter(Boolean)
-    .join(", ");
-  const segundaLinha = [parada.bairro, [parada.cidade, parada.uf].filter(Boolean).join("/")]
+  return [parada.cep && `CEP ${parada.cep}`, parada.numeroEndereco && `nº ${parada.numeroEndereco}`]
     .filter(Boolean)
     .join(" · ");
-  return { primeiraLinha, segundaLinha, cep: parada.cep };
 }
 
 export default function RoteiroEntregaView({
@@ -82,9 +78,9 @@ export default function RoteiroEntregaView({
                     <span className="font-mono-tab flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--field)] text-sm font-bold text-white">{indice + 1}</span>
                     <div className="min-w-0">
                       <h3 className="text-lg font-medium">{parada.clienteNome}</h3>
-                      {mostrarEndereco && (local.primeiraLinha || local.segundaLinha || local.cep) && (
+                      {mostrarEndereco && local && (
                         <p className="mt-0.5 text-sm text-[var(--ink-soft)]">
-                          {[local.primeiraLinha, local.segundaLinha, local.cep && `CEP ${local.cep}`].filter(Boolean).join(" · ")}
+                          {local}
                         </p>
                       )}
                     </div>

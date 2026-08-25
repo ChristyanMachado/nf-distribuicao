@@ -18,11 +18,7 @@ export async function carregarRoteiroEntrega(loteId: string) {
     .select({
       clienteId: clientes.id,
       clienteNome: clientes.nome,
-      logradouro: clientes.logradouro,
       numeroEndereco: clientes.numeroEndereco,
-      bairro: clientes.bairro,
-      cidade: clientes.cidade,
-      uf: clientes.uf,
       cep: clientes.cep,
       produtoId: produtos.id,
       produtoDescricao: produtos.descricao,

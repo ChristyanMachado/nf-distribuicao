@@ -45,6 +45,9 @@ O resultado técnico detalhado e seletores reconhecidos estão em `docs/HANDOFF.
   reúne CFOP, ICMS, origem, benefício fiscal e parâmetros da operação. A
   referência é preservada no item da tarefa para não reinterpretar tarefas
   pendentes após mudança de cadastro.
+- As migrações `0002` (regra fiscal) e `0003` (lotes de entrega) foram
+  aplicadas ao banco de teste em 24/08: 1 regra criada, 5 lotes históricos e
+  nenhuma referência pendente em produtos, itens ou disponibilidades.
 - Cada confirmação de distribuição é um lote operacional. O roteiro do
   motorista usa esse lote, nunca apenas a data, para não misturar entregas de
   rodadas diferentes. Ele não exibe valores monetários.

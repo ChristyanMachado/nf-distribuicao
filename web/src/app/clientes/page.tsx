@@ -18,8 +18,8 @@ export default async function ClientesPage() {
     <div>
       <h1 className="text-2xl font-medium">Clientes</h1>
       <p className="mt-1 text-[15px] text-[var(--ink-soft)]">
-        Destinatário da nota e ponto de entrega. Preencha o endereço para ele
-        aparecer completo no roteiro do motorista.
+        Destinatário da nota. O roteiro do motorista usa o CEP já cadastrado,
+        sem adicionar etapas desnecessárias no dia a dia.
       </p>
 
       {emitentes.length === 0 && (
@@ -50,24 +50,6 @@ export default async function ClientesPage() {
           <div>
             <Label>Número</Label>
             <input name="numeroEndereco" className="font-mono-tab w-full" />
-          </div>
-          <div className="sm:col-span-2">
-            <Label>Rua / logradouro</Label>
-            <input name="logradouro" className="w-full" placeholder="Rua das Flores" />
-          </div>
-          <div>
-            <Label>Bairro</Label>
-            <input name="bairro" className="w-full" />
-          </div>
-          <div className="grid grid-cols-[1fr_72px] gap-3">
-            <div>
-              <Label>Cidade</Label>
-              <input name="cidade" className="w-full" />
-            </div>
-            <div>
-              <Label>UF</Label>
-              <input name="uf" maxLength={2} className="font-mono-tab w-full uppercase" placeholder="PR" />
-            </div>
           </div>
           <div className="sm:col-span-2">
             <Label>Emitentes habilitados</Label>
