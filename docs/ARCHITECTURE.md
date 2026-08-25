@@ -30,11 +30,17 @@ Não usar `sync_playwright()` com browser compartilhado entre threads. Essa abor
 
 ## Fluxo fiscal no estado atual
 
-`src/auth.py` e `src/flows/emissao.py` já usam API Async. No ambiente de homologação, foi validado ao vivo o preenchimento até a etapa posterior a Transporte, para um e dois produtos. O Worker para antes de `validar_antes_de_emitir()` e nunca clica em **Emitir**.
+`src/auth.py` e `src/flows/emissao.py` já usam API Async. No ambiente de
+homologação, foi validado ao vivo o preenchimento até Transporte para um e
+dois produtos; Resumo, Emitir e os botões XML/DANFE foram reconhecidos
+manualmente. O Worker ainda para antes de `validar_antes_de_emitir()` e não
+chama **Emitir** pelo ponto de entrada.
 
 O padrão é `AMBIENTE_EMISSAO=teste`, com o caminho NFP-e TESTES → Emissão - TESTE. Produção só poderá ser usada após validação explícita.
 
-Ainda faltam o reconhecimento da tela final de resumo/validação, emissão, download de PDF/XML, cancelamento e a integração real com a fila.
+Ainda faltam o seletor/texto confiável de autorização/rejeição, a emissão
+automatizada controlada, cancelamento, envio seguro de PDF/XML ao Storage e a
+integração real com a fila.
 
 Para testes, há três níveis deliberadamente separados:
 

@@ -47,6 +47,22 @@ Próximo código que não depende de novos seletores: estados, tentativas e leas
 atômica. Próximo passo humano no site fiscal: preencher os identificadores dos
 emitentes e reconhecer a tela final em homologação sem clicar em **Emitir**.
 
+## Continuação — tela final e downloads reconhecidos em 25/08/2026
+
+- Após Transporte, **Avançar** leva ao Resumo; o botão final tem nome visível
+  `Emitir`.
+- Após emissão manual em homologação, foram observados `Baixar XML` e
+  `Visualizar DANFE`. O segundo baixa diretamente um PDF chamado
+  genericamente `DANFE.pdf`.
+- `baixar_documentos()` agora usa `page.expect_download()` e botões por role
+  + nome exato; XML e DANFE passam a ser salvos com nome próprio baseado na
+  tarefa. O `BrowserContext` aceita downloads explicitamente.
+- A emissão segue fora do `main.py`; faltam seletor/texto da resposta
+  autorizada/rejeitada e os dados do Resumo para que sucesso não seja inferido
+  apenas pela existência de botões.
+- Validação desta continuação: **63 testes Worker**, `compileall` e
+  `git diff --check` passaram.
+
 ## Atualização de contexto — 24/08/2026
 
 O marco anterior `59da6cc` implementou a relação emitente por tarefa no Web. O teste/demonstração mais recente confirmou preenchimento em homologação com múltiplos contextos, sem clicar em **Emitir**. A carga local (transmissão e outros programas) afetou a velocidade, mas falhas continuaram isoladas por contexto.

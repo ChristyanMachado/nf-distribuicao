@@ -11,7 +11,12 @@ O sistema organiza a distribuição de produtos e automatiza, futuramente, a emi
 - A aplicação web já possui cadastros de emitentes, clientes e produtos; distribuição de múltiplos itens; preços por produto+cliente; tarefas; e relatórios de faturamento bruto, notas, ticket médio, rankings e gráfico.
 - O Worker usa 1 Chromium + N `BrowserContext`s independentes, Async Playwright e concorrência isolada.
 - Três fluxos concorrentes foram demonstrados ao vivo, concluindo o preenchimento em homologação. Em máquina sobrecarregada houve lentidão e uma falha isolada, sem invalidar o modelo de contextos.
-- O fluxo de homologação foi validado até depois de Transporte com uma e duas linhas de produto. Ele para antes da tela final/ação de emitir.
+- O fluxo de homologação foi reconhecido manualmente até Resumo, Emitir e os
+  botões de XML/DANFE. O Worker prepara o download, mas o ponto de entrada
+  continua parando antes de emitir automaticamente.
+- XML e DANFE são capturados por `expect_download()` e recebem nome próprio
+  baseado na tarefa; a confirmação textual de autorizado/rejeitado ainda não
+  foi reconhecida para automação.
 - `AMBIENTE_EMISSAO=teste` é o padrão. Não executar testes de preenchimento no ambiente fiscal normal sem uma decisão consciente.
 - O smoke test de login/navegação não precisa mais de `CLIENTE_X_EMITENTE`.
   Esse valor só é exigido ao ativar `TESTAR_PREENCHIMENTO_COMPLETO=true`,
@@ -45,7 +50,8 @@ O resultado técnico detalhado e seletores reconhecidos estão em `docs/HANDOFF.
 - O cálculo de "perdido em trocas" agora exclui registros vinculados a tarefas canceladas. A consulta também passou a relacionar troca, tarefa e emitente; o comportamento foi coberto por teste unitário.
 - Definir sem ambiguidade quais status entram no faturamento. Hoje a regra de código exclui somente `CANCELADA`; tarefas pendentes entram por serem valores já comprometidos na distribuição.
 - Implementar agendador, estratégia de retries, fuso operacional e tratamento de tarefas fora da janela.
-- Reconhecer resumo/validação final de homologação antes de implementar emissão, downloads e produção.
+- Capturar o elemento/texto que confirma autorização ou rejeição e os totais
+  do Resumo antes de ligar uma emissão automatizada controlada.
 - Definir o contrato de uma tarefa entre a aplicação web e o Worker antes de
   qualquer integração: origem dos dados, campos fiscais, estados, reserva da
   tarefa, retorno de erro e armazenamento de PDF/XML.

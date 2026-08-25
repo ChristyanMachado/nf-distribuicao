@@ -17,8 +17,10 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
 import threading
+from datetime import datetime, timezone
 from dataclasses import dataclass, field
 
 from playwright.async_api import Page
@@ -1115,11 +1117,11 @@ async def emitir(page: Page, tarefa: Tarefa, logger: logging.Logger) -> None:
     """Fluxo final: Produtos → Transporte → Resumo total → botão Emitir."""
     logger.info(f"[{tarefa.tarefa_id}] Emitindo nota")
     try:
-        await page.get_by_role("button", name=re.compile("emitir", re.IGNORECASE)).click()
-        logger.info(f"[{tarefa.tarefa_id}] Botão de emissão clicado (tentativa por nome 'Emitir')")
+        await page.get_by_role("button", name="Emitir", exact=True).click()
+        logger.info(f"[{tarefa.tarefa_id}] Botão de emissão clicado")
     except Exception as e:  # noqa: BLE001 — tentativa educada, não é seletor confirmado
-        logger.warning(f"Botão 'Emitir' não encontrado por nome ({e}) — confirmar seletor com o Inspector.")
-        raise NotImplementedError("Botão de emissão ainda não confirmado.") from e
+        logger.warning(f"Botão 'Emitir' não encontrado ({e}) — confirmar seletor com o Inspector.")
+        raise NotImplementedError("Botão de emissão não está disponível.") from e
 
 
 async def cancelar_nota(page: Page, numero_nota: str, motivo: str, logger: logging.Logger) -> None:
@@ -1138,9 +1140,71 @@ async def cancelar_nota(page: Page, numero_nota: str, motivo: str, logger: loggi
     raise NotImplementedError("Fluxo de cancelamento ainda não reconhecido (seletores).")
 
 
-async def baixar_documentos(page: Page, tarefa: Tarefa, download_dir: str, logger: logging.Logger) -> dict:
-    """RF18 — retorna os caminhos locais do PDF/XML baixados."""
-    logger.info(f"[{tarefa.tarefa_id}] Baixando PDF/XML")
-    # TODO: capturar via page.expect_download() — etapa ainda não alcançada
-    # no reconhecimento manual.
-    raise NotImplementedError("Etapa de download ainda não reconhecida.")
+class FalhaDownloadDocumento(RuntimeError):
+    """O sistema fiscal não entregou um XML ou DANFE baixável."""
+
+
+async def baixar_documentos(page: Page, tarefa: Tarefa, download_dir: str, logger: logging.Logger) -> dict[str, str]:
+    """RF18 — baixa XML e DANFE autorizados e devolve caminhos locais seguros.
+
+    `expect_download()` recebe o download diretamente do navegador automatizado;
+    o aviso visual de arquivo potencialmente perigoso do Chromium não exige uma
+    confirmação humana adicional quando o contexto usa ``accept_downloads``.
+    O botão ``Visualizar DANFE`` foi observado baixando um PDF, apesar do nome.
+    """
+    logger.info("[%s] Baixando XML e DANFE", tarefa.tarefa_id)
+    os.makedirs(download_dir, exist_ok=True)
+
+    xml_path = await _baixar_documento(
+        page=page,
+        nome_botao="Baixar XML",
+        destino=_caminho_documento(download_dir, tarefa.tarefa_id, "xml", "xml"),
+        tarefa_id=tarefa.tarefa_id,
+        logger=logger,
+    )
+    pdf_path = await _baixar_documento(
+        page=page,
+        nome_botao="Visualizar DANFE",
+        destino=_caminho_documento(download_dir, tarefa.tarefa_id, "danfe", "pdf"),
+        tarefa_id=tarefa.tarefa_id,
+        logger=logger,
+    )
+    return {"xml_path": xml_path, "pdf_path": pdf_path}
+
+
+async def _baixar_documento(
+    *,
+    page: Page,
+    nome_botao: str,
+    destino: str,
+    tarefa_id: str,
+    logger: logging.Logger,
+) -> str:
+    try:
+        async with page.expect_download(timeout=30_000) as evento_download:
+            await page.get_by_role("button", name=nome_botao, exact=True).click()
+        download = await evento_download.value
+        if await download.failure():
+            raise FalhaDownloadDocumento("O navegador informou falha no download.")
+        await download.save_as(destino)
+    except FalhaDownloadDocumento:
+        raise
+    except Exception as exc:  # noqa: BLE001 — não registrar resposta fiscal bruta
+        raise FalhaDownloadDocumento(
+            f"[{tarefa_id}] Não foi possível baixar o documento fiscal solicitado."
+        ) from exc
+
+    try:
+        os.chmod(destino, 0o600)
+    except OSError:
+        # ACLs da VM complementam a proteção quando o SO não usa permissões POSIX.
+        pass
+    logger.info("[%s] %s salvo", tarefa_id, nome_botao)
+    return destino
+
+
+def _caminho_documento(download_dir: str, tarefa_id: str, tipo: str, extensao: str) -> str:
+    """Gera nome estável, sem usar o nome genérico fornecido pela Receita."""
+    identificador = re.sub(r"[^A-Za-z0-9_-]+", "-", tarefa_id).strip("-") or "tarefa"
+    instante = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    return os.path.join(download_dir, f"{tipo}_{identificador}_{instante}.{extensao}")

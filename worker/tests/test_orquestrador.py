@@ -20,7 +20,8 @@ class BrowserFalso:
     def __init__(self) -> None:
         self.contextos: list[ContextoFalso] = []
 
-    async def new_context(self) -> ContextoFalso:
+    async def new_context(self, *, accept_downloads: bool) -> ContextoFalso:
+        assert accept_downloads is True
         contexto = ContextoFalso()
         self.contextos.append(contexto)
         return contexto

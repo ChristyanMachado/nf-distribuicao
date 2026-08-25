@@ -64,8 +64,10 @@ async def _processar_uma_tarefa(
                 tarefa_id,
             )
 
-            # Cada tarefa possui sua própria sessão.
-            context = await browser.new_context()
+            # Cada tarefa possui sua própria sessão e aceita downloads
+            # iniciados pelo sistema fiscal (XML/DANFE), sem depender da UI
+            # visual de downloads do Chromium.
+            context = await browser.new_context(accept_downloads=True)
 
             logger.info(
                 "[%s] Contexto criado",
