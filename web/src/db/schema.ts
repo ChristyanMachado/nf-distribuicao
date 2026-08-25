@@ -70,6 +70,10 @@ export const clientes = fiscalSchema.table("clientes", {
   indicadorIe: indicadorIeEnum("indicador_ie").notNull().default("CONTRIBUINTE"),
   destinatarioNome: text("destinatario_nome"), // razão social usada na nota, se diferente de "nome"
   cep: text("cep"),
+  logradouro: text("logradouro"),
+  bairro: text("bairro"),
+  cidade: text("cidade"),
+  uf: text("uf"),
   numeroEndereco: text("numero_endereco"),
   ativo: boolean("ativo").notNull().default(true),
   observacoes: text("observacoes"),
@@ -156,13 +160,21 @@ export const precosCliente = fiscalSchema.table(
 );
 
 // ---------------------------------------------------------------------------
-// RF06 — Disponibilidade diária de cada produto (quantidade TOTAL, separada
-// da quantidade distribuída — RF07). Editável independentemente da
-// distribuição já lançada.
+// Cada confirmação na tela de Distribuição vira um lote. O lote é a unidade
+// operacional do roteiro do motorista: não mistura entregas de rodadas
+// diferentes feitas no mesmo dia.
+export const lotesDistribuicao = fiscalSchema.table("lotes_distribuicao", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  data: text("data").notNull(),
+  criadoEm: timestamp("criado_em").notNull().defaultNow(),
+});
+
+// RF06 — Disponibilidade por produto dentro de um lote de distribuição.
 // ---------------------------------------------------------------------------
 
 export const disponibilidades = fiscalSchema.table("disponibilidades", {
   id: uuid("id").primaryKey().defaultRandom(),
+  loteId: uuid("lote_id").notNull().references(() => lotesDistribuicao.id),
   produtoId: uuid("produto_id").notNull().references(() => produtos.id),
   data: text("data").notNull(), // formato YYYY-MM-DD
   quantidadeDisponivel: numeric("quantidade_disponivel", { precision: 12, scale: 3 }).notNull(),

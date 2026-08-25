@@ -62,6 +62,10 @@ src/
   de operação são cadastrados uma vez em `regras_fiscais`. O produto recebe a
   regra padrão automaticamente quando só há uma ativa; a tarefa preserva a
   referência escolhida no momento da distribuição.
+- **Roteiro de entrega:** cada confirmação de distribuição gera um lote. A
+  página `/entregas` imprime o lote selecionado com cliente, endereço,
+  produtos, quantidades e trocas — sem valores monetários. A migração
+  `0003_lotes_e_endereco_entrega.sql` é necessária para esse recurso.
 - **Preço é por produto + cliente**, não só por produto — a tabela
   `precos_cliente` aprende sozinha: toda vez que uma distribuição é
   processada, o preço usado vira o padrão daquele par pra próxima vez.

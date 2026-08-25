@@ -12,6 +12,7 @@ import {
   distribuicoes,
   tarefas,
   tarefaItens,
+  lotesDistribuicao,
 } from "@/db/schema";
 import { calcularFaturavel, validarDistribuicaoTotal } from "@/lib/calculos";
 import { eq, and } from "drizzle-orm";
@@ -87,6 +88,11 @@ export async function processarDistribuicao(input: {
   }
 
   await db.transaction(async (tx) => {
+    const [lote] = await tx
+      .insert(lotesDistribuicao)
+      .values({ data: input.data })
+      .returning();
+
     // A regra é buscada uma vez e gravada no item da tarefa como snapshot da
     // escolha do produto. Assim, uma futura troca de regra não reinterpreta
     // uma tarefa que já estava pendente.
@@ -129,6 +135,7 @@ export async function processarDistribuicao(input: {
       const [disponibilidade] = await tx
         .insert(disponibilidades)
         .values({
+          loteId: lote.id,
           produtoId: produto.produtoId,
           data: input.data,
           quantidadeDisponivel: String(produto.quantidadeTotal),

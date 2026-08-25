@@ -45,6 +45,9 @@ O resultado técnico detalhado e seletores reconhecidos estão em `docs/HANDOFF.
   reúne CFOP, ICMS, origem, benefício fiscal e parâmetros da operação. A
   referência é preservada no item da tarefa para não reinterpretar tarefas
   pendentes após mudança de cadastro.
+- Cada confirmação de distribuição é um lote operacional. O roteiro do
+  motorista usa esse lote, nunca apenas a data, para não misturar entregas de
+  rodadas diferentes. Ele não exibe valores monetários.
 
 ## Princípios imutáveis
 

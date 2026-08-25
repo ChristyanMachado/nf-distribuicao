@@ -18,6 +18,10 @@ export async function criarCliente(formData: FormData) {
   const cnpj = String(formData.get("cnpj") ?? "").trim() || null;
   const inscricaoEstadual = String(formData.get("inscricaoEstadual") ?? "").trim() || null;
   const cep = String(formData.get("cep") ?? "").trim() || null;
+  const logradouro = String(formData.get("logradouro") ?? "").trim() || null;
+  const bairro = String(formData.get("bairro") ?? "").trim() || null;
+  const cidade = String(formData.get("cidade") ?? "").trim() || null;
+  const uf = String(formData.get("uf") ?? "").trim().toUpperCase() || null;
   const numeroEndereco = String(formData.get("numeroEndereco") ?? "").trim() || null;
   const emitenteIds = formData
     .getAll("emitenteIds")
@@ -36,6 +40,10 @@ export async function criarCliente(formData: FormData) {
       cnpj,
       inscricaoEstadual,
       cep,
+      logradouro,
+      bairro,
+      cidade,
+      uf,
       numeroEndereco,
     }).returning();
 

@@ -18,8 +18,8 @@ export default async function ClientesPage() {
     <div>
       <h1 className="text-2xl font-medium">Clientes</h1>
       <p className="mt-1 text-[15px] text-[var(--ink-soft)]">
-        O destinatário da nota. CEP e número bastam — o resto do endereço o
-        próprio sistema fiscal preenche automaticamente ao emitir.
+        Destinatário da nota e ponto de entrega. Preencha o endereço para ele
+        aparecer completo no roteiro do motorista.
       </p>
 
       {emitentes.length === 0 && (
@@ -30,8 +30,8 @@ export default async function ClientesPage() {
       )}
 
       <Card className="mt-5 p-4">
-        <form action={criarCliente} className="grid grid-cols-2 gap-3">
-          <div className="col-span-2">
+        <form action={criarCliente} className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="sm:col-span-2">
             <Label>Nome</Label>
             <input name="nome" required className="w-full" placeholder="Mercado X" />
           </div>
@@ -51,7 +51,25 @@ export default async function ClientesPage() {
             <Label>Número</Label>
             <input name="numeroEndereco" className="font-mono-tab w-full" />
           </div>
-          <div className="col-span-2">
+          <div className="sm:col-span-2">
+            <Label>Rua / logradouro</Label>
+            <input name="logradouro" className="w-full" placeholder="Rua das Flores" />
+          </div>
+          <div>
+            <Label>Bairro</Label>
+            <input name="bairro" className="w-full" />
+          </div>
+          <div className="grid grid-cols-[1fr_72px] gap-3">
+            <div>
+              <Label>Cidade</Label>
+              <input name="cidade" className="w-full" />
+            </div>
+            <div>
+              <Label>UF</Label>
+              <input name="uf" maxLength={2} className="font-mono-tab w-full uppercase" placeholder="PR" />
+            </div>
+          </div>
+          <div className="sm:col-span-2">
             <Label>Emitentes habilitados</Label>
             <div className="flex flex-wrap gap-2">
               {emitentes.map((e) => (
@@ -65,7 +83,7 @@ export default async function ClientesPage() {
               Escolha os emitentes que podem atender este cliente. A escolha final é feita em cada distribuição.
             </p>
           </div>
-          <div className="col-span-2 mt-1">
+          <div className="sm:col-span-2 mt-1">
             <PrimaryButton type="submit" className="w-full py-2.5 sm:w-auto">
               Cadastrar cliente
             </PrimaryButton>

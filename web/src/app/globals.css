@@ -86,3 +86,27 @@ select:focus {
 ::selection {
   background: var(--field-tint);
 }
+
+@media print {
+  .no-print,
+  aside,
+  header,
+  nav {
+    display: none !important;
+  }
+
+  body,
+  main {
+    background: #fff !important;
+    padding: 0 !important;
+  }
+
+  .print-sheet {
+    margin-top: 0 !important;
+  }
+
+  .print-card {
+    break-inside: avoid;
+    border-color: #bbb !important;
+  }
+}

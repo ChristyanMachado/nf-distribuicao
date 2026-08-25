@@ -74,6 +74,14 @@ As regras devem ser tratadas como imutáveis: para uma tributação futura,
 criar outra regra e associá-la aos próximos produtos, nunca editar a regra de
 uma tarefa já preparada.
 
+### Lotes e roteiro de entrega
+
+Cada ação concluída em Distribuição cria um `lotes_distribuicao`. As
+disponibilidades e distribuições originadas naquela ação pertencem ao mesmo
+lote. A página `/entregas` usa o lote para montar uma folha de motorista por
+cliente, com endereço, produtos, quantidades e trocas, mas sem preço ou total
+monetário. O lote mais recente é aberto por padrão e pode ser impresso.
+
 ## Agendamento futuro
 
 O requisito operacional é que as tarefas pendentes sejam executadas automaticamente entre 00:00 e 06:00, não apenas aceitas quando alguém abre o Worker nesse intervalo. A implementação deverá ter um agendador que acorde o Worker, busque as tarefas elegíveis, respeite a janela e registre o resultado. Definir antes a zona horária operacional, política de repetição e tratamento de tarefa que não terminar dentro da janela.

@@ -28,6 +28,7 @@ const NAV_ITEMS = [
   { href: "/tarefas", label: "Tarefas", Icon: IconList },
   { href: "/notas", label: "Notas", Icon: IconReceipt },
   { href: "/relatorios", label: "Relatórios", Icon: IconChart },
+  { href: "/entregas", label: "Entregas", Icon: IconReceipt },
 ];
 
 const NAV_ITEMS_SECUNDARIOS = [
