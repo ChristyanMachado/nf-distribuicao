@@ -16,7 +16,7 @@ homologação. Ele não habilita produção nem polling do banco.
    teste.
 4. O teste deve abrir visivelmente o caminho **NFP-e TESTES → Emissão - TESTE**.
    Se a interface mostrar o ambiente normal, responda `N` no terminal ou feche
-  o navegador.
+   o navegador.
 
 Este primeiro teste usa `tarefa_real.json`, não as 8 tarefas antigas do banco.
 O polling está desligado porque os cadastros de teste ainda precisam ser
@@ -68,8 +68,13 @@ worker/downloads/xml_<tarefa>_<UTC>.xml
 worker/downloads/danfe_<tarefa>_<UTC>.pdf
 ```
 
-Os arquivos são validados por tamanho e assinatura básica de formato. Uma
-página HTML ou resposta vazia disfarçada de documento é recusada e removida.
+Os arquivos são validados por tamanho e assinatura básica de formato. O XML
+precisa ser bem-formado e ter raiz de NF-e; uma página HTML, resposta vazia ou
+arquivo malformado disfarçado de documento é recusado e removido.
+
+Não é necessário iniciar o Web para este primeiro teste. Ele usa somente o
+JSON local e serve para separar possíveis falhas do portal fiscal de futuras
+falhas da fila/banco.
 
 Após os downloads, o navegador permanece aberto até você pressionar Enter no
 terminal. Aproveite esse momento para copiar o HTML ou seletor do status

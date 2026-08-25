@@ -57,9 +57,10 @@ emitentes e reconhecer a tela final em homologação sem clicar em **Emitir**.
 - `baixar_documentos()` agora usa `page.expect_download()` e botões por role
   + nome exato; XML e DANFE passam a ser salvos com nome próprio baseado na
   tarefa. O `BrowserContext` aceita downloads explicitamente.
-- A emissão segue fora do `main.py`; faltam seletor/texto da resposta
+- O modo padrão segue sem emissão. Um modo controlado foi ligado ao `main.py`
+  depois desta observação; ainda faltam seletor/texto da resposta
   autorizada/rejeitada e os dados do Resumo para que sucesso não seja inferido
-  apenas pela existência de botões.
+  apenas pela existência de botões/downloads.
 - Validação desta continuação: **63 testes Worker**, `compileall` e
   `git diff --check` passaram.
 
@@ -77,7 +78,11 @@ emitentes e reconhecer a tela final em homologação sem clicar em **Emitir**.
   `docs/TESTE-WORKER-HOMOLOGACAO.md`.
 - O cadastro Web de mercados passou a exigir todos os dados fiscais hoje
   confirmados e ganhou edição dos registros existentes.
-- Validação local: **74 testes Worker**, **46 testes Web**, `tsc --noEmit` e
+- O cadastro de emitentes também exige CNPJ, IE, referência da credencial e
+  identificador NFP-e; registros existentes podem ser completados em
+  `/emitentes`, sem guardar login ou senha no Web.
+- Validação local final: **75 testes Worker**, **46 testes Web**, `compileall`,
+  `tsc --noEmit`, `git diff --check` e
   build de produção passaram.
 
 Próximo gate: executar uma emissão em homologação seguindo o roteiro. Somente

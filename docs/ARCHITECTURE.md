@@ -33,14 +33,16 @@ Não usar `sync_playwright()` com browser compartilhado entre threads. Essa abor
 `src/auth.py` e `src/flows/emissao.py` já usam API Async. No ambiente de
 homologação, foi validado ao vivo o preenchimento até Transporte para um e
 dois produtos; Resumo, Emitir e os botões XML/DANFE foram reconhecidos
-manualmente. O Worker ainda para antes de `validar_antes_de_emitir()` e não
-chama **Emitir** pelo ponto de entrada.
+manualmente. Por padrão o Worker para antes de **Emitir**. O ponto de entrada
+possui uma exceção de teste explícita que exige homologação, navegador visível,
+uma tarefa, confirmação humana e nova validação da URL imediatamente antes do
+clique.
 
 O padrão é `AMBIENTE_EMISSAO=teste`, com o caminho NFP-e TESTES → Emissão - TESTE. Produção só poderá ser usada após validação explícita.
 
-Ainda faltam o seletor/texto confiável de autorização/rejeição, a emissão
-automatizada controlada, cancelamento, envio seguro de PDF/XML ao Storage e a
-integração real com a fila.
+Ainda faltam o seletor/texto confiável de autorização/rejeição, cancelamento,
+envio seguro de PDF/XML ao Storage e a integração real com a fila. A emissão
+controlada está pronta no código, mas ainda depende do primeiro teste ao vivo.
 
 Para testes, há três níveis deliberadamente separados:
 

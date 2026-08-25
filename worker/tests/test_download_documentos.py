@@ -120,7 +120,18 @@ def test_falha_de_download_para_sem_expor_resposta_fiscal(tmp_path: Path) -> Non
 
 
 def test_resposta_html_disfarcada_de_xml_e_removida(tmp_path: Path) -> None:
-    pagina = PaginaFalsa([DownloadFalso(conteudo=b"erro sem formato fiscal")])
+    pagina = PaginaFalsa(
+        [DownloadFalso(conteudo=b"<!doctype html><html><body>erro</body></html>")]
+    )
+
+    with pytest.raises(FalhaDownloadDocumento, match="formato esperado"):
+        asyncio.run(baixar_documentos(pagina, _tarefa(), str(tmp_path), _logger()))
+
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_xml_malformado_e_removido(tmp_path: Path) -> None:
+    pagina = PaginaFalsa([DownloadFalso(conteudo=b"<nfeProc><NFe></nfeProc>")])
 
     with pytest.raises(FalhaDownloadDocumento, match="formato esperado"):
         asyncio.run(baixar_documentos(pagina, _tarefa(), str(tmp_path), _logger()))

@@ -21,8 +21,9 @@ import os
 import re
 import threading
 from datetime import datetime, timezone
-from urllib.parse import urlsplit
 from dataclasses import dataclass, field
+from urllib.parse import urlsplit
+from xml.etree import ElementTree
 
 from playwright.async_api import Page
 
@@ -1254,12 +1255,30 @@ def _validar_arquivo_baixado(caminho: str, extensao: str) -> None:
     if extensao == "pdf":
         valido = inicio.startswith(b"%PDF-")
     else:
-        valido = inicio.lstrip(b"\xef\xbb\xbf \t\r\n").startswith(b"<")
+        valido = _xml_nf_eh_valido(caminho)
     if not valido:
         _remover_download_invalido(caminho)
         raise FalhaDownloadDocumento(
             "Documento baixado não corresponde ao formato esperado."
         )
+
+
+def _xml_nf_eh_valido(caminho: str) -> bool:
+    """Aceita somente XML bem-formado com raiz compatível com uma NF-e.
+
+    O teste anterior verificava apenas o primeiro caractere. Uma página HTML
+    de erro também começa com ``<`` e poderia ser armazenada como se fosse o
+    XML fiscal. A validação continua deliberadamente estrutural: a assinatura
+    criptográfica e a autorização serão conferidas no próximo gate, quando o
+    elemento de resposta final da homologação tiver sido reconhecido.
+    """
+    try:
+        raiz = ElementTree.parse(caminho).getroot()
+    except (ElementTree.ParseError, OSError):
+        return False
+
+    nome_local = raiz.tag.rsplit("}", 1)[-1].lower()
+    return nome_local in {"nfe", "nfeproc"}
 
 
 def _remover_download_invalido(caminho: str) -> None:

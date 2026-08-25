@@ -12,8 +12,9 @@ O sistema organiza a distribuição de produtos e automatiza, futuramente, a emi
 - O Worker usa 1 Chromium + N `BrowserContext`s independentes, Async Playwright e concorrência isolada.
 - Três fluxos concorrentes foram demonstrados ao vivo, concluindo o preenchimento em homologação. Em máquina sobrecarregada houve lentidão e uma falha isolada, sem invalidar o modelo de contextos.
 - O fluxo de homologação foi reconhecido manualmente até Resumo, Emitir e os
-  botões de XML/DANFE. O Worker prepara o download, mas o ponto de entrada
-  continua parando antes de emitir automaticamente.
+  botões de XML/DANFE. Por padrão o Worker continua parando antes de emitir;
+  um modo controlado, visível e limitado a uma tarefa pode chegar ao clique e
+  aos downloads somente após confirmação humana.
 - XML e DANFE são capturados por `expect_download()` e recebem nome próprio
   baseado na tarefa; a confirmação textual de autorizado/rejeitado ainda não
   foi reconhecida para automação.
@@ -31,7 +32,8 @@ O sistema organiza a distribuição de produtos e automatiza, futuramente, a emi
   bloqueios para produção estão em `docs/SECURITY.md`.
 - A migração `0004_credencial_fora_do_web.sql` foi aplicada ao banco de teste.
   O emitente existente ainda não possui `credencial_referencia`; isso não
-  impede o Web atual, mas deverá ser configurado antes da integração.
+  impede o Web atual, mas deverá ser configurado antes da integração. A página
+  `/emitentes` permite revisar e completar o cadastro existente.
 - O produtor interno do contrato v1 existe em
   `web/src/server/contrato-tarefa.ts`, sempre gera homologação e não é uma
   Server Action pública. A migração `0005` adicionou o identificador NFP-e
@@ -54,8 +56,9 @@ O resultado técnico detalhado e seletores reconhecidos estão em `docs/HANDOFF.
 - O cálculo de "perdido em trocas" agora exclui registros vinculados a tarefas canceladas. A consulta também passou a relacionar troca, tarefa e emitente; o comportamento foi coberto por teste unitário.
 - Definir sem ambiguidade quais status entram no faturamento. Hoje a regra de código exclui somente `CANCELADA`; tarefas pendentes entram por serem valores já comprometidos na distribuição.
 - Implementar agendador, estratégia de retries, fuso operacional e tratamento de tarefas fora da janela.
-- Capturar o elemento/texto que confirma autorização ou rejeição e os totais
-  do Resumo antes de ligar uma emissão automatizada controlada.
+- Executar a primeira emissão controlada e capturar o elemento/texto que
+  confirma autorização ou rejeição, número, chave e totais do Resumo antes de
+  retirar a conferência humana ou ligar a fila automática.
 - Definir o contrato de uma tarefa entre a aplicação web e o Worker antes de
   qualquer integração: origem dos dados, campos fiscais, estados, reserva da
   tarefa, retorno de erro e armazenamento de PDF/XML.
