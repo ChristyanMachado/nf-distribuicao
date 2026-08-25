@@ -49,10 +49,12 @@ def test_preenchimento_substitui_emitente_pela_sessao_do_cliente():
         tarefa,
         "CLIENTE_A",
         "emitente-da-sessao",
+        "Emissor da Sessão",
     )
 
     assert tarefa_cliente is not None
     assert tarefa_cliente.emitente.valor_select == "emitente-da-sessao"
+    assert tarefa_cliente.nome_emitente == "Emissor da Sessão"
     assert tarefa.emitente.valor_select == "emitente-original"
 
 

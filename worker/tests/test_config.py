@@ -234,7 +234,9 @@ def test_emitente_e_carregado_quando_configurado(monkeypatch):
     monkeypatch.setenv("CLIENTE_TESTE_LOGIN", "login-de-teste")
     monkeypatch.setenv("CLIENTE_TESTE_SENHA", "senha-de-teste")
     monkeypatch.setenv("CLIENTE_TESTE_EMITENTE", "  opcao-emitente  ")
+    monkeypatch.setenv("CLIENTE_TESTE_NOME_EMITENTE", "  Emissor de teste  ")
 
     credencial = carregar_credencial("CLIENTE_TESTE")
 
     assert credencial.emitente == "opcao-emitente"
+    assert credencial.nome_emitente == "Emissor de teste"

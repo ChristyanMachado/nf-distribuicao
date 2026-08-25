@@ -80,6 +80,7 @@ def preparar_tarefa_para_cliente(
     tarefa: Tarefa | None,
     tarefa_id: str,
     emitente: str | None,
+    nome_emitente: str | None = None,
 ) -> Tarefa | None:
     """Associa o emitente da sessão à tarefa somente quando ela existe.
 
@@ -100,6 +101,7 @@ def preparar_tarefa_para_cliente(
     return replace(
         tarefa,
         emitente=Emitente(valor_select=emitente),
+        nome_emitente=nome_emitente or tarefa.nome_emitente,
     )
 
 
@@ -117,6 +119,7 @@ async def teste_autenticacao(
         tarefa,
         tarefa_id,
         credencial.emitente,
+        credencial.nome_emitente,
     )
     page = await context.new_page()
 

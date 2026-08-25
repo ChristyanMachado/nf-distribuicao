@@ -71,6 +71,10 @@ do emitente na NFP-e. `numero_distribuicao` também é opcional apenas nesta
 fase local: quando ausente, o nome deixa claro que se trata de uma distribuição
 local, sem fingir ser o contador oficial do sistema.
 
+No teste A/B/C, prefira definir `CLIENTE_A_NOME_EMITENTE`,
+`CLIENTE_B_NOME_EMITENTE` e `CLIENTE_C_NOME_EMITENTE` no `.env`. Esses nomes
+substituem o rótulo genérico do JSON e refletem o emissor de cada sessão.
+
 Os arquivos são validados por tamanho e assinatura básica de formato. O XML
 precisa ser bem-formado e ter raiz de NF-e; uma página HTML, resposta vazia ou
 arquivo malformado disfarçado de documento é recusado e removido.

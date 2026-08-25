@@ -25,6 +25,7 @@ class CredencialCliente:
     senha: str
     identidade_esperada: str | None = None
     emitente: str | None = None
+    nome_emitente: str | None = None
     
     def __repr__(self) -> str:
         # RNF02: dataclass por padrão gera um __repr__ que expõe TODOS os
@@ -173,6 +174,9 @@ def carregar_credencial(prefixo_cliente: str) -> CredencialCliente:
         # Necessário apenas quando TESTAR_PREENCHIMENTO_COMPLETO=true. Login
         # e navegação têm de continuar possíveis sem esse dado fiscal.
         emitente=(os.getenv(f"{prefixo_cliente}_EMITENTE") or "").strip() or None,
+        # Rótulo operacional sem segredo usado nos nomes de XML/DANFE.
+        nome_emitente=(os.getenv(f"{prefixo_cliente}_NOME_EMITENTE") or "").strip()
+        or None,
     )
 
 
