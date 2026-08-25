@@ -22,8 +22,8 @@ O sistema organiza a distribuição de produtos e automatiza, futuramente, a emi
   reconhecimento específico.
 - A emissão controlada pode ser ativada somente por
   `TESTAR_EMISSAO_HOMOLOGACAO=true`. Configuração e URL da Page são validadas,
-  não há confirmação interativa e múltiplos clientes exigem
-  `MAX_CONCORRENCIA=1`, para emitir em sequência. Roteiro:
+  não há confirmação interativa e até três clientes podem emitir em paralelo
+  com `MAX_CONCORRENCIA=3`. Roteiro:
   `docs/TESTE-WORKER-HOMOLOGACAO.md`.
 - `AMBIENTE_EMISSAO=teste` é o padrão. Não executar testes de preenchimento no ambiente fiscal normal sem uma decisão consciente.
 - O smoke test de login/navegação não precisa mais de `CLIENTE_X_EMITENTE`.
@@ -79,9 +79,9 @@ O resultado técnico detalhado e seletores reconhecidos estão em `docs/HANDOFF.
   rodadas diferentes. Ele não exibe valores monetários.
 - A migração `0006_lote_numerado_por_tarefa.sql` foi aplicada no banco de
   teste: os 5 lotes existentes receberam número sequencial e o vínculo
-  `tarefas.lote_id` existe. Novos XML/DANFE usarão nome do mercado, número de
-  distribuição e data; as 8 tarefas antigas sem lote ficam fora da integração
-  até revisão.
+  `tarefas.lote_id` existe. Novos XML/DANFE usarão nome do mercado, emissor,
+  número de distribuição e data; as 8 tarefas antigas sem lote ficam fora da
+  integração até revisão.
 - O contrato v1 agora rejeita UUIDs/formato/opções inválidas, `NaN`, infinito,
   valores excessivos e mais de 200 itens antes de abrir o navegador.
 - O cadastro de mercados agora exige razão social, CNPJ válido, IE, CEP,

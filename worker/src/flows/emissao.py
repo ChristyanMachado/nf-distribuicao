@@ -93,6 +93,9 @@ class Tarefa:
     # Nome operacional do mercado, quando o contrato Web o fornecer. No JSON
     # local ele é opcional e a razão social continua sendo o fallback seguro.
     nome_cliente: str | None = None
+    # Nome do emissor para desambiguar notas do mesmo cliente emitidas por
+    # empresas diferentes. No teste local o value do select é o fallback.
+    nome_emitente: str | None = None
     # Número sequencial do lote/distribuição. Só será definitivo quando vier
     # do banco; tarefa_real.json pode omiti-lo durante a fase local.
     numero_distribuicao: int | None = None
@@ -146,6 +149,12 @@ def _validar_metadados_arquivo(campos: dict[str, object]) -> None:
         if not isinstance(nome_cliente, str) or not nome_cliente.strip() or len(nome_cliente.strip()) > 160:
             raise ValueError("nome_cliente deve ser um texto preenchido de até 160 caracteres.")
         campos["nome_cliente"] = nome_cliente.strip()
+
+    nome_emitente = campos.get("nome_emitente")
+    if nome_emitente is not None:
+        if not isinstance(nome_emitente, str) or not nome_emitente.strip() or len(nome_emitente.strip()) > 160:
+            raise ValueError("nome_emitente deve ser um texto preenchido de até 160 caracteres.")
+        campos["nome_emitente"] = nome_emitente.strip()
 
     numero_distribuicao = campos.get("numero_distribuicao")
     if numero_distribuicao is not None:
@@ -1335,13 +1344,19 @@ async def _baixar_documento(
 
 def _caminho_documento(download_dir: str, tarefa: Tarefa, tipo: str, extensao: str) -> str:
     """Nomeia artefatos de forma legível, única e segura para o sistema de arquivos."""
-    cliente = _slug_nome_arquivo(tarefa.nome_cliente or tarefa.destinatario.razao_social, 72)
+    cliente = _slug_nome_arquivo(tarefa.nome_cliente or tarefa.destinatario.razao_social, 64)
+    emitente = _slug_nome_arquivo(
+        tarefa.nome_emitente or f"Emitente-{tarefa.emitente.valor_select}", 48
+    )
     if tarefa.numero_distribuicao is not None:
         distribuicao = f"Distribuicao-{tarefa.numero_distribuicao:06d}"
     else:
         distribuicao = f"Distribuicao-local-{_slug_nome_arquivo(tarefa.tarefa_id, 36)}"
     instante = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
-    return os.path.join(download_dir, f"{tipo}_{cliente}_{distribuicao}_{instante}.{extensao}")
+    return os.path.join(
+        download_dir,
+        f"{tipo}_{cliente}_{emitente}_{distribuicao}_{instante}.{extensao}",
+    )
 
 
 def _slug_nome_arquivo(valor: str, maximo: int) -> str:

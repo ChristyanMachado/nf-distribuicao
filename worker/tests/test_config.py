@@ -190,27 +190,34 @@ def test_emissao_homologacao_no_ambiente_normal_e_bloqueada(monkeypatch):
         carregar_config()
 
 
-def test_emissao_homologacao_headless_ou_multicliente_paralelo_e_bloqueada(monkeypatch):
+def test_emissao_homologacao_headless_ou_acima_do_limite_e_bloqueada(monkeypatch):
     _habilitar_emissao_homologacao(monkeypatch)
     monkeypatch.setenv("HEADLESS", "true")
     with pytest.raises(RuntimeError, match="HEADLESS=false"):
         carregar_config()
 
     monkeypatch.setenv("HEADLESS", "false")
-    monkeypatch.setenv("CLIENTES_ATIVOS", "CLIENTE_A,CLIENTE_B")
-    with pytest.raises(RuntimeError, match="MAX_CONCORRENCIA=1"):
+    monkeypatch.setenv(
+        "CLIENTES_ATIVOS", "CLIENTE_A,CLIENTE_B,CLIENTE_C,CLIENTE_D"
+    )
+    with pytest.raises(RuntimeError, match="no máximo 3 clientes"):
+        carregar_config()
+
+    monkeypatch.setenv("CLIENTES_ATIVOS", "CLIENTE_A,CLIENTE_B,CLIENTE_C")
+    monkeypatch.setenv("MAX_CONCORRENCIA", "4")
+    with pytest.raises(RuntimeError, match="MAX_CONCORRENCIA de até 3"):
         carregar_config()
 
 
-def test_emissao_homologacao_multicliente_sequencial_e_permitida(monkeypatch):
+def test_emissao_homologacao_ate_tres_clientes_em_paralelo_e_permitida(monkeypatch):
     _habilitar_emissao_homologacao(monkeypatch)
     monkeypatch.setenv("CLIENTES_ATIVOS", "CLIENTE_A,CLIENTE_B,CLIENTE_C")
-    monkeypatch.setenv("MAX_CONCORRENCIA", "1")
+    monkeypatch.setenv("MAX_CONCORRENCIA", "3")
 
     config = carregar_config()
 
     assert config.clientes_ativos == ("CLIENTE_A", "CLIENTE_B", "CLIENTE_C")
-    assert config.max_concorrencia == 1
+    assert config.max_concorrencia == 3
 
 
 def test_emitente_e_opcional_para_login_e_navegacao(monkeypatch):

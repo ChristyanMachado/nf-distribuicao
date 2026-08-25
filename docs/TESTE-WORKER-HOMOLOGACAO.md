@@ -51,9 +51,9 @@ teste. Antes do clique, o código valida:
 - navegador visível.
 
 Para um cliente, basta `CLIENTES_ATIVOS="CLIENTE_A"`. Para testar A, B e C
-sem disparos simultâneos, use `CLIENTES_ATIVOS="CLIENTE_A,CLIENTE_B,CLIENTE_C"`
-e `MAX_CONCORRENCIA="1"`. O Worker abre e conclui um contexto por vez; após
-cada download ele aguardará Enter antes de iniciar o próximo.
+em paralelo, use `CLIENTES_ATIVOS="CLIENTE_A,CLIENTE_B,CLIENTE_C"` e
+`MAX_CONCORRENCIA="3"`. O Worker limita esse modo de emissão a três contextos
+simultâneos e fecha cada contexto assim que seus downloads terminarem.
 
 ## Resultado esperado
 
@@ -61,14 +61,15 @@ O Worker deve clicar em **Emitir**, aguardar `AUTORIZADA` e somente então
 tentar baixar:
 
 ```text
-worker/downloads/xml_<cliente>_Distribuicao-000001_<UTC>.xml
-worker/downloads/danfe_<cliente>_Distribuicao-000001_<UTC>.pdf
+worker/downloads/xml_<cliente>_<emissor>_Distribuicao-000001_<UTC>.xml
+worker/downloads/danfe_<cliente>_<emissor>_Distribuicao-000001_<UTC>.pdf
 ```
 
-No JSON local, `nome_cliente` é opcional e tem prioridade; sem ele, o Worker
-usa a razão social do destinatário. `numero_distribuicao` também é opcional
-apenas nesta fase local: quando ausente, o nome deixa claro que se trata de
-uma distribuição local, sem fingir ser o contador oficial do sistema.
+No JSON local, `nome_cliente` e `nome_emitente` são opcionais. Sem eles, o
+Worker usa respectivamente a razão social do destinatário e o identificador
+do emitente na NFP-e. `numero_distribuicao` também é opcional apenas nesta
+fase local: quando ausente, o nome deixa claro que se trata de uma distribuição
+local, sem fingir ser o contador oficial do sistema.
 
 Os arquivos são validados por tamanho e assinatura básica de formato. O XML
 precisa ser bem-formado e ter raiz de NF-e; uma página HTML, resposta vazia ou
@@ -78,11 +79,9 @@ Não é necessário iniciar o Web para este primeiro teste. Ele usa somente o
 JSON local e serve para separar possíveis falhas do portal fiscal de futuras
 falhas da fila/banco.
 
-Após os downloads, o navegador permanece aberto até você pressionar Enter no
-terminal. A autorização já é reconhecida por `span.autorizada` + texto exato.
-Aproveite esse momento para copiar o HTML ou seletor do estado **Rejeitada**,
-número da nota e chave de acesso, sem incluir dados sensíveis na documentação
-pública.
+Após os downloads, o contexto é fechado automaticamente para liberar recursos
+e permitir que os outros clientes prossigam. A autorização já é reconhecida
+por `span.autorizada` + texto exato.
 
 Se `AUTORIZADA` não aparecer, XML/DANFE não são baixados. O Worker salva um
 HTML e uma captura local em `worker/downloads/`, registra apenas os caminhos

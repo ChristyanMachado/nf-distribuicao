@@ -4,11 +4,10 @@ Python + Playwright, executando localmente por enquanto (seção 14 do
 documento de visão), migrando para uma VM (Oracle Cloud Always Free) depois
 de validado (Fase 6).
 
-## Estado atual (24/08)
+## Estado atual (25/08)
 
-- Reconhecimento e preenchimento validados em homologação até a transição
-  posterior a **Transporte**, para uma e duas linhas de produto. O Worker
-  para antes de **Emitir**. Detalhes em `RECON.md` e `docs/HANDOFF.md`.
+- Reconhecimento, preenchimento, emissão autorizada e download de XML/DANFE
+  validados em homologação. Detalhes em `RECON.md` e `docs/HANDOFF.md`.
 - **Todos os dados fiscais confirmados** (CFOP `5101`, situação tributária
   `40`, origem `0`, transporte `3`, indicador de IE, e o código do
   benefício fiscal `PR810128`). O que falta agora é só **seletor** (onde
@@ -22,17 +21,14 @@ de validado (Fase 6).
   SLDS (mesmo padrão que já funciona pra "Venda"), e botão de emissão por
   nome "Emitir". Se a estrutura real for diferente, falham rápido e limpo
   — o Inspector assume dali.
-- **Corrigido:** confirmação humana (`validar_antes_de_emitir`) agora é
-  thread-safe — antes, com 3 clientes em paralelo, dois `input()`
-  simultâneos podiam disputar o mesmo terminal.
 - `CLIENTES_ATIVOS` no `.env` controla quantos/quais clientes rodam (útil
-  pra testar 1 por vez antes de habilitar os 3 em paralelo).
+  para testar 1 ou até 3 em paralelo no ambiente de homologação).
 - `src/orquestrador.py`: BrowserContexts Async independentes (RF14), com
   falha isolada por tarefa (RF24). O login Async foi validado contra a
   Receita PR com um e com três clientes em paralelo.
 - `src/auth.py`: autenticação e navegação inicial já usam Playwright Async.
-- `src/flows/emissao.py`: usa Playwright Async e é chamado apenas quando
-  `TESTAR_PREENCHIMENTO_COMPLETO=true`; continua sem emissão real.
+- `src/flows/emissao.py`: usa Playwright Async, emite somente quando
+  `TESTAR_EMISSAO_HOMOLOGACAO=true` e confirma `AUTORIZADA` antes de baixar.
 - O Worker ainda recebe `tarefa_real.json` local. A integração Web → Worker
   será implementada pelo contrato registrado em `docs/ROADMAP.md`.
 

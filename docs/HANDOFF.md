@@ -70,7 +70,8 @@ emitentes e reconhecer a tela final em homologação sem clicar em **Emitir**.
   preenchimento → conferência humana → Emitir → XML → DANFE.
 - Há bloqueio em configuração e no instante do clique: ambiente precisa ser
   `teste`, host precisa ser exatamente o da homologação e `HEADLESS=false`.
-  Mais de um cliente só pode emitir sequencialmente com `MAX_CONCORRENCIA=1`.
+  A emissão de homologação aceita até 3 clientes/contextos simultâneos, com
+  `MAX_CONCORRENCIA=3`.
 - Downloads inválidos, vazios, acima de 20 MB ou com assinatura incompatível
   são recusados e removidos.
 - O navegador permanece aberto após o download para captura do status
@@ -82,16 +83,16 @@ emitentes e reconhecer a tela final em homologação sem clicar em **Emitir**.
 - Teste ao vivo em 25/08/2026: emissão em homologação autorizada, XML e DANFE
   capturados com sucesso. Não há mais prompt antes do clique: a flag explícita
   de homologação e as travas técnicas autorizam o teste. Após os downloads, o
-  Chromium permanece aberto até Enter para inspeção.
+  contexto fecha automaticamente.
 - Sem `AUTORIZADA`, o Worker não baixa documentos e salva HTML + captura local
   de diagnóstico na pasta ignorada `worker/downloads/`, sem incluir o conteúdo
   fiscal no log.
 - A nomenclatura local de XML/DANFE agora usa tipo, nome curto do mercado (ou
-  razão social), número da distribuição e data. `0006` adiciona o contador
-  sequencial dos lotes e `tarefas.lote_id`, para que o número oficial venha do
-  banco e não seja inventado no Worker. A migração foi aplicada e verificada:
-  5 lotes numerados, colunas presentes e 8 tarefas pendentes antigas sem lote
-  preservadas para revisão; polling segue desligado para elas.
+  razão social), emissor, número da distribuição e data. `0006` adiciona o
+  contador sequencial dos lotes e `tarefas.lote_id`, para que o número oficial
+  venha do banco e não seja inventado no Worker. A migração foi aplicada e
+  verificada: 5 lotes numerados, colunas presentes e 8 tarefas pendentes
+  antigas sem lote preservadas para revisão; polling segue desligado para elas.
 - O cadastro Web de mercados passou a exigir todos os dados fiscais hoje
   confirmados e ganhou edição dos registros existentes.
 - O cadastro de emitentes também exige CNPJ, IE, referência da credencial e

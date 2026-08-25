@@ -36,7 +36,7 @@ dois produtos; Resumo, Emitir e os botões XML/DANFE foram reconhecidos
 manualmente. Por padrão o Worker para antes de **Emitir**. O ponto de entrada
 possui uma exceção de teste explícita que exige homologação, navegador visível,
 nova validação da URL imediatamente antes do clique. Vários clientes de teste
-só são permitidos em sequência, com `MAX_CONCORRENCIA=1`.
+são permitidos até o teto de três contextos, com `MAX_CONCORRENCIA=3`.
 
 O padrão é `AMBIENTE_EMISSAO=teste`, com o caminho NFP-e TESTES → Emissão - TESTE. Produção só poderá ser usada após validação explícita.
 
@@ -54,7 +54,7 @@ Para testes, há três níveis deliberadamente separados:
 - emissão controlada de homologação: exige todas as etapas anteriores,
   `TESTAR_EMISSAO_HOMOLOGACAO=true`, navegador visível e validação do host da
   Page. Nunca aceita o ambiente `normal`; múltiplos clientes exigem execução
-  sequencial.
+  limitada a três contextos simultâneos.
 
 ## Modelo de domínio
 
@@ -100,8 +100,8 @@ endereço. O lote mais recente é aberto por padrão e pode ser impresso.
 Cada lote recebe também um número operacional sequencial, visível como
 `Distribuição 000001`. Novas tarefas guardam o `lote_id`, evitando que duas
 rodadas do mesmo cliente no mesmo dia sejam fundidas. Esse número segue no
-contrato Web → Worker e compõe os nomes de XML/DANFE. A migração `0006` está
-aplicada e conferida no banco de teste.
+contrato Web → Worker e compõe os nomes de XML/DANFE, junto com o nome do
+emissor. A migração `0006` está aplicada e conferida no banco de teste.
 
 ## Agendamento futuro
 

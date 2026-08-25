@@ -25,6 +25,7 @@ export async function gerarContratoTarefaPendente(tarefaId: string) {
       clienteId: tarefas.clienteId,
       emitenteId: tarefas.emitenteId,
       numeroDistribuicao: lotesDistribuicao.numero,
+      nomeEmitente: emitentes.nome,
       clienteNome: clientes.nome,
       destinatarioNome: clientes.destinatarioNome,
       cnpj: clientes.cnpj,
@@ -75,6 +76,7 @@ export async function gerarContratoTarefaPendente(tarefaId: string) {
       clienteId: cabecalho.clienteId,
       emitenteId: cabecalho.emitenteId,
       numeroDistribuicao: cabecalho.numeroDistribuicao,
+      nomeEmitente: cabecalho.nomeEmitente,
     },
     cliente: {
       nome: cabecalho.clienteNome,

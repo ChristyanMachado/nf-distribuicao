@@ -15,6 +15,7 @@ export type DadosContratoTarefa = {
       clienteId: string;
       emitenteId: string;
       numeroDistribuicao: number | null;
+      nomeEmitente: string;
   };
   cliente: {
     nome: string;
@@ -144,6 +145,7 @@ export function montarContratoTarefaV1(dados: DadosContratoTarefa) {
       id: exigirUuid(dados.tarefa.id, "Tarefa"),
       clienteId: exigirUuid(dados.tarefa.clienteId, "Cliente"),
       nomeCliente,
+      nomeEmitente: limitarTexto(dados.tarefa.nomeEmitente, "Nome do emitente", 160),
       numeroDistribuicao,
       emitente: {
         id: exigirUuid(dados.tarefa.emitenteId, "Emitente"),

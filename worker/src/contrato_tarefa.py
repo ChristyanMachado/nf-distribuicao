@@ -109,6 +109,9 @@ def carregar_contrato_tarefa(dados: Mapping[str, Any]) -> TarefaContratada:
             inscricao_estadual=inscricao_estadual,
         ),
         nome_cliente=_texto(tarefa_raw.get("nomeCliente"), "tarefa.nomeCliente", 160),
+        nome_emitente=_texto(
+            tarefa_raw.get("nomeEmitente"), "tarefa.nomeEmitente", 160
+        ),
         numero_distribuicao=_numero_inteiro_positivo(
             tarefa_raw.get("numeroDistribuicao"), "tarefa.numeroDistribuicao"
         ),

@@ -16,6 +16,7 @@ def _contrato_valido() -> dict:
             "id": "11111111-1111-4111-8111-111111111111",
             "clienteId": "22222222-2222-4222-8222-222222222222",
             "nomeCliente": "Mercado de Teste",
+            "nomeEmitente": "Emissor de Teste",
             "numeroDistribuicao": 42,
             "emitente": {
                 "id": "33333333-3333-4333-8333-333333333333",
@@ -67,6 +68,7 @@ def test_contrato_valido_converte_para_modelo_fiscal_sem_segredo():
     assert contrato.tarefa.itens[0].codigo_produto == "CODIGO-FISCAL-1"
     assert contrato.tarefa.itens[0].quantidade == 2.5
     assert contrato.tarefa.nome_cliente == "Mercado de Teste"
+    assert contrato.tarefa.nome_emitente == "Emissor de Teste"
     assert contrato.tarefa.numero_distribuicao == 42
 
 

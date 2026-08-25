@@ -51,7 +51,7 @@ class Config:
     testar_preenchimento_completo: bool
     # Libera emissão controlada somente em homologação. Além desta flag, o
     # código exige AMBIENTE_EMISSAO=teste, HEADLESS=false e confere o domínio
-    # da Page no instante do clique. Vários clientes só podem rodar em série.
+    # da Page no instante do clique. O teste fiscal permite até 3 contextos.
     testar_emissao_homologacao: bool
     # Limite opcional de contextos/abas simultâneos. None = sem limite (hoje
     # equivalente a len(clientes_ativos), já que só 3 foram testados). Existe
@@ -130,10 +130,13 @@ def carregar_config() -> Config:
             raise RuntimeError(
                 "O primeiro teste de emissão exige HEADLESS=false para conferência visual."
             )
-        if len(clientes_ativos) > 1 and max_concorrencia != 1:
+        if len(clientes_ativos) > 3:
             raise RuntimeError(
-                "Emissão de homologação com mais de um cliente exige "
-                "MAX_CONCORRENCIA=1 para executar em sequência."
+                "Emissão de homologação permite no máximo 3 clientes por execução."
+            )
+        if max_concorrencia is not None and max_concorrencia > 3:
+            raise RuntimeError(
+                "Emissão de homologação permite MAX_CONCORRENCIA de até 3."
             )
 
     modo_operacao = os.getenv("MODO_OPERACAO", "conferencia").strip().lower()

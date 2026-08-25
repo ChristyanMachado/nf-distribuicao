@@ -3,6 +3,7 @@
   "tarefa_id": "teste-real-001",
   "cliente_id": "CLIENTE_A",
   "nome_cliente": "Nome curto do mercado",
+  "nome_emitente": "Nome do emissor",
   "numero_distribuicao": 1,
   "emitente": {
     "valor_select": "9595048491"

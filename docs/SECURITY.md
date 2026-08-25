@@ -88,9 +88,9 @@ testes.
 `TESTAR_EMISSAO_HOMOLOGACAO` não é uma liberação genérica. O Worker recusa o
 clique se a configuração não for `teste` ou se a URL atual não pertencer ao
 host HTTPS exato da homologação. A flag é uma autorização explícita de teste;
-`HEADLESS=true` continua bloqueado. Quando houver mais de um cliente, o Worker
-exige `MAX_CONCORRENCIA=1`, impedindo emissões de homologação em paralelo. A
-integração futura deverá preservar essa separação e possuir uma trava
+`HEADLESS=true` continua bloqueado. O Worker permite no máximo três contextos
+de homologação simultâneos, inclusive quando `MAX_CONCORRENCIA` é configurado.
+A integração futura deverá preservar essa separação e possuir uma trava
 diferente, explicitamente aprovada, para produção.
 
 Referências de implementação: [CSP no Next.js](https://nextjs.org/docs/app/guides/content-security-policy)

@@ -170,12 +170,9 @@ async def teste_autenticacao(
                         tarefa_id,
                         ", ".join(sorted(documentos)),
                     )
-                    input(
-                        "Resultado aberto para inspeção. Capture o HTML/status "
-                        "necessário e pressione Enter para fechar o Chromium..."
-                    )
+                    return
 
-        # Mantém a página visível brevemente para conferência manual.
+        # Mantém a página visível brevemente apenas nos testes sem emissão.
         if not config.headless:
             await asyncio.sleep(5)
     finally:
