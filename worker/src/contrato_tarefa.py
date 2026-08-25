@@ -8,6 +8,9 @@ Worker ao banco ou ao ambiente de produção.
 """
 from __future__ import annotations
 
+import math
+import re
+import uuid
 from dataclasses import dataclass
 from typing import Any, Literal, Mapping
 
@@ -15,6 +18,8 @@ from .flows.emissao import Destinatario, Emitente, ItemTarefa, Tarefa
 
 
 VERSAO_CONTRATO_TAREFA = 1
+MAX_ITENS_POR_TAREFA = 200
+MAX_VALOR_NUMERICO = 1_000_000_000
 AmbienteEmissao = Literal["teste", "normal"]
 
 
@@ -54,6 +59,8 @@ def carregar_contrato_tarefa(dados: Mapping[str, Any]) -> TarefaContratada:
     itens_raw = _lista(tarefa_raw.get("itens"), "tarefa.itens")
     if not itens_raw:
         raise ContratoTarefaInvalido("tarefa.itens deve conter ao menos um item.")
+    if len(itens_raw) > MAX_ITENS_POR_TAREFA:
+        raise ContratoTarefaInvalido("tarefa.itens excede o limite permitido.")
 
     indicador_ie = _texto(destinatario_raw.get("indicadorIe"), "tarefa.destinatario.indicadorIe")
     if indicador_ie not in {
@@ -74,19 +81,27 @@ def carregar_contrato_tarefa(dados: Mapping[str, Any]) -> TarefaContratada:
 
     itens = [_carregar_item(item, indice) for indice, item in enumerate(itens_raw)]
     tarefa = Tarefa(
-        tarefa_id=_texto(tarefa_raw.get("id"), "tarefa.id"),
-        cliente_id=_texto(tarefa_raw.get("clienteId"), "tarefa.clienteId"),
+        tarefa_id=_uuid(tarefa_raw.get("id"), "tarefa.id"),
+        cliente_id=_uuid(tarefa_raw.get("clienteId"), "tarefa.clienteId"),
         emitente=Emitente(
             valor_select=_texto(emitente_raw.get("valorSelect"), "tarefa.emitente.valorSelect")
         ),
         destinatario=Destinatario(
-            cnpj=_texto(destinatario_raw.get("cnpj"), "tarefa.destinatario.cnpj"),
+            cnpj=_texto_padrao(
+                destinatario_raw.get("cnpj"),
+                "tarefa.destinatario.cnpj",
+                r"\d{14}",
+            ),
             indicador_ie=indicador_ie,
             razao_social=_texto(
                 destinatario_raw.get("razaoSocial"),
                 "tarefa.destinatario.razaoSocial",
             ),
-            cep=_texto(destinatario_raw.get("cep"), "tarefa.destinatario.cep"),
+            cep=_texto_padrao(
+                destinatario_raw.get("cep"),
+                "tarefa.destinatario.cep",
+                r"\d{8}",
+            ),
             numero_endereco=_texto(
                 destinatario_raw.get("numeroEndereco"),
                 "tarefa.destinatario.numeroEndereco",
@@ -94,28 +109,46 @@ def carregar_contrato_tarefa(dados: Mapping[str, Any]) -> TarefaContratada:
             inscricao_estadual=inscricao_estadual,
         ),
         itens=itens,
-        natureza_operacao=_texto(operacao_raw.get("natureza"), "tarefa.operacao.natureza"),
-        tipo_operacao=_texto(operacao_raw.get("tipo"), "tarefa.operacao.tipo"),
-        finalidade_emissao=_texto(
+        natureza_operacao=_opcao(
+            operacao_raw.get("natureza"),
+            "tarefa.operacao.natureza",
+            {"Venda"},
+        ),
+        tipo_operacao=_opcao(
+            operacao_raw.get("tipo"),
+            "tarefa.operacao.tipo",
+            {"Entrada", "Saída"},
+        ),
+        finalidade_emissao=_opcao(
             operacao_raw.get("finalidade"),
             "tarefa.operacao.finalidade",
+            {"NF-e normal", "NF-e complementar", "NF-e de ajuste", "Devolução de Mercadoria"},
         ),
-        indicador_presenca=_texto(
+        indicador_presenca=_opcao(
             operacao_raw.get("indicadorPresenca"),
             "tarefa.operacao.indicadorPresenca",
+            {
+                "Não se aplica",
+                "Operação presencial",
+                "Operação não presencial, pela Internet",
+                "Operação não presencial, Teleatendimento",
+                "Operação não presencial, outros",
+            },
         ),
-        modalidade_frete=_texto(
+        modalidade_frete=_opcao(
             operacao_raw.get("modalidadeFrete"),
             "tarefa.operacao.modalidadeFrete",
+            {"3"},
         ),
     )
     return TarefaContratada(
         tarefa=tarefa,
         ambiente=ambiente,
-        emitente_id=_texto(emitente_raw.get("id"), "tarefa.emitente.id"),
-        credencial_referencia=_texto(
+        emitente_id=_uuid(emitente_raw.get("id"), "tarefa.emitente.id"),
+        credencial_referencia=_texto_padrao(
             emitente_raw.get("credencialReferencia"),
             "tarefa.emitente.credencialReferencia",
+            r"[A-Z][A-Z0-9_]{2,63}",
         ),
     )
 
@@ -123,6 +156,7 @@ def carregar_contrato_tarefa(dados: Mapping[str, Any]) -> TarefaContratada:
 def _carregar_item(dados: Any, indice: int) -> ItemTarefa:
     caminho = f"tarefa.itens[{indice}]"
     item = _objeto(dados, caminho)
+    _uuid(item.get("produtoId"), f"{caminho}.produtoId")
     possui_beneficio = item.get("possuiBeneficioFiscal")
     if not isinstance(possui_beneficio, bool):
         raise ContratoTarefaInvalido(f"{caminho}.possuiBeneficioFiscal deve ser booleano.")
@@ -137,9 +171,9 @@ def _carregar_item(dados: Any, indice: int) -> ItemTarefa:
         )
 
     return ItemTarefa(
-        produto_descricao=_texto(item.get("descricao"), f"{caminho}.descricao"),
-        codigo_produto=_texto(item.get("codigoFiscal"), f"{caminho}.codigoFiscal"),
-        unidade=_texto(item.get("unidade"), f"{caminho}.unidade"),
+        produto_descricao=_texto(item.get("descricao"), f"{caminho}.descricao", 160),
+        codigo_produto=_texto(item.get("codigoFiscal"), f"{caminho}.codigoFiscal", 80),
+        unidade=_texto(item.get("unidade"), f"{caminho}.unidade", 16),
         quantidade=_numero_positivo(item.get("quantidade"), f"{caminho}.quantidade"),
         preco_unitario=_numero_nao_negativo(
             item.get("precoUnitario"),
@@ -172,10 +206,13 @@ def _lista(valor: Any, caminho: str) -> list[Any]:
     return valor
 
 
-def _texto(valor: Any, caminho: str) -> str:
+def _texto(valor: Any, caminho: str, maximo: int = 256) -> str:
     if not isinstance(valor, str) or not valor.strip():
         raise ContratoTarefaInvalido(f"{caminho} deve ser um texto preenchido.")
-    return valor.strip()
+    texto = valor.strip()
+    if len(texto) > maximo:
+        raise ContratoTarefaInvalido(f"{caminho} excede o tamanho permitido.")
+    return texto
 
 
 def _texto_opcional(valor: Any, caminho: str) -> str | None:
@@ -201,7 +238,35 @@ def _numero_nao_negativo(valor: Any, caminho: str) -> float:
 def _numero(valor: Any, caminho: str) -> float:
     if isinstance(valor, bool) or not isinstance(valor, (int, float)):
         raise ContratoTarefaInvalido(f"{caminho} deve ser numérico.")
-    return float(valor)
+    numero = float(valor)
+    if not math.isfinite(numero) or abs(numero) > MAX_VALOR_NUMERICO:
+        raise ContratoTarefaInvalido(f"{caminho} está fora do intervalo permitido.")
+    return numero
+
+
+def _uuid(valor: Any, caminho: str) -> str:
+    texto = _texto(valor, caminho, 36)
+    try:
+        identificador = uuid.UUID(texto)
+    except ValueError as exc:
+        raise ContratoTarefaInvalido(f"{caminho} deve ser um UUID válido.") from exc
+    if str(identificador) != texto.lower():
+        raise ContratoTarefaInvalido(f"{caminho} deve ser um UUID válido.")
+    return texto
+
+
+def _texto_padrao(valor: Any, caminho: str, padrao: str) -> str:
+    texto = _texto(valor, caminho)
+    if not re.fullmatch(padrao, texto):
+        raise ContratoTarefaInvalido(f"{caminho} possui formato inválido.")
+    return texto
+
+
+def _opcao(valor: Any, caminho: str, opcoes: set[str]) -> str:
+    texto = _texto(valor, caminho)
+    if texto not in opcoes:
+        raise ContratoTarefaInvalido(f"{caminho} não é uma opção permitida.")
+    return texto
 
 
 def _ambiente(valor: Any, caminho: str) -> AmbienteEmissao:

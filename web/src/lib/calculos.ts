@@ -25,10 +25,20 @@ export class DistribuicaoInvalidaError extends Error {}
  * RF09 — quantidade faturável = distribuída - troca, nunca negativa.
  */
 export function calcularFaturavel(item: ItemDistribuicao): ItemFaturavel {
+  if (
+    !Number.isFinite(item.quantidadeDistribuida) ||
+    !Number.isFinite(item.quantidadeTroca) ||
+    !Number.isFinite(item.precoUnitario)
+  ) {
+    throw new DistribuicaoInvalidaError("Quantidade e preço precisam ser números válidos.");
+  }
   if (item.quantidadeDistribuida < 0 || item.quantidadeTroca < 0) {
     throw new DistribuicaoInvalidaError(
       "Quantidades não podem ser negativas."
     );
+  }
+  if (item.precoUnitario < 0) {
+    throw new DistribuicaoInvalidaError("Preço não pode ser negativo.");
   }
   if (item.quantidadeTroca > item.quantidadeDistribuida) {
     throw new DistribuicaoInvalidaError(
@@ -50,6 +60,9 @@ export function validarDistribuicaoTotal(
   quantidadeDisponivel: number,
   itens: ItemDistribuicao[]
 ): { valido: boolean; totalDistribuido: number; sobra: number } {
+  if (!Number.isFinite(quantidadeDisponivel) || quantidadeDisponivel < 0) {
+    throw new DistribuicaoInvalidaError("Quantidade disponível precisa ser um número válido.");
+  }
   const totalDistribuido = itens.reduce(
     (soma, item) => soma + item.quantidadeDistribuida,
     0

@@ -29,6 +29,11 @@ Web Next.js no Vercel ───► Banco / Storage (Supabase)
 - **Worker em VM:** processo persistente com Chromium, Playwright e scheduler.
   Ele busca/reserva tarefa, executa o fluxo e devolve resultado ao banco.
 
+Durante o desenvolvimento, o Web tem uma trava Basic Auth fail-closed em
+produção. Ela evita exposição acidental, mas deve ser substituída por
+autenticação individual/autorização antes do uso comercial. O checklist de
+segurança obrigatório está em `docs/SECURITY.md`.
+
 ## Por que separar o Worker do Vercel
 
 Uma Vercel Function é uma execução limitada no tempo; ao atingir o limite,

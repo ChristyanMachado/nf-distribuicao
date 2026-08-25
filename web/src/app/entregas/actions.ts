@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { clientes, disponibilidades, distribuicoes, lotesDistribuicao, produtos } from "@/db/schema";
 import { agruparRoteiroEntrega } from "@/lib/entregas";
 import { desc, eq, asc } from "drizzle-orm";
+import { exigirUuid } from "@/lib/validacao";
 
 export async function listarLotesEntrega() {
   const lotes = await db
@@ -14,6 +15,7 @@ export async function listarLotesEntrega() {
 }
 
 export async function carregarRoteiroEntrega(loteId: string) {
+  exigirUuid(loteId, "Lote");
   const linhas = await db
     .select({
       clienteId: clientes.id,

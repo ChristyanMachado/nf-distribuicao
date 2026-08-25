@@ -105,6 +105,13 @@ que consulta/reserva tarefas no banco. Detalhes e limites conhecidos em
 
 - Não colocar credenciais no código, logs, documentos ou commits.
 - Não versionar `.env`.
+- O Web guarda somente `emitentes.credencial_referencia`; login/senha fiscal
+  são resolvidos no ambiente protegido do Worker. Colunas antigas permanecem
+  apenas para migração do banco de teste e não são projetadas por Server Actions.
+- Em produção, o Web fecha o acesso sem Basic Auth provisório configurado.
+  Autenticação individual, autorização, menor privilégio e RLS ainda são
+  requisitos anteriores à comercialização; ver `docs/SECURITY.md`.
+- PDF/XML serão privados e entregues por URLs HTTPS assinadas e temporárias.
 - Dados fiscais reais e emissão em produção exigem conferência humana até a fase de validação estar concluída.
 - `INSPECIONAR`/`page.pause()` não pode bloquear execução headless.
 - PDFs/XMLs e logs deverão retornar ao armazenamento da aplicação após a integração com o Worker.

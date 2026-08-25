@@ -11,7 +11,7 @@ from src.config import carregar_config, carregar_credencial
 def _preparar_env_minimo(monkeypatch):
     """As variáveis obrigatórias mínimas pra carregar_config() não falhar
     por outro motivo que não seja o que o teste quer verificar."""
-    monkeypatch.setenv("SISTEMA_FISCAL_URL", "https://exemplo.invalido/login")
+    monkeypatch.setenv("SISTEMA_FISCAL_URL", "https://receita.pr.gov.br/login")
     monkeypatch.delenv("TESTAR_NAVEGACAO_EMISSAO", raising=False)
     monkeypatch.delenv("TESTAR_PREENCHIMENTO_COMPLETO", raising=False)
     monkeypatch.delenv("MAX_CONCORRENCIA", raising=False)
@@ -78,6 +78,40 @@ def test_max_concorrencia_zero_ou_negativa_falha(monkeypatch):
     monkeypatch.setenv("MAX_CONCORRENCIA", "0")
 
     with pytest.raises(RuntimeError, match="MAX_CONCORRENCIA"):
+        carregar_config()
+
+
+def test_max_concorrencia_excessiva_falha(monkeypatch):
+    _preparar_env_minimo(monkeypatch)
+    monkeypatch.setenv("MAX_CONCORRENCIA", "21")
+
+    with pytest.raises(RuntimeError, match="MAX_CONCORRENCIA"):
+        carregar_config()
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "http://receita.pr.gov.br/login",
+        "https://receita.pr.gov.br.evil.example/login",
+        "https://receita.pr.gov.br/login?destino=malicioso",
+        "https://usuario:senha@receita.pr.gov.br/login",
+        "https://receita.pr.gov.br:porta/login",
+    ],
+)
+def test_url_fiscal_adulterada_e_rejeitada(monkeypatch, url):
+    _preparar_env_minimo(monkeypatch)
+    monkeypatch.setenv("SISTEMA_FISCAL_URL", url)
+
+    with pytest.raises(RuntimeError, match="Receita/PR"):
+        carregar_config()
+
+
+def test_clientes_ativos_rejeita_injecao_e_duplicidade(monkeypatch):
+    _preparar_env_minimo(monkeypatch)
+    monkeypatch.setenv("CLIENTES_ATIVOS", "CLIENTE_A,CLIENTE_A\nFORJADO")
+
+    with pytest.raises(RuntimeError, match="CLIENTES_ATIVOS"):
         carregar_config()
 
 

@@ -75,6 +75,11 @@ async def _salvar_screenshot_erro(page: Page, nome_etapa: str, download_dir: str
     caminho = os.path.join(download_dir, f"erro_{slug}_{timestamp}.png")
     try:
         await page.screenshot(path=caminho, full_page=True)
+        try:
+            os.chmod(caminho, 0o600)
+        except OSError:
+            # ACLs da VM devem complementar quando o SO não usa bits POSIX.
+            pass
         logger.info(f"Screenshot da falha salvo em: {caminho}")
     except Exception as e:  # noqa: BLE001 — screenshot é auxiliar, não pode derrubar o fluxo
         logger.warning(f"Não foi possível salvar screenshot: {e}")

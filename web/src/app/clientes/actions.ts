@@ -4,25 +4,42 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import { clientes, emitentes, clienteEmitentes } from "@/db/schema";
 import { desc, eq } from "drizzle-orm";
+import { exigirUuid, limitarTexto } from "@/lib/validacao";
 
 export async function listarClientes() {
   return db.select().from(clientes).where(eq(clientes.ativo, true)).orderBy(desc(clientes.criadoEm));
 }
 
 export async function listarEmitentes() {
-  return db.select().from(emitentes).where(eq(emitentes.ativo, true)).orderBy(desc(emitentes.criadoEm));
+  // Seleção explícita: as colunas legadas de credencial jamais atravessam a
+  // fronteira Server Action -> navegador.
+  return db
+    .select({ id: emitentes.id, nome: emitentes.nome, cnpj: emitentes.cnpj })
+    .from(emitentes)
+    .where(eq(emitentes.ativo, true))
+    .orderBy(desc(emitentes.criadoEm));
 }
 
 export async function criarCliente(formData: FormData) {
-  const nome = String(formData.get("nome") ?? "").trim();
-  const cnpj = String(formData.get("cnpj") ?? "").trim() || null;
-  const inscricaoEstadual = String(formData.get("inscricaoEstadual") ?? "").trim() || null;
-  const cep = String(formData.get("cep") ?? "").trim() || null;
-  const numeroEndereco = String(formData.get("numeroEndereco") ?? "").trim() || null;
-  const emitenteIds = formData
+  const nome = limitarTexto(String(formData.get("nome") ?? ""), "Nome", 160);
+  const destinatarioNome =
+    limitarTexto(
+      String(formData.get("destinatarioNome") ?? ""),
+      "Razão social",
+      200,
+    ) || null;
+  const cnpj = limitarTexto(String(formData.get("cnpj") ?? ""), "CNPJ", 20) || null;
+  const inscricaoEstadual = limitarTexto(String(formData.get("inscricaoEstadual") ?? ""), "Inscrição estadual", 32) || null;
+  const cep = limitarTexto(String(formData.get("cep") ?? ""), "CEP", 12) || null;
+  const numeroEndereco = limitarTexto(String(formData.get("numeroEndereco") ?? ""), "Número", 32) || null;
+  const emitenteIdsRecebidos = formData
     .getAll("emitenteIds")
     .map((id) => String(id).trim())
     .filter(Boolean);
+  const emitenteIds = [...new Set(emitenteIdsRecebidos)];
+
+  if (emitenteIdsRecebidos.length > 100) throw new Error("Quantidade de emitentes excede o limite.");
+  for (const emitenteId of emitenteIds) exigirUuid(emitenteId, "Emitente");
 
   if (!nome) {
     throw new Error("Nome do cliente é obrigatório.");
@@ -33,6 +50,7 @@ export async function criarCliente(formData: FormData) {
     // fluxo confirmado no sistema fiscal até agora (worker/RECON.md).
     const [cliente] = await tx.insert(clientes).values({
       nome,
+      destinatarioNome,
       cnpj,
       inscricaoEstadual,
       cep,

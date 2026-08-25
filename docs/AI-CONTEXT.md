@@ -6,7 +6,7 @@ Fonte de contexto compartilhada para pessoas e ferramentas de IA que trabalham n
 
 O sistema organiza a distribuição de produtos e automatiza, futuramente, a emissão de NFP-e na Receita PR. A aplicação web e o Worker fiscal ainda estão integrados apenas conceitualmente.
 
-## Estado validado em 24/08/2026
+## Estado validado em 25/08/2026
 
 - A aplicação web já possui cadastros de emitentes, clientes e produtos; distribuição de múltiplos itens; preços por produto+cliente; tarefas; e relatórios de faturamento bruto, notas, ticket médio, rankings e gráfico.
 - O Worker usa 1 Chromium + N `BrowserContext`s independentes, Async Playwright e concorrência isolada.
@@ -16,6 +16,17 @@ O sistema organiza a distribuição de produtos e automatiza, futuramente, a emi
 - O smoke test de login/navegação não precisa mais de `CLIENTE_X_EMITENTE`.
   Esse valor só é exigido ao ativar `TESTAR_PREENCHIMENTO_COMPLETO=true`,
   pois é nesse modo que o Worker seleciona o emitente no formulário fiscal.
+- Uma revisão de segurança foi aplicada no Web e no Worker. O Web possui uma
+  trava provisória e fail-closed em produção, cabeçalhos de segurança,
+  validação de entradas e deixou de ler/gravar segredos fiscais. Detalhes e
+  bloqueios para produção estão em `docs/SECURITY.md`.
+- A migração `0004_credencial_fora_do_web.sql` foi aplicada ao banco de teste.
+  O emitente existente ainda não possui `credencial_referencia`; isso não
+  impede o Web atual, mas deverá ser configurado antes da integração.
+- O produtor interno do contrato v1 existe em
+  `web/src/server/contrato-tarefa.ts`, sempre gera homologação e não é uma
+  Server Action pública. A migração `0005` adicionou o identificador NFP-e
+  sem segredo; o emitente de teste ainda não tem esse valor configurado.
 
 O resultado técnico detalhado e seletores reconhecidos estão em `docs/HANDOFF.md` e `worker/RECON.md`.
 
@@ -30,7 +41,7 @@ O resultado técnico detalhado e seletores reconhecidos estão em `docs/HANDOFF.
 ## Pontos técnicos abertos
 
 - A migração `web/src/db/migrations/0001_emitente_por_tarefa.sql` foi aplicada ao banco de teste em 22/08. Ela preserva `clientes.emitente_id` como legado e cria `cliente_emitentes`, `distribuicoes.emitente_id` e `tarefas.emitente_id`.
-- Após a aplicação: 1 emitente preservado, 2 relações cliente↔emitente criadas e nenhuma tarefa ou distribuição sem emitente. Os logins continuam em `fiscal.emitentes`.
+- Após a aplicação: 1 emitente preservado, 2 relações cliente↔emitente criadas e nenhuma tarefa ou distribuição sem emitente. As colunas legadas de login continuam apenas no banco de teste, sem leitura/escrita pelo Web; devem ser removidas antes de produção.
 - O cálculo de "perdido em trocas" agora exclui registros vinculados a tarefas canceladas. A consulta também passou a relacionar troca, tarefa e emitente; o comportamento foi coberto por teste unitário.
 - Definir sem ambiguidade quais status entram no faturamento. Hoje a regra de código exclui somente `CANCELADA`; tarefas pendentes entram por serem valores já comprometidos na distribuição.
 - Implementar agendador, estratégia de retries, fuso operacional e tratamento de tarefas fora da janela.
@@ -51,6 +62,8 @@ O resultado técnico detalhado e seletores reconhecidos estão em `docs/HANDOFF.
 - Cada confirmação de distribuição é um lote operacional. O roteiro do
   motorista usa esse lote, nunca apenas a data, para não misturar entregas de
   rodadas diferentes. Ele não exibe valores monetários.
+- O contrato v1 agora rejeita UUIDs/formato/opções inválidas, `NaN`, infinito,
+  valores excessivos e mais de 200 itens antes de abrir o navegador.
 
 ## Princípios imutáveis
 
@@ -60,4 +73,6 @@ O resultado técnico detalhado e seletores reconhecidos estão em `docs/HANDOFF.
 - Não expor credenciais ou dados fiscais reais.
 - Não emitir de verdade sem testes e validação explícita.
 - Testar e documentar cada alteração antes do commit.
+- Não publicar o Web usando apenas a proteção provisória; cumprir
+  `docs/SECURITY.md` antes de dados reais/produção.
 - A autoria de commits é humana; IA é ferramenta de apoio.

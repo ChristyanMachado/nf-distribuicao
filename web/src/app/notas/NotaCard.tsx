@@ -2,6 +2,7 @@
 
 import Stamp from "@/components/Stamp";
 import { IconShare } from "@/components/icons";
+import { urlHttpsSegura } from "@/lib/urls";
 
 const moeda = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 
@@ -22,20 +23,23 @@ type Nota = {
  * assinadas do Supabase Storage quando essa integração entrar (RF19).
  */
 export default function NotaCard({ nota }: { nota: Nota }) {
+  const pdfUrl = urlHttpsSegura(nota.pdfPath);
+  const xmlUrl = urlHttpsSegura(nota.xmlPath);
+
   async function compartilhar() {
-    if (!nota.pdfPath) return;
+    if (!pdfUrl) return;
     if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
       try {
         await navigator.share({
           title: `NF-e ${nota.numero ?? ""}`,
           text: `Nota fiscal de ${nota.clienteNome}`,
-          url: nota.pdfPath,
+          url: pdfUrl,
         });
       } catch {
         // usuário cancelou — sem ação necessária
       }
     } else {
-      await navigator.clipboard.writeText(nota.pdfPath);
+      await navigator.clipboard.writeText(pdfUrl);
     }
   }
 
@@ -61,26 +65,26 @@ export default function NotaCard({ nota }: { nota: Nota }) {
 
       <div className="mt-3 flex gap-2">
         <a
-          href={nota.pdfPath ?? "#"}
+          href={pdfUrl ?? "#"}
           download
           className={`tap-target flex flex-1 items-center justify-center rounded-[var(--radius-control)] border border-[var(--line-strong)] text-sm font-medium ${
-            nota.pdfPath ? "active:bg-[var(--field-tint)]" : "pointer-events-none opacity-30"
+            pdfUrl ? "active:bg-[var(--field-tint)]" : "pointer-events-none opacity-30"
           }`}
         >
           PDF
         </a>
         <a
-          href={nota.xmlPath ?? "#"}
+          href={xmlUrl ?? "#"}
           download
           className={`tap-target flex flex-1 items-center justify-center rounded-[var(--radius-control)] border border-[var(--line-strong)] text-sm font-medium ${
-            nota.xmlPath ? "active:bg-[var(--field-tint)]" : "pointer-events-none opacity-30"
+            xmlUrl ? "active:bg-[var(--field-tint)]" : "pointer-events-none opacity-30"
           }`}
         >
           XML
         </a>
         <button
           onClick={compartilhar}
-          disabled={!nota.pdfPath}
+          disabled={!pdfUrl}
           aria-label="Compartilhar"
           className="flex w-12 shrink-0 items-center justify-center rounded-[var(--radius-control)] border border-[var(--line-strong)] active:bg-[var(--field-tint)] disabled:opacity-30"
         >
@@ -88,7 +92,7 @@ export default function NotaCard({ nota }: { nota: Nota }) {
         </button>
       </div>
 
-      {!nota.pdfPath && (
+      {!pdfUrl && (
         <p className="mt-2 text-[12px] text-[var(--wheat)]">
           Documento ainda não disponível — fora da janela de retenção ou
           aguardando o worker.

@@ -1,6 +1,7 @@
 """Contrato Web → Worker: testes sem navegador, banco ou credenciais."""
 
 from copy import deepcopy
+import math
 
 import pytest
 
@@ -12,10 +13,10 @@ def _contrato_valido() -> dict:
         "versaoContrato": 1,
         "ambiente": "teste",
         "tarefa": {
-            "id": "tarefa-123",
-            "clienteId": "cliente-456",
+            "id": "11111111-1111-4111-8111-111111111111",
+            "clienteId": "22222222-2222-4222-8222-222222222222",
             "emitente": {
-                "id": "emitente-789",
+                "id": "33333333-3333-4333-8333-333333333333",
                 "valorSelect": "opcao-da-tela-nfpe",
                 "credencialReferencia": "CLIENTE_A",
             },
@@ -36,7 +37,7 @@ def _contrato_valido() -> dict:
             },
             "itens": [
                 {
-                    "produtoId": "produto-111",
+                    "produtoId": "44444444-4444-4444-8444-444444444444",
                     "descricao": "Produto de teste",
                     "codigoFiscal": "CODIGO-FISCAL-1",
                     "unidade": "KG",
@@ -59,7 +60,7 @@ def test_contrato_valido_converte_para_modelo_fiscal_sem_segredo():
 
     assert contrato.ambiente == "teste"
     assert contrato.credencial_referencia == "CLIENTE_A"
-    assert contrato.tarefa.tarefa_id == "tarefa-123"
+    assert contrato.tarefa.tarefa_id == "11111111-1111-4111-8111-111111111111"
     assert contrato.tarefa.emitente.valor_select == "opcao-da-tela-nfpe"
     assert contrato.tarefa.itens[0].codigo_produto == "CODIGO-FISCAL-1"
     assert contrato.tarefa.itens[0].quantidade == 2.5
@@ -95,4 +96,41 @@ def test_beneficio_fiscal_exige_codigo():
     dados["tarefa"]["itens"][0].pop("codigoBeneficioFiscal")
 
     with pytest.raises(ContratoTarefaInvalido, match="codigoBeneficioFiscal"):
+        carregar_contrato_tarefa(dados)
+
+
+@pytest.mark.parametrize("valor", [math.nan, math.inf, -math.inf, 1_000_000_001])
+def test_numero_nao_finito_ou_excessivo_e_rejeitado(valor):
+    dados = _contrato_valido()
+    dados["tarefa"]["itens"][0]["precoUnitario"] = valor
+
+    with pytest.raises(ContratoTarefaInvalido, match="precoUnitario"):
+        carregar_contrato_tarefa(dados)
+
+
+def test_quantidade_excessiva_de_itens_e_rejeitada():
+    dados = _contrato_valido()
+    dados["tarefa"]["itens"] = dados["tarefa"]["itens"] * 201
+
+    with pytest.raises(ContratoTarefaInvalido, match="limite"):
+        carregar_contrato_tarefa(dados)
+
+
+@pytest.mark.parametrize(
+    ("caminho", "valor"),
+    [
+        (("tarefa", "id"), "../../arquivo"),
+        (("tarefa", "emitente", "credencialReferencia"), "CLIENTE_A\nFORJADO"),
+        (("tarefa", "destinatario", "cep"), "javascript:"),
+        (("tarefa", "operacao", "modalidadeFrete"), "999"),
+    ],
+)
+def test_identificadores_e_opcoes_adulterados_sao_rejeitados(caminho, valor):
+    dados = _contrato_valido()
+    alvo = dados
+    for chave in caminho[:-1]:
+        alvo = alvo[chave]
+    alvo[caminho[-1]] = valor
+
+    with pytest.raises(ContratoTarefaInvalido):
         carregar_contrato_tarefa(dados)

@@ -12,8 +12,8 @@ export default async function EmitentesPage() {
     <div>
       <h1 className="text-2xl font-medium">Emitentes</h1>
       <p className="mt-1 text-[15px] text-[var(--ink-soft)]">
-        Quem vende e faz login no sistema fiscal. As credenciais aqui são as
-        mesmas usadas pela automação para emitir em nome deste emitente.
+        Quem vende e emite. Login e senha fiscal ficam protegidos no Worker;
+        o Web guarda somente uma referência sem segredo.
       </p>
 
       <Card className="mt-5 p-4">
@@ -32,16 +32,27 @@ export default async function EmitentesPage() {
           </div>
           <div className="col-span-2 mt-1 border-t border-[var(--line)] pt-3">
             <p className="font-mono-tab mb-2 text-[11px] font-bold uppercase tracking-widest text-[var(--ink-faint)]">
-              Login no sistema fiscal
+              Integração com o Worker
             </p>
           </div>
-          <div>
-            <Label>Usuário (CPF)</Label>
-            <input name="loginUsuario" className="font-mono-tab w-full" placeholder="000.000.000-00" />
+          <div className="col-span-2">
+            <Label>Referência da credencial</Label>
+            <input name="credencialReferencia" className="font-mono-tab w-full uppercase" placeholder="EMITENTE_GRAALYS_01" pattern="[A-Z][A-Z0-9_]{2,63}" />
+            <p className="mt-1 text-[12px] text-[var(--ink-faint)]">
+              Não é CPF nem senha. É apenas o nome da credencial configurada no Worker.
+            </p>
           </div>
-          <div>
-            <Label>Senha</Label>
-            <input name="senha" type="password" className="w-full" />
+          <div className="col-span-2">
+            <Label>Identificador do emitente na NFP-e</Label>
+            <input
+              name="valorSelectNfpe"
+              className="font-mono-tab w-full"
+              maxLength={128}
+              placeholder="Preencher após o reconhecimento"
+            />
+            <p className="mt-1 text-[12px] text-[var(--ink-faint)]">
+              Valor da opção no sistema fiscal. Pode ficar vazio por enquanto.
+            </p>
           </div>
           <div className="col-span-2 mt-1">
             <PrimaryButton type="submit" className="w-full py-2.5 sm:w-auto">
@@ -64,10 +75,14 @@ export default async function EmitentesPage() {
                   <span className="font-mono-tab ml-2 text-[var(--ink-faint)]">{e.cnpj}</span>
                 )}
               </div>
-              {/* Senha nunca aparece na listagem, mesmo mascarada — RF05/RNF02 */}
-              <span className="font-mono-tab text-[13px] text-[var(--ink-faint)]">
-                {e.loginUsuario ? "login configurado" : "sem login"}
-              </span>
+              <div className="text-right">
+                <span className="font-mono-tab block text-[13px] text-[var(--ink-faint)]">
+                  {e.credencialReferencia ?? "credencial pendente"}
+                </span>
+                {!e.valorSelectNfpe && (
+                  <span className="text-[12px] text-[var(--wheat)]">NFP-e pendente</span>
+                )}
+              </div>
             </div>
           ))}
           {emitentes.length === 0 && (

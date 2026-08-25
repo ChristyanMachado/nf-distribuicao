@@ -29,6 +29,20 @@
       "when": 1787744682845,
       "tag": "0003_lotes_e_endereco_entrega",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1787831082845,
+      "tag": "0004_credencial_fora_do_web",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1787917482845,
+      "tag": "0005_identificador_emitente_nfpe",
+      "breakpoints": true
     }
   ]
 }

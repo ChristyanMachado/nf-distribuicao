@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import { produtos, regrasFiscais } from "@/db/schema";
 import { and, desc, eq } from "drizzle-orm";
+import { exigirUuid, limitarTexto } from "@/lib/validacao";
 
 export async function listarProdutos() {
   return db
@@ -31,17 +32,28 @@ export async function listarRegrasFiscaisAtivas() {
 }
 
 export async function criarProduto(formData: FormData) {
-  const descricao = String(formData.get("descricao") ?? "").trim();
-  const codigoFiscal = String(formData.get("codigoFiscal") ?? "").trim() || null;
-  const unidade = String(formData.get("unidade") ?? "UN").trim();
+  const descricao = limitarTexto(String(formData.get("descricao") ?? ""), "Descrição", 160);
+  const codigoFiscal = limitarTexto(String(formData.get("codigoFiscal") ?? ""), "Código fiscal", 80) || null;
+  const unidade = limitarTexto(String(formData.get("unidade") ?? "UN"), "Unidade", 16);
   const precoPadrao = String(formData.get("precoPadrao") ?? "0").trim();
   const regraFiscalId = String(formData.get("regraFiscalId") ?? "").trim();
 
   if (!descricao) {
     throw new Error("Descrição do produto é obrigatória.");
   }
+  if (!codigoFiscal) {
+    throw new Error("Código fiscal do produto é obrigatório.");
+  }
+  if (!unidade) {
+    throw new Error("Unidade do produto é obrigatória.");
+  }
   if (!regraFiscalId) {
     throw new Error("Selecione uma regra fiscal para o produto.");
+  }
+  exigirUuid(regraFiscalId, "Regra fiscal");
+  const precoNumero = Number(precoPadrao);
+  if (!Number.isFinite(precoNumero) || precoNumero < 0 || precoNumero > 1_000_000_000) {
+    throw new Error("Preço padrão inválido.");
   }
 
   const [regraFiscal] = await db

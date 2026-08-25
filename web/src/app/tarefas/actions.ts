@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import { tarefas, tarefaItens, clientes, produtos, emitentes } from "@/db/schema";
 import { desc, eq, and } from "drizzle-orm";
+import { exigirUuid } from "@/lib/validacao";
 
 export async function listarTarefasComItens() {
   const listaTarefas = await db
@@ -38,6 +39,7 @@ export async function listarTarefasComItens() {
 }
 
 export async function cancelarTarefa(tarefaId: string) {
+  exigirUuid(tarefaId, "Tarefa");
   // Só cancela se ainda estiver PENDENTE — não faz sentido cancelar algo
   // que o worker já começou a processar ou já emitiu.
   await db

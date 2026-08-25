@@ -9,7 +9,9 @@ secrets manager em vez de variáveis de ambiente puras.
 from __future__ import annotations
 
 import os
+import re
 from dataclasses import dataclass
+from urllib.parse import urlsplit
 
 from dotenv import load_dotenv
 
@@ -61,6 +63,14 @@ class Config:
 def carregar_config() -> Config:
     clientes_raw = os.getenv("CLIENTES_ATIVOS", "CLIENTE_A,CLIENTE_B,CLIENTE_C")
     clientes_ativos = tuple(c.strip() for c in clientes_raw.split(",") if c.strip())
+    if not clientes_ativos or len(clientes_ativos) > 20:
+        raise RuntimeError("CLIENTES_ATIVOS deve conter entre 1 e 20 identificadores.")
+    if len(set(clientes_ativos)) != len(clientes_ativos):
+        raise RuntimeError("CLIENTES_ATIVOS não pode conter identificadores repetidos.")
+    if any(not re.fullmatch(r"[A-Z][A-Z0-9_]{2,63}", item) for item in clientes_ativos):
+        raise RuntimeError(
+            "CLIENTES_ATIVOS aceita somente letras maiúsculas, números e _."
+        )
 
     testar_navegacao_emissao = os.getenv("TESTAR_NAVEGACAO_EMISSAO", "false").lower() == "true"
     testar_preenchimento_completo = (
@@ -83,8 +93,10 @@ def carregar_config() -> Config:
             raise RuntimeError(
                 f"MAX_CONCORRENCIA precisa ser um número inteiro, recebeu: {max_concorrencia_raw!r}"
             ) from exc
-        if max_concorrencia < 1:
-            raise RuntimeError(f"MAX_CONCORRENCIA precisa ser >= 1, recebeu: {max_concorrencia}")
+        if not 1 <= max_concorrencia <= 20:
+            raise RuntimeError(
+                f"MAX_CONCORRENCIA precisa estar entre 1 e 20, recebeu: {max_concorrencia}"
+            )
 
     # Padrão "teste" de propósito (21/08): durante desenvolvimento, o
     # ambiente de homologação evita poluir o histórico fiscal real. Trocar
@@ -95,10 +107,14 @@ def carregar_config() -> Config:
             f"AMBIENTE_EMISSAO precisa ser 'normal' ou 'teste', recebeu: {ambiente_emissao!r}"
         )
 
+    modo_operacao = os.getenv("MODO_OPERACAO", "conferencia").strip().lower()
+    if modo_operacao not in {"simulacao", "conferencia", "automatico"}:
+        raise RuntimeError("MODO_OPERACAO deve ser simulacao, conferencia ou automatico.")
+
     return Config(
-        sistema_fiscal_url=_obrigatorio("SISTEMA_FISCAL_URL"),
+        sistema_fiscal_url=_url_sistema_fiscal(_obrigatorio("SISTEMA_FISCAL_URL")),
         headless=os.getenv("HEADLESS", "false").lower() == "true",
-        modo_operacao=os.getenv("MODO_OPERACAO", "conferencia"),
+        modo_operacao=modo_operacao,
         download_dir=os.getenv("DOWNLOAD_DIR", "./downloads"),
         log_dir=os.getenv("LOG_DIR", "./logs"),
         clientes_ativos=clientes_ativos,
@@ -135,3 +151,29 @@ def _obrigatorio(nome: str) -> str:
             "Copie .env.example para .env e preencha."
         )
     return valor
+
+
+def _url_sistema_fiscal(valor: str) -> str:
+    """Evita enviar credenciais a um host adulterado por erro de configuração."""
+
+    url = urlsplit(valor.strip())
+    try:
+        porta = url.port
+    except ValueError as exc:
+        raise RuntimeError(
+            "SISTEMA_FISCAL_URL deve ser exatamente o login HTTPS oficial da Receita/PR."
+        ) from exc
+    if (
+        url.scheme != "https"
+        or url.hostname != "receita.pr.gov.br"
+        or porta not in {None, 443}
+        or url.path.rstrip("/") != "/login"
+        or url.username is not None
+        or url.password is not None
+        or url.query
+        or url.fragment
+    ):
+        raise RuntimeError(
+            "SISTEMA_FISCAL_URL deve ser exatamente o login HTTPS oficial da Receita/PR."
+        )
+    return "https://receita.pr.gov.br/login"

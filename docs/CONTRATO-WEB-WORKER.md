@@ -21,10 +21,10 @@ fictícios.
   "versaoContrato": 1,
   "ambiente": "teste",
   "tarefa": {
-    "id": "uuid-da-tarefa",
-    "clienteId": "uuid-do-cliente",
+      "id": "11111111-1111-4111-8111-111111111111",
+      "clienteId": "22222222-2222-4222-8222-222222222222",
     "emitente": {
-      "id": "uuid-do-emitente",
+      "id": "33333333-3333-4333-8333-333333333333",
       "valorSelect": "valor-confirmado-no-select-da-nfpe",
       "credencialReferencia": "CLIENTE_A"
     },
@@ -44,7 +44,7 @@ fictícios.
       "modalidadeFrete": "3"
     },
     "itens": [{
-      "produtoId": "uuid-do-produto",
+      "produtoId": "44444444-4444-4444-8444-444444444444",
       "descricao": "...",
       "codigoFiscal": "...",
       "unidade": "UN",
@@ -79,12 +79,12 @@ fictícios.
 
 ## Lacunas que bloqueiam o preenchimento automático seguro
 
-1. **Vínculo do emitente à sessão:** o Worker precisa do valor do `<option>`
-   na tela NFP-e (`CLIENTE_X_EMITENTE`). Ele não existe como campo próprio no
-   Web e não deve ser inferido do nome/CNPJ.
-2. **Dados fiscais de item:** a decisão foi tomada: eles pertencem a uma regra
-   fiscal reutilizável associada ao produto. A migração cria a regra inicial
-   comum; falta aplicar a migração e construir o produtor Web do contrato.
+1. **Vínculo do emitente à sessão:** a migração `0005` criou o campo
+   `valor_select_nfpe`, mas o emitente de teste ainda precisa receber o valor
+   confirmado no reconhecimento. Ele não deve ser inferido do nome/CNPJ.
+2. **Dados fiscais de item:** pertencem a uma regra fiscal reutilizável
+   associada ao produto. A migração foi aplicada; falta construir o produtor
+   Web do contrato, agora implementado como projeção interna testável.
 3. **Campos do destinatário:** CNPJ, razão social, CEP e número precisam ser
    obrigatórios/validados para uma tarefa elegível. A IE deve obedecer ao
    `indicador_ie` escolhido.
@@ -107,10 +107,12 @@ fictícios.
 - Enquanto o produto estiver em homologação, qualquer contrato precisa
   carregar explicitamente o ambiente `teste`; produção exige uma trava e
   aprovação separadas.
+- O consumidor rejeita mais de 200 itens, números não finitos/excessivos,
+  UUIDs e formatos inválidos, credencial fora do padrão e opções fiscais não
+  reconhecidas antes de abrir o navegador.
 
 ## Próxima alteração de código
 
-Criar uma fixture de contrato v1 e conversor para `worker.src.flows.emissao.Tarefa`.
-Os testes devem cobrir: tarefa válida; produto sem `codigoFiscal`; cliente
-sem endereço; emitente sem identificador da sessão; e rejeição de versão de
-contrato desconhecida. O adaptador de banco só entra depois desses testes.
+A projeção interna do contrato v1 já existe no Web e está coberta por testes,
+sem consulta direta do Worker. O próximo passo é implementar reserva/lease
+atômica e retorno idempotente de status.

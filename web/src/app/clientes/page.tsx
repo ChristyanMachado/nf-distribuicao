@@ -35,6 +35,14 @@ export default async function ClientesPage() {
             <Label>Nome</Label>
             <input name="nome" required className="w-full" placeholder="Mercado X" />
           </div>
+          <div className="sm:col-span-2">
+            <Label>Razão social para a nota</Label>
+            <input
+              name="destinatarioNome"
+              className="w-full"
+              placeholder="Se vazio, usa o nome acima"
+            />
+          </div>
           <div>
             <Label>CNPJ</Label>
             <input name="cnpj" className="font-mono-tab w-full" />

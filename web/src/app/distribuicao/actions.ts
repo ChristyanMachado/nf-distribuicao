@@ -15,6 +15,7 @@ import {
   lotesDistribuicao,
 } from "@/db/schema";
 import { calcularFaturavel, validarDistribuicaoTotal } from "@/lib/calculos";
+import { exigirDataIso, exigirNumeroFinito, exigirUuid } from "@/lib/validacao";
 import { eq, and } from "drizzle-orm";
 
 export async function carregarDadosDistribuicao() {
@@ -78,7 +79,30 @@ export async function processarDistribuicao(input: {
   data: string;
   produtos: ProdutoDistribuicao[];
 }) {
+  exigirDataIso(input?.data);
+  if (!Array.isArray(input?.produtos) || input.produtos.length < 1 || input.produtos.length > 200) {
+    throw new Error("A distribuição deve conter entre 1 e 200 produtos.");
+  }
+
+  const produtosRecebidos = new Set<string>();
   for (const produto of input.produtos) {
+    exigirUuid(produto.produtoId, "Produto");
+    if (produtosRecebidos.has(produto.produtoId)) throw new Error("Produto repetido na distribuição.");
+    produtosRecebidos.add(produto.produtoId);
+    exigirNumeroFinito(produto.quantidadeTotal, "Quantidade disponível");
+    if (!Array.isArray(produto.linhas) || produto.linhas.length > 1_000) {
+      throw new Error("Quantidade de clientes por produto excede o limite de segurança.");
+    }
+    const clientesRecebidos = new Set<string>();
+    for (const linha of produto.linhas) {
+      exigirUuid(linha.clienteId, "Cliente");
+      if (clientesRecebidos.has(linha.clienteId)) throw new Error("Cliente repetido no produto.");
+      clientesRecebidos.add(linha.clienteId);
+      exigirNumeroFinito(linha.quantidadeDistribuida, "Quantidade distribuída");
+      exigirNumeroFinito(linha.quantidadeTroca, "Quantidade de troca");
+      exigirNumeroFinito(linha.precoUnitario, "Preço unitário");
+      if (linha.quantidadeDistribuida > 0) exigirUuid(linha.emitenteId, "Emitente");
+    }
     const validacao = validarDistribuicaoTotal(produto.quantidadeTotal, produto.linhas);
     if (!validacao.valido) {
       throw new Error(
@@ -101,8 +125,12 @@ export async function processarDistribuicao(input: {
         await tx
           .select({ id: produtos.id, regraFiscalId: produtos.regraFiscalId })
           .from(produtos)
+          .where(eq(produtos.ativo, true))
       ).map((produto) => [produto.id, produto.regraFiscalId])
     );
+    for (const produtoId of produtosRecebidos) {
+      if (!regrasDosProdutos.has(produtoId)) throw new Error("Produto não encontrado ou inativo.");
+    }
 
     const paresComFaturamento = new Map<string, LinhaDistribuicao>();
     for (const produto of input.produtos) {

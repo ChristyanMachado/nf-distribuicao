@@ -18,9 +18,10 @@ produção antes da validação controlada.
 - **Worker:** usa 1 Chromium e N contextos isolados; login, navegação e
   preenchimento até Transporte foram validados em homologação. Ele nunca
   clica em **Emitir**.
-- **Lacuna principal:** o Worker ainda lê `tarefa_real.json` local com dados
-  de demonstração. Não há fila/contrato Web → Worker, retorno de status ou
-  documentos.
+- **Lacuna principal:** consumidor e produtor internos do contrato v1 já
+  existem e foram endurecidos contra payloads maliciosos, mas ainda não há
+  reserva/fila ligando os dois, retorno de status ou documentos. O Worker
+  executável continua lendo `tarefa_real.json` local.
 
 ## Fases de entrega
 
@@ -53,8 +54,8 @@ desabilitada.
 
 **Andamento:** formato v1, conversor e testes de validação foram entregues em
 `worker/src/contrato_tarefa.py`. A regra fiscal reutilizável e sua referência
-por produto/item de tarefa foram preparadas no Web pela migração `0002`;
-falta aplicá-la e criar o produtor do contrato no Web.
+por produto/item foram aplicadas pela migração `0002`. O produtor interno do
+contrato já existe no Web; falta a reserva atômica e a fonte de tarefas.
 
 **Saída da fase:** contrato revisado, documentado e coberto por testes sem
 necessidade de abrir navegador.
@@ -104,7 +105,8 @@ continuação automática das fases anteriores.
 
 ## Próxima ação de código
 
-Aplicar controladamente a migração `0002_regras_fiscais_reutilizaveis.sql` no
-banco de teste e confirmar o cadastro de produtos no celular. Depois,
-implementar o produtor v1 no Web como projeção/fonte de teste. Não conectar
-o banco ao Worker antes dessa validação.
+Preparar estados, tentativas e lease atômica antes de permitir que o Worker
+consulte o banco. Depois ligar produtor e consumidor por uma fonte de tarefas
+testável, ainda limitada a homologação e sem emitir.
+Em paralelo, o próximo teste humano continua sendo o reconhecimento da tela
+final da homologação, sem clicar em **Emitir**.

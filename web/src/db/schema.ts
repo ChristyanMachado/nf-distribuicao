@@ -39,9 +39,8 @@ export const indicadorIeEnum = fiscalSchema.enum("indicador_ie", [
 ]);
 
 // ---------------------------------------------------------------------------
-// RF02/RF03 — Emitentes: quem vende/emite. O emitente é quem efetivamente
-// faz login no sistema fiscal — por isso o login/senha ficam aqui, não no
-// cliente (correção de 14/08: estavam no lugar errado antes).
+// RF02/RF03 — Emitentes: quem vende/emite. O Web guarda apenas uma referência
+// sem segredo; login e senha fiscal pertencem ao ambiente protegido do Worker.
 // ---------------------------------------------------------------------------
 
 export const emitentes = fiscalSchema.table("emitentes", {
@@ -49,13 +48,21 @@ export const emitentes = fiscalSchema.table("emitentes", {
   nome: text("nome").notNull(),
   cnpj: text("cnpj"),
   inscricaoEstadual: text("inscricao_estadual"),
-  loginUsuario: text("login_usuario"), // CPF usado no login do sistema fiscal
-  // Senha armazenada, mas NUNCA exibida na listagem (RF05/RNF02) — a tela
-  // só deve mostrar "•••• editar", nunca o valor em claro depois de salvo.
+  // Referência sem segredo que o Worker usa para resolver credenciais em seu
+  // próprio ambiente (ex.: EMITENTE_GRAALYS_01).
+  credencialReferencia: text("credencial_referencia"),
+  // Value da option do emitente na NFP-e. Não é senha nem seletor CSS; será
+  // preenchido após o reconhecimento controlado no ambiente de homologação.
+  valorSelectNfpe: text("valor_select_nfpe"),
+  // Legado do banco de teste. A aplicação não lê nem grava mais estes campos;
+  // remover depois que as credenciais forem migradas ao secrets manager.
+  loginUsuario: text("login_usuario"),
   senha: text("senha"),
   ativo: boolean("ativo").notNull().default(true),
   criadoEm: timestamp("criado_em").notNull().defaultNow(),
-});
+}, (table) => [
+  uniqueIndex("emitentes_credencial_referencia_idx").on(table.credencialReferencia),
+]);
 
 // ---------------------------------------------------------------------------
 // RF01 — Clientes (destinatário da NFP-e). A relação com emitentes é N:N:

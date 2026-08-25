@@ -1,5 +1,52 @@
 # Handoff — Estado Atual
 
+## Revisão de segurança — 25/08/2026
+
+Foi concluída uma varredura de segurança no Web, no contrato Web → Worker,
+na configuração do Worker e nas dependências. Alterações principais:
+
+- `web/src/proxy.ts` cria uma trava Basic Auth provisória em produção e fecha
+  o acesso com `503` quando as variáveis obrigatórias não estão configuradas;
+- `next.config.ts` aplica CSP e cabeçalhos contra iframe, interpretação de
+  conteúdo e uso indevido de recursos do dispositivo;
+- Server Actions agora validam UUIDs, datas, comprimentos, números finitos,
+  limites de volume, duplicidades e relações antes de gravar;
+- URLs de PDF/XML são aceitas somente quando HTTPS, bloqueando esquemas como
+  `javascript:` e `data:`;
+- o Web deixou de coletar, gravar e projetar login/senha fiscal. Emitentes
+  guardam apenas `credencial_referencia`, resolvida futuramente no Worker;
+- a migração `0004_credencial_fora_do_web.sql` foi aplicada e validada no
+  banco de teste: coluna e índice único presentes; 1 emitente preservado e 0
+  referências configuradas. As colunas antigas continuam temporariamente no
+  banco de teste, mas não são lidas/escritas pela aplicação;
+- o contrato v1 rejeita payloads excessivos/adulterados, UUIDs inválidos,
+  `NaN`/infinito, opções fiscais desconhecidas e mais de 200 itens;
+- o Worker só aceita a URL HTTPS oficial da Receita/PR, limita clientes e
+  concorrência, neutraliza injeção de linhas em logs e restringe permissões
+  de logs/screenshots quando o sistema operacional permite;
+- `npm audit --omit=dev`: 0 vulnerabilidades conhecidas de produção.
+
+Validação final desta rodada: **44 testes Web**, **61 testes Worker**,
+`tsc --noEmit`, build de produção e `git diff --check` passaram. O fluxo
+Playwright e seus seletores não foram alterados.
+
+Riscos que ainda bloqueiam produção: substituir Basic Auth por autenticação
+individual/autorização; migrar e remover as colunas legadas de credencial;
+RLS/menor privilégio; Storage privado com URLs assinadas; rate limiting/WAF;
+retenção de artefatos; lease/idempotência da emissão. Checklist completo em
+`docs/SECURITY.md`.
+
+Também foi criado o produtor interno v1 no Web: ele projeta uma tarefa
+`PENDENTE`, normaliza CNPJ/CEP, exige todos os campos fiscais e fixa
+`ambiente: teste`. Não é Server Action pública e ainda não é consumido pelo
+Worker. A migração `0005_identificador_emitente_nfpe.sql` adiciona o valor da
+opção do emitente sem segredo e foi aplicada ao banco de teste; o registro
+existente permanece pendente até o reconhecimento humano.
+
+Próximo código que não depende de novos seletores: estados, tentativas e lease
+atômica. Próximo passo humano no site fiscal: preencher os identificadores dos
+emitentes e reconhecer a tela final em homologação sem clicar em **Emitir**.
+
 ## Atualização de contexto — 24/08/2026
 
 O marco anterior `59da6cc` implementou a relação emitente por tarefa no Web. O teste/demonstração mais recente confirmou preenchimento em homologação com múltiplos contextos, sem clicar em **Emitir**. A carga local (transmissão e outros programas) afetou a velocidade, mas falhas continuaram isoladas por contexto.
