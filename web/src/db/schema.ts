@@ -92,14 +92,44 @@ export const clienteEmitentes = fiscalSchema.table(
 );
 
 // ---------------------------------------------------------------------------
-// RF04 — Produtos
+// RF04 — Regras fiscais reutilizáveis e produtos
 // ---------------------------------------------------------------------------
+
+// Uma regra reúne todos os valores fiscais e operacionais que hoje são
+// compartilhados pelos produtos. Ela é criada uma vez e selecionada pelo
+// produto; a tarefa guarda a referência escolhida para não depender do
+// cadastro atual ao ser emitida mais tarde.
+export const regrasFiscais = fiscalSchema.table(
+  "regras_fiscais",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    codigo: text("codigo").notNull(),
+    nome: text("nome").notNull(),
+    cfopTexto: text("cfop_texto").notNull(),
+    cfopCodigo: text("cfop_codigo").notNull(),
+    situacaoTributariaIcms: text("situacao_tributaria_icms").notNull(),
+    origemMercadoria: text("origem_mercadoria").notNull(),
+    possuiBeneficioFiscal: boolean("possui_beneficio_fiscal").notNull().default(false),
+    codigoBeneficioFiscal: text("codigo_beneficio_fiscal"),
+    naturezaOperacao: text("natureza_operacao").notNull(),
+    tipoOperacao: text("tipo_operacao").notNull(),
+    finalidadeEmissao: text("finalidade_emissao").notNull(),
+    indicadorPresenca: text("indicador_presenca").notNull(),
+    modalidadeFrete: text("modalidade_frete").notNull(),
+    ativo: boolean("ativo").notNull().default(true),
+    criadoEm: timestamp("criado_em").notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex("regras_fiscais_codigo_idx").on(table.codigo)]
+);
 
 export const produtos = fiscalSchema.table("produtos", {
   id: uuid("id").primaryKey().defaultRandom(),
   descricao: text("descricao").notNull(),
   codigoInterno: text("codigo_interno"),
   codigoFiscal: text("codigo_fiscal"), // código usado no sistema fiscal (busca de produto)
+  regraFiscalId: uuid("regra_fiscal_id")
+    .notNull()
+    .references(() => regrasFiscais.id),
   unidade: text("unidade").notNull().default("UN"),
   precoPadrao: numeric("preco_padrao", { precision: 12, scale: 2 }).notNull().default("0"),
   ativo: boolean("ativo").notNull().default(true),
@@ -180,6 +210,12 @@ export const tarefaItens = fiscalSchema.table("tarefa_itens", {
   id: uuid("id").primaryKey().defaultRandom(),
   tarefaId: uuid("tarefa_id").notNull().references(() => tarefas.id),
   produtoId: uuid("produto_id").notNull().references(() => produtos.id),
+  // Snapshot da regra escolhida pelo produto quando a tarefa foi gerada.
+  // Regras não devem ser alteradas; para mudar tributação, criar outra regra
+  // e vinculá-la aos próximos produtos/tarefas.
+  regraFiscalId: uuid("regra_fiscal_id")
+    .notNull()
+    .references(() => regrasFiscais.id),
   quantidade: numeric("quantidade", { precision: 12, scale: 3 }).notNull(),
   precoUnitario: numeric("preco_unitario", { precision: 12, scale: 2 }).notNull(),
   subtotal: numeric("subtotal", { precision: 12, scale: 2 }).notNull(),

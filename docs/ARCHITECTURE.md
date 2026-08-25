@@ -62,6 +62,18 @@ ser usado pela aplicação nova.
 
 O preço padrão é por **produto + cliente/mercado**, independentemente do emitente. A distribuição pode substituir esse preço em uma promoção, e o comportamento atual salva o último preço usado como padrão do par.
 
+### Regra fiscal reutilizável
+
+`regras_fiscais` concentra a tributação e os parâmetros operacionais comuns:
+CFOP, ICMS, origem, benefício fiscal, natureza/tipo/finalidade, presença e
+frete. Cada produto aponta para uma regra; o primeiro cadastro recebe a
+regra ativa automaticamente quando só houver uma. `tarefa_itens` guarda a
+referência usada na distribuição, preservando o contexto fiscal da tarefa.
+
+As regras devem ser tratadas como imutáveis: para uma tributação futura,
+criar outra regra e associá-la aos próximos produtos, nunca editar a regra de
+uma tarefa já preparada.
+
 ## Agendamento futuro
 
 O requisito operacional é que as tarefas pendentes sejam executadas automaticamente entre 00:00 e 06:00, não apenas aceitas quando alguém abre o Worker nesse intervalo. A implementação deverá ter um agendador que acorde o Worker, busque as tarefas elegíveis, respeite a janela e registre o resultado. Definir antes a zona horária operacional, política de repetição e tratamento de tarefa que não terminar dentro da janela.

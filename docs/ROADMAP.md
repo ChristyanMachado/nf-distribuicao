@@ -50,8 +50,9 @@ desabilitada.
    processar a mesma tarefa.
 
 **Andamento:** formato v1, conversor e testes de validação foram entregues em
-`worker/src/contrato_tarefa.py`. Falta o produtor desse contrato no Web e os
-campos fiscais que ainda não existem no schema.
+`worker/src/contrato_tarefa.py`. A regra fiscal reutilizável e sua referência
+por produto/item de tarefa foram preparadas no Web pela migração `0002`;
+falta aplicá-la e criar o produtor do contrato no Web.
 
 **Saída da fase:** contrato revisado, documentado e coberto por testes sem
 necessidade de abrir navegador.
@@ -101,6 +102,7 @@ continuação automática das fases anteriores.
 
 ## Próxima ação de código
 
-Implementar o produtor v1 no Web, inicialmente como projeção/fonte de teste,
-depois de acrescentar ou decidir os campos fiscais ausentes no schema. Não
-conectar o banco ao Worker antes dessa validação.
+Aplicar controladamente a migração `0002_regras_fiscais_reutilizaveis.sql` no
+banco de teste e confirmar o cadastro de produtos no celular. Depois,
+implementar o produtor v1 no Web como projeção/fonte de teste. Não conectar
+o banco ao Worker antes dessa validação.

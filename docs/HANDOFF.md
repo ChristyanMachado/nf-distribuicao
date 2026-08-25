@@ -49,6 +49,20 @@ sem emissão real. O detalhamento por fases está em `docs/ROADMAP.md`.
   em VM/container. Oracle Always Free é opção de piloto, sujeita a uma prova
   de capacidade; não confundir com uma garantia de produção.
 
+### Continuação — regra fiscal reutilizável por produto
+
+- Preparada a migração `0002_regras_fiscais_reutilizaveis.sql`: cria uma
+  regra NFP-e inicial com os dados fiscais confirmados, associa os produtos
+  existentes e preserva a regra escolhida em cada item de tarefa.
+- O cadastro de produto passou a exigir código fiscal e usa automaticamente
+  a regra ativa quando houver apenas uma, reduzindo cliques no celular.
+- A listagem exibe a regra aplicada ao produto; o formulário virou uma coluna
+  no mobile e duas colunas apenas a partir de telas maiores.
+- **Ainda não aplicada ao banco:** a migração exige aplicação controlada no
+  banco de teste antes de abrir/deployar a tela nova.
+- Validação local: 25 testes do Web, `tsc --noEmit` e build de produção
+  passaram.
+
 ### Implementado nesta rodada — 22/08/2026
 
 - tabela N:N `cliente_emitentes`, com migração dos vínculos antigos;

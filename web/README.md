@@ -19,7 +19,7 @@ A regra de negócio central (cálculo de faturável e geração de tarefas) não
 depende de banco nem de login no sistema fiscal:
 
 ```bash
-npm test              # 11 testes unitários
+npm test              # testes unitários do domínio Web
 npm run demo:calculo  # demonstração isolada
 ```
 
@@ -28,8 +28,8 @@ npm run demo:calculo  # demonstração isolada
 ```
 src/
 ├── db/
-│   ├── schema.ts       # 10 tabelas: emitentes (c/ login), clientes, produtos,
-│   │                      preços por cliente, distribuição, tarefas, notas, logs
+│   ├── schema.ts       # emitentes, clientes, regras fiscais, produtos, preços,
+│   │                      distribuição, tarefas, notas e logs
 │   └── index.ts
 ├── lib/
 │   ├── calculos.ts       # RF09/RF11 — quantidade faturável, agrupamento em tarefas
@@ -55,8 +55,13 @@ src/
   autentica no sistema fiscal.
 - **Emitente e cliente têm relação N:N**. O cadastro define os emitentes
   habilitados para atender o cliente e a distribuição registra qual deles foi
-  escolhido na tarefa. Aplicar a migração `0001_emitente_por_tarefa.sql`
-  antes de usar esse fluxo em banco existente.
+  escolhido na tarefa. Aplicar as migrações `0001_emitente_por_tarefa.sql` e
+  `0002_regras_fiscais_reutilizaveis.sql` antes de usar esse fluxo em banco
+  existente.
+- **Regra fiscal é reutilizável:** CFOP, ICMS, origem, benefício e parâmetros
+  de operação são cadastrados uma vez em `regras_fiscais`. O produto recebe a
+  regra padrão automaticamente quando só há uma ativa; a tarefa preserva a
+  referência escolhida no momento da distribuição.
 - **Preço é por produto + cliente**, não só por produto — a tabela
   `precos_cliente` aprende sozinha: toda vez que uma distribuição é
   processada, o preço usado vira o padrão daquele par pra próxima vez.

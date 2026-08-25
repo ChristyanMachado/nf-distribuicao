@@ -72,6 +72,8 @@ fictícios.
 | Itens, quantidade e preço | `fiscal.tarefa_itens` + `fiscal.produtos` | disponível |
 | Código de busca fiscal do produto | `fiscal.produtos.codigo_fiscal` | opcional hoje; obrigatório para executar |
 | Unidade | `fiscal.produtos.unidade` | disponível |
+| Tributação e parâmetros da operação | `fiscal.regras_fiscais` via `produto.regra_fiscal_id` | migração `0002` preparada; ainda aplicar no banco de teste |
+| Regra aplicada à tarefa | `fiscal.tarefa_itens.regra_fiscal_id` | migração `0002` preparada; snapshot por referência |
 | Data e valor total | `fiscal.tarefas` | disponível |
 | Status operacional | `fiscal.tarefas.status` | disponível, mas sem controle de lease/tentativas |
 
@@ -80,10 +82,9 @@ fictícios.
 1. **Vínculo do emitente à sessão:** o Worker precisa do valor do `<option>`
    na tela NFP-e (`CLIENTE_X_EMITENTE`). Ele não existe como campo próprio no
    Web e não deve ser inferido do nome/CNPJ.
-2. **Dados fiscais de item:** o Worker ainda tem defaults de demonstração
-   para CFOP, ICMS, origem e benefício fiscal. Antes de integração, definir
-   se esses dados pertencem ao produto, à tarefa ou a uma regra fiscal
-   revisável.
+2. **Dados fiscais de item:** a decisão foi tomada: eles pertencem a uma regra
+   fiscal reutilizável associada ao produto. A migração cria a regra inicial
+   comum; falta aplicar a migração e construir o produtor Web do contrato.
 3. **Campos do destinatário:** CNPJ, razão social, CEP e número precisam ser
    obrigatórios/validados para uma tarefa elegível. A IE deve obedecer ao
    `indicador_ie` escolhido.

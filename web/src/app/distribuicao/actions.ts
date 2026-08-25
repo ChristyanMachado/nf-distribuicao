@@ -87,6 +87,17 @@ export async function processarDistribuicao(input: {
   }
 
   await db.transaction(async (tx) => {
+    // A regra é buscada uma vez e gravada no item da tarefa como snapshot da
+    // escolha do produto. Assim, uma futura troca de regra não reinterpreta
+    // uma tarefa que já estava pendente.
+    const regrasDosProdutos = new Map(
+      (
+        await tx
+          .select({ id: produtos.id, regraFiscalId: produtos.regraFiscalId })
+          .from(produtos)
+      ).map((produto) => [produto.id, produto.regraFiscalId])
+    );
+
     const paresComFaturamento = new Map<string, LinhaDistribuicao>();
     for (const produto of input.produtos) {
       for (const linha of produto.linhas) {
@@ -154,6 +165,11 @@ export async function processarDistribuicao(input: {
 
         if (faturavel.quantidadeFaturavel <= 0) continue;
 
+        const regraFiscalId = regrasDosProdutos.get(produto.produtoId);
+        if (!regraFiscalId) {
+          throw new Error("Produto sem regra fiscal configurada.");
+        }
+
         // Uma tarefa por cliente/dia — reaproveita se já existir PENDENTE,
         // acumulando itens de múltiplos produtos na mesma tarefa.
         const existente = await tx
@@ -187,6 +203,7 @@ export async function processarDistribuicao(input: {
         await tx.insert(tarefaItens).values({
           tarefaId: tarefa.id,
           produtoId: produto.produtoId,
+          regraFiscalId,
           quantidade: String(faturavel.quantidadeFaturavel),
           precoUnitario: String(linha.precoUnitario),
           subtotal: String(faturavel.subtotal),

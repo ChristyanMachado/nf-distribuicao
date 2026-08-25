@@ -41,6 +41,10 @@ O resultado técnico detalhado e seletores reconhecidos estão em `docs/HANDOFF.
 - Topologia proposta para o piloto: Web no Vercel e Worker Playwright em VM
   Linux persistente. A Oracle Always Free será avaliada por prova de capacidade;
   não foi criada nem aprovada como infraestrutura definitiva.
+- Regra fiscal é reutilizável e associada ao produto. A regra inicial comum
+  reúne CFOP, ICMS, origem, benefício fiscal e parâmetros da operação. A
+  referência é preservada no item da tarefa para não reinterpretar tarefas
+  pendentes após mudança de cadastro.
 
 ## Princípios imutáveis
 

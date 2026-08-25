@@ -3,34 +3,42 @@ export const dynamic = "force-dynamic";
 import Card from "@/components/Card";
 import { Label } from "@/components/Field";
 import PrimaryButton from "@/components/PrimaryButton";
-import { criarProduto, listarProdutos } from "./actions";
+import {
+  criarProduto,
+  listarProdutos,
+  listarRegrasFiscaisAtivas,
+} from "./actions";
 
 export default async function ProdutosPage() {
-  const produtos = await listarProdutos();
+  const [produtos, regrasFiscais] = await Promise.all([
+    listarProdutos(),
+    listarRegrasFiscaisAtivas(),
+  ]);
+  const regraUnica = regrasFiscais.length === 1 ? regrasFiscais[0] : null;
 
   return (
     <div>
       <h1 className="text-2xl font-medium">Produtos</h1>
       <p className="mt-1 text-[15px] text-[var(--ink-soft)]">
-        Cada produto pode ter um código fiscal específico usado no sistema
-        da Receita.
+        Cadastre o produto uma vez. A regra fiscal padrão é aplicada
+        automaticamente, sem repetir CFOP, ICMS e benefício a cada cadastro.
       </p>
 
       <Card className="mt-5 p-4">
-        <form action={criarProduto} className="grid grid-cols-2 gap-3">
-          <div className="col-span-2">
+        <form action={criarProduto} className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="sm:col-span-2">
             <Label>Descrição</Label>
             <input name="descricao" required className="w-full" placeholder="Couve-flor" />
           </div>
           <div>
             <Label>Código fiscal</Label>
-            <input name="codigoFiscal" className="w-full" />
+            <input name="codigoFiscal" required className="w-full" placeholder="Código usado na NFP-e" />
           </div>
           <div>
             <Label>Unidade</Label>
             <input name="unidade" defaultValue="UN" className="w-full" />
           </div>
-          <div className="col-span-2">
+          <div className="sm:col-span-2">
             <Label>Preço padrão (R$)</Label>
             <input
               name="precoPadrao"
@@ -40,7 +48,25 @@ export default async function ProdutosPage() {
               className="font-mono-tab w-full"
             />
           </div>
-          <div className="col-span-2 mt-1">
+          <div className="sm:col-span-2">
+            <Label>Regra fiscal</Label>
+            {regraUnica ? (
+              <>
+                <input type="hidden" name="regraFiscalId" value={regraUnica.id} />
+                <p className="rounded-[var(--radius-control)] border border-[var(--line)] bg-[var(--field-tint)] px-3 py-2.5 text-sm text-[var(--ink-soft)]">
+                  {regraUnica.nome} <span className="text-[var(--ink-faint)]">· aplicada automaticamente</span>
+                </p>
+              </>
+            ) : (
+              <select name="regraFiscalId" required defaultValue="" className="w-full">
+                <option value="" disabled>Selecione a regra</option>
+                {regrasFiscais.map((regra) => (
+                  <option key={regra.id} value={regra.id}>{regra.nome}</option>
+                ))}
+              </select>
+            )}
+          </div>
+          <div className="sm:col-span-2 mt-1">
             <PrimaryButton type="submit" className="w-full py-2.5 sm:w-auto">
               Cadastrar produto
             </PrimaryButton>
@@ -54,9 +80,12 @@ export default async function ProdutosPage() {
         </p>
         <Card className="divide-y divide-[var(--line)]">
           {produtos.map((p) => (
-            <div key={p.id} className="flex items-center justify-between px-4 py-3 text-sm">
-              <span className="font-medium">{p.descricao}</span>
-              <span className="font-mono-tab text-[var(--ink-faint)]">
+            <div key={p.id} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
+              <div className="min-w-0">
+                <p className="truncate font-medium">{p.descricao}</p>
+                <p className="mt-0.5 truncate text-xs text-[var(--ink-faint)]">{p.regraFiscalNome}</p>
+              </div>
+              <span className="shrink-0 font-mono-tab text-[var(--ink-faint)]">
                 R$ {p.precoPadrao} / {p.unidade}
               </span>
             </div>
