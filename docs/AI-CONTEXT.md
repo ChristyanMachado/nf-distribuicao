@@ -16,8 +16,9 @@ O sistema organiza a distribuição de produtos e automatiza, futuramente, a emi
   um modo controlado, visível e limitado a uma tarefa pode chegar ao clique e
   aos downloads somente após confirmação humana.
 - XML e DANFE são capturados por `expect_download()` e recebem nome próprio
-  baseado na tarefa; a confirmação textual de autorizado/rejeitado ainda não
-  foi reconhecida para automação.
+  baseado na tarefa. A autorização é confirmada por `span.autorizada` e texto
+  exato `AUTORIZADA` antes dos downloads; o estado rejeitado ainda precisa de
+  reconhecimento específico.
 - A emissão controlada pode ser ativada somente por
   `TESTAR_EMISSAO_HOMOLOGACAO=true`. Configuração e URL da Page são validadas,
   há confirmação humana e somente um cliente visível pode executar. Roteiro:
@@ -56,9 +57,9 @@ O resultado técnico detalhado e seletores reconhecidos estão em `docs/HANDOFF.
 - O cálculo de "perdido em trocas" agora exclui registros vinculados a tarefas canceladas. A consulta também passou a relacionar troca, tarefa e emitente; o comportamento foi coberto por teste unitário.
 - Definir sem ambiguidade quais status entram no faturamento. Hoje a regra de código exclui somente `CANCELADA`; tarefas pendentes entram por serem valores já comprometidos na distribuição.
 - Implementar agendador, estratégia de retries, fuso operacional e tratamento de tarefas fora da janela.
-- Executar a primeira emissão controlada e capturar o elemento/texto que
-  confirma autorização ou rejeição, número, chave e totais do Resumo antes de
-  retirar a conferência humana ou ligar a fila automática.
+- Validar ao vivo a espera pela autorização já reconhecida e capturar o estado
+  rejeitado, número, chave e totais do Resumo antes de retirar a conferência
+  humana ou ligar a fila automática.
 - Definir o contrato de uma tarefa entre a aplicação web e o Worker antes de
   qualquer integração: origem dos dados, campos fiscais, estados, reserva da
   tarefa, retorno de erro e armazenamento de PDF/XML.

@@ -40,9 +40,10 @@ clique.
 
 O padrão é `AMBIENTE_EMISSAO=teste`, com o caminho NFP-e TESTES → Emissão - TESTE. Produção só poderá ser usada após validação explícita.
 
-Ainda faltam o seletor/texto confiável de autorização/rejeição, cancelamento,
-envio seguro de PDF/XML ao Storage e a integração real com a fila. A emissão
-controlada está pronta no código, mas ainda depende do primeiro teste ao vivo.
+A autorização possui confirmação confiável por classe + texto antes dos
+downloads. Ainda faltam o estado de rejeição, cancelamento, envio seguro de
+PDF/XML ao Storage e a integração real com a fila. A emissão controlada está
+pronta no código, mas ainda depende da validação ao vivo desta espera.
 
 Para testes, há três níveis deliberadamente separados:
 

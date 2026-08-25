@@ -25,7 +25,7 @@ from dataclasses import dataclass, field
 from urllib.parse import urlsplit
 from xml.etree import ElementTree
 
-from playwright.async_api import Page
+from playwright.async_api import Page, TimeoutError as PlaywrightTimeoutError
 
 # Protege input() de concorrência: com RF14 (3 sessões em paralelo), se dois
 # clientes chegarem na conferência humana ao mesmo tempo, dois input()
@@ -53,6 +53,10 @@ class DadosFiscaisIncompletos(Exception):
 
 class EmissaoBloqueada(RuntimeError):
     """A trava de homologação impediu o clique fiscal."""
+
+
+class FalhaConfirmacaoEmissao(RuntimeError):
+    """A Receita não exibiu a confirmação de autorização esperada."""
 
 
 # ---------------------------------------------------------------------------
@@ -1135,6 +1139,42 @@ async def emitir(
     except Exception as e:  # noqa: BLE001 — tentativa educada, não é seletor confirmado
         logger.warning(f"Botão 'Emitir' não encontrado ({e}) — confirmar seletor com o Inspector.")
         raise NotImplementedError("Botão de emissão não está disponível.") from e
+
+
+async def aguardar_autorizacao(
+    page: Page,
+    tarefa: Tarefa,
+    logger: logging.Logger,
+    *,
+    ambiente: str,
+    timeout_ms: int = 60_000,
+) -> None:
+    """Confirma autorização por classe e texto antes de liberar downloads.
+
+    O seletor foi reconhecido ao vivo em homologação em 25/08/2026. A classe
+    curta e o texto exato são mais estáveis do que a cadeia estrutural com
+    ``nth-child`` copiada do DevTools.
+    """
+    _exigir_pagina_homologacao(page.url, ambiente)
+    status = page.locator("span.autorizada").filter(
+        has_text=re.compile(r"^\s*AUTORIZADA\s*$")
+    ).first
+    try:
+        await status.wait_for(state="visible", timeout=timeout_ms)
+        texto = (await status.inner_text()).strip()
+    except PlaywrightTimeoutError as exc:
+        raise FalhaConfirmacaoEmissao(
+            "A emissão não foi confirmada como AUTORIZADA dentro do prazo. "
+            "Não baixar nem registrar documentos como sucesso."
+        ) from exc
+
+    # Defesa contra mudança de página entre o clique e a resposta do portal.
+    _exigir_pagina_homologacao(page.url, ambiente)
+    if texto != "AUTORIZADA":
+        raise FalhaConfirmacaoEmissao(
+            "O status fiscal recebido não corresponde a AUTORIZADA."
+        )
+    logger.info("[%s] Emissão confirmada como AUTORIZADA", tarefa.tarefa_id)
 
 
 def _exigir_pagina_homologacao(url_atual: str, ambiente: str) -> None:

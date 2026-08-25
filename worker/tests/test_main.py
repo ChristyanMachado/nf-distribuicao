@@ -60,6 +60,9 @@ def test_emissao_controlada_encadeia_emitir_e_downloads():
         patch("main.fluxo_emissao.validar_antes_de_emitir", return_value=True),
         patch("main.fluxo_emissao.emitir", new_callable=AsyncMock) as emitir_mock,
         patch(
+            "main.fluxo_emissao.aguardar_autorizacao", new_callable=AsyncMock
+        ) as autorizacao_mock,
+        patch(
             "main.fluxo_emissao.baixar_documentos",
             new_callable=AsyncMock,
             return_value={"xml_path": "x.xml", "pdf_path": "x.pdf"},
@@ -72,7 +75,16 @@ def test_emissao_controlada_encadeia_emitir_e_downloads():
     assert resultado == {"xml_path": "x.xml", "pdf_path": "x.pdf"}
     emitir_mock.assert_awaited_once()
     assert emitir_mock.await_args.kwargs["ambiente"] == "teste"
+    autorizacao_mock.assert_awaited_once()
+    assert autorizacao_mock.await_args.kwargs["ambiente"] == "teste"
     baixar_mock.assert_awaited_once()
+
+    assert (
+        emitir_mock.await_count
+        == autorizacao_mock.await_count
+        == baixar_mock.await_count
+        == 1
+    )
 
 
 def test_emissao_cancelada_na_conferencia_nao_clica_nem_baixa():
@@ -83,7 +95,12 @@ def test_emissao_cancelada_na_conferencia_nao_clica_nem_baixa():
     with (
         patch("main.fluxo_emissao.validar_antes_de_emitir", return_value=False),
         patch("main.fluxo_emissao.emitir", new_callable=AsyncMock) as emitir_mock,
-        patch("main.fluxo_emissao.baixar_documentos", new_callable=AsyncMock) as baixar_mock,
+        patch(
+            "main.fluxo_emissao.aguardar_autorizacao", new_callable=AsyncMock
+        ) as autorizacao_mock,
+        patch(
+            "main.fluxo_emissao.baixar_documentos", new_callable=AsyncMock
+        ) as baixar_mock,
     ):
         resultado = asyncio.run(
             executar_emissao_homologacao(object(), tarefa, config, logger)
@@ -91,4 +108,30 @@ def test_emissao_cancelada_na_conferencia_nao_clica_nem_baixa():
 
     assert resultado is None
     emitir_mock.assert_not_awaited()
+    autorizacao_mock.assert_not_awaited()
+    baixar_mock.assert_not_awaited()
+
+
+def test_emissao_sem_autorizacao_confirmada_nao_baixa():
+    tarefa = _tarefa_de_teste()
+    config = SimpleNamespace(ambiente_emissao="teste", download_dir="downloads")
+    logger = logging.getLogger("teste-main-sem-autorizacao")
+
+    with (
+        patch("main.fluxo_emissao.validar_antes_de_emitir", return_value=True),
+        patch("main.fluxo_emissao.emitir", new_callable=AsyncMock),
+        patch(
+            "main.fluxo_emissao.aguardar_autorizacao",
+            new_callable=AsyncMock,
+            side_effect=RuntimeError("status não confirmado"),
+        ),
+        patch(
+            "main.fluxo_emissao.baixar_documentos", new_callable=AsyncMock
+        ) as baixar_mock,
+    ):
+        with pytest.raises(RuntimeError, match="status não confirmado"):
+            asyncio.run(
+                executar_emissao_homologacao(object(), tarefa, config, logger)
+            )
+
     baixar_mock.assert_not_awaited()

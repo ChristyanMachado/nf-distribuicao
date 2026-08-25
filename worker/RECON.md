@@ -318,10 +318,32 @@ tem o nome visível **Emitir**; preferir o seletor semântico:
 page.get_by_role("button", name="Emitir", exact=True)
 ```
 
-Após o clique, o sistema apresenta o resultado da emissão (por exemplo,
-autorizada ou rejeitada) e, quando há documento disponível, os dois botões
-abaixo. O texto/elemento que confirma formalmente a autorização ainda precisa
-ser capturado antes de o Worker passar a afirmar sucesso automaticamente.
+Após o clique, o sistema apresenta o resultado da emissão e, quando há
+documento disponível, os dois botões abaixo.
+
+### Autorização confirmada
+
+HTML observado em homologação:
+
+```html
+<span class="autorizada">AUTORIZADA</span>
+```
+
+Seletor principal usado pelo Worker:
+
+```python
+page.locator("span.autorizada").filter(has_text=re.compile(r"^\s*AUTORIZADA\s*$"))
+```
+
+Seletor estrutural registrado apenas como referência de inspeção:
+
+```text
+#app > div:nth-child(2) > div > div.slds-panel__section.slds-col.slds-grid.slds-wrap.slds-gutters.slds-tabs__default__content > article > div.slds-card__body.slds-card__body_inner > div > div:nth-child(2) > span
+```
+
+O Worker só inicia os downloads depois que classe e texto confirmam
+`AUTORIZADA`. O estado de rejeição ainda precisa ser reconhecido para retorno
+de erro mais específico; sua ausência nunca é interpretada como sucesso.
 
 ### Baixar XML
 
@@ -372,9 +394,8 @@ de PDF com nome genérico `DANFE.pdf`. O Worker salva os arquivos como
 `danfe_<tarefa>_<UTC>.pdf` e `xml_<tarefa>_<UTC>.xml`, evitando colisões e
 permitindo o envio posterior ao Storage privado.
 
-Ainda falta capturar o seletor/texto de status da autorização, os totais do
-Resumo e eventual modal intermediário. Nenhum código de execução automática
-de emissão foi ligado ao `main.py` nesta etapa.
+Ainda falta capturar o seletor/texto do estado rejeitado, os totais do Resumo
+e eventual modal intermediário.
 
 Atualização posterior: o `main.py` pode executar uma emissão **somente em
 homologação** quando `TESTAR_EMISSAO_HOMOLOGACAO=true`. A flag é bloqueada em

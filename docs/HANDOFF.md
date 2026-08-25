@@ -76,12 +76,15 @@ emitentes e reconhecer a tela final em homologação sem clicar em **Emitir**.
 - O navegador permanece aberto após o download para captura do status
   Autorizada/Rejeitada. Passo a passo em
   `docs/TESTE-WORKER-HOMOLOGACAO.md`.
+- A autorização observada ao vivo é `<span class="autorizada">AUTORIZADA</span>`.
+  O Worker agora exige classe + texto exato antes de iniciar XML/DANFE; não
+  infere mais sucesso apenas pela presença dos botões de download.
 - O cadastro Web de mercados passou a exigir todos os dados fiscais hoje
   confirmados e ganhou edição dos registros existentes.
 - O cadastro de emitentes também exige CNPJ, IE, referência da credencial e
   identificador NFP-e; registros existentes podem ser completados em
   `/emitentes`, sem guardar login ou senha no Web.
-- Validação local final: **75 testes Worker**, **46 testes Web**, `compileall`,
+- Validação local final: **77 testes Worker**, **46 testes Web**, `compileall`,
   `tsc --noEmit`, `git diff --check` e
   build de produção passaram.
 

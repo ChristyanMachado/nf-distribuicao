@@ -55,6 +55,12 @@ async def executar_emissao_homologacao(page, tarefa: Tarefa, config: Config, log
         logger,
         ambiente=config.ambiente_emissao,
     )
+    await fluxo_emissao.aguardar_autorizacao(
+        page,
+        tarefa,
+        logger,
+        ambiente=config.ambiente_emissao,
+    )
     return await fluxo_emissao.baixar_documentos(
         page,
         tarefa,

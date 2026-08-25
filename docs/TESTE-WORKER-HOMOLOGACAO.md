@@ -61,7 +61,8 @@ Além dessa conferência, o código valida imediatamente antes do clique:
 
 ## Resultado esperado
 
-O Worker deve clicar em **Emitir**, aguardar a resposta e tentar baixar:
+O Worker deve clicar em **Emitir**, aguardar `AUTORIZADA` e somente então
+tentar baixar:
 
 ```text
 worker/downloads/xml_<tarefa>_<UTC>.xml
@@ -77,9 +78,10 @@ JSON local e serve para separar possíveis falhas do portal fiscal de futuras
 falhas da fila/banco.
 
 Após os downloads, o navegador permanece aberto até você pressionar Enter no
-terminal. Aproveite esse momento para copiar o HTML ou seletor do status
-**Autorizada/Rejeitada**, número da nota e chave de acesso, sem incluir dados
-sensíveis na documentação pública.
+terminal. A autorização já é reconhecida por `span.autorizada` + texto exato.
+Aproveite esse momento para copiar o HTML ou seletor do estado **Rejeitada**,
+número da nota e chave de acesso, sem incluir dados sensíveis na documentação
+pública.
 
 Log final esperado:
 

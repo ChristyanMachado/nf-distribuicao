@@ -16,6 +16,7 @@ from src.flows.emissao import (
     Emitente,
     EmissaoBloqueada,
     Tarefa,
+    aguardar_autorizacao,
     emitir,
     validar_antes_de_emitir,
 )
@@ -130,3 +131,49 @@ def test_emitir_bloqueia_fora_da_homologacao(url, ambiente):
         )
 
     assert pagina.botao.clicado is False
+
+
+class StatusAutorizadaFalso:
+    first: "StatusAutorizadaFalso"
+
+    def __init__(self) -> None:
+        self.first = self
+        self.aguardado = False
+
+    def filter(self, *, has_text):
+        assert has_text.fullmatch("AUTORIZADA")
+        return self
+
+    async def wait_for(self, *, state: str, timeout: int) -> None:
+        assert state == "visible"
+        assert timeout == 60_000
+        self.aguardado = True
+
+    async def inner_text(self) -> str:
+        return "AUTORIZADA"
+
+
+class PaginaAutorizadaFalsa:
+    url = "https://homologacao.nfae.fazenda.pr.gov.br/nfae/produtor/emitir/resumo"
+
+    def __init__(self) -> None:
+        self.status = StatusAutorizadaFalso()
+
+    def locator(self, seletor: str) -> StatusAutorizadaFalso:
+        assert seletor == "span.autorizada"
+        return self.status
+
+
+def test_aguarda_status_autorizada_confirmado_em_homologacao():
+    pagina = PaginaAutorizadaFalsa()
+
+    asyncio.run(
+        aguardar_autorizacao(
+            pagina,
+            _tarefa_fake("T1"),
+            _logger_silencioso(),
+            ambiente="teste",
+        )
+    )
+
+    assert pagina.status.aguardado is True
