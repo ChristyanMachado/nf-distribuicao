@@ -69,6 +69,15 @@ O requisito operacional é que as tarefas pendentes sejam executadas automaticam
 O plano de entrega detalhado e a ordem segura das fases estão em
 `docs/ROADMAP.md`.
 
+## Implantação proposta
+
+O Web deverá rodar no Vercel para atender celular/tablet. O Worker fiscal não
+deve rodar dentro da requisição do Web: ele precisa de um processo persistente
+com navegador, agendamento e recuperação de falhas. A proposta inicial é uma
+VM Linux (Oracle Cloud Always Free para o piloto, após prova de capacidade),
+que consulta/reserva tarefas no banco. Detalhes e limites conhecidos em
+`docs/DEPLOYMENT.md`.
+
 ## Segurança e operação
 
 - Não colocar credenciais no código, logs, documentos ou commits.

@@ -35,6 +35,20 @@ Próxima implementação recomendada: documentar e implementar o contrato de
 leitura de tarefas Web → Worker, inicialmente com uma fonte local/testável e
 sem emissão real. O detalhamento por fases está em `docs/ROADMAP.md`.
 
+### Continuação — contrato e implantação proposta
+
+- Criado `worker/src/contrato_tarefa.py`: valida o contrato versionado v1 e
+  converte o payload seguro para o modelo fiscal, sem banco, navegador ou
+  credenciais.
+- Cobertos em teste: payload válido, versão desconhecida, código fiscal de
+  produto ausente, endereço ausente, referência de credencial ausente, IE
+  obrigatória e benefício fiscal sem código.
+- Testes do Worker após esta alteração: **44 passando**, sem navegador,
+  banco ou credenciais.
+- Criado `docs/DEPLOYMENT.md`: recomenda Web no Vercel e Worker persistente
+  em VM/container. Oracle Always Free é opção de piloto, sujeita a uma prova
+  de capacidade; não confundir com uma garantia de produção.
+
 ### Implementado nesta rodada — 22/08/2026
 
 - tabela N:N `cliente_emitentes`, com migração dos vínculos antigos;

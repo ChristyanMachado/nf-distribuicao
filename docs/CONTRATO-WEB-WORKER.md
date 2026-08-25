@@ -10,6 +10,57 @@ O contrato definitivo deverá ser versionado (por exemplo,
 `versaoContrato: 1`) e transportado sem senha de emitente. Credenciais são
 resolvidas no ambiente seguro do Worker, nunca enviadas como parte da tarefa.
 
+## Formato v1 implementado no Worker
+
+O conversor `worker/src/contrato_tarefa.py` já aceita este formato. Os nomes
+em camelCase são parte do contrato; os valores abaixo são apenas exemplos
+fictícios.
+
+```json
+{
+  "versaoContrato": 1,
+  "ambiente": "teste",
+  "tarefa": {
+    "id": "uuid-da-tarefa",
+    "clienteId": "uuid-do-cliente",
+    "emitente": {
+      "id": "uuid-do-emitente",
+      "valorSelect": "valor-confirmado-no-select-da-nfpe",
+      "credencialReferencia": "CLIENTE_A"
+    },
+    "destinatario": {
+      "cnpj": "...",
+      "indicadorIe": "CONTRIBUINTE",
+      "inscricaoEstadual": "...",
+      "razaoSocial": "...",
+      "cep": "...",
+      "numeroEndereco": "..."
+    },
+    "operacao": {
+      "natureza": "Venda",
+      "tipo": "Saída",
+      "finalidade": "NF-e normal",
+      "indicadorPresenca": "Operação não presencial, pela Internet",
+      "modalidadeFrete": "3"
+    },
+    "itens": [{
+      "produtoId": "uuid-do-produto",
+      "descricao": "...",
+      "codigoFiscal": "...",
+      "unidade": "UN",
+      "quantidade": 1,
+      "precoUnitario": 1.0,
+      "cfopTexto": "...",
+      "cfopCodigo": "...",
+      "situacaoTributariaIcms": "40",
+      "origemMercadoria": "0",
+      "possuiBeneficioFiscal": true,
+      "codigoBeneficioFiscal": "..."
+    }]
+  }
+}
+```
+
 ## Campos já disponíveis
 
 | Necessidade do Worker | Origem atual no Web | Situação |

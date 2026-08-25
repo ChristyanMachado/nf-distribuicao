@@ -42,10 +42,16 @@ desabilitada.
 2. Comparar o contrato com o schema Web para localizar os campos inexistentes
    ou ainda hardcoded no Worker. Não inventar dado fiscal para preencher a
    lacuna.
-3. Definir estados mínimos: `PENDENTE`, `EM_PROCESSAMENTO`, `CONCLUIDA`,
-   `FALHOU` e `CANCELADA`, além de tentativa, mensagem sanitizada e horários.
+3. Definir estados mínimos aproveitando o enum já existente: `PENDENTE`,
+   `PROCESSANDO`, `ERRO`, `CANCELADA`, `EMITIDA` e
+   `DOCUMENTOS_ARMAZENADOS`, além de tentativa, mensagem sanitizada e
+   horários.
 4. Definir reserva/lease atômica: duas instâncias do Worker nunca podem
    processar a mesma tarefa.
+
+**Andamento:** formato v1, conversor e testes de validação foram entregues em
+`worker/src/contrato_tarefa.py`. Falta o produtor desse contrato no Web e os
+campos fiscais que ainda não existem no schema.
 
 **Saída da fase:** contrato revisado, documentado e coberto por testes sem
 necessidade de abrir navegador.
@@ -95,7 +101,6 @@ continuação automática das fases anteriores.
 
 ## Próxima ação de código
 
-Implementar a primeira parte da fase 2: um contrato de tarefa versionado e
-testado, derivado do schema existente da aplicação web. Antes de conectar ao
-banco, comparar todos os campos com `worker/src/flows/emissao.py` e listar
-os dados fiscais ainda ausentes.
+Implementar o produtor v1 no Web, inicialmente como projeção/fonte de teste,
+depois de acrescentar ou decidir os campos fiscais ausentes no schema. Não
+conectar o banco ao Worker antes dessa validação.

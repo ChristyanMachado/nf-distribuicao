@@ -38,6 +38,9 @@ O resultado técnico detalhado e seletores reconhecidos estão em `docs/HANDOFF.
 - Definir o contrato de uma tarefa entre a aplicação web e o Worker antes de
   qualquer integração: origem dos dados, campos fiscais, estados, reserva da
   tarefa, retorno de erro e armazenamento de PDF/XML.
+- Topologia proposta para o piloto: Web no Vercel e Worker Playwright em VM
+  Linux persistente. A Oracle Always Free será avaliada por prova de capacidade;
+  não foi criada nem aprovada como infraestrutura definitiva.
 
 ## Princípios imutáveis
 
