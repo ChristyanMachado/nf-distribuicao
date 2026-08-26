@@ -10,6 +10,9 @@
     "test": "vitest run",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
+    "db:verify-security": "node --env-file=.env scripts/verificar-seguranca-db.mjs",
+    "db:verify-integration": "node --env-file=.env scripts/verificar-prontidao-integracao.mjs",
+    "db:verify-pre-0008": "node --env-file=.env scripts/verificar-pre-migracao-0008.mjs",
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {

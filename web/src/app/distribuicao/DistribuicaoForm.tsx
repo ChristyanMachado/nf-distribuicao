@@ -6,8 +6,14 @@ import { Label } from "@/components/Field";
 import PrimaryButton from "@/components/PrimaryButton";
 import { calcularFaturavel, validarDistribuicaoTotal } from "@/lib/calculos";
 import { processarDistribuicao } from "./actions";
+import { dataOperacionalBrasil } from "@/lib/datas";
 
-type Cliente = { id: string; nome: string };
+type Cliente = {
+  id: string;
+  nome: string;
+  prontoParaEmissao: boolean;
+  emitentes: { id: string; nome: string }[];
+};
 type Produto = { id: string; descricao: string; precoPadrao: string; unidade: string };
 
 type Linha = {
@@ -24,25 +30,50 @@ type ProdutoNaDistribuicao = {
   linhas: Linha[]; // uma por cliente cadastrado (só exibida se o cliente estiver selecionado)
 };
 
+type UltimaDistribuicao = {
+  loteId: string;
+  numero: number | null;
+  produtos: {
+    produtoId: string;
+    quantidadeTotal: string;
+    linhas: {
+      clienteId: string;
+      emitenteId: string;
+      quantidadeDistribuida: string;
+      quantidadeTroca: string;
+      precoUnitario: string;
+    }[];
+  }[];
+};
+
 const moeda = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 
 export default function DistribuicaoForm({
   clientes,
   produtos,
   precos,
+  ultimaDistribuicao,
 }: {
   clientes: Cliente[];
   produtos: Produto[];
   precos: Record<string, string>;
+  ultimaDistribuicao: UltimaDistribuicao | null;
 }) {
-  const [data, setData] = useState(() => new Date().toISOString().slice(0, 10));
+  const [data, setData] = useState(() => dataOperacionalBrasil());
+  const [chaveIdempotencia, setChaveIdempotencia] = useState(() => crypto.randomUUID());
+  const [resultado, setResultado] = useState<{ loteId: string; numero: number | null; tarefas: number } | null>(null);
   const [clientesSelecionados, setClientesSelecionados] = useState<Set<string>>(
-    () => new Set(clientes.map((c) => c.id))
+    () => new Set(clientes.filter((c) => c.prontoParaEmissao).map((c) => c.id))
+  );
+  const [emitentePorCliente, setEmitentePorCliente] = useState<Record<string, string>>(() =>
+    Object.fromEntries(
+      clientes.map((cliente) => [cliente.id, cliente.emitentes[0]?.id ?? ""])
+    )
   );
   const [produtosDistribuicao, setProdutosDistribuicao] = useState<ProdutoNaDistribuicao[]>([]);
   const [produtoParaAdicionar, setProdutoParaAdicionar] = useState("");
   const [quantidadeParaAdicionar, setQuantidadeParaAdicionar] = useState("");
-  const [status, setStatus] = useState<{ tipo: "ok" | "erro"; texto: string } | null>(null);
+  const [status, setStatus] = useState<{ tipo: "ok" | "erro" | "aviso"; texto: string } | null>(null);
   const [enviando, setEnviando] = useState(false);
 
   const produtosDisponiveisParaAdicionar = produtos.filter(
@@ -54,12 +85,17 @@ export default function DistribuicaoForm({
   }
 
   function alternarCliente(clienteId: string) {
+    if (!clientes.find((cliente) => cliente.id === clienteId)?.prontoParaEmissao) return;
     setClientesSelecionados((atual) => {
       const novo = new Set(atual);
       if (novo.has(clienteId)) novo.delete(clienteId);
       else novo.add(clienteId);
       return novo;
     });
+  }
+
+  function selecionarEmitente(clienteId: string, emitenteId: string) {
+    setEmitentePorCliente((atual) => ({ ...atual, [clienteId]: emitenteId }));
   }
 
   function adicionarProduto() {
@@ -127,6 +163,77 @@ export default function DistribuicaoForm({
     );
   }
 
+  function repetirUltimaDistribuicao() {
+    if (!ultimaDistribuicao) return;
+
+    const clientesAtuais = new Map(clientes.map((cliente) => [cliente.id, cliente]));
+    const produtosAtuais = new Map(produtos.map((produto) => [produto.id, produto]));
+    const emitentesValidos = new Map<string, string>();
+
+    for (const produtoAnterior of ultimaDistribuicao.produtos) {
+      for (const linhaAnterior of produtoAnterior.linhas) {
+        const cliente = clientesAtuais.get(linhaAnterior.clienteId);
+        if (
+          cliente?.prontoParaEmissao
+          && cliente.emitentes.some((emitente) => emitente.id === linhaAnterior.emitenteId)
+          && !emitentesValidos.has(cliente.id)
+        ) {
+          emitentesValidos.set(cliente.id, linhaAnterior.emitenteId);
+        }
+      }
+    }
+
+    const selecionados = new Set(emitentesValidos.keys());
+    const produtosRepetidos = ultimaDistribuicao.produtos.flatMap((produtoAnterior) => {
+      const produtoAtual = produtosAtuais.get(produtoAnterior.produtoId);
+      if (!produtoAtual) return [];
+
+      const linhasAnteriores = new Map(
+        produtoAnterior.linhas
+          .filter((linha) => emitentesValidos.get(linha.clienteId) === linha.emitenteId)
+          .map((linha) => [linha.clienteId, linha]),
+      );
+      if (linhasAnteriores.size === 0) return [];
+
+      return [{
+        produtoId: produtoAnterior.produtoId,
+        quantidadeTotal: produtoAnterior.quantidadeTotal,
+        linhas: clientes.map((cliente) => {
+          const anterior = linhasAnteriores.get(cliente.id);
+          return {
+            clienteId: cliente.id,
+            quantidadeDistribuida: anterior?.quantidadeDistribuida ?? "",
+            quantidadeTroca: anterior?.quantidadeTroca ?? "0",
+            precoUnitario: anterior?.precoUnitario
+              ?? precoInicial(produtoAnterior.produtoId, cliente.id, produtoAtual.precoPadrao),
+            trocaAberta: Number(anterior?.quantidadeTroca ?? 0) > 0,
+          };
+        }),
+      }];
+    });
+
+    if (produtosRepetidos.length === 0 || selecionados.size === 0) {
+      setStatus({
+        tipo: "erro",
+        texto: "A última distribuição não possui mais clientes, produtos e emitentes ativos para repetir.",
+      });
+      return;
+    }
+
+    setData(dataOperacionalBrasil());
+    setClientesSelecionados(selecionados);
+    setEmitentePorCliente(Object.fromEntries(emitentesValidos));
+    setProdutosDistribuicao(produtosRepetidos);
+    setProdutoParaAdicionar("");
+    setQuantidadeParaAdicionar("");
+    setResultado(null);
+    setChaveIdempotencia(crypto.randomUUID());
+    setStatus({
+      tipo: "aviso",
+      texto: "Rascunho preenchido com a última distribuição. Confira as quantidades, trocas, preços e emitentes antes de processar.",
+    });
+  }
+
   // Preview calculado por produto, considerando só os clientes selecionados
   const previewPorProduto = useMemo(() => {
     return produtosDistribuicao.map((p) => {
@@ -179,13 +286,21 @@ export default function DistribuicaoForm({
   const algumaLinhaPreenchida = previewPorProduto.some((p) =>
     p.resultados.some((r) => r.quantidadeDistribuida > 0)
   );
-  const podeEnviar = produtosDistribuicao.length > 0 && algumaLinhaPreenchida && !temErro && !enviando;
+  const faltaEmitente = previewPorProduto.some((produto) =>
+    produto.resultados.some(
+      (resultado) =>
+        resultado.quantidadeFaturavel > 0 && !emitentePorCliente[resultado.clienteId]
+    )
+  );
+  const podeEnviar = produtosDistribuicao.length > 0 && algumaLinhaPreenchida && !temErro && !faltaEmitente && !enviando;
 
   async function handleSubmit() {
     setEnviando(true);
     setStatus(null);
+    setResultado(null);
     try {
-      await processarDistribuicao({
+      const processado = await processarDistribuicao({
+        chaveIdempotencia,
         data,
         produtos: produtosDistribuicao.map((p) => ({
           produtoId: p.produtoId,
@@ -194,14 +309,17 @@ export default function DistribuicaoForm({
             .filter((l) => clientesSelecionados.has(l.clienteId))
             .map((l) => ({
               clienteId: l.clienteId,
+              emitenteId: emitentePorCliente[l.clienteId] ?? "",
               quantidadeDistribuida: Number(l.quantidadeDistribuida || 0),
               quantidadeTroca: Number(l.quantidadeTroca || 0),
               precoUnitario: Number(l.precoUnitario || 0),
             })),
         })),
       });
-      setStatus({ tipo: "ok", texto: "Distribuição registrada. Tarefas geradas." });
+      setStatus({ tipo: "ok", texto: processado.reutilizada ? "Esta distribuição já havia sido registrada — nenhum dado foi duplicado." : "Distribuição registrada com segurança." });
+      setResultado({ loteId: processado.loteId, numero: processado.numeroDistribuicao, tarefas: processado.tarefasCriadas });
       setProdutosDistribuicao([]);
+      setChaveIdempotencia(crypto.randomUUID());
     } catch (e) {
       setStatus({ tipo: "erro", texto: e instanceof Error ? e.message : "Erro ao processar." });
     } finally {
@@ -211,8 +329,29 @@ export default function DistribuicaoForm({
 
   return (
     <div className="pb-28 md:pb-6">
+      {ultimaDistribuicao && (
+        <Card className="mt-5 border-[var(--field)] bg-[var(--field-tint)] p-4">
+          <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[var(--field-strong)]">
+            Atalho do dia
+          </p>
+          <button
+            type="button"
+            onClick={repetirUltimaDistribuicao}
+            aria-describedby="repetir-distribuicao-ajuda"
+            className="tap-target mt-2 flex w-full items-center justify-center rounded-[var(--radius-control)] bg-[var(--field)] px-4 py-3 text-center text-sm font-semibold text-white shadow-sm active:translate-y-px"
+          >
+            Repetir distribuição {ultimaDistribuicao.numero
+              ? String(ultimaDistribuicao.numero).padStart(6, "0")
+              : "anterior"}
+          </button>
+          <p id="repetir-distribuicao-ajuda" className="mt-2 text-[12px] leading-5 text-[var(--ink-soft)]">
+            Preenche o formulário para edição com os mesmos clientes e produtos. Nada é enviado automaticamente.
+          </p>
+        </Card>
+      )}
+
       {/* Data + clientes participantes desta distribuição */}
-      <Card className="mt-5 p-4">
+      <Card className={`${ultimaDistribuicao ? "mt-4" : "mt-5"} p-4`}>
         <Label>Data</Label>
         <input
           type="date"
@@ -231,17 +370,58 @@ export default function DistribuicaoForm({
                   key={c.id}
                   type="button"
                   onClick={() => alternarCliente(c.id)}
-                  className={`rounded-full border px-3 py-1.5 text-sm ${
-                    ativo
+                  aria-pressed={ativo}
+                  disabled={!c.prontoParaEmissao}
+                  title={c.prontoParaEmissao ? undefined : "Complete o cadastro fiscal deste cliente"}
+                  className={`tap-target rounded-full border px-3 py-1.5 text-sm ${
+                    !c.prontoParaEmissao
+                      ? "cursor-not-allowed border-[var(--line)] text-[var(--ink-faint)] opacity-50"
+                      : ativo
                       ? "border-[var(--field)] bg-[var(--field-tint)] text-[var(--field-strong)]"
                       : "border-[var(--line-strong)] text-[var(--ink-faint)]"
                   }`}
                 >
-                  {c.nome}
+                  {c.nome}{c.prontoParaEmissao ? "" : " · completar"}
                 </button>
               );
             })}
           </div>
+          {clientes.some((cliente) => !cliente.prontoParaEmissao) && (
+            <p className="mt-2 text-[12px] leading-5 text-[var(--ink-soft)]">
+              Clientes esmaecidos precisam de CNPJ, IE/CEP/endereço e emitente integrado.{" "}
+              <a href="/clientes" className="font-medium text-[var(--field-strong)] underline underline-offset-2">
+                Completar cadastros
+              </a>
+            </p>
+          )}
+        </div>
+
+        <div className="mt-4 space-y-2">
+          <Label>Emitente para cada cliente</Label>
+          {clientes
+            .filter((cliente) => clientesSelecionados.has(cliente.id))
+            .map((cliente) => (
+              <div key={cliente.id} className="flex items-center justify-between gap-3 text-sm">
+                <span>{cliente.nome}</span>
+                <select
+                  value={emitentePorCliente[cliente.id] ?? ""}
+                  onChange={(event) => selecionarEmitente(cliente.id, event.target.value)}
+                  className="max-w-[60%]"
+                >
+                  <option value="">Selecionar emitente...</option>
+                  {cliente.emitentes.map((emitente) => (
+                    <option key={emitente.id} value={emitente.id}>
+                      {emitente.nome}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ))}
+          {clientes.some((cliente) => clientesSelecionados.has(cliente.id) && cliente.emitentes.length === 0) && (
+            <p className="text-[12px] text-[var(--stamp)]">
+              Há cliente sem emitente habilitado. Cadastre a relação antes de processar uma quantidade para ele.
+            </p>
+          )}
         </div>
       </Card>
 
@@ -427,13 +607,30 @@ export default function DistribuicaoForm({
 
       {status && (
         <p
+          role={status.tipo === "erro" ? "alert" : "status"}
+          aria-live="polite"
           className={`mt-4 rounded-[var(--radius-control)] px-4 py-2.5 text-sm ${
             status.tipo === "ok"
               ? "bg-[var(--field-tint)] text-[var(--field-strong)]"
-              : "bg-[var(--stamp-tint)] text-[var(--stamp)]"
+              : status.tipo === "aviso"
+                ? "border border-[var(--wheat)] bg-[var(--cream)] text-[var(--ink)]"
+                : "bg-[var(--stamp-tint)] text-[var(--stamp)]"
           }`}
         >
           {status.texto}
+        </p>
+      )}
+
+      {resultado && (
+        <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
+          <a href="/tarefas" className="tap-target flex items-center justify-center rounded-[var(--radius-control)] border border-[var(--field)] px-3 text-center font-medium text-[var(--field-strong)]">Acompanhar {resultado.tarefas} tarefa(s)</a>
+          <a href={`/entregas?lote=${encodeURIComponent(resultado.loteId)}`} className="tap-target flex items-center justify-center rounded-[var(--radius-control)] border border-[var(--line-strong)] px-3 text-center">Abrir roteiro {resultado.numero ? `000${resultado.numero}`.slice(-6) : ""}</a>
+        </div>
+      )}
+
+      {faltaEmitente && (
+        <p className="mt-4 text-sm text-[var(--stamp)]">
+          Selecione um emitente para cada cliente que receberá itens faturáveis.
         </p>
       )}
 

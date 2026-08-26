@@ -3,8 +3,11 @@ import {
   uuid,
   text,
   numeric,
+  bigint,
   timestamp,
   boolean,
+  integer,
+  jsonb,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 
@@ -39,9 +42,8 @@ export const indicadorIeEnum = fiscalSchema.enum("indicador_ie", [
 ]);
 
 // ---------------------------------------------------------------------------
-// RF02/RF03 — Emitentes: quem vende/emite. O emitente é quem efetivamente
-// faz login no sistema fiscal — por isso o login/senha ficam aqui, não no
-// cliente (correção de 14/08: estavam no lugar errado antes).
+// RF02/RF03 — Emitentes: quem vende/emite. O Web guarda apenas uma referência
+// sem segredo; login e senha fiscal pertencem ao ambiente protegido do Worker.
 // ---------------------------------------------------------------------------
 
 export const emitentes = fiscalSchema.table("emitentes", {
@@ -49,17 +51,25 @@ export const emitentes = fiscalSchema.table("emitentes", {
   nome: text("nome").notNull(),
   cnpj: text("cnpj"),
   inscricaoEstadual: text("inscricao_estadual"),
-  loginUsuario: text("login_usuario"), // CPF usado no login do sistema fiscal
-  // Senha armazenada, mas NUNCA exibida na listagem (RF05/RNF02) — a tela
-  // só deve mostrar "•••• editar", nunca o valor em claro depois de salvo.
+  // Referência sem segredo que o Worker usa para resolver credenciais em seu
+  // próprio ambiente (ex.: EMITENTE_GRAALYS_01).
+  credencialReferencia: text("credencial_referencia"),
+  // Value da option do emitente na NFP-e. Não é senha nem seletor CSS; será
+  // preenchido após o reconhecimento controlado no ambiente de homologação.
+  valorSelectNfpe: text("valor_select_nfpe"),
+  // Legado do banco de teste. A aplicação não lê nem grava mais estes campos;
+  // remover depois que as credenciais forem migradas ao secrets manager.
+  loginUsuario: text("login_usuario"),
   senha: text("senha"),
   ativo: boolean("ativo").notNull().default(true),
   criadoEm: timestamp("criado_em").notNull().defaultNow(),
-});
+}, (table) => [
+  uniqueIndex("emitentes_credencial_referencia_idx").on(table.credencialReferencia),
+]);
 
 // ---------------------------------------------------------------------------
-// RF01 — Clientes (destinatário da NFP-e). Um emitente pode ter vários
-// clientes (RF03) — por isso emitenteId fica aqui, na ponta "muitos".
+// RF01 — Clientes (destinatário da NFP-e). A relação com emitentes é N:N:
+// o emitente efetivo é escolhido na distribuição e gravado na tarefa.
 // ---------------------------------------------------------------------------
 
 export const clientes = fiscalSchema.table("clientes", {
@@ -71,21 +81,65 @@ export const clientes = fiscalSchema.table("clientes", {
   destinatarioNome: text("destinatario_nome"), // razão social usada na nota, se diferente de "nome"
   cep: text("cep"),
   numeroEndereco: text("numero_endereco"),
-  emitenteId: uuid("emitente_id").references(() => emitentes.id),
   ativo: boolean("ativo").notNull().default(true),
   observacoes: text("observacoes"),
   criadoEm: timestamp("criado_em").notNull().defaultNow(),
 });
 
+// Emitentes habilitados para atender cada cliente. A tabela não substitui a
+// escolha na tarefa: ela define as opções operacionais permitidas na tela.
+export const clienteEmitentes = fiscalSchema.table(
+  "cliente_emitentes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    clienteId: uuid("cliente_id").notNull().references(() => clientes.id),
+    emitenteId: uuid("emitente_id").notNull().references(() => emitentes.id),
+    criadoEm: timestamp("criado_em").notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("cliente_emitentes_cliente_emitente_idx").on(table.clienteId, table.emitenteId),
+  ]
+);
+
 // ---------------------------------------------------------------------------
-// RF04 — Produtos
+// RF04 — Regras fiscais reutilizáveis e produtos
 // ---------------------------------------------------------------------------
+
+// Uma regra reúne todos os valores fiscais e operacionais que hoje são
+// compartilhados pelos produtos. Ela é criada uma vez e selecionada pelo
+// produto; a tarefa guarda a referência escolhida para não depender do
+// cadastro atual ao ser emitida mais tarde.
+export const regrasFiscais = fiscalSchema.table(
+  "regras_fiscais",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    codigo: text("codigo").notNull(),
+    nome: text("nome").notNull(),
+    cfopTexto: text("cfop_texto").notNull(),
+    cfopCodigo: text("cfop_codigo").notNull(),
+    situacaoTributariaIcms: text("situacao_tributaria_icms").notNull(),
+    origemMercadoria: text("origem_mercadoria").notNull(),
+    possuiBeneficioFiscal: boolean("possui_beneficio_fiscal").notNull().default(false),
+    codigoBeneficioFiscal: text("codigo_beneficio_fiscal"),
+    naturezaOperacao: text("natureza_operacao").notNull(),
+    tipoOperacao: text("tipo_operacao").notNull(),
+    finalidadeEmissao: text("finalidade_emissao").notNull(),
+    indicadorPresenca: text("indicador_presenca").notNull(),
+    modalidadeFrete: text("modalidade_frete").notNull(),
+    ativo: boolean("ativo").notNull().default(true),
+    criadoEm: timestamp("criado_em").notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex("regras_fiscais_codigo_idx").on(table.codigo)]
+);
 
 export const produtos = fiscalSchema.table("produtos", {
   id: uuid("id").primaryKey().defaultRandom(),
   descricao: text("descricao").notNull(),
   codigoInterno: text("codigo_interno"),
   codigoFiscal: text("codigo_fiscal"), // código usado no sistema fiscal (busca de produto)
+  regraFiscalId: uuid("regra_fiscal_id")
+    .notNull()
+    .references(() => regrasFiscais.id),
   unidade: text("unidade").notNull().default("UN"),
   precoPadrao: numeric("preco_padrao", { precision: 12, scale: 2 }).notNull().default("0"),
   ativo: boolean("ativo").notNull().default(true),
@@ -112,13 +166,28 @@ export const precosCliente = fiscalSchema.table(
 );
 
 // ---------------------------------------------------------------------------
-// RF06 — Disponibilidade diária de cada produto (quantidade TOTAL, separada
-// da quantidade distribuída — RF07). Editável independentemente da
-// distribuição já lançada.
+// Cada confirmação na tela de Distribuição vira um lote. O lote é a unidade
+// operacional do roteiro do motorista: não mistura entregas de rodadas
+// diferentes feitas no mesmo dia.
+export const lotesDistribuicao = fiscalSchema.table(
+  "lotes_distribuicao",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    // Número sequencial visível ao usuário: Distribuição 000001, 000002...
+    numero: bigint("numero", { mode: "number" }),
+    chaveIdempotencia: uuid("chave_idempotencia"),
+    data: text("data").notNull(),
+    criadoEm: timestamp("criado_em").notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex("lotes_distribuicao_chave_idempotencia_idx").on(table.chaveIdempotencia)],
+);
+
+// RF06 — Disponibilidade por produto dentro de um lote de distribuição.
 // ---------------------------------------------------------------------------
 
 export const disponibilidades = fiscalSchema.table("disponibilidades", {
   id: uuid("id").primaryKey().defaultRandom(),
+  loteId: uuid("lote_id").notNull().references(() => lotesDistribuicao.id),
   produtoId: uuid("produto_id").notNull().references(() => produtos.id),
   data: text("data").notNull(), // formato YYYY-MM-DD
   quantidadeDisponivel: numeric("quantidade_disponivel", { precision: 12, scale: 3 }).notNull(),
@@ -133,6 +202,8 @@ export const distribuicoes = fiscalSchema.table("distribuicoes", {
   id: uuid("id").primaryKey().defaultRandom(),
   disponibilidadeId: uuid("disponibilidade_id").notNull().references(() => disponibilidades.id),
   clienteId: uuid("cliente_id").notNull().references(() => clientes.id),
+  // Mesmo emitente escolhido para a tarefa originada por esta distribuição.
+  emitenteId: uuid("emitente_id").notNull().references(() => emitentes.id),
   quantidadeDistribuida: numeric("quantidade_distribuida", { precision: 12, scale: 3 }).notNull(),
   quantidadeTroca: numeric("quantidade_troca", { precision: 12, scale: 3 }).notNull().default("0"),
   // quantidadeFaturavel = quantidadeDistribuida - quantidadeTroca (calculado em código, ver lib/calculos.ts)
@@ -149,9 +220,27 @@ export const distribuicoes = fiscalSchema.table("distribuicoes", {
 
 export const tarefas = fiscalSchema.table("tarefas", {
   id: uuid("id").primaryKey().defaultRandom(),
+  // Cada tarefa pertence à rodada que a originou. Registros legados de teste
+  // podem permanecer nulos até revisão; novas distribuições sempre preenchem.
+  loteId: uuid("lote_id").references(() => lotesDistribuicao.id),
   clienteId: uuid("cliente_id").notNull().references(() => clientes.id),
+  // Snapshot da escolha na distribuição. Não inferir pelo cadastro do cliente.
+  emitenteId: uuid("emitente_id").notNull().references(() => emitentes.id),
   data: text("data").notNull(), // YYYY-MM-DD — dia da distribuição/produção, controle interno
   status: statusTarefaEnum("status").notNull().default("PENDENTE"),
+  // Reserva/lease evita duas instâncias do Worker emitirem a mesma tarefa.
+  // Expiração exige conferência humana; nunca recolocar automaticamente.
+  tentativas: integer("tentativas").notNull().default(0),
+  reservadaPor: text("reservada_por"),
+  reservaToken: uuid("reserva_token"),
+  reservaExpiraEm: timestamp("reserva_expira_em", { withTimezone: true }),
+  iniciadoEm: timestamp("iniciado_em", { withTimezone: true }),
+  concluidoEm: timestamp("concluido_em", { withTimezone: true }),
+  ultimoErro: text("ultimo_erro"),
+  mensagemStatus: text("mensagem_status"),
+  contratoVersao: integer("contrato_versao"),
+  payloadWorker: jsonb("payload_worker"),
+  payloadHash: text("payload_hash"),
   valorTotal: numeric("valor_total", { precision: 12, scale: 2 }).notNull().default("0"),
   criadoEm: timestamp("criado_em").notNull().defaultNow(),
   atualizadoEm: timestamp("atualizado_em").notNull().defaultNow(),
@@ -162,6 +251,12 @@ export const tarefaItens = fiscalSchema.table("tarefa_itens", {
   id: uuid("id").primaryKey().defaultRandom(),
   tarefaId: uuid("tarefa_id").notNull().references(() => tarefas.id),
   produtoId: uuid("produto_id").notNull().references(() => produtos.id),
+  // Snapshot da regra escolhida pelo produto quando a tarefa foi gerada.
+  // Regras não devem ser alteradas; para mudar tributação, criar outra regra
+  // e vinculá-la aos próximos produtos/tarefas.
+  regraFiscalId: uuid("regra_fiscal_id")
+    .notNull()
+    .references(() => regrasFiscais.id),
   quantidade: numeric("quantidade", { precision: 12, scale: 3 }).notNull(),
   precoUnitario: numeric("preco_unitario", { precision: 12, scale: 2 }).notNull(),
   subtotal: numeric("subtotal", { precision: 12, scale: 2 }).notNull(),
@@ -178,6 +273,7 @@ export const notas = fiscalSchema.table("notas", {
   clienteId: uuid("cliente_id").notNull().references(() => clientes.id),
   numero: text("numero"),
   chaveAcesso: text("chave_acesso"),
+  protocoloAutorizacao: text("protocolo_autorizacao"),
   status: text("status").notNull().default("AGUARDANDO_EMISSAO"), // AUTORIZADA | REJEITADA | AGUARDANDO_EMISSAO
   valorTotal: numeric("valor_total", { precision: 12, scale: 2 }).notNull(),
   dataEmissao: timestamp("data_emissao"),
@@ -186,7 +282,7 @@ export const notas = fiscalSchema.table("notas", {
   documentoExpiraEm: timestamp("documento_expira_em"), // data em que o binário pode ser removido
   mensagemErro: text("mensagem_erro"),
   criadoEm: timestamp("criado_em").notNull().defaultNow(),
-});
+}, (table) => [uniqueIndex("notas_tarefa_unica_idx").on(table.tarefaId)]);
 
 // ---------------------------------------------------------------------------
 // RF17/RNF03/RNF07 — Logs de execução do worker, vinculados à tarefa/nota

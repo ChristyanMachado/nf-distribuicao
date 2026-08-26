@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import Stamp from "@/components/Stamp";
 import { cancelarTarefa } from "./actions";
+import { dataIsoParaBrasil } from "@/lib/datas";
 
 const moeda = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 
@@ -17,8 +18,14 @@ type Tarefa = {
   id: string;
   data: string;
   status: string;
+  tentativas: number;
+  reservaExpiraEm: Date | null;
+  ultimoErro: string | null;
+  mensagemStatus: string | null;
   valorTotal: string;
+  numeroDistribuicao: number | null;
   clienteNome: string;
+  emitenteNome: string;
   itens: Item[];
 };
 
@@ -31,7 +38,9 @@ export default function TarefaCard({ tarefa }: { tarefa: Tarefa }) {
       <button
         type="button"
         onClick={() => setAberto((a) => !a)}
-        className="flex w-full items-center justify-between text-left"
+        aria-expanded={aberto}
+        aria-controls={`detalhes-tarefa-${tarefa.id}`}
+        className="tap-target flex w-full items-center justify-between gap-3 text-left"
       >
         <div>
           <p className="font-medium">
@@ -41,7 +50,13 @@ export default function TarefaCard({ tarefa }: { tarefa: Tarefa }) {
             </span>
           </p>
           <p className="font-mono-tab text-[13px] text-[var(--ink-faint)]">
-            {tarefa.data} · {tarefa.itens.length} item(ns)
+            {dataIsoParaBrasil(tarefa.data)} · {tarefa.itens.length} item(ns)
+          </p>
+          <p className="text-[12px] text-[var(--ink-faint)]">
+            {tarefa.numeroDistribuicao
+              ? `Distribuição ${String(tarefa.numeroDistribuicao).padStart(6, "0")} · `
+              : ""}
+            emitente: {tarefa.emitenteNome}
           </p>
         </div>
         <div className="text-right">
@@ -53,7 +68,10 @@ export default function TarefaCard({ tarefa }: { tarefa: Tarefa }) {
       </button>
 
       {aberto && (
-        <div className="mt-3 space-y-1.5 border-t border-[var(--line)] pt-3">
+        <div
+          id={`detalhes-tarefa-${tarefa.id}`}
+          className="mt-3 space-y-1.5 border-t border-[var(--line)] pt-3"
+        >
           {tarefa.itens.map((item, i) => (
             <div key={i} className="flex justify-between text-[13px]">
               <span>
@@ -75,6 +93,23 @@ export default function TarefaCard({ tarefa }: { tarefa: Tarefa }) {
             >
               {pending ? "Cancelando…" : "Cancelar tarefa"}
             </button>
+          )}
+
+          {tarefa.status !== "PENDENTE" && (
+            <p className="mt-2 text-[12px] text-[var(--ink-faint)]">
+              Tentativa{tarefa.tentativas === 1 ? "" : "s"}: {tarefa.tentativas}
+              {tarefa.reservaExpiraEm
+                ? ` · reserva até ${new Date(tarefa.reservaExpiraEm).toLocaleString("pt-BR")}`
+                : ""}
+            </p>
+          )}
+          {tarefa.ultimoErro && (
+            <p className="mt-1 text-[12px] text-[var(--stamp)]">{tarefa.ultimoErro}</p>
+          )}
+          {!tarefa.ultimoErro && tarefa.mensagemStatus && (
+            <p className="mt-1 text-[12px] text-[var(--ink-soft)]">
+              {tarefa.mensagemStatus}
+            </p>
           )}
         </div>
       )}

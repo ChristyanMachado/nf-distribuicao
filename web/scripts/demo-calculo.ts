@@ -20,14 +20,15 @@ const PRODUTO_COUVE_FLOR = "produto-couve-flor";
 const CLIENTE_A = "cliente-a";
 const CLIENTE_B = "cliente-b";
 const CLIENTE_C = "cliente-c";
+const EMITENTE_PADRAO = "emitente-padrao";
 
 const quantidadeDisponivel = 100;
 const precoUnitario = 4.5;
 
 const itens = [
-  { clienteId: CLIENTE_A, quantidadeDistribuida: 40, quantidadeTroca: 3, precoUnitario },
-  { clienteId: CLIENTE_B, quantidadeDistribuida: 30, quantidadeTroca: 0, precoUnitario },
-  { clienteId: CLIENTE_C, quantidadeDistribuida: 30, quantidadeTroca: 0, precoUnitario },
+  { clienteId: CLIENTE_A, emitenteId: EMITENTE_PADRAO, quantidadeDistribuida: 40, quantidadeTroca: 3, precoUnitario },
+  { clienteId: CLIENTE_B, emitenteId: EMITENTE_PADRAO, quantidadeDistribuida: 30, quantidadeTroca: 0, precoUnitario },
+  { clienteId: CLIENTE_C, emitenteId: EMITENTE_PADRAO, quantidadeDistribuida: 30, quantidadeTroca: 0, precoUnitario },
 ];
 
 console.log("=== Validação do total distribuído ===");

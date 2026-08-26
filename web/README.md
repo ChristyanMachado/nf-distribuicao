@@ -19,7 +19,7 @@ A regra de negócio central (cálculo de faturável e geração de tarefas) não
 depende de banco nem de login no sistema fiscal:
 
 ```bash
-npm test              # 11 testes unitários
+npm test              # testes unitários do domínio Web
 npm run demo:calculo  # demonstração isolada
 ```
 
@@ -28,8 +28,8 @@ npm run demo:calculo  # demonstração isolada
 ```
 src/
 ├── db/
-│   ├── schema.ts       # 10 tabelas: emitentes (c/ login), clientes, produtos,
-│   │                      preços por cliente, distribuição, tarefas, notas, logs
+│   ├── schema.ts       # emitentes, clientes, regras fiscais, produtos, preços,
+│   │                      distribuição, tarefas, notas e logs
 │   └── index.ts
 ├── lib/
 │   ├── calculos.ts       # RF09/RF11 — quantidade faturável, agrupamento em tarefas
@@ -52,7 +52,20 @@ src/
 ## Modelo de dados — pontos importantes
 
 - **Login pertence ao emitente**, não ao cliente — é o emitente quem
-  autentica no sistema fiscal (corrigido em 14/08).
+  autentica no sistema fiscal.
+- **Emitente e cliente têm relação N:N**. O cadastro define os emitentes
+  habilitados para atender o cliente e a distribuição registra qual deles foi
+  escolhido na tarefa. Aplicar as migrações `0001_emitente_por_tarefa.sql` e
+  `0002_regras_fiscais_reutilizaveis.sql` antes de usar esse fluxo em banco
+  existente.
+- **Regra fiscal é reutilizável:** CFOP, ICMS, origem, benefício e parâmetros
+  de operação são cadastrados uma vez em `regras_fiscais`. O produto recebe a
+  regra padrão automaticamente quando só há uma ativa; a tarefa preserva a
+  referência escolhida no momento da distribuição.
+- **Roteiro de entrega:** cada confirmação de distribuição gera um lote. A
+  página `/entregas` imprime o lote selecionado com cliente, CEP,
+  produtos, quantidades e trocas — sem valores monetários. A migração
+  `0003_lotes_e_endereco_entrega.sql` é necessária para esse recurso.
 - **Preço é por produto + cliente**, não só por produto — a tabela
   `precos_cliente` aprende sozinha: toda vez que uma distribuição é
   processada, o preço usado vira o padrão daquele par pra próxima vez.
@@ -75,6 +88,7 @@ pra ter faturamento, ranking de clientes/produtos e valor perdido em
 trocas. A tela busca só o intervalo de datas selecionado (chips: Hoje/7
 dias/30 dias/Este mês), agrega em `lib/relatorios.ts` (puro, testado) e
 mostra KPIs + gráfico + rankings num único scroll, sem navegação extra.
+Trocas ligadas a tarefa cancelada não entram no indicador "Perdido em trocas".
 
 ## O que falta
 

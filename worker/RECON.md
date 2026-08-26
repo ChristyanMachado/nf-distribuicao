@@ -1,6 +1,9 @@
 Reconhecimento manual do sistema fiscal
 
-Status em 21/08/2026: o fluxo de preenchimento da NFP-e foi validado ao vivo no ambiente de TESTE (homologação), incluindo 1 e 2 produtos, ICMS, tela intermediária de Adicionar Produto / Avançar e Transporte. O fluxo ainda para antes de Emitir.
+Status em 25/08/2026: o fluxo de preenchimento da NFP-e foi validado ao vivo
+no ambiente de TESTE (homologação), incluindo 1 e 2 produtos, ICMS, tela
+intermediária de Adicionar Produto / Avançar, Transporte, Resumo e a resposta
+pós-emissão. O Worker ainda não invoca a emissão automaticamente.
 
 2-A. Ambiente de TESTE (NFP-e TESTES / homologação) — confirmado
 
@@ -306,27 +309,100 @@ Produto(s) concluído(s)
 
 O campo foi localizado usando o mesmo padrão estável de label + pai + select.
 
-10. Resumo / validação final
+10. Resumo / emissão / documentos — reconhecimento manual em 25/08
 
-A transição após Transporte foi executada com sucesso no teste de 21/08, mas o conteúdo da tela de resumo ainda não foi reconhecido/documentado em detalhe.
+Após Transporte, o botão **Avançar** leva ao Resumo. O botão final de emissão
+tem o nome visível **Emitir**; preferir o seletor semântico:
 
-Próximo reconhecimento
+```python
+page.get_by_role("button", name="Emitir", exact=True)
+```
 
-Capturar:
+Após o clique, o sistema apresenta o resultado da emissão e, quando há
+documento disponível, os dois botões abaixo.
 
-título/identidade da tela;
+### Autorização confirmada
 
-totais;
+HTML observado em homologação:
 
-mensagens de validação;
+```html
+<span class="autorizada">AUTORIZADA</span>
+```
 
-campos eventualmente editáveis;
+Seletor principal usado pelo Worker:
 
-botão Emitir;
+```python
+page.locator("span.autorizada").filter(has_text=re.compile(r"^\s*AUTORIZADA\s*$"))
+```
 
-qualquer confirmação/modal antes da emissão.
+Seletor estrutural registrado apenas como referência de inspeção:
 
-Não clicar em Emitir durante o reconhecimento atual.
+```text
+#app > div:nth-child(2) > div > div.slds-panel__section.slds-col.slds-grid.slds-wrap.slds-gutters.slds-tabs__default__content > article > div.slds-card__body.slds-card__body_inner > div > div:nth-child(2) > span
+```
+
+O Worker só inicia os downloads depois que classe e texto confirmam
+`AUTORIZADA`. O estado de rejeição ainda precisa ser reconhecido para retorno
+de erro mais específico; sua ausência nunca é interpretada como sucesso.
+
+### Baixar XML
+
+Seletor principal:
+
+```python
+page.get_by_role("button", name="Baixar XML", exact=True)
+```
+
+HTML observado:
+
+```html
+<button class="slds-button slds-button_brand ...">Baixar XML</button>
+```
+
+Seletor estrutural registrado apenas como referência de inspeção:
+
+```text
+#app > div:nth-child(2) > div > div.slds-panel__section.slds-col.slds-grid.slds-wrap.slds-gutters.slds-tabs__default__content > article > footer > button:nth-child(2)
+```
+
+No navegador manual, o Chromium exibiu um aviso sobre o download. No Worker,
+o `BrowserContext` é criado com `accept_downloads=True` e o Playwright captura
+o arquivo com `expect_download()`; o aviso visual não deve exigir clique extra.
+
+### Visualizar DANFE
+
+Seletor principal:
+
+```python
+page.get_by_role("button", name="Visualizar DANFE", exact=True)
+```
+
+HTML observado:
+
+```html
+<button class="slds-button slds-button_brand ...">Visualizar DANFE</button>
+```
+
+Seletor estrutural registrado apenas como referência de inspeção:
+
+```text
+#app > div:nth-child(2) > div > div.slds-panel__section.slds-col.slds-grid.slds-wrap.slds-gutters.slds-tabs__default__content > article > footer > button:nth-child(3)
+```
+
+Apesar do rótulo “Visualizar”, o comportamento observado foi download direto
+de PDF com nome genérico `DANFE.pdf`. O Worker salva os arquivos como
+`danfe_<tarefa>_<UTC>.pdf` e `xml_<tarefa>_<UTC>.xml`, evitando colisões e
+permitindo o envio posterior ao Storage privado.
+
+Ainda falta capturar o seletor/texto do estado rejeitado, os totais do Resumo
+e eventual modal intermediário.
+
+Atualização posterior: o `main.py` pode executar uma emissão **somente em
+homologação** quando `TESTAR_EMISSAO_HOMOLOGACAO=true`. A flag é bloqueada em
+ambiente normal e o próprio `emitir()` confere o host da Page antes de clicar.
+Não há confirmação por terminal: a flag é a autorização explícita do teste.
+Até três clientes podem emitir em paralelo com `MAX_CONCORRENCIA=3`.
+Produção continua indisponível.
 
 11. Validação atual do fluxo
 
@@ -386,17 +462,21 @@ modalidade do frete
 
 transição após Transporte
 
+Resumo e botão Emitir reconhecidos manualmente
+
+botões Baixar XML e Visualizar DANFE reconhecidos manualmente
+
 Ainda não confirmado
 
 conteúdo detalhado do Resumo
 
+seletor/texto do status autorizado/rejeitado
+
 validações finais do resumo
 
-comportamento do botão Emitir
+eventual modal antes de Emitir
 
-emissão real
-
-download PDF/XML
+emissão automatizada controlada
 
 cancelamento
 
@@ -420,8 +500,9 @@ Login
 → [Produto 2 → ICMS → Adicionar Produto / Avançar]*
 → Transporte
 → Resumo / Validação
-→ Emitir                ← ainda não implementado/testado
-→ Download documentos   ← ainda não implementado
+→ Emitir                ← reconhecido manualmente; não chamado pelo Worker
+→ Resultado autorizado/rejeitado
+→ Baixar XML / Visualizar DANFE
 
 13. Estratégia de seletores consolidada
 
@@ -495,6 +576,20 @@ validado 2 produtos;
 confirmado Transporte e Modalidade do Frete;
 
 fluxo completo de preenchimento chegou ao fim e parou antes de Emitir.
+
+25/08/2026 — reconhecimento da saída de homologação
+
+confirmado que Avançar após Transporte leva ao Resumo;
+
+botão Emitir reconhecido pelo nome visível;
+
+resposta pós-emissão observada manualmente;
+
+capturados Baixar XML e Visualizar DANFE;
+
+confirmado que Visualizar DANFE baixa diretamente `DANFE.pdf`;
+
+download automatizado preparado, sem ligar a emissão ao fluxo executável.
 
 20/08/2026 — ambiente de teste e primeiros seletores
 

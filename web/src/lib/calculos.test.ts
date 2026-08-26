@@ -96,14 +96,14 @@ describe("agruparEmTarefas", () => {
         produtoId: "couve-flor",
         quantidadeDisponivel: 100,
         itens: [
-          { clienteId: "cliente-a", quantidadeDistribuida: 40, quantidadeTroca: 3, precoUnitario: 4.5 },
+          { clienteId: "cliente-a", emitenteId: "emitente-a", quantidadeDistribuida: 40, quantidadeTroca: 3, precoUnitario: 4.5 },
         ],
       },
       {
         produtoId: "alface",
         quantidadeDisponivel: 50,
         itens: [
-          { clienteId: "cliente-a", quantidadeDistribuida: 20, quantidadeTroca: 0, precoUnitario: 2 },
+          { clienteId: "cliente-a", emitenteId: "emitente-a", quantidadeDistribuida: 20, quantidadeTroca: 0, precoUnitario: 2 },
         ],
       },
     ]);
@@ -119,7 +119,7 @@ describe("agruparEmTarefas", () => {
         produtoId: "couve-flor",
         quantidadeDisponivel: 10,
         itens: [
-          { clienteId: "cliente-a", quantidadeDistribuida: 5, quantidadeTroca: 5, precoUnitario: 4.5 },
+          { clienteId: "cliente-a", emitenteId: "emitente-a", quantidadeDistribuida: 5, quantidadeTroca: 5, precoUnitario: 4.5 },
         ],
       },
     ]);
@@ -132,11 +132,27 @@ describe("agruparEmTarefas", () => {
         produtoId: "couve-flor",
         quantidadeDisponivel: 100,
         itens: [
-          { clienteId: "cliente-a", quantidadeDistribuida: 40, quantidadeTroca: 0, precoUnitario: 4.5 },
-          { clienteId: "cliente-b", quantidadeDistribuida: 30, quantidadeTroca: 0, precoUnitario: 4.5 },
+          { clienteId: "cliente-a", emitenteId: "emitente-a", quantidadeDistribuida: 40, quantidadeTroca: 0, precoUnitario: 4.5 },
+          { clienteId: "cliente-b", emitenteId: "emitente-b", quantidadeDistribuida: 30, quantidadeTroca: 0, precoUnitario: 4.5 },
         ],
       },
     ]);
     expect(tarefas.map((t) => t.clienteId).sort()).toEqual(["cliente-a", "cliente-b"]);
+  });
+
+  it("separa tarefas do mesmo cliente quando o emitente é diferente", () => {
+    const tarefas = agruparEmTarefas([
+      {
+        produtoId: "couve-flor",
+        quantidadeDisponivel: 100,
+        itens: [
+          { clienteId: "cliente-a", emitenteId: "emitente-a", quantidadeDistribuida: 40, quantidadeTroca: 0, precoUnitario: 4.5 },
+          { clienteId: "cliente-a", emitenteId: "emitente-b", quantidadeDistribuida: 30, quantidadeTroca: 0, precoUnitario: 4.5 },
+        ],
+      },
+    ]);
+
+    expect(tarefas).toHaveLength(2);
+    expect(tarefas.map((t) => t.emitenteId).sort()).toEqual(["emitente-a", "emitente-b"]);
   });
 });

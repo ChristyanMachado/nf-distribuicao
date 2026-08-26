@@ -5,7 +5,7 @@ import { carregarDadosDistribuicao } from "./actions";
 import DistribuicaoForm from "./DistribuicaoForm";
 
 export default async function DistribuicaoPage() {
-  const { clientes, produtos, precos } = await carregarDadosDistribuicao();
+  const { clientes, produtos, precos, ultimaDistribuicao } = await carregarDadosDistribuicao();
 
   if (produtos.length === 0 || clientes.length === 0) {
     return (
@@ -26,7 +26,12 @@ export default async function DistribuicaoPage() {
         Adicione os produtos do dia, depois distribua entre os clientes
         participantes — o preço já vem do que foi usado da última vez.
       </p>
-      <DistribuicaoForm clientes={clientes} produtos={produtos} precos={precos} />
+      <DistribuicaoForm
+        clientes={clientes}
+        produtos={produtos}
+        precos={precos}
+        ultimaDistribuicao={ultimaDistribuicao}
+      />
     </div>
   );
 }

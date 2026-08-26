@@ -20,7 +20,8 @@ class BrowserFalso:
     def __init__(self) -> None:
         self.contextos: list[ContextoFalso] = []
 
-    async def new_context(self) -> ContextoFalso:
+    async def new_context(self, *, accept_downloads: bool) -> ContextoFalso:
+        assert accept_downloads is True
         contexto = ContextoFalso()
         self.contextos.append(contexto)
         return contexto
@@ -64,7 +65,8 @@ def test_falha_da_tarefa_retorna_resultado_e_fecha_contexto():
 
     assert resultado.sucesso is False
     assert resultado.tipo_erro == "RuntimeError"
-    assert resultado.erro == "login falhou"
+    assert resultado.erro == "Falha operacional isolada (RuntimeError)."
+    assert "login falhou" not in resultado.erro
     assert browser.contextos[0].fechado is True
 
 

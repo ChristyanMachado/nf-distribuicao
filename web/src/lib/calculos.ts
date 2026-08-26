@@ -6,6 +6,9 @@
 
 export type ItemDistribuicao = {
   clienteId: string;
+  // Só é obrigatório quando o item será agrupado em uma tarefa. Mantê-lo
+  // opcional permite reutilizar os cálculos puros no preview da interface.
+  emitenteId?: string;
   quantidadeDistribuida: number;
   quantidadeTroca: number;
   precoUnitario: number;
@@ -22,10 +25,20 @@ export class DistribuicaoInvalidaError extends Error {}
  * RF09 — quantidade faturável = distribuída - troca, nunca negativa.
  */
 export function calcularFaturavel(item: ItemDistribuicao): ItemFaturavel {
+  if (
+    !Number.isFinite(item.quantidadeDistribuida) ||
+    !Number.isFinite(item.quantidadeTroca) ||
+    !Number.isFinite(item.precoUnitario)
+  ) {
+    throw new DistribuicaoInvalidaError("Quantidade e preço precisam ser números válidos.");
+  }
   if (item.quantidadeDistribuida < 0 || item.quantidadeTroca < 0) {
     throw new DistribuicaoInvalidaError(
       "Quantidades não podem ser negativas."
     );
+  }
+  if (item.precoUnitario < 0) {
+    throw new DistribuicaoInvalidaError("Preço não pode ser negativo.");
   }
   if (item.quantidadeTroca > item.quantidadeDistribuida) {
     throw new DistribuicaoInvalidaError(
@@ -47,6 +60,9 @@ export function validarDistribuicaoTotal(
   quantidadeDisponivel: number,
   itens: ItemDistribuicao[]
 ): { valido: boolean; totalDistribuido: number; sobra: number } {
+  if (!Number.isFinite(quantidadeDisponivel) || quantidadeDisponivel < 0) {
+    throw new DistribuicaoInvalidaError("Quantidade disponível precisa ser um número válido.");
+  }
   const totalDistribuido = itens.reduce(
     (soma, item) => soma + item.quantidadeDistribuida,
     0
@@ -64,6 +80,7 @@ export function validarDistribuicaoTotal(
  */
 export type TarefaPreparada = {
   clienteId: string;
+  emitenteId: string;
   itens: {
     produtoId: string;
     quantidade: number;
@@ -80,15 +97,22 @@ export function agruparEmTarefas(
     itens: ItemDistribuicao[];
   }[]
 ): TarefaPreparada[] {
-  const porCliente = new Map<string, TarefaPreparada>();
+  const porClienteEEmitente = new Map<string, TarefaPreparada>();
 
   for (const { produtoId, itens } of distribuicoesPorProduto) {
     for (const item of itens) {
       const faturavel = calcularFaturavel(item);
       if (faturavel.quantidadeFaturavel <= 0) continue; // nada a faturar
+      if (!item.emitenteId) {
+        throw new DistribuicaoInvalidaError(
+          "Emitente é obrigatório para gerar uma tarefa de emissão."
+        );
+      }
 
-      const existente = porCliente.get(item.clienteId) ?? {
+      const chave = `${item.clienteId}:${item.emitenteId}`;
+      const existente = porClienteEEmitente.get(chave) ?? {
         clienteId: item.clienteId,
+        emitenteId: item.emitenteId,
         itens: [],
         valorTotal: 0,
       };
@@ -103,11 +127,11 @@ export function agruparEmTarefas(
         existente.valorTotal + faturavel.subtotal
       );
 
-      porCliente.set(item.clienteId, existente);
+      porClienteEEmitente.set(chave, existente);
     }
   }
 
-  return Array.from(porCliente.values());
+  return Array.from(porClienteEEmitente.values());
 }
 
 function arredondarMoeda(valor: number): number {

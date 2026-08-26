@@ -1,14 +1,18 @@
-"""
-Testa que a confirmação humana (validar_antes_de_emitir) é serializada
-entre threads — sem isso, com RF14 (3 sessões em paralelo), dois clientes
-podem disputar o mesmo input() do terminal ao mesmo tempo.
-"""
+"""Emissão e confirmação do resultado fiscal, sem abrir Chromium real."""
+import asyncio
 import logging
-import threading
-import time
-from unittest.mock import patch
 
-from src.flows.emissao import Destinatario, Emitente, Tarefa, validar_antes_de_emitir
+import pytest
+
+from src.flows.emissao import (
+    Destinatario,
+    Emitente,
+    EmissaoBloqueada,
+    FalhaConfirmacaoEmissao,
+    Tarefa,
+    aguardar_autorizacao,
+    emitir,
+)
 
 
 def _logger_silencioso() -> logging.Logger:
@@ -32,37 +36,130 @@ def _tarefa_fake(tarefa_id: str) -> Tarefa:
     )
 
 
-def test_confirmacao_humana_e_serializada_entre_threads():
-    """
-    Sem o lock, os 3 input() concorrentes poderiam se sobrepor. Simulamos
-    3 chamadas simultâneas e verificamos que nunca mais de 1 está "dentro"
-    do input() ao mesmo tempo.
-    """
-    em_andamento: list[int] = []
-    picos_simultaneos: list[int] = []
-    lock_contagem = threading.Lock()
+class BotaoEmitirFalso:
+    def __init__(self) -> None:
+        self.clicado = False
 
-    def input_falso(prompt: str) -> str:
-        with lock_contagem:
-            em_andamento.append(1)
-            picos_simultaneos.append(len(em_andamento))
-        time.sleep(0.05)  # simula o tempo que uma pessoa levaria pra digitar
-        with lock_contagem:
-            em_andamento.pop()
-        return "s"
+    async def click(self) -> None:
+        self.clicado = True
 
-    logger = _logger_silencioso()
-    resultados = []
 
-    def rodar(tarefa_id: str):
-        resultados.append(validar_antes_de_emitir(None, _tarefa_fake(tarefa_id), logger))
+class PaginaEmissaoFalsa:
+    def __init__(self, url: str) -> None:
+        self.url = url
+        self.botao = BotaoEmitirFalso()
 
-    with patch("builtins.input", side_effect=input_falso):
-        threads = [threading.Thread(target=rodar, args=(f"tarefa-{i}",)) for i in range(3)]
-        for t in threads:
-            t.start()
-        for t in threads:
-            t.join()
+    def get_by_role(self, papel: str, *, name: str, exact: bool):
+        assert papel == "button"
+        assert name == "Emitir"
+        assert exact is True
+        return self.botao
 
-    assert max(picos_simultaneos) == 1, "mais de um input() rodou ao mesmo tempo — lock não está funcionando"
-    assert resultados == [True, True, True]
+
+def test_emitir_clica_somente_no_dominio_de_homologacao():
+    pagina = PaginaEmissaoFalsa(
+        "https://homologacao.nfae.fazenda.pr.gov.br/nfae/produtor/emitir/resumo"
+    )
+
+    asyncio.run(emitir(pagina, _tarefa_fake("T1"), _logger_silencioso(), ambiente="teste"))
+
+    assert pagina.botao.clicado is True
+
+
+@pytest.mark.parametrize(
+    ("url", "ambiente"),
+    [
+        ("https://nfae.fazenda.pr.gov.br/nfae/produtor/emitir/resumo", "teste"),
+        ("https://homologacao.nfae.fazenda.pr.gov.br/nfae/produtor/emitir/resumo", "normal"),
+        ("https://homologacao.nfae.fazenda.pr.gov.br.evil.example/nfae/x", "teste"),
+    ],
+)
+def test_emitir_bloqueia_fora_da_homologacao(url, ambiente):
+    pagina = PaginaEmissaoFalsa(url)
+
+    with pytest.raises(EmissaoBloqueada, match="homologação"):
+        asyncio.run(
+            emitir(
+                pagina,
+                _tarefa_fake("T1"),
+                _logger_silencioso(),
+                ambiente=ambiente,
+            )
+        )
+
+    assert pagina.botao.clicado is False
+
+
+class StatusFalso:
+    first: "StatusFalso"
+
+    def __init__(self, texto: str | None) -> None:
+        self.first = self
+        self.texto = texto
+        self.aguardado = False
+
+    def filter(self, *, has_text):
+        assert has_text.fullmatch("AUTORIZADA")
+        return self
+
+    async def wait_for(self, *, state: str, timeout: int) -> None:
+        assert state == "visible"
+        assert timeout == 60_000
+        self.aguardado = True
+        if self.texto is None:
+            await asyncio.Future()
+
+    async def inner_text(self) -> str:
+        assert self.texto is not None
+        return self.texto
+
+
+class PaginaAutorizadaFalsa:
+    url = "https://homologacao.nfae.fazenda.pr.gov.br/nfae/produtor/emitir/resumo"
+
+    def __init__(self) -> None:
+        self.status = StatusFalso("AUTORIZADA")
+        self.rejeitada = StatusFalso(None)
+
+    def locator(self, seletor: str) -> StatusFalso:
+        assert seletor == "span.autorizada"
+        return self.status
+
+    def get_by_text(self, _padrao, *, exact: bool) -> StatusFalso:
+        assert exact is True
+        return self.rejeitada
+
+
+def test_aguarda_status_autorizada_confirmado_em_homologacao():
+    pagina = PaginaAutorizadaFalsa()
+
+    asyncio.run(
+        aguardar_autorizacao(
+            pagina,
+            _tarefa_fake("T1"),
+            _logger_silencioso(),
+            ambiente="teste",
+        )
+    )
+
+    assert pagina.status.aguardado is True
+
+
+class PaginaRejeitadaFalsa(PaginaAutorizadaFalsa):
+    def __init__(self) -> None:
+        self.status = StatusFalso(None)
+        self.rejeitada = StatusFalso("REJEITADA")
+
+
+def test_resultado_rejeitado_nao_e_tratado_como_autorizado():
+    pagina = PaginaRejeitadaFalsa()
+
+    with pytest.raises(FalhaConfirmacaoEmissao, match="REJEITADA"):
+        asyncio.run(
+            aguardar_autorizacao(
+                pagina,
+                _tarefa_fake("T1"),
+                _logger_silencioso(),
+                ambiente="teste",
+            )
+        )

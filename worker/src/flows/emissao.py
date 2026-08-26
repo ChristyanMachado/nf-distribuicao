@@ -15,28 +15,18 @@ fiscal, PIS/COFINS/IPI etc. com um valor chutado só para o fluxo continuar.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
+import os
 import re
-import threading
+import unicodedata
+from datetime import datetime, timezone
 from dataclasses import dataclass, field
+from urllib.parse import urlsplit
+from xml.etree import ElementTree
 
-from playwright.async_api import Page
-
-# Protege input() de concorrência: com RF14 (3 sessões em paralelo), se dois
-# clientes chegarem na conferência humana ao mesmo tempo, dois input()
-# simultâneos disputam o mesmo terminal e a resposta pode ir pro cliente
-# errado. O lock serializa — um prompt de cada vez, na ordem de chegada.
-#
-# ⚠️ Nota (20/08, pós-migração Async): com asyncio.gather() todas as tarefas
-# rodam na MESMA thread (event loop único), diferente do ThreadPoolExecutor
-# anterior. Um input() bloqueante já trava o loop inteiro sozinho, então
-# esse lock virou redundante para o caso Async — mas inofensivo, e ainda
-# necessário caso este módulo volte a ser chamado por múltiplas threads no
-# futuro. Não removido por precaução; revisar se/quando validar_antes_de_emitir
-# for chamada de fato pelo fluxo Async orquestrado.
-_LOCK_CONFIRMACAO_HUMANA = threading.Lock()
-
+from playwright.async_api import Page, TimeoutError as PlaywrightTimeoutError
 
 class DadosFiscaisIncompletos(Exception):
     """
@@ -45,6 +35,22 @@ class DadosFiscaisIncompletos(Exception):
     inventando o valor — a correção é obter o dado real e completar o
     cadastro do produto/tarefa.
     """
+
+
+class EmissaoBloqueada(RuntimeError):
+    """A trava de homologação impediu o clique fiscal."""
+
+
+class FalhaConfirmacaoEmissao(RuntimeError):
+    """A Receita não exibiu a confirmação de autorização esperada."""
+
+
+@dataclass(frozen=True)
+class MetadadosDocumentoFiscal:
+    chave_acesso: str
+    numero: str
+    protocolo: str
+    codigo_status: str
 
 
 # ---------------------------------------------------------------------------
@@ -92,6 +98,15 @@ class Tarefa:
     cliente_id: str
     emitente: Emitente
     destinatario: Destinatario
+    # Nome operacional do mercado, quando o contrato Web o fornecer. No JSON
+    # local ele é opcional e a razão social continua sendo o fallback seguro.
+    nome_cliente: str | None = None
+    # Nome do emissor para desambiguar notas do mesmo cliente emitidas por
+    # empresas diferentes. No teste local o value do select é o fallback.
+    nome_emitente: str | None = None
+    # Número sequencial do lote/distribuição. Só será definitivo quando vier
+    # do banco; tarefa_real.json pode omiti-lo durante a fase local.
+    numero_distribuicao: int | None = None
     itens: list[ItemTarefa] = field(default_factory=list)
     # Confirmados no reconhecimento ao vivo de 20/08 — o texto aqui precisa
     # bater exatamente com o texto visível da <option> real (usado como
@@ -125,6 +140,7 @@ def carregar_tarefa_de_json(caminho: str) -> Tarefa:
     campos_restantes = {
         chave: valor for chave, valor in dados.items() if chave not in _CAMPOS_JSON_ESPECIAIS
     }
+    _validar_metadados_arquivo(campos_restantes)
 
     return Tarefa(
         emitente=emitente,
@@ -132,6 +148,30 @@ def carregar_tarefa_de_json(caminho: str) -> Tarefa:
         itens=itens,
         **campos_restantes,
     )
+
+
+def _validar_metadados_arquivo(campos: dict[str, object]) -> None:
+    """Valida somente os metadados usados para nomear artefatos locais."""
+    nome_cliente = campos.get("nome_cliente")
+    if nome_cliente is not None:
+        if not isinstance(nome_cliente, str) or not nome_cliente.strip() or len(nome_cliente.strip()) > 160:
+            raise ValueError("nome_cliente deve ser um texto preenchido de até 160 caracteres.")
+        campos["nome_cliente"] = nome_cliente.strip()
+
+    nome_emitente = campos.get("nome_emitente")
+    if nome_emitente is not None:
+        if not isinstance(nome_emitente, str) or not nome_emitente.strip() or len(nome_emitente.strip()) > 160:
+            raise ValueError("nome_emitente deve ser um texto preenchido de até 160 caracteres.")
+        campos["nome_emitente"] = nome_emitente.strip()
+
+    numero_distribuicao = campos.get("numero_distribuicao")
+    if numero_distribuicao is not None:
+        if (
+            isinstance(numero_distribuicao, bool)
+            or not isinstance(numero_distribuicao, int)
+            or not 1 <= numero_distribuicao <= 1_000_000_000
+        ):
+            raise ValueError("numero_distribuicao deve ser um inteiro positivo válido.")
 
 
 # ---------------------------------------------------------------------------
@@ -193,9 +233,7 @@ async def clicar_avancar(page: Page, logger: logging.Logger) -> None:
 
     await candidatos[0].click()
 
-    logger.info("Avançar clicado — aguardando 1 segundos para a interface estabilizar")
-
-    await page.wait_for_timeout(1000)
+    logger.info("Avançar clicado")
 
 async def clicar_avancar_produto(
     page: Page,
@@ -239,11 +277,7 @@ async def clicar_avancar_produto(
     # Assim como no transporte, o último botão corresponde à etapa atual.
     await candidatos[-1].click()
 
-    logger.info(
-        "Avançar da etapa de produtos clicado — aguardando 1 segundo"
-    )
-
-    await page.wait_for_timeout(1000)
+    logger.info("Avançar da etapa de produtos clicado")
 
 
 async def aceitar_consentimento(page: Page, logger: logging.Logger) -> None:
@@ -253,7 +287,7 @@ async def aceitar_consentimento(page: Page, logger: logging.Logger) -> None:
 
 
 async def selecionar_emitente(page: Page, emitente: Emitente, logger: logging.Logger) -> None:
-    logger.info(f"Selecionando emitente (value={emitente.valor_select})")
+    logger.info("Selecionando emitente configurado para a tarefa")
     # Seletor simplificado (<select> dentro de #div-identificacao) —
     # reconfirmado como válido no reconhecimento ao vivo de 20/08.
     await page.locator("#div-identificacao select").select_option(value=emitente.valor_select)
@@ -273,7 +307,7 @@ async def preencher_destinatario(
     destinatario: Destinatario,
     logger: logging.Logger
 ) -> None:
-    logger.info(f"Preenchendo destinatário: {destinatario.razao_social}")
+    logger.info("Preenchendo destinatário da tarefa")
 
     # Tipo de identificação: CNPJ.
     await page.get_by_text("CNPJ", exact=True).first.click()
@@ -322,9 +356,7 @@ async def preencher_destinatario(
 
     await cep.fill(destinatario.cep)
 
-    logger.info(
-        f"CEP preenchido: {await cep.input_value()!r}"
-    )
+    logger.info("CEP preenchido; aguardando dados automáticos do endereço")
 
     # IMPORTANTE:
     #
@@ -365,27 +397,14 @@ async def preencher_destinatario(
             "Loading do CEP apareceu — aguardando desaparecer"
         )
 
-        await loading.wait_for(
-            state="hidden",
-            timeout=15000
-        )
-
-        logger.info(
-            "Loading do CEP desapareceu"
-        )
-
-    except Exception as erro:
-        logger.info(
-            f"Loading não foi observado diretamente: {erro}"
-        )
-
-    # Margem adicional solicitada para garantir que a interface termine
-    # de atualizar depois do desaparecimento do loading.
-    logger.info(
-        "Aguardando 1 segundo após o processamento do CEP"
-    )
-
-    await page.wait_for_timeout(1000)
+    except PlaywrightTimeoutError:
+        logger.info("Loading do CEP não chegou a ser observado")
+    else:
+        try:
+            await loading.wait_for(state="hidden", timeout=15000)
+        except PlaywrightTimeoutError as exc:
+            raise RuntimeError("A consulta de CEP permaneceu carregando além do limite seguro.") from exc
+        logger.info("Loading do CEP desapareceu")
 
     # ================================================================
     # NÚMERO
@@ -412,33 +431,16 @@ async def preencher_destinatario(
         str(destinatario.numero_endereco)
     )
 
-    logger.info(
-        f"Número preenchido: {await numero.input_value()!r}"
-    )
-
-    # ================================================================
-    # ESPERA EXTRA — 1 SEGUNDOS
-    # ================================================================
-
-    logger.info(
-        "Aguardando 1 segundos antes de clicar em Avançar"
-    )
-
-    await page.wait_for_timeout(1000)
+    logger.info("Número do endereço preenchido")
 
     # Confirma explicitamente que o valor ainda está no campo.
     valor_numero = await numero.input_value()
 
-    logger.info(
-        f"Número imediatamente antes do Avançar: {valor_numero!r}"
-    )
+    logger.info("Número do endereço confirmado antes de avançar")
 
     if valor_numero != str(destinatario.numero_endereco):
         raise RuntimeError(
-            "O número do endereço desapareceu ou foi alterado antes "
-            "do Avançar. "
-            f"Esperado={str(destinatario.numero_endereco)!r}, "
-            f"encontrado={valor_numero!r}."
+            "O número do endereço desapareceu ou foi alterado antes do Avançar."
         )
 
     logger.info(
@@ -494,7 +496,7 @@ async def _selecionar_select_por_opcao_ancora(
 
 
 async def preencher_identificacao_operacao(page: Page, tarefa: Tarefa, logger: logging.Logger) -> None:
-    logger.info(f"Identificação da operação: natureza={tarefa.natureza_operacao}")
+    logger.info("Preenchendo identificação da operação")
 
     # Confirmado: #combobox-id-1 é a Natureza da operação (campo de texto
     # com listbox, não um <select> comum).
@@ -504,17 +506,17 @@ async def preencher_identificacao_operacao(page: Page, tarefa: Tarefa, logger: l
     # <select> comuns de verdade (não comboboxes SLDS), com value/texto de
     # opção confirmados em TIPO_OPERACAO_OPCOES / FINALIDADE_EMISSAO_OPCOES /
     # INDICADOR_PRESENCA_OPCOES.
-    logger.info(f"Tipo de operação: {tarefa.tipo_operacao}")
+    logger.info("Tipo de operação selecionado")
     await _selecionar_select_por_opcao_ancora(
         page, _ANCORA_TIPO_OPERACAO, TIPO_OPERACAO_OPCOES[tarefa.tipo_operacao], logger
     )
 
-    logger.info(f"Finalidade da emissão: {tarefa.finalidade_emissao}")
+    logger.info("Finalidade da emissão selecionada")
     await _selecionar_select_por_opcao_ancora(
         page, _ANCORA_FINALIDADE_EMISSAO, FINALIDADE_EMISSAO_OPCOES[tarefa.finalidade_emissao], logger
     )
 
-    logger.info(f"Indicador de presença: {tarefa.indicador_presenca}")
+    logger.info("Indicador de presença selecionado")
     await _selecionar_select_por_opcao_ancora(
         page, _ANCORA_INDICADOR_PRESENCA, INDICADOR_PRESENCA_OPCOES[tarefa.indicador_presenca], logger
     )
@@ -570,7 +572,7 @@ async def buscar_produto(
 
     codigo = str(item.codigo_produto).strip()
 
-    logger.info(f"Buscando produto por código: {codigo}")
+    logger.info("Buscando produto fiscal configurado")
 
     # Localiza o label pelo texto e sobe para o div que contém
     # tanto o label quanto o input correspondente.
@@ -595,7 +597,7 @@ async def buscar_produto(
     await campo_codigo.fill(codigo)
 
     logger.info(
-        f"Código preenchido: {await campo_codigo.input_value()!r}"
+        "Código do produto preenchido"
     )
 
     # Seleciona a primeira sugestão.
@@ -607,13 +609,10 @@ async def buscar_produto(
     await campo_codigo.press("Enter")
 
     logger.info(
-        f"Produto '{codigo}' selecionado"
+        "Produto selecionado"
     )
 
-    # Aguarda o sistema preencher os dados automáticos do produto.
-    await page.wait_for_timeout(1000)
-
-    logger.info("Dados automáticos do produto aguardados")
+    logger.info("Produto escolhido; próxima etapa aguardará os campos automáticos")
     
 async def preencher_item(
     page: Page,
@@ -646,8 +645,7 @@ async def preencher_item(
     # ================================================================
 
     logger.info(
-        f"Selecionando CFOP: {item.cfop_codigo} "
-        f"({item.cfop_texto})"
+        "Selecionando CFOP configurado"
     )
 
     cfop = (
@@ -667,7 +665,7 @@ async def preencher_item(
     )
 
     logger.info(
-        f"CFOP selecionado: {await cfop.input_value()!r}"
+        "CFOP selecionado"
     )
 
     # ================================================================
@@ -675,7 +673,7 @@ async def preencher_item(
     # ================================================================
 
     logger.info(
-        f"Unidade Comercial: {item.unidade}"
+        "Selecionando unidade comercial"
     )
 
     unidade = (
@@ -696,10 +694,7 @@ async def preencher_item(
         str(item.unidade)
     )
 
-    logger.info(
-        f"Unidade preenchida: "
-        f"{await unidade.input_value()!r}"
-    )
+    logger.info("Unidade comercial preenchida")
 
     # A Unidade Comercial é um autocomplete, assim como o Código do
     # Produto. Selecionamos a primeira sugestão com ArrowDown + Enter.
@@ -711,19 +706,14 @@ async def preencher_item(
 
     await unidade.press("Enter")
 
-    logger.info(
-        f"Unidade Comercial '{item.unidade}' selecionada"
-    )
-
-    # Pequena margem para a interface concluir a seleção.
-    await page.wait_for_timeout(500)
+    logger.info("Unidade comercial selecionada")
 
     # ================================================================
     # QUANTIDADE COMERCIAL
     # ================================================================
 
     logger.info(
-        f"Quantidade Comercial: {item.quantidade}"
+        "Preenchendo quantidade comercial"
     )
 
     quantidade = (
@@ -743,8 +733,7 @@ async def preencher_item(
     )
 
     logger.info(
-        f"Quantidade preenchida: "
-        f"{await quantidade.input_value()!r}"
+        "Quantidade comercial preenchida"
     )
 
     # ================================================================
@@ -752,7 +741,7 @@ async def preencher_item(
     # ================================================================
 
     logger.info(
-        f"Valor Unitário Comercial: R$ {item.preco_unitario}"
+        "Preenchendo valor unitário comercial"
     )
 
     valor_unitario = (
@@ -772,8 +761,7 @@ async def preencher_item(
     )
 
     logger.info(
-        f"Valor unitário preenchido: "
-        f"{await valor_unitario.input_value()!r}"
+        "Valor unitário comercial preenchido"
     )
 
         # ================================================================
@@ -815,8 +803,7 @@ async def preencher_item(
     # ================================================================
 
     logger.info(
-        f"Código do benefício fiscal: "
-        f"{item.codigo_beneficio_fiscal}"
+        "Preenchendo código do benefício fiscal"
     )
 
     codigo_beneficio = (
@@ -837,10 +824,7 @@ async def preencher_item(
         item.codigo_beneficio_fiscal or ""
     )
 
-    logger.info(
-        f"Código de benefício preenchido: "
-        f"{await codigo_beneficio.input_value()!r}"
-    )
+    logger.info("Código de benefício fiscal preenchido")
     # ================================================================
     # 1º AVANÇAR — DADOS DO PRODUTO → ICMS
     # ================================================================
@@ -870,10 +854,7 @@ async def preencher_item(
         value=item.situacao_tributaria_icms
     )
 
-    logger.info(
-        f"Situação Tributária ICMS selecionada: "
-        f"{await situacao_tributaria.input_value()!r}"
-    )
+    logger.info("Situação Tributária ICMS selecionada")
 
     # ================================================================
     # ICMS — ORIGEM DA MERCADORIA
@@ -895,10 +876,7 @@ async def preencher_item(
         value=item.origem_mercadoria
     )
 
-    logger.info(
-        f"Origem da mercadoria selecionada: "
-        f"{await origem_mercadoria.input_value()!r}"
-    )
+    logger.info("Origem da mercadoria selecionada")
 
     # ================================================================
     # 2º AVANÇAR — FINALIZA ITEM
@@ -937,7 +915,7 @@ async def preencher_produtos(
 
     for indice, item in enumerate(tarefa.itens, start=1):
         logger.info(
-            f"Produto {indice}/{total}: {item.produto_descricao}"
+            f"Produto {indice}/{total}"
         )
 
         await preencher_item(
@@ -971,7 +949,7 @@ async def preencher_produtos(
                 "Novo formulário de produto aberto"
             )
 
-            await page.wait_for_timeout(1000)
+            # O próximo item aguarda explicitamente o campo Código do Produto.
 
         # ------------------------------------------------------------
         # Último produto.
@@ -1021,7 +999,7 @@ async def preencher_produtos(
                 "Avançar pós-produto clicado — aguardando Transporte"
             )
 
-            await page.wait_for_timeout(1000)
+            # preencher_transporte aguarda explicitamente o respectivo label.
     
     
 async def preencher_transporte(
@@ -1029,9 +1007,7 @@ async def preencher_transporte(
     tarefa: Tarefa,
     logger: logging.Logger
 ) -> None:
-    logger.info(
-        f"Transporte: modalidade={tarefa.modalidade_frete}"
-    )
+    logger.info("Transporte: modalidade de frete configurada")
 
     # Localiza diretamente o label da Modalidade do Frete.
     label_frete = page.locator("label").filter(
@@ -1060,10 +1036,7 @@ async def preencher_transporte(
         value=tarefa.modalidade_frete
     )
 
-    logger.info(
-        f"Modalidade do Frete selecionada: "
-        f"{await modalidade_frete.input_value()!r}"
-    )
+    logger.info("Modalidade do frete selecionada")
 
     # Avançar específico da tela de Transporte.
     botoes = page.get_by_role(
@@ -1091,35 +1064,149 @@ async def preencher_transporte(
 
     await candidatos[-1].click()
 
-    logger.info(
-        "Avançar do transporte clicado — aguardando 1 segundo"
-    )
+    logger.info("Avançar do transporte clicado")
 
-    await page.wait_for_timeout(1000)
-
-def validar_antes_de_emitir(page: Page, tarefa: Tarefa, logger: logging.Logger) -> bool:
-    """
-    RF15 — Modo 2: interrompe aqui e aguarda confirmação humana.
-
-    Permanece síncrona de propósito (não faz nenhuma chamada ao Playwright,
-    só input() protegido por lock) — ver nota junto de _LOCK_CONFIRMACAO_HUMANA
-    sobre o comportamento desse lock agora que a orquestração é Async.
-    """
-    logger.info(f"[{tarefa.tarefa_id}] Dados preenchidos. Aguardando conferência humana.")
-    with _LOCK_CONFIRMACAO_HUMANA:
-        resposta = input(f"Conferir tarefa {tarefa.tarefa_id} e confirmar emissão? [s/N] ")
-    return resposta.strip().lower() == "s"
-
-
-async def emitir(page: Page, tarefa: Tarefa, logger: logging.Logger) -> None:
-    """Fluxo final: Produtos → Transporte → Resumo total → botão Emitir."""
+async def emitir(
+    page: Page,
+    tarefa: Tarefa,
+    logger: logging.Logger,
+    *,
+    ambiente: str,
+) -> None:
+    """Clica em Emitir somente quando a Page está no domínio de homologação."""
+    _exigir_pagina_homologacao(page.url, ambiente)
     logger.info(f"[{tarefa.tarefa_id}] Emitindo nota")
     try:
-        await page.get_by_role("button", name=re.compile("emitir", re.IGNORECASE)).click()
-        logger.info(f"[{tarefa.tarefa_id}] Botão de emissão clicado (tentativa por nome 'Emitir')")
-    except Exception as e:  # noqa: BLE001 — tentativa educada, não é seletor confirmado
-        logger.warning(f"Botão 'Emitir' não encontrado por nome ({e}) — confirmar seletor com o Inspector.")
-        raise NotImplementedError("Botão de emissão ainda não confirmado.") from e
+        await page.get_by_role("button", name="Emitir", exact=True).click()
+        logger.info(f"[{tarefa.tarefa_id}] Botão de emissão clicado")
+    except Exception as exc:  # noqa: BLE001 — tentativa educada, não é seletor confirmado
+        logger.warning(
+            "Botão 'Emitir' não encontrado (%s) — confirmar seletor com o Inspector.",
+            type(exc).__name__,
+        )
+        raise NotImplementedError("Botão de emissão não está disponível.") from exc
+
+
+async def aguardar_autorizacao(
+    page: Page,
+    tarefa: Tarefa,
+    logger: logging.Logger,
+    *,
+    ambiente: str,
+    timeout_ms: int = 60_000,
+) -> None:
+    """Confirma autorização por classe e texto antes de liberar downloads.
+
+    O seletor foi reconhecido ao vivo em homologação em 25/08/2026. A classe
+    curta e o texto exato são mais estáveis do que a cadeia estrutural com
+    ``nth-child`` copiada do DevTools.
+    """
+    _exigir_pagina_homologacao(page.url, ambiente)
+    status_autorizada = page.locator("span.autorizada").filter(
+        has_text=re.compile(r"^\s*AUTORIZADA\s*$")
+    ).first
+    status_rejeitada = page.get_by_text(
+        re.compile(r"^\s*REJEITAD[AO]\s*$", re.IGNORECASE), exact=True
+    ).first
+    espera_autorizada = asyncio.create_task(
+        status_autorizada.wait_for(state="visible", timeout=timeout_ms)
+    )
+    espera_rejeitada = asyncio.create_task(
+        status_rejeitada.wait_for(state="visible", timeout=timeout_ms)
+    )
+    try:
+        concluidas, pendentes = await asyncio.wait(
+            {espera_autorizada, espera_rejeitada},
+            return_when=asyncio.FIRST_COMPLETED,
+        )
+        for espera in pendentes:
+            espera.cancel()
+        await asyncio.gather(*pendentes, return_exceptions=True)
+
+        if espera_autorizada in concluidas:
+            espera_autorizada.result()
+            texto = (await status_autorizada.inner_text()).strip()
+            if texto != "AUTORIZADA":
+                raise FalhaConfirmacaoEmissao(
+                    "O status fiscal recebido não corresponde a AUTORIZADA."
+                )
+        elif espera_rejeitada in concluidas:
+            espera_rejeitada.result()
+            texto = (await status_rejeitada.inner_text()).strip().upper()
+            raise FalhaConfirmacaoEmissao(
+                f"Resultado fiscal não autorizado: {texto}."
+            )
+        else:
+            raise FalhaConfirmacaoEmissao(
+                "A emissão não retornou um resultado fiscal reconhecível."
+            )
+    except PlaywrightTimeoutError as exc:
+        raise FalhaConfirmacaoEmissao(
+            "A emissão não foi confirmada como AUTORIZADA dentro do prazo. "
+            "Não baixar nem registrar documentos como sucesso."
+        ) from exc
+
+    # Defesa contra mudança de página entre o clique e a resposta do portal.
+    _exigir_pagina_homologacao(page.url, ambiente)
+    logger.info("[%s] Emissão confirmada como AUTORIZADA", tarefa.tarefa_id)
+
+
+async def salvar_diagnostico_resultado(
+    page: Page,
+    tarefa: Tarefa,
+    download_dir: str,
+    logger: logging.Logger,
+) -> tuple[str, ...]:
+    """Salva HTML e captura locais quando a autorização não é confirmada.
+
+    Os artefatos podem conter dados fiscais; permanecem na pasta ignorada pelo
+    Git, recebem permissão restritiva quando suportada e seu conteúdo nunca é
+    escrito no log.
+    """
+    _preparar_diretorio_privado(download_dir)
+    base = _caminho_documento(download_dir, tarefa, "resultado", "html")
+    html_path = base
+    screenshot_path = os.path.splitext(base)[0] + ".png"
+    salvos: list[str] = []
+
+    try:
+        with open(html_path, "w", encoding="utf-8", newline="") as arquivo:
+            arquivo.write(await page.content())
+        _restringir_permissoes(html_path)
+        salvos.append(html_path)
+    except Exception as exc:  # noqa: BLE001 — diagnóstico não pode ocultar o erro fiscal
+        logger.error(
+            "[%s] Não foi possível salvar HTML de diagnóstico (%s)",
+            tarefa.tarefa_id,
+            type(exc).__name__,
+        )
+
+    try:
+        await page.screenshot(path=screenshot_path, full_page=True)
+        _restringir_permissoes(screenshot_path)
+        salvos.append(screenshot_path)
+    except Exception as exc:  # noqa: BLE001 — diagnóstico não pode ocultar o erro fiscal
+        logger.error(
+            "[%s] Não foi possível salvar captura de diagnóstico (%s)",
+            tarefa.tarefa_id,
+            type(exc).__name__,
+        )
+
+    return tuple(salvos)
+
+
+def _exigir_pagina_homologacao(url_atual: str, ambiente: str) -> None:
+    """Defesa final contra emissão acidental no ambiente fiscal normal."""
+    url = urlsplit(url_atual)
+    if (
+        ambiente != "teste"
+        or url.scheme != "https"
+        or url.hostname != "homologacao.nfae.fazenda.pr.gov.br"
+        or not url.path.startswith("/nfae/")
+    ):
+        raise EmissaoBloqueada(
+            "Emissão bloqueada: a página atual não pertence à homologação NFP-e TESTES."
+        )
 
 
 async def cancelar_nota(page: Page, numero_nota: str, motivo: str, logger: logging.Logger) -> None:
@@ -1132,15 +1219,191 @@ async def cancelar_nota(page: Page, numero_nota: str, motivo: str, logger: loggi
     reconhecimento, até ~3 cancelamentos foi tranquilo historicamente —
     não tratar isso como limite seguro garantido, só como referência.
     """
-    logger.warning(f"Cancelando nota {numero_nota} — motivo: {motivo}")
+    logger.warning("Cancelamento fiscal solicitado; dados omitidos do log")
     # TODO: seletores de navegação até "Consultar", localização da nota e
     # botão "Cancelar" ainda não capturados.
     raise NotImplementedError("Fluxo de cancelamento ainda não reconhecido (seletores).")
 
 
-async def baixar_documentos(page: Page, tarefa: Tarefa, download_dir: str, logger: logging.Logger) -> dict:
-    """RF18 — retorna os caminhos locais do PDF/XML baixados."""
-    logger.info(f"[{tarefa.tarefa_id}] Baixando PDF/XML")
-    # TODO: capturar via page.expect_download() — etapa ainda não alcançada
-    # no reconhecimento manual.
-    raise NotImplementedError("Etapa de download ainda não reconhecida.")
+class FalhaDownloadDocumento(RuntimeError):
+    """O sistema fiscal não entregou um XML ou DANFE baixável."""
+
+
+async def baixar_documentos(page: Page, tarefa: Tarefa, download_dir: str, logger: logging.Logger) -> dict[str, str]:
+    """RF18 — baixa XML e DANFE autorizados e devolve caminhos locais seguros.
+
+    `expect_download()` recebe o download diretamente do navegador automatizado;
+    o aviso visual de arquivo potencialmente perigoso do Chromium não exige uma
+    confirmação humana adicional quando o contexto usa ``accept_downloads``.
+    O botão ``Visualizar DANFE`` foi observado baixando um PDF, apesar do nome.
+    """
+    logger.info("[%s] Baixando XML e DANFE", tarefa.tarefa_id)
+    _preparar_diretorio_privado(download_dir)
+
+    xml_path = await _baixar_documento(
+        page=page,
+        nome_botao="Baixar XML",
+        destino=_caminho_documento(download_dir, tarefa, "xml", "xml"),
+        extensao="xml",
+        tarefa_id=tarefa.tarefa_id,
+        logger=logger,
+    )
+    pdf_path = await _baixar_documento(
+        page=page,
+        nome_botao="Visualizar DANFE",
+        destino=_caminho_documento(download_dir, tarefa, "danfe", "pdf"),
+        extensao="pdf",
+        tarefa_id=tarefa.tarefa_id,
+        logger=logger,
+    )
+    return {"xml_path": xml_path, "pdf_path": pdf_path}
+
+
+async def _baixar_documento(
+    *,
+    page: Page,
+    nome_botao: str,
+    destino: str,
+    extensao: str,
+    tarefa_id: str,
+    logger: logging.Logger,
+) -> str:
+    try:
+        async with page.expect_download(timeout=60_000) as evento_download:
+            await page.get_by_role("button", name=nome_botao, exact=True).click(
+                timeout=60_000
+            )
+        download = await evento_download.value
+        if await download.failure():
+            raise FalhaDownloadDocumento("O navegador informou falha no download.")
+        await download.save_as(destino)
+        _validar_arquivo_baixado(destino, extensao)
+    except FalhaDownloadDocumento:
+        raise
+    except Exception as exc:  # noqa: BLE001 — não registrar resposta fiscal bruta
+        raise FalhaDownloadDocumento(
+            f"[{tarefa_id}] Não foi possível baixar o documento fiscal solicitado."
+        ) from exc
+
+    _restringir_permissoes(destino)
+    logger.info("[%s] %s salvo", tarefa_id, nome_botao)
+    return destino
+
+
+def _caminho_documento(download_dir: str, tarefa: Tarefa, tipo: str, extensao: str) -> str:
+    """Nomeia artefatos de forma legível, única e segura para o sistema de arquivos."""
+    cliente = _slug_nome_arquivo(tarefa.nome_cliente or tarefa.destinatario.razao_social, 64)
+    emitente = _slug_nome_arquivo(
+        tarefa.nome_emitente or f"Emitente-{tarefa.emitente.valor_select}", 48
+    )
+    if tarefa.numero_distribuicao is not None:
+        distribuicao = f"Distribuicao-{tarefa.numero_distribuicao:06d}"
+    else:
+        distribuicao = f"Distribuicao-local-{_slug_nome_arquivo(tarefa.tarefa_id, 36)}"
+    instante = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+    return os.path.join(
+        download_dir,
+        f"{tipo}_{cliente}_{emitente}_{distribuicao}_{instante}.{extensao}",
+    )
+
+
+def _slug_nome_arquivo(valor: str, maximo: int) -> str:
+    """Remove caracteres de caminho, preservando uma leitura humana razoável."""
+    normalizado = unicodedata.normalize("NFKD", valor).encode("ascii", "ignore").decode()
+    slug = re.sub(r"[^A-Za-z0-9]+", "-", normalizado).strip("-")
+    return (slug[:maximo].rstrip("-") or "cliente")
+
+
+def _validar_arquivo_baixado(caminho: str, extensao: str) -> None:
+    """Recusa resposta vazia, HTML de erro disfarçado ou arquivo excessivo."""
+    tamanho = os.path.getsize(caminho)
+    if tamanho < 1 or tamanho > 20 * 1024 * 1024:
+        _remover_download_invalido(caminho)
+        raise FalhaDownloadDocumento("Documento baixado possui tamanho inválido.")
+
+    with open(caminho, "rb") as arquivo:
+        inicio = arquivo.read(1024)
+    if extensao == "pdf":
+        valido = inicio.startswith(b"%PDF-")
+    else:
+        valido = _xml_nf_eh_valido(caminho)
+    if not valido:
+        _remover_download_invalido(caminho)
+        raise FalhaDownloadDocumento(
+            "Documento baixado não corresponde ao formato esperado."
+        )
+
+
+def _xml_nf_eh_valido(caminho: str) -> bool:
+    """Aceita somente XML bem-formado com raiz compatível com uma NF-e.
+
+    O teste anterior verificava apenas o primeiro caractere. Uma página HTML
+    de erro também começa com ``<`` e poderia ser armazenada como se fosse o
+    XML fiscal. A validação continua deliberadamente estrutural: a assinatura
+    criptográfica e a autorização serão conferidas no próximo gate, quando o
+    elemento de resposta final da homologação tiver sido reconhecido.
+    """
+    try:
+        raiz = ElementTree.parse(caminho).getroot()
+    except (ElementTree.ParseError, OSError):
+        return False
+
+    nome_local = raiz.tag.rsplit("}", 1)[-1].lower()
+    return nome_local in {"nfe", "nfeproc"}
+
+
+def extrair_metadados_xml(caminho: str) -> MetadadosDocumentoFiscal:
+    """Extrai a prova fiscal mínima do XML autorizado, sem registrá-la em log."""
+    try:
+        raiz = ElementTree.parse(caminho).getroot()
+    except (ElementTree.ParseError, OSError) as exc:
+        raise FalhaDownloadDocumento("XML fiscal não pôde ser interpretado.") from exc
+
+    def texto(nome: str) -> str | None:
+        for elemento in raiz.iter():
+            if elemento.tag.rsplit("}", 1)[-1] == nome and elemento.text:
+                return elemento.text.strip()
+        return None
+
+    chave = texto("chNFe")
+    if not chave:
+        for elemento in raiz.iter():
+            if elemento.tag.rsplit("}", 1)[-1] == "infNFe":
+                identificador = elemento.attrib.get("Id", "")
+                chave = identificador[3:] if identificador.startswith("NFe") else None
+                break
+    numero, protocolo, codigo = texto("nNF"), texto("nProt"), texto("cStat")
+    if not chave or not re.fullmatch(r"\d{44}", chave) or not numero or not numero.isdigit():
+        raise FalhaDownloadDocumento("XML não contém identificação fiscal válida.")
+    if not protocolo or not protocolo.isdigit() or codigo != "100":
+        raise FalhaDownloadDocumento("XML não comprova autorização fiscal.")
+    return MetadadosDocumentoFiscal(chave, numero, protocolo, codigo)
+
+
+def _remover_download_invalido(caminho: str) -> None:
+    try:
+        os.unlink(caminho)
+    except FileNotFoundError:
+        pass
+
+
+def _restringir_permissoes(caminho: str) -> None:
+    try:
+        os.chmod(caminho, 0o600)
+    except OSError:
+        # ACLs da VM complementam a proteção quando o SO não usa permissões POSIX.
+        pass
+
+
+def _preparar_diretorio_privado(caminho: str) -> None:
+    """Cria o diretório fiscal e recusa redirecionamento por link simbólico."""
+    if os.path.lexists(caminho) and os.path.islink(caminho):
+        raise FalhaDownloadDocumento(
+            "O diretório de documentos não pode ser um link simbólico."
+        )
+    os.makedirs(caminho, mode=0o700, exist_ok=True)
+    try:
+        os.chmod(caminho, 0o700)
+    except OSError:
+        # Em Windows, o provisionamento deve aplicar ACL equivalente.
+        pass

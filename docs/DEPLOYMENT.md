@@ -1,0 +1,94 @@
+# Implantação proposta — Web e Worker
+
+## Estado desta proposta
+
+Este documento recomenda uma topologia para o piloto. Nenhuma conta, VM ou
+credencial de produção foi criada por esta decisão. A liberação fiscal real
+continua bloqueada pelas fases de homologação do `docs/ROADMAP.md`.
+
+## Topologia recomendada
+
+```text
+Celular / tablet
+       │
+       ▼
+Web Next.js no Vercel ───► Banco / Storage (Supabase)
+                                  ▲          │
+                                  │          ▼
+                         status, logs    tarefa pendente
+                                  │          │
+                                  └──── Worker em VM ───► Receita PR
+                                       (Playwright)
+```
+
+- **Vercel:** interface Web, autenticação da aplicação e criação de tarefas.
+  A ação do usuário deve responder rapidamente: “tarefa criada”, nunca ficar
+  aguardando uma automação fiscal no navegador.
+- **Banco/Storage:** fonte de verdade para tarefa, status, logs sanitizados e
+  documentos. A tarefa guarda referências, não senha de emitente.
+- **Worker em VM:** processo persistente com Chromium, Playwright e scheduler.
+  Ele busca/reserva tarefa, executa o fluxo e devolve resultado ao banco.
+
+Durante o desenvolvimento, o Web tem uma trava Basic Auth fail-closed em
+produção. Ela evita exposição acidental, mas deve ser substituída por
+autenticação individual/autorização antes do uso comercial. O checklist de
+segurança obrigatório está em `docs/SECURITY.md`.
+
+## Por que separar o Worker do Vercel
+
+Uma Vercel Function é uma execução limitada no tempo; ao atingir o limite,
+ela é encerrada. Mesmo que os limites atuais possam ser longos em planos
+pagos, isso não equivale a um serviço persistente, nem elimina o custo de
+execução e a fragilidade de manter navegador/arquivos temporários em uma
+função serverless. A própria Vercel descreve Queues como mecanismo para
+desacoplar requisições e processamento assíncrono, com consumidores externos
+em modo de polling.
+
+Fontes oficiais: [limites de duração do Vercel](https://vercel.com/docs/functions/configuring-functions/duration),
+[Vercel Queues — poll mode](https://vercel.com/docs/queues/poll-mode).
+
+## Oracle Cloud para o piloto
+
+Uma VM Linux na Oracle Cloud é uma opção adequada para o Worker inicial. O
+Always Free oferece, quando houver capacidade na região, até 2 OCPUs e 12 GB
+de memória em Ampere A1, o que é mais apropriado ao Chromium do que uma
+micro-VM de 1 GB. A capacidade grátis pode estar indisponível no momento da
+criação e instâncias Always Free inativas podem ser recuperadas; portanto não
+é uma garantia operacional suficiente, sozinha, para venda em escala.
+
+Fonte oficial: [recursos Oracle Always Free](https://docs.oracle.com/en-us/iaas/Content/FreeTier/freetier_topic-Always_Free_Resources.htm).
+
+Antes de adotá-la, fazer uma prova de capacidade:
+
+1. Criar uma VM Ubuntu compatível (preferencialmente A1 com memória adequada).
+2. Instalar Playwright e Chromium; executar os testes e um login de
+   homologação, sem emitir.
+3. Medir memória com 1 e 3 contextos concorrentes.
+4. Configurar `systemd`, atualização de segurança, firewall e acesso SSH por
+   chave. Não expor uma porta pública do Worker se ele puder apenas consultar
+   o banco/fila para buscar trabalho.
+5. Definir backup e alerta; caso o uso cresça, migrar para uma VM paga ou
+   serviço de containers persistente sem mudar o contrato Web → Worker.
+
+O Playwright documenta a necessidade de navegador e dependências de sistema
+em ambiente Linux; a imagem/instalação precisa ser testada na arquitetura
+escolhida. [Documentação oficial do Playwright](https://playwright.dev/python/docs/docker).
+
+## Como uma distribuição dispara trabalho
+
+No clique de “Registrar distribuição”, o Web deve criar a tarefa como
+`PENDENTE` em transação e devolver sucesso à tela. Um Worker ativo faz polling
+curto ou consome uma fila, reserva a tarefa atomicamente e passa a executar.
+Assim o usuário vê o status quase imediatamente, sem depender de manter a
+tela aberta nem de a requisição HTTP sobreviver por minutos.
+
+Para o requisito noturno, o Worker só inicia emissão fiscal na janela
+`00:00–06:00` (`America/Sao_Paulo`), salvo modos explícitos de homologação
+controlada. O scheduler pertence ao Worker, não ao navegador do usuário.
+
+## Opções de fila
+
+Para o primeiro piloto, a tabela `fiscal.tarefas` mais uma reserva atômica é
+suficiente e reduz serviços novos. Uma fila pode ser introduzida depois sem
+alterar o contrato. Vercel Queues é compatível com consumidores externos em
+polling, mas está em beta; não será dependência obrigatória do MVP.
