@@ -5,16 +5,19 @@ import { clientes, disponibilidades, distribuicoes, lotesDistribuicao, produtos 
 import { agruparRoteiroEntrega } from "@/lib/entregas";
 import { desc, eq, asc } from "drizzle-orm";
 import { exigirUuid } from "@/lib/validacao";
+import { exigirSessaoAdministrativa } from "@/lib/auth-server";
 
 export async function listarLotesEntrega() {
+  await exigirSessaoAdministrativa();
   const lotes = await db
-    .select({ id: lotesDistribuicao.id, data: lotesDistribuicao.data, criadoEm: lotesDistribuicao.criadoEm })
+    .select({ id: lotesDistribuicao.id, numero: lotesDistribuicao.numero, data: lotesDistribuicao.data, criadoEm: lotesDistribuicao.criadoEm })
     .from(lotesDistribuicao)
     .orderBy(desc(lotesDistribuicao.criadoEm));
   return lotes.map((lote) => ({ ...lote, criadoEm: lote.criadoEm.toISOString() }));
 }
 
 export async function carregarRoteiroEntrega(loteId: string) {
+  await exigirSessaoAdministrativa();
   exigirUuid(loteId, "Lote");
   const linhas = await db
     .select({

@@ -45,6 +45,19 @@ downloads. Ainda faltam o estado de rejeição, cancelamento, envio seguro de
 PDF/XML ao Storage e a integração real com a fila. A emissão controlada está
 pronta no código, mas ainda depende da validação ao vivo desta espera.
 
+### Fila e idempotência
+
+`0007_fila_worker_lease.sql` oferece a função atômica
+`fiscal.reservar_tarefas_worker`. Ela usa bloqueio de linha e `SKIP LOCKED`,
+de modo que Workers concorrentes recebem tarefas distintas. Uma tarefa ganha
+`PROCESSANDO`, identificador da instância, expiração do lease e uma tentativa.
+O adaptador `worker/src/fonte_tarefas.py` projeta a tarefa reservada no
+contrato v1, mas ainda não abre o navegador automaticamente.
+
+Por segurança fiscal, lease expirado não torna a tarefa elegível de novo: uma
+queda pode ocorrer após a autorização e antes do retorno ao banco. Esse caso
+sempre exige consulta/conferência antes de qualquer reemissão.
+
 Para testes, há três níveis deliberadamente separados:
 
 - login: exige apenas `CLIENTE_X_LOGIN` e `CLIENTE_X_SENHA`;

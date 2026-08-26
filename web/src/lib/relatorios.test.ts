@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   calcularKpis,
+  calcularKpisOperacionais,
   intervaloDoPreset,
   rankearPorCliente,
   rankearPorProduto,
   serieDiaria,
+  validarIntervaloRelatorio,
   type ItemRelatorio,
   type TrocaRelatorio,
 } from "./relatorios";
@@ -70,9 +72,9 @@ const trocas: TrocaRelatorio[] = [
 ];
 
 describe("calcularKpis", () => {
-  it("soma o faturamento excluindo tarefas canceladas", () => {
+  it("soma o valor bruto distribuído excluindo tarefas canceladas", () => {
     const kpis = calcularKpis(itens, trocas);
-    expect(kpis.faturamentoTotal).toBeCloseTo(166.5 + 40 + 135);
+    expect(kpis.valorDistribuidoBruto).toBeCloseTo(166.5 + 40 + 135);
   });
 
   it("conta notas únicas, não itens", () => {
@@ -82,12 +84,12 @@ describe("calcularKpis", () => {
 
   it("calcula o ticket médio", () => {
     const kpis = calcularKpis(itens, trocas);
-    expect(kpis.ticketMedio).toBeCloseTo((166.5 + 40 + 135) / 2);
+    expect(kpis.valorMedioPorNota).toBeCloseTo((166.5 + 40 + 135) / 2);
   });
 
-  it("calcula o valor perdido em trocas", () => {
+  it("calcula o valor operacional estimado das trocas sem tratá-lo como perda financeira", () => {
     const kpis = calcularKpis(itens, trocas);
-    expect(kpis.perdidoEmTrocas).toBeCloseTo(3 * 4.5);
+    expect(kpis.valorEstimadoTrocas).toBeCloseTo(3 * 4.5);
   });
 
   it("não contabiliza troca de tarefa cancelada", () => {
@@ -100,16 +102,16 @@ describe("calcularKpis", () => {
       },
     ]);
 
-    expect(kpis.perdidoEmTrocas).toBeCloseTo(3 * 4.5);
+    expect(kpis.valorEstimadoTrocas).toBeCloseTo(3 * 4.5);
   });
 
   it("não quebra com listas vazias", () => {
     const kpis = calcularKpis([], []);
     expect(kpis).toEqual({
-      faturamentoTotal: 0,
+      valorDistribuidoBruto: 0,
       numeroNotas: 0,
-      ticketMedio: 0,
-      perdidoEmTrocas: 0,
+      valorMedioPorNota: 0,
+      valorEstimadoTrocas: 0,
     });
   });
 });
@@ -159,5 +161,60 @@ describe("intervaloDoPreset", () => {
 
   it("mes_atual começa no dia 1 do mês corrente", () => {
     expect(intervaloDoPreset("mes_atual", hoje)).toEqual({ inicio: "2026-08-01", fim: "2026-08-17" });
+  });
+
+  it("aceita a data civil do Brasil sem depender do fuso do servidor", () => {
+    expect(intervaloDoPreset("7dias", "2026-01-02")).toEqual({ inicio: "2025-12-27", fim: "2026-01-02" });
+  });
+});
+
+describe("calcularKpisOperacionais", () => {
+  it("conta a economia uma vez por lote completo, nunca uma vez por nota", () => {
+    const inicio = new Date("2026-08-26T10:00:00Z");
+    const fim = new Date("2026-08-26T10:00:42Z");
+    const resultado = calcularKpisOperacionais([
+      { id: "1", loteId: "l1", status: "EMITIDA", tentativas: 1, iniciadoEm: inicio, concluidoEm: fim },
+      { id: "2", loteId: "l1", status: "DOCUMENTOS_ARMAZENADOS", tentativas: 1, iniciadoEm: inicio, concluidoEm: fim },
+      { id: "3", loteId: "l1", status: "EMITIDA", tentativas: 1, iniciadoEm: inicio, concluidoEm: fim },
+      { id: "4", loteId: "l2", status: "PENDENTE", tentativas: 0, iniciadoEm: null, concluidoEm: null },
+      { id: "5", loteId: "l3", status: "ERRO", tentativas: 1, iniciadoEm: inicio, concluidoEm: fim },
+      { id: "6", loteId: "l4", status: "CANCELADA", tentativas: 0, iniciadoEm: null, concluidoEm: null },
+    ]);
+    expect(resultado).toMatchObject({
+      distribuicoes: 3,
+      distribuicoesConcluidas: 1,
+      emitidas: 3,
+      pendentes: 1,
+      erros: 1,
+      tempoEconomizadoSegundos: 295,
+      tempoMedioLoteSegundos: 42,
+    });
+  });
+
+  it("não considera lote parcialmente emitido como concluído", () => {
+    const resultado = calcularKpisOperacionais([
+      { id: "1", loteId: "l1", status: "EMITIDA", tentativas: 1, iniciadoEm: null, concluidoEm: null },
+      { id: "2", loteId: "l1", status: "ERRO", tentativas: 1, iniciadoEm: null, concluidoEm: null },
+    ]);
+    expect(resultado.distribuicoesConcluidas).toBe(0);
+    expect(resultado.tempoEconomizadoSegundos).toBe(0);
+  });
+});
+
+describe("validarIntervaloRelatorio", () => {
+  it("aceita período válido e inclusivo", () => {
+    expect(validarIntervaloRelatorio("2026-08-01", "2026-08-31")).toEqual({
+      inicio: "2026-08-01",
+      fim: "2026-08-31",
+    });
+  });
+
+  it.each([
+    ["2026-02-30", "2026-03-01"],
+    ["2026/02/01", "2026-03-01"],
+    ["2026-03-02", "2026-03-01"],
+    ["2025-01-01", "2026-12-31"],
+  ])("rejeita intervalo inválido %s a %s", (inicio, fim) => {
+    expect(() => validarIntervaloRelatorio(inicio, fim)).toThrow();
   });
 });

@@ -1,12 +1,15 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { db } from "@/db";
 import { produtos, regrasFiscais } from "@/db/schema";
 import { and, desc, eq } from "drizzle-orm";
 import { exigirUuid, limitarTexto } from "@/lib/validacao";
+import { exigirSessaoAdministrativa } from "@/lib/auth-server";
 
 export async function listarProdutos() {
+  await exigirSessaoAdministrativa();
   return db
     .select({
       id: produtos.id,
@@ -24,6 +27,7 @@ export async function listarProdutos() {
 }
 
 export async function listarRegrasFiscaisAtivas() {
+  await exigirSessaoAdministrativa();
   return db
     .select({ id: regrasFiscais.id, nome: regrasFiscais.nome })
     .from(regrasFiscais)
@@ -32,6 +36,7 @@ export async function listarRegrasFiscaisAtivas() {
 }
 
 export async function criarProduto(formData: FormData) {
+  await exigirSessaoAdministrativa();
   const descricao = limitarTexto(String(formData.get("descricao") ?? ""), "Descrição", 160);
   const codigoFiscal = limitarTexto(String(formData.get("codigoFiscal") ?? ""), "Código fiscal", 80) || null;
   const unidade = limitarTexto(String(formData.get("unidade") ?? "UN"), "Unidade", 16);
@@ -74,4 +79,5 @@ export async function criarProduto(formData: FormData) {
   });
 
   revalidatePath("/produtos");
+  redirect("/produtos?salvo=produto-criado");
 }

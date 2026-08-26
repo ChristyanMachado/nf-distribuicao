@@ -37,7 +37,7 @@ async def rodar_etapa(nome: str, page: Page, logger: logging.Logger, download_di
         logger.info(f"✓ Etapa concluída: {nome}")
         return resultado
     except Exception as e:
-        logger.error(f"✗ Etapa falhou: {nome} — {e}")
+        logger.error("✗ Etapa falhou: %s (%s)", nome, type(e).__name__)
         await _salvar_screenshot_erro(page, nome, download_dir, logger)
 
         headless = os.getenv("HEADLESS", "false").lower() == "true"

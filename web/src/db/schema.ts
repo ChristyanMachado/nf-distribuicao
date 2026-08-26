@@ -6,6 +6,8 @@ import {
   bigint,
   timestamp,
   boolean,
+  integer,
+  jsonb,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 
@@ -167,13 +169,18 @@ export const precosCliente = fiscalSchema.table(
 // Cada confirmação na tela de Distribuição vira um lote. O lote é a unidade
 // operacional do roteiro do motorista: não mistura entregas de rodadas
 // diferentes feitas no mesmo dia.
-export const lotesDistribuicao = fiscalSchema.table("lotes_distribuicao", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  // Número sequencial visível ao usuário: Distribuição 000001, 000002...
-  numero: bigint("numero", { mode: "number" }),
-  data: text("data").notNull(),
-  criadoEm: timestamp("criado_em").notNull().defaultNow(),
-});
+export const lotesDistribuicao = fiscalSchema.table(
+  "lotes_distribuicao",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    // Número sequencial visível ao usuário: Distribuição 000001, 000002...
+    numero: bigint("numero", { mode: "number" }),
+    chaveIdempotencia: uuid("chave_idempotencia"),
+    data: text("data").notNull(),
+    criadoEm: timestamp("criado_em").notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex("lotes_distribuicao_chave_idempotencia_idx").on(table.chaveIdempotencia)],
+);
 
 // RF06 — Disponibilidade por produto dentro de um lote de distribuição.
 // ---------------------------------------------------------------------------
@@ -221,6 +228,19 @@ export const tarefas = fiscalSchema.table("tarefas", {
   emitenteId: uuid("emitente_id").notNull().references(() => emitentes.id),
   data: text("data").notNull(), // YYYY-MM-DD — dia da distribuição/produção, controle interno
   status: statusTarefaEnum("status").notNull().default("PENDENTE"),
+  // Reserva/lease evita duas instâncias do Worker emitirem a mesma tarefa.
+  // Expiração exige conferência humana; nunca recolocar automaticamente.
+  tentativas: integer("tentativas").notNull().default(0),
+  reservadaPor: text("reservada_por"),
+  reservaToken: uuid("reserva_token"),
+  reservaExpiraEm: timestamp("reserva_expira_em", { withTimezone: true }),
+  iniciadoEm: timestamp("iniciado_em", { withTimezone: true }),
+  concluidoEm: timestamp("concluido_em", { withTimezone: true }),
+  ultimoErro: text("ultimo_erro"),
+  mensagemStatus: text("mensagem_status"),
+  contratoVersao: integer("contrato_versao"),
+  payloadWorker: jsonb("payload_worker"),
+  payloadHash: text("payload_hash"),
   valorTotal: numeric("valor_total", { precision: 12, scale: 2 }).notNull().default("0"),
   criadoEm: timestamp("criado_em").notNull().defaultNow(),
   atualizadoEm: timestamp("atualizado_em").notNull().defaultNow(),
@@ -253,6 +273,7 @@ export const notas = fiscalSchema.table("notas", {
   clienteId: uuid("cliente_id").notNull().references(() => clientes.id),
   numero: text("numero"),
   chaveAcesso: text("chave_acesso"),
+  protocoloAutorizacao: text("protocolo_autorizacao"),
   status: text("status").notNull().default("AGUARDANDO_EMISSAO"), // AUTORIZADA | REJEITADA | AGUARDANDO_EMISSAO
   valorTotal: numeric("valor_total", { precision: 12, scale: 2 }).notNull(),
   dataEmissao: timestamp("data_emissao"),
@@ -261,7 +282,7 @@ export const notas = fiscalSchema.table("notas", {
   documentoExpiraEm: timestamp("documento_expira_em"), // data em que o binário pode ser removido
   mensagemErro: text("mensagem_erro"),
   criadoEm: timestamp("criado_em").notNull().defaultNow(),
-});
+}, (table) => [uniqueIndex("notas_tarefa_unica_idx").on(table.tarefaId)]);
 
 // ---------------------------------------------------------------------------
 // RF17/RNF03/RNF07 — Logs de execução do worker, vinculados à tarefa/nota

@@ -4,8 +4,9 @@ import { useState } from "react";
 import Card from "@/components/Card";
 import PrimaryButton from "@/components/PrimaryButton";
 import type { ParadaEntrega } from "@/lib/entregas";
+import { dataIsoParaBrasil } from "@/lib/datas";
 
-type Lote = { id: string; data: string; criadoEm: string };
+type Lote = { id: string; numero: number | null; data: string; criadoEm: string };
 
 function endereco(parada: ParadaEntrega) {
   return [parada.cep && `CEP ${parada.cep}`, parada.numeroEndereco && `nº ${parada.numeroEndereco}`]
@@ -17,10 +18,12 @@ export default function RoteiroEntregaView({
   lotes,
   loteSelecionado,
   roteiro,
+  geradoEm,
 }: {
   lotes: Lote[];
   loteSelecionado: Lote | null;
   roteiro: ParadaEntrega[];
+  geradoEm: string;
 }) {
   const [mostrarEndereco, setMostrarEndereco] = useState(true);
   const [mostrarTrocas, setMostrarTrocas] = useState(true);
@@ -41,16 +44,16 @@ export default function RoteiroEntregaView({
           >
             {lotes.map((lote) => (
               <option key={lote.id} value={lote.id}>
-                {lote.data} · criada às {new Date(lote.criadoEm).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                Distribuição {String(lote.numero ?? "—").padStart(6, "0")} · {dataIsoParaBrasil(lote.data)}
               </option>
             ))}
           </select>
         </label>
         <div className="flex flex-wrap gap-2">
-          <button type="button" onClick={() => setMostrarEndereco((valor) => !valor)} className="rounded-full border border-[var(--line-strong)] px-3 py-1.5 text-sm">
+          <button type="button" aria-pressed={mostrarEndereco} onClick={() => setMostrarEndereco((valor) => !valor)} className="rounded-full border border-[var(--line-strong)] px-3 py-1.5 text-sm">
             {mostrarEndereco ? "✓ " : ""}Endereço
           </button>
-          <button type="button" onClick={() => setMostrarTrocas((valor) => !valor)} className="rounded-full border border-[var(--line-strong)] px-3 py-1.5 text-sm">
+          <button type="button" aria-pressed={mostrarTrocas} onClick={() => setMostrarTrocas((valor) => !valor)} className="rounded-full border border-[var(--line-strong)] px-3 py-1.5 text-sm">
             {mostrarTrocas ? "✓ " : ""}Trocas
           </button>
         </div>
@@ -63,9 +66,9 @@ export default function RoteiroEntregaView({
         <section className="print-sheet mt-6">
           <header className="border-b-2 border-[var(--ink)] pb-4">
             <p className="font-mono-tab text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--ink-faint)]">Graalys · roteiro de entrega</p>
-            <h2 className="mt-1 text-3xl font-medium">Entregas do dia {loteSelecionado.data}</h2>
+            <h2 className="mt-1 text-3xl font-medium">Distribuição {String(loteSelecionado.numero ?? "—").padStart(6, "0")}</h2>
             <p className="mt-1 text-sm text-[var(--ink-soft)]">
-              Gerado em {new Date().toLocaleString("pt-BR")} · {roteiro.length} cliente(s)
+              Entregas de {dataIsoParaBrasil(loteSelecionado.data)} · gerado em {new Date(geradoEm).toLocaleString("pt-BR")} · {roteiro.length} cliente(s)
             </p>
           </header>
 
@@ -87,10 +90,10 @@ export default function RoteiroEntregaView({
                   </div>
                   <div className="divide-y divide-[var(--line)]">
                     {parada.itens.map((item) => (
-                      <div key={`${parada.clienteId}-${item.produtoId}`} className="flex items-center justify-between gap-4 px-4 py-3">
+                      <div key={`${parada.clienteId}-${item.produtoId}`} className="grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-1 px-4 py-3 sm:flex sm:justify-between">
                         <span className="font-medium">{item.produtoDescricao}</span>
                         <span className="font-mono-tab shrink-0 text-base font-bold">{item.quantidadeDistribuida} {item.unidade}</span>
-                        {mostrarTrocas && item.quantidadeTroca > 0 && <span className="shrink-0 text-sm text-[var(--stamp)]">troca: {item.quantidadeTroca} {item.unidade}</span>}
+                        {mostrarTrocas && item.quantidadeTroca > 0 && <span className="col-span-2 shrink-0 text-sm text-[var(--stamp)] sm:col-span-1">troca: {item.quantidadeTroca} {item.unidade}</span>}
                       </div>
                     ))}
                   </div>

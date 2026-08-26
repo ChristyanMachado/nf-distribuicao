@@ -111,9 +111,9 @@ continuação automática das fases anteriores.
 
 ## Próxima ação de código
 
-Preparar estados, tentativas e lease atômica antes de permitir que o Worker
-consulte o banco. Em seguida, ligar produtor e consumidor por uma fonte de
-tarefas testável, ainda limitada à homologação.
+Executar o ensaio de banco com uma tarefa nova e fiscalmente completa; depois
+ligar a fonte ao fluxo Playwright já validado e implementar retorno de
+sucesso/erro e Storage, ainda limitado à homologação.
 
 O painel de relatórios ganhará, após o retorno de status do Worker, os KPIs
 históricos de emissões autorizadas e tempo economizado. O tempo será calculado

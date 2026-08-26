@@ -17,6 +17,11 @@ def _preparar_env_minimo(monkeypatch):
     monkeypatch.delenv("TESTAR_EMISSAO_HOMOLOGACAO", raising=False)
     monkeypatch.delenv("MAX_CONCORRENCIA", raising=False)
     monkeypatch.delenv("AMBIENTE_EMISSAO", raising=False)
+    monkeypatch.delenv("PROCESSAR_FILA_BANCO", raising=False)
+    monkeypatch.delenv("FONTE_TAREFAS", raising=False)
+    monkeypatch.delenv("WORKER_DATABASE_URL", raising=False)
+    monkeypatch.delenv("WORKER_ID", raising=False)
+    monkeypatch.delenv("TESTAR_INTEGRACAO_BANCO", raising=False)
     monkeypatch.setenv("CLIENTES_ATIVOS", "CLIENTE_A")
     monkeypatch.setenv("HEADLESS", "false")
 
@@ -240,3 +245,63 @@ def test_emitente_e_carregado_quando_configurado(monkeypatch):
 
     assert credencial.emitente == "opcao-emitente"
     assert credencial.nome_emitente == "Emissor de teste"
+
+
+def test_fonte_banco_exige_trava_e_configuracao(monkeypatch):
+    _preparar_env_minimo(monkeypatch)
+    monkeypatch.setenv("FONTE_TAREFAS", "banco")
+    with pytest.raises(RuntimeError, match="WORKER_DATABASE_URL"):
+        carregar_config()
+
+    monkeypatch.setenv("WORKER_DATABASE_URL", "postgresql://teste")
+    monkeypatch.setenv("WORKER_ID", "worker-teste")
+    with pytest.raises(RuntimeError, match="TESTAR_INTEGRACAO_BANCO"):
+        carregar_config()
+
+    monkeypatch.setenv("TESTAR_INTEGRACAO_BANCO", "true")
+    config = carregar_config()
+    assert config.fonte_tarefas == "banco"
+
+
+def test_processar_fila_banco_exige_fonte_e_travas_de_homologacao(monkeypatch):
+    _preparar_env_minimo(monkeypatch)
+    monkeypatch.setenv("PROCESSAR_FILA_BANCO", "true")
+    with pytest.raises(RuntimeError, match="FONTE_TAREFAS=banco"):
+        carregar_config()
+
+    monkeypatch.setenv("FONTE_TAREFAS", "banco")
+    monkeypatch.setenv("WORKER_DATABASE_URL", "postgresql://teste")
+    monkeypatch.setenv("WORKER_ID", "worker-teste")
+    monkeypatch.setenv("TESTAR_INTEGRACAO_BANCO", "true")
+    with pytest.raises(RuntimeError, match="TESTAR_EMISSAO_HOMOLOGACAO"):
+        carregar_config()
+
+
+def test_processar_fila_banco_e_permitido_so_com_homologacao_completa(monkeypatch):
+    _habilitar_emissao_homologacao(monkeypatch)
+    monkeypatch.setenv("FONTE_TAREFAS", "banco")
+    monkeypatch.setenv("WORKER_DATABASE_URL", "postgresql://teste")
+    monkeypatch.setenv("WORKER_ID", "worker-teste")
+    monkeypatch.setenv("TESTAR_INTEGRACAO_BANCO", "true")
+    monkeypatch.setenv("PROCESSAR_FILA_BANCO", "true")
+
+    config = carregar_config()
+
+    assert config.processar_fila_banco is True
+    assert config.ambiente_emissao == "teste"
+
+
+def test_repr_da_configuracao_nao_expoe_url_do_banco(monkeypatch):
+    _preparar_env_minimo(monkeypatch)
+    segredo = "postgresql://worker:senha-super-secreta@db.example/teste"
+    monkeypatch.setenv("FONTE_TAREFAS", "banco")
+    monkeypatch.setenv("WORKER_DATABASE_URL", segredo)
+    monkeypatch.setenv("WORKER_ID", "worker-teste")
+    monkeypatch.setenv("TESTAR_INTEGRACAO_BANCO", "true")
+
+    config = carregar_config()
+    texto = repr(config)
+
+    assert config.worker_database_url == segredo
+    assert segredo not in texto
+    assert "senha-super-secreta" not in texto

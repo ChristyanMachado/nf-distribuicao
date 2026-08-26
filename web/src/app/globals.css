@@ -12,7 +12,7 @@
   --paper-raised: #ffffff;
   --ink: #24261f;
   --ink-soft: #5b5d4f;
-  --ink-faint: #9a9c8c;
+  --ink-faint: #6f7164;
   --line: #e4ddcb;
   --line-strong: #d3c9ac;
 
@@ -44,6 +44,15 @@ body {
   color: var(--ink);
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
+}
+
+.app-bottom-nav {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+body:has(.login-screen) .app-shell,
+body:has(.login-screen) .app-bottom-nav {
+  visibility: hidden;
 }
 
 h1,
@@ -83,15 +92,20 @@ select:focus {
   border-color: var(--field);
 }
 
+:where(a, button, input, select, summary):focus-visible {
+  outline: 3px solid var(--field);
+  outline-offset: 2px;
+}
+
 ::selection {
   background: var(--field-tint);
 }
 
 @media print {
   .no-print,
-  aside,
-  header,
-  nav {
+  .app-shell > aside,
+  .app-shell > header,
+  .app-bottom-nav {
     display: none !important;
   }
 
@@ -109,4 +123,8 @@ select:focus {
     break-inside: avoid;
     border-color: #bbb !important;
   }
+
+  * { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
 }
+
+@page { margin: 12mm; }

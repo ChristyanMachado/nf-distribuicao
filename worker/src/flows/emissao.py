@@ -45,6 +45,14 @@ class FalhaConfirmacaoEmissao(RuntimeError):
     """A Receita não exibiu a confirmação de autorização esperada."""
 
 
+@dataclass(frozen=True)
+class MetadadosDocumentoFiscal:
+    chave_acesso: str
+    numero: str
+    protocolo: str
+    codigo_status: str
+
+
 # ---------------------------------------------------------------------------
 # Modelo de dados da tarefa — reflete exatamente os campos que o formulário
 # da NFP-e pede, na ordem em que aparecem (RECON.md seções 4-9).
@@ -225,9 +233,7 @@ async def clicar_avancar(page: Page, logger: logging.Logger) -> None:
 
     await candidatos[0].click()
 
-    logger.info("Avançar clicado — aguardando 1 segundos para a interface estabilizar")
-
-    await page.wait_for_timeout(1000)
+    logger.info("Avançar clicado")
 
 async def clicar_avancar_produto(
     page: Page,
@@ -271,11 +277,7 @@ async def clicar_avancar_produto(
     # Assim como no transporte, o último botão corresponde à etapa atual.
     await candidatos[-1].click()
 
-    logger.info(
-        "Avançar da etapa de produtos clicado — aguardando 1 segundo"
-    )
-
-    await page.wait_for_timeout(1000)
+    logger.info("Avançar da etapa de produtos clicado")
 
 
 async def aceitar_consentimento(page: Page, logger: logging.Logger) -> None:
@@ -285,7 +287,7 @@ async def aceitar_consentimento(page: Page, logger: logging.Logger) -> None:
 
 
 async def selecionar_emitente(page: Page, emitente: Emitente, logger: logging.Logger) -> None:
-    logger.info(f"Selecionando emitente (value={emitente.valor_select})")
+    logger.info("Selecionando emitente configurado para a tarefa")
     # Seletor simplificado (<select> dentro de #div-identificacao) —
     # reconfirmado como válido no reconhecimento ao vivo de 20/08.
     await page.locator("#div-identificacao select").select_option(value=emitente.valor_select)
@@ -305,7 +307,7 @@ async def preencher_destinatario(
     destinatario: Destinatario,
     logger: logging.Logger
 ) -> None:
-    logger.info(f"Preenchendo destinatário: {destinatario.razao_social}")
+    logger.info("Preenchendo destinatário da tarefa")
 
     # Tipo de identificação: CNPJ.
     await page.get_by_text("CNPJ", exact=True).first.click()
@@ -354,9 +356,7 @@ async def preencher_destinatario(
 
     await cep.fill(destinatario.cep)
 
-    logger.info(
-        f"CEP preenchido: {await cep.input_value()!r}"
-    )
+    logger.info("CEP preenchido; aguardando dados automáticos do endereço")
 
     # IMPORTANTE:
     #
@@ -397,27 +397,14 @@ async def preencher_destinatario(
             "Loading do CEP apareceu — aguardando desaparecer"
         )
 
-        await loading.wait_for(
-            state="hidden",
-            timeout=15000
-        )
-
-        logger.info(
-            "Loading do CEP desapareceu"
-        )
-
-    except Exception as erro:
-        logger.info(
-            f"Loading não foi observado diretamente: {erro}"
-        )
-
-    # Margem adicional solicitada para garantir que a interface termine
-    # de atualizar depois do desaparecimento do loading.
-    logger.info(
-        "Aguardando 1 segundo após o processamento do CEP"
-    )
-
-    await page.wait_for_timeout(1000)
+    except PlaywrightTimeoutError:
+        logger.info("Loading do CEP não chegou a ser observado")
+    else:
+        try:
+            await loading.wait_for(state="hidden", timeout=15000)
+        except PlaywrightTimeoutError as exc:
+            raise RuntimeError("A consulta de CEP permaneceu carregando além do limite seguro.") from exc
+        logger.info("Loading do CEP desapareceu")
 
     # ================================================================
     # NÚMERO
@@ -444,33 +431,16 @@ async def preencher_destinatario(
         str(destinatario.numero_endereco)
     )
 
-    logger.info(
-        f"Número preenchido: {await numero.input_value()!r}"
-    )
-
-    # ================================================================
-    # ESPERA EXTRA — 1 SEGUNDOS
-    # ================================================================
-
-    logger.info(
-        "Aguardando 1 segundos antes de clicar em Avançar"
-    )
-
-    await page.wait_for_timeout(1000)
+    logger.info("Número do endereço preenchido")
 
     # Confirma explicitamente que o valor ainda está no campo.
     valor_numero = await numero.input_value()
 
-    logger.info(
-        f"Número imediatamente antes do Avançar: {valor_numero!r}"
-    )
+    logger.info("Número do endereço confirmado antes de avançar")
 
     if valor_numero != str(destinatario.numero_endereco):
         raise RuntimeError(
-            "O número do endereço desapareceu ou foi alterado antes "
-            "do Avançar. "
-            f"Esperado={str(destinatario.numero_endereco)!r}, "
-            f"encontrado={valor_numero!r}."
+            "O número do endereço desapareceu ou foi alterado antes do Avançar."
         )
 
     logger.info(
@@ -526,7 +496,7 @@ async def _selecionar_select_por_opcao_ancora(
 
 
 async def preencher_identificacao_operacao(page: Page, tarefa: Tarefa, logger: logging.Logger) -> None:
-    logger.info(f"Identificação da operação: natureza={tarefa.natureza_operacao}")
+    logger.info("Preenchendo identificação da operação")
 
     # Confirmado: #combobox-id-1 é a Natureza da operação (campo de texto
     # com listbox, não um <select> comum).
@@ -536,17 +506,17 @@ async def preencher_identificacao_operacao(page: Page, tarefa: Tarefa, logger: l
     # <select> comuns de verdade (não comboboxes SLDS), com value/texto de
     # opção confirmados em TIPO_OPERACAO_OPCOES / FINALIDADE_EMISSAO_OPCOES /
     # INDICADOR_PRESENCA_OPCOES.
-    logger.info(f"Tipo de operação: {tarefa.tipo_operacao}")
+    logger.info("Tipo de operação selecionado")
     await _selecionar_select_por_opcao_ancora(
         page, _ANCORA_TIPO_OPERACAO, TIPO_OPERACAO_OPCOES[tarefa.tipo_operacao], logger
     )
 
-    logger.info(f"Finalidade da emissão: {tarefa.finalidade_emissao}")
+    logger.info("Finalidade da emissão selecionada")
     await _selecionar_select_por_opcao_ancora(
         page, _ANCORA_FINALIDADE_EMISSAO, FINALIDADE_EMISSAO_OPCOES[tarefa.finalidade_emissao], logger
     )
 
-    logger.info(f"Indicador de presença: {tarefa.indicador_presenca}")
+    logger.info("Indicador de presença selecionado")
     await _selecionar_select_por_opcao_ancora(
         page, _ANCORA_INDICADOR_PRESENCA, INDICADOR_PRESENCA_OPCOES[tarefa.indicador_presenca], logger
     )
@@ -602,7 +572,7 @@ async def buscar_produto(
 
     codigo = str(item.codigo_produto).strip()
 
-    logger.info(f"Buscando produto por código: {codigo}")
+    logger.info("Buscando produto fiscal configurado")
 
     # Localiza o label pelo texto e sobe para o div que contém
     # tanto o label quanto o input correspondente.
@@ -627,7 +597,7 @@ async def buscar_produto(
     await campo_codigo.fill(codigo)
 
     logger.info(
-        f"Código preenchido: {await campo_codigo.input_value()!r}"
+        "Código do produto preenchido"
     )
 
     # Seleciona a primeira sugestão.
@@ -639,13 +609,10 @@ async def buscar_produto(
     await campo_codigo.press("Enter")
 
     logger.info(
-        f"Produto '{codigo}' selecionado"
+        "Produto selecionado"
     )
 
-    # Aguarda o sistema preencher os dados automáticos do produto.
-    await page.wait_for_timeout(1000)
-
-    logger.info("Dados automáticos do produto aguardados")
+    logger.info("Produto escolhido; próxima etapa aguardará os campos automáticos")
     
 async def preencher_item(
     page: Page,
@@ -678,8 +645,7 @@ async def preencher_item(
     # ================================================================
 
     logger.info(
-        f"Selecionando CFOP: {item.cfop_codigo} "
-        f"({item.cfop_texto})"
+        "Selecionando CFOP configurado"
     )
 
     cfop = (
@@ -699,7 +665,7 @@ async def preencher_item(
     )
 
     logger.info(
-        f"CFOP selecionado: {await cfop.input_value()!r}"
+        "CFOP selecionado"
     )
 
     # ================================================================
@@ -707,7 +673,7 @@ async def preencher_item(
     # ================================================================
 
     logger.info(
-        f"Unidade Comercial: {item.unidade}"
+        "Selecionando unidade comercial"
     )
 
     unidade = (
@@ -728,10 +694,7 @@ async def preencher_item(
         str(item.unidade)
     )
 
-    logger.info(
-        f"Unidade preenchida: "
-        f"{await unidade.input_value()!r}"
-    )
+    logger.info("Unidade comercial preenchida")
 
     # A Unidade Comercial é um autocomplete, assim como o Código do
     # Produto. Selecionamos a primeira sugestão com ArrowDown + Enter.
@@ -743,19 +706,14 @@ async def preencher_item(
 
     await unidade.press("Enter")
 
-    logger.info(
-        f"Unidade Comercial '{item.unidade}' selecionada"
-    )
-
-    # Pequena margem para a interface concluir a seleção.
-    await page.wait_for_timeout(500)
+    logger.info("Unidade comercial selecionada")
 
     # ================================================================
     # QUANTIDADE COMERCIAL
     # ================================================================
 
     logger.info(
-        f"Quantidade Comercial: {item.quantidade}"
+        "Preenchendo quantidade comercial"
     )
 
     quantidade = (
@@ -775,8 +733,7 @@ async def preencher_item(
     )
 
     logger.info(
-        f"Quantidade preenchida: "
-        f"{await quantidade.input_value()!r}"
+        "Quantidade comercial preenchida"
     )
 
     # ================================================================
@@ -784,7 +741,7 @@ async def preencher_item(
     # ================================================================
 
     logger.info(
-        f"Valor Unitário Comercial: R$ {item.preco_unitario}"
+        "Preenchendo valor unitário comercial"
     )
 
     valor_unitario = (
@@ -804,8 +761,7 @@ async def preencher_item(
     )
 
     logger.info(
-        f"Valor unitário preenchido: "
-        f"{await valor_unitario.input_value()!r}"
+        "Valor unitário comercial preenchido"
     )
 
         # ================================================================
@@ -847,8 +803,7 @@ async def preencher_item(
     # ================================================================
 
     logger.info(
-        f"Código do benefício fiscal: "
-        f"{item.codigo_beneficio_fiscal}"
+        "Preenchendo código do benefício fiscal"
     )
 
     codigo_beneficio = (
@@ -869,10 +824,7 @@ async def preencher_item(
         item.codigo_beneficio_fiscal or ""
     )
 
-    logger.info(
-        f"Código de benefício preenchido: "
-        f"{await codigo_beneficio.input_value()!r}"
-    )
+    logger.info("Código de benefício fiscal preenchido")
     # ================================================================
     # 1º AVANÇAR — DADOS DO PRODUTO → ICMS
     # ================================================================
@@ -902,10 +854,7 @@ async def preencher_item(
         value=item.situacao_tributaria_icms
     )
 
-    logger.info(
-        f"Situação Tributária ICMS selecionada: "
-        f"{await situacao_tributaria.input_value()!r}"
-    )
+    logger.info("Situação Tributária ICMS selecionada")
 
     # ================================================================
     # ICMS — ORIGEM DA MERCADORIA
@@ -927,10 +876,7 @@ async def preencher_item(
         value=item.origem_mercadoria
     )
 
-    logger.info(
-        f"Origem da mercadoria selecionada: "
-        f"{await origem_mercadoria.input_value()!r}"
-    )
+    logger.info("Origem da mercadoria selecionada")
 
     # ================================================================
     # 2º AVANÇAR — FINALIZA ITEM
@@ -969,7 +915,7 @@ async def preencher_produtos(
 
     for indice, item in enumerate(tarefa.itens, start=1):
         logger.info(
-            f"Produto {indice}/{total}: {item.produto_descricao}"
+            f"Produto {indice}/{total}"
         )
 
         await preencher_item(
@@ -1003,7 +949,7 @@ async def preencher_produtos(
                 "Novo formulário de produto aberto"
             )
 
-            await page.wait_for_timeout(1000)
+            # O próximo item aguarda explicitamente o campo Código do Produto.
 
         # ------------------------------------------------------------
         # Último produto.
@@ -1053,7 +999,7 @@ async def preencher_produtos(
                 "Avançar pós-produto clicado — aguardando Transporte"
             )
 
-            await page.wait_for_timeout(1000)
+            # preencher_transporte aguarda explicitamente o respectivo label.
     
     
 async def preencher_transporte(
@@ -1061,9 +1007,7 @@ async def preencher_transporte(
     tarefa: Tarefa,
     logger: logging.Logger
 ) -> None:
-    logger.info(
-        f"Transporte: modalidade={tarefa.modalidade_frete}"
-    )
+    logger.info("Transporte: modalidade de frete configurada")
 
     # Localiza diretamente o label da Modalidade do Frete.
     label_frete = page.locator("label").filter(
@@ -1092,10 +1036,7 @@ async def preencher_transporte(
         value=tarefa.modalidade_frete
     )
 
-    logger.info(
-        f"Modalidade do Frete selecionada: "
-        f"{await modalidade_frete.input_value()!r}"
-    )
+    logger.info("Modalidade do frete selecionada")
 
     # Avançar específico da tela de Transporte.
     botoes = page.get_by_role(
@@ -1123,11 +1064,7 @@ async def preencher_transporte(
 
     await candidatos[-1].click()
 
-    logger.info(
-        "Avançar do transporte clicado — aguardando 1 segundo"
-    )
-
-    await page.wait_for_timeout(1000)
+    logger.info("Avançar do transporte clicado")
 
 async def emitir(
     page: Page,
@@ -1142,9 +1079,12 @@ async def emitir(
     try:
         await page.get_by_role("button", name="Emitir", exact=True).click()
         logger.info(f"[{tarefa.tarefa_id}] Botão de emissão clicado")
-    except Exception as e:  # noqa: BLE001 — tentativa educada, não é seletor confirmado
-        logger.warning(f"Botão 'Emitir' não encontrado ({e}) — confirmar seletor com o Inspector.")
-        raise NotImplementedError("Botão de emissão não está disponível.") from e
+    except Exception as exc:  # noqa: BLE001 — tentativa educada, não é seletor confirmado
+        logger.warning(
+            "Botão 'Emitir' não encontrado (%s) — confirmar seletor com o Inspector.",
+            type(exc).__name__,
+        )
+        raise NotImplementedError("Botão de emissão não está disponível.") from exc
 
 
 async def aguardar_autorizacao(
@@ -1223,7 +1163,7 @@ async def salvar_diagnostico_resultado(
     Git, recebem permissão restritiva quando suportada e seu conteúdo nunca é
     escrito no log.
     """
-    os.makedirs(download_dir, exist_ok=True)
+    _preparar_diretorio_privado(download_dir)
     base = _caminho_documento(download_dir, tarefa, "resultado", "html")
     html_path = base
     screenshot_path = os.path.splitext(base)[0] + ".png"
@@ -1234,15 +1174,23 @@ async def salvar_diagnostico_resultado(
             arquivo.write(await page.content())
         _restringir_permissoes(html_path)
         salvos.append(html_path)
-    except Exception:  # noqa: BLE001 — diagnóstico não pode ocultar o erro fiscal
-        logger.exception("[%s] Não foi possível salvar HTML de diagnóstico", tarefa.tarefa_id)
+    except Exception as exc:  # noqa: BLE001 — diagnóstico não pode ocultar o erro fiscal
+        logger.error(
+            "[%s] Não foi possível salvar HTML de diagnóstico (%s)",
+            tarefa.tarefa_id,
+            type(exc).__name__,
+        )
 
     try:
         await page.screenshot(path=screenshot_path, full_page=True)
         _restringir_permissoes(screenshot_path)
         salvos.append(screenshot_path)
-    except Exception:  # noqa: BLE001 — diagnóstico não pode ocultar o erro fiscal
-        logger.exception("[%s] Não foi possível salvar captura de diagnóstico", tarefa.tarefa_id)
+    except Exception as exc:  # noqa: BLE001 — diagnóstico não pode ocultar o erro fiscal
+        logger.error(
+            "[%s] Não foi possível salvar captura de diagnóstico (%s)",
+            tarefa.tarefa_id,
+            type(exc).__name__,
+        )
 
     return tuple(salvos)
 
@@ -1271,7 +1219,7 @@ async def cancelar_nota(page: Page, numero_nota: str, motivo: str, logger: loggi
     reconhecimento, até ~3 cancelamentos foi tranquilo historicamente —
     não tratar isso como limite seguro garantido, só como referência.
     """
-    logger.warning(f"Cancelando nota {numero_nota} — motivo: {motivo}")
+    logger.warning("Cancelamento fiscal solicitado; dados omitidos do log")
     # TODO: seletores de navegação até "Consultar", localização da nota e
     # botão "Cancelar" ainda não capturados.
     raise NotImplementedError("Fluxo de cancelamento ainda não reconhecido (seletores).")
@@ -1290,7 +1238,7 @@ async def baixar_documentos(page: Page, tarefa: Tarefa, download_dir: str, logge
     O botão ``Visualizar DANFE`` foi observado baixando um PDF, apesar do nome.
     """
     logger.info("[%s] Baixando XML e DANFE", tarefa.tarefa_id)
-    os.makedirs(download_dir, exist_ok=True)
+    _preparar_diretorio_privado(download_dir)
 
     xml_path = await _baixar_documento(
         page=page,
@@ -1404,6 +1352,34 @@ def _xml_nf_eh_valido(caminho: str) -> bool:
     return nome_local in {"nfe", "nfeproc"}
 
 
+def extrair_metadados_xml(caminho: str) -> MetadadosDocumentoFiscal:
+    """Extrai a prova fiscal mínima do XML autorizado, sem registrá-la em log."""
+    try:
+        raiz = ElementTree.parse(caminho).getroot()
+    except (ElementTree.ParseError, OSError) as exc:
+        raise FalhaDownloadDocumento("XML fiscal não pôde ser interpretado.") from exc
+
+    def texto(nome: str) -> str | None:
+        for elemento in raiz.iter():
+            if elemento.tag.rsplit("}", 1)[-1] == nome and elemento.text:
+                return elemento.text.strip()
+        return None
+
+    chave = texto("chNFe")
+    if not chave:
+        for elemento in raiz.iter():
+            if elemento.tag.rsplit("}", 1)[-1] == "infNFe":
+                identificador = elemento.attrib.get("Id", "")
+                chave = identificador[3:] if identificador.startswith("NFe") else None
+                break
+    numero, protocolo, codigo = texto("nNF"), texto("nProt"), texto("cStat")
+    if not chave or not re.fullmatch(r"\d{44}", chave) or not numero or not numero.isdigit():
+        raise FalhaDownloadDocumento("XML não contém identificação fiscal válida.")
+    if not protocolo or not protocolo.isdigit() or codigo != "100":
+        raise FalhaDownloadDocumento("XML não comprova autorização fiscal.")
+    return MetadadosDocumentoFiscal(chave, numero, protocolo, codigo)
+
+
 def _remover_download_invalido(caminho: str) -> None:
     try:
         os.unlink(caminho)
@@ -1416,4 +1392,18 @@ def _restringir_permissoes(caminho: str) -> None:
         os.chmod(caminho, 0o600)
     except OSError:
         # ACLs da VM complementam a proteção quando o SO não usa permissões POSIX.
+        pass
+
+
+def _preparar_diretorio_privado(caminho: str) -> None:
+    """Cria o diretório fiscal e recusa redirecionamento por link simbólico."""
+    if os.path.lexists(caminho) and os.path.islink(caminho):
+        raise FalhaDownloadDocumento(
+            "O diretório de documentos não pode ser um link simbólico."
+        )
+    os.makedirs(caminho, mode=0o700, exist_ok=True)
+    try:
+        os.chmod(caminho, 0o700)
+    except OSError:
+        # Em Windows, o provisionamento deve aplicar ACL equivalente.
         pass

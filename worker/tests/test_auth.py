@@ -8,7 +8,12 @@ import logging
 import pytest
 from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 
-from src.auth import FalhaIdentidadeAutenticada, validar_identidade_autenticada
+from src.auth import (
+    FalhaAutenticacao,
+    FalhaIdentidadeAutenticada,
+    realizar_login,
+    validar_identidade_autenticada,
+)
 from src.config import CredencialCliente
 
 
@@ -30,6 +35,55 @@ class PaginaFalsa:
         self.texto_procurado = texto
         assert exact is False
         return LocalizadorFalso(self.deve_falhar)
+
+
+class CampoLoginFalso:
+    def __init__(self, pagina: "PaginaLoginFalsa", nome: str) -> None:
+        self.pagina = pagina
+        self.nome = nome
+
+    async def fill(self, valor: str) -> None:
+        self.pagina.preenchimentos.append((self.nome, valor))
+
+
+class BotaoLoginFalso:
+    def __init__(self, pagina: "PaginaLoginFalsa") -> None:
+        self.pagina = pagina
+
+    async def click(self) -> None:
+        self.pagina.login_clicado = True
+
+
+class PaginaLoginFalsa:
+    """Page mínima que permite provar a ordem goto -> origem -> credenciais."""
+
+    def __init__(self, url_final: str) -> None:
+        self.url_final = url_final
+        self.url = "about:blank"
+        self.preenchimentos: list[tuple[str, str]] = []
+        self.login_clicado = False
+
+    async def goto(self, url: str, *, wait_until: str) -> None:
+        assert url == "https://receita.pr.gov.br/login"
+        assert wait_until == "domcontentloaded"
+        self.url = self.url_final
+
+    def locator(self, seletor: str) -> CampoLoginFalso:
+        assert seletor == "#cpfusuario"
+        return CampoLoginFalso(self, "usuario")
+
+    def get_by_placeholder(self, nome: str) -> CampoLoginFalso:
+        assert nome == "Senha"
+        return CampoLoginFalso(self, "senha")
+
+    def get_by_role(self, papel: str, *, name: str) -> BotaoLoginFalso:
+        assert papel == "button"
+        assert name == "Login"
+        return BotaoLoginFalso(self)
+
+    async def wait_for_selector(self, seletor: str, *, timeout: int) -> None:
+        assert seletor == "#icons"
+        assert timeout == 15000
 
 
 def _logger_silencioso() -> logging.Logger:
@@ -113,3 +167,49 @@ def test_str_da_credencial_tambem_nao_expoe_segredo():
     credencial = CredencialCliente(cliente_id="CLIENTE_B", login="000", senha="segredo")
     assert "segredo" not in str(credencial)
     assert "000" not in str(credencial)
+
+
+def test_login_confere_origem_final_antes_de_preencher_credenciais():
+    pagina = PaginaLoginFalsa("https://receita.pr.gov.br/login?fluxo=oficial")
+    credencial = _credencial(None)
+
+    asyncio.run(
+        realizar_login(
+            pagina,
+            "https://receita.pr.gov.br/login",
+            credencial,
+            _logger_silencioso(),
+        )
+    )
+
+    assert pagina.preenchimentos == [
+        ("usuario", credencial.login),
+        ("senha", credencial.senha),
+    ]
+    assert pagina.login_clicado is True
+
+
+@pytest.mark.parametrize(
+    "url_final",
+    [
+        "http://receita.pr.gov.br/login",
+        "https://receita.pr.gov.br.evil.example/login",
+        "https://usuario:senha@receita.pr.gov.br/login",
+        "https://receita.pr.gov.br:porta-invalida/login",
+    ],
+)
+def test_login_recusa_redirecionamento_inseguro_sem_tocar_em_credenciais(url_final):
+    pagina = PaginaLoginFalsa(url_final)
+
+    with pytest.raises(FalhaAutenticacao, match="origem HTTPS oficial"):
+        asyncio.run(
+            realizar_login(
+                pagina,
+                "https://receita.pr.gov.br/login",
+                _credencial(None),
+                _logger_silencioso(),
+            )
+        )
+
+    assert pagina.preenchimentos == []
+    assert pagina.login_clicado is False

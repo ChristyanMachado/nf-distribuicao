@@ -13,6 +13,7 @@ from src.flows.emissao import (
     FalhaDownloadDocumento,
     Tarefa,
     baixar_documentos,
+    extrair_metadados_xml,
 )
 
 
@@ -33,6 +34,21 @@ class DownloadFalso:
             else b"<?xml version='1.0'?><nfe/>"
         )
         Path(destino).write_bytes(conteudo)
+
+
+def test_extrai_prova_fiscal_do_xml_autorizado(tmp_path):
+    caminho = tmp_path / "autorizada.xml"
+    caminho.write_text("""<nfeProc><NFe><infNFe Id="NFe12345678901234567890123456789012345678901234"><ide><nNF>321</nNF></ide></infNFe></NFe><protNFe><infProt><cStat>100</cStat><chNFe>12345678901234567890123456789012345678901234</chNFe><nProt>141260000000001</nProt></infProt></protNFe></nfeProc>""", encoding="utf-8")
+    dados = extrair_metadados_xml(str(caminho))
+    assert dados.numero == "321"
+    assert dados.codigo_status == "100"
+
+
+def test_xml_sem_status_autorizado_e_recusado(tmp_path):
+    caminho = tmp_path / "rejeitada.xml"
+    caminho.write_text("""<nfeProc><NFe><infNFe Id="NFe12345678901234567890123456789012345678901234"><ide><nNF>1</nNF></ide></infNFe></NFe><protNFe><infProt><cStat>999</cStat><nProt>1</nProt></infProt></protNFe></nfeProc>""", encoding="utf-8")
+    with pytest.raises(FalhaDownloadDocumento, match="autorização"):
+        extrair_metadados_xml(str(caminho))
 
 
 class EsperaDownloadFalsa:

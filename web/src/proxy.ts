@@ -1,64 +1,50 @@
-import { createHash, timingSafeEqual } from "node:crypto";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
+import {
+  COOKIE_SESSAO,
+  DURACAO_SESSAO_SEGUNDOS,
+  criarTokenSessao,
+  validarTokenSessao,
+} from "./lib/auth-session";
 
-function iguaisEmTempoConstante(recebido: string, esperado: string): boolean {
-  const hashRecebido = createHash("sha256").update(recebido).digest();
-  const hashEsperado = createHash("sha256").update(esperado).digest();
-  return timingSafeEqual(hashRecebido, hashEsperado);
+function configuracao() {
+  return {
+    usuario: process.env.APP_ADMIN_USER ?? process.env.APP_BASIC_AUTH_USER,
+    senha: process.env.APP_ADMIN_PASSWORD ?? process.env.APP_BASIC_AUTH_PASSWORD,
+    segredo: process.env.APP_SESSION_SECRET,
+  };
 }
 
-export function autorizacaoBasicaValida(
-  cabecalho: string | null,
-  usuarioEsperado: string,
-  senhaEsperada: string,
-): boolean {
-  if (!cabecalho?.startsWith("Basic ")) return false;
-
-  try {
-    const credenciais = Buffer.from(cabecalho.slice(6), "base64").toString("utf8");
-    const separador = credenciais.indexOf(":");
-    if (separador < 0) return false;
-
-    return (
-      iguaisEmTempoConstante(credenciais.slice(0, separador), usuarioEsperado) &&
-      iguaisEmTempoConstante(credenciais.slice(separador + 1), senhaEsperada)
-    );
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Trava provisória para impedir que um deploy acidental exponha dados e
- * Server Actions antes da entrada do Supabase Auth. Em desenvolvimento local
- * ela não interfere. Em produção, a ausência das variáveis fecha o acesso.
- */
 export function proxy(request: NextRequest) {
-  if (process.env.NODE_ENV !== "production") return NextResponse.next();
+  const auth = configuracao();
+  const obrigatoria = process.env.NODE_ENV === "production" || process.env.APP_AUTH_ENABLED === "true";
+  if (!obrigatoria && (!auth.usuario || !auth.senha || !auth.segredo)) return NextResponse.next();
+  if (!auth.usuario || !auth.senha || !auth.segredo || auth.segredo.length < 32) {
+    return new NextResponse("Acesso administrativo não configurado.", { status: 503 });
+  }
+  if (request.nextUrl.pathname === "/login") return NextResponse.next();
 
-  const usuarioEsperado = process.env.APP_BASIC_AUTH_USER;
-  const senhaEsperada = process.env.APP_BASIC_AUTH_PASSWORD;
-  if (!usuarioEsperado || !senhaEsperada) {
-    return new NextResponse("Acesso não configurado.", { status: 503 });
+  const sessao = validarTokenSessao(request.cookies.get(COOKIE_SESSAO)?.value, auth.segredo);
+  if (!sessao) {
+    const destino = request.nextUrl.clone();
+    destino.pathname = "/login";
+    destino.search = "";
+    destino.searchParams.set("retorno", `${request.nextUrl.pathname}${request.nextUrl.search}`);
+    return NextResponse.redirect(destino);
   }
 
-  if (
-    autorizacaoBasicaValida(
-      request.headers.get("authorization"),
-      usuarioEsperado,
-      senhaEsperada,
-    )
-  ) {
-    return NextResponse.next();
+  const resposta = NextResponse.next();
+  const agora = Math.floor(Date.now() / 1000);
+  if (sessao.expiraEm - agora < DURACAO_SESSAO_SEGUNDOS / 2) {
+    resposta.cookies.set(COOKIE_SESSAO, criarTokenSessao(sessao.usuario, auth.segredo), {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      path: "/",
+      maxAge: DURACAO_SESSAO_SEGUNDOS,
+    });
   }
-
-  return new NextResponse("Autenticação necessária.", {
-    status: 401,
-    headers: { "WWW-Authenticate": 'Basic realm="Graalys", charset="UTF-8"' },
-  });
+  return resposta;
 }
 
-export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
-};
+export const config = { matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"] };

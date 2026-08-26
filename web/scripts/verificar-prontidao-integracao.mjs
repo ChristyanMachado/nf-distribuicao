@@ -3,7 +3,13 @@ import postgres from "postgres";
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) throw new Error("DATABASE_URL não definida.");
 
-const sql = postgres(connectionString, { prepare: false });
+const sql = postgres(connectionString, {
+  prepare: false,
+  ssl: "require",
+  connect_timeout: 10,
+  idle_timeout: 5,
+  max: 1,
+});
 
 try {
   const [clientes] = await sql`
@@ -49,7 +55,14 @@ try {
   const [tarefas] = await sql`
     select
       count(*) filter (where status = 'PENDENTE')::int as pendentes,
-      count(*) filter (where status = 'PENDENTE' and lote_id is null)::int as pendentes_sem_lote
+      count(*) filter (where status = 'PENDENTE' and lote_id is null)::int as pendentes_sem_lote,
+      count(*) filter (
+        where status = 'PENDENTE'
+          and lote_id is not null
+          and contrato_versao = 1
+          and payload_worker is not null
+          and payload_hash is not null
+      )::int as pendentes_prontas_worker
     from fiscal.tarefas
   `;
   const [lotes] = await sql`
@@ -59,14 +72,29 @@ try {
       count(*) filter (where numero is null)::int as sem_numero
     from fiscal.lotes_distribuicao
   `;
-  const colunasLote = await sql`
+  const colunasIntegracao = await sql`
     select table_name, column_name
     from information_schema.columns
     where table_schema = 'fiscal'
       and (
-        (table_name = 'lotes_distribuicao' and column_name = 'numero')
-        or (table_name = 'tarefas' and column_name = 'lote_id')
+        (table_name = 'lotes_distribuicao' and column_name in ('numero', 'chave_idempotencia'))
+        or (table_name = 'tarefas' and column_name in (
+          'lote_id', 'reserva_token', 'contrato_versao', 'payload_worker', 'payload_hash'
+        ))
+        or (table_name = 'notas' and column_name = 'protocolo_autorizacao')
       )
+  `;
+  const [funcaoFila] = await sql`
+    select
+      to_regprocedure('fiscal.reservar_tarefas_worker(text,integer,integer)') is not null as existe,
+      not exists (
+        select 1
+        from information_schema.routine_privileges
+        where routine_schema = 'fiscal'
+          and routine_name = 'reservar_tarefas_worker'
+          and grantee = 'PUBLIC'
+          and privilege_type = 'EXECUTE'
+      ) as public_revogado
   `;
 
   console.log(JSON.stringify({
@@ -75,7 +103,9 @@ try {
     produtos,
     tarefas,
     lotes,
-    contratoDistribuicaoPronto: colunasLote.length === 2,
+    contratoDistribuicaoPronto:
+      colunasIntegracao.length === 8 && funcaoFila.existe && funcaoFila.public_revogado,
+    segurancaFila: funcaoFila,
   }));
 } finally {
   await sql.end();

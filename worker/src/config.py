@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import os
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from urllib.parse import urlsplit
 
 from dotenv import load_dotenv
@@ -63,6 +63,19 @@ class Config:
     # Receita PR — RECOMENDADO durante desenvolvimento pra não poluir o
     # histórico fiscal real com tentativas. "normal" usa produção.
     ambiente_emissao: str
+    # Fonte local preserva o fluxo atual. "banco" é ativada apenas por flag
+    # explícita e continua limitada ao ambiente de homologação.
+    fonte_tarefas: str
+    # A URL contém usuário/senha do banco. ``repr=False`` impede que a
+    # representação automática da configuração vaze esse segredo em logs,
+    # tracebacks de depuração ou consoles interativos.
+    worker_database_url: str | None = field(repr=False)
+    worker_id: str | None
+    testar_integracao_banco: bool
+    # False executa apenas um ensaio reserva -> validação -> devolução à fila.
+    # True permite abrir o portal e emitir somente quando todas as travas de
+    # homologação acima também estiverem ativas.
+    processar_fila_banco: bool
 
 
 def carregar_config() -> Config:
@@ -144,6 +157,27 @@ def carregar_config() -> Config:
     if modo_operacao not in {"simulacao", "conferencia", "automatico"}:
         raise RuntimeError("MODO_OPERACAO deve ser simulacao, conferencia ou automatico.")
 
+    fonte_tarefas = os.getenv("FONTE_TAREFAS", "arquivo").strip().lower()
+    if fonte_tarefas not in {"arquivo", "banco"}:
+        raise RuntimeError("FONTE_TAREFAS deve ser arquivo ou banco.")
+    worker_database_url = os.getenv("WORKER_DATABASE_URL") or None
+    worker_id = os.getenv("WORKER_ID") or None
+    testar_integracao_banco = os.getenv("TESTAR_INTEGRACAO_BANCO", "false").lower() == "true"
+    processar_fila_banco = os.getenv("PROCESSAR_FILA_BANCO", "false").lower() == "true"
+    if fonte_tarefas == "banco" and (not worker_database_url or not worker_id):
+        raise RuntimeError("FONTE_TAREFAS=banco exige WORKER_DATABASE_URL e WORKER_ID.")
+    if fonte_tarefas == "banco" and not testar_integracao_banco:
+        raise RuntimeError(
+            "FONTE_TAREFAS=banco exige TESTAR_INTEGRACAO_BANCO=true nesta fase controlada."
+        )
+    if processar_fila_banco and fonte_tarefas != "banco":
+        raise RuntimeError("PROCESSAR_FILA_BANCO=true exige FONTE_TAREFAS=banco.")
+    if processar_fila_banco and not testar_emissao_homologacao:
+        raise RuntimeError(
+            "PROCESSAR_FILA_BANCO=true exige todas as travas de "
+            "TESTAR_EMISSAO_HOMOLOGACAO=true."
+        )
+
     return Config(
         sistema_fiscal_url=_url_sistema_fiscal(_obrigatorio("SISTEMA_FISCAL_URL")),
         headless=headless,
@@ -157,6 +191,11 @@ def carregar_config() -> Config:
         testar_emissao_homologacao=testar_emissao_homologacao,
         max_concorrencia=max_concorrencia,
         ambiente_emissao=ambiente_emissao,
+        fonte_tarefas=fonte_tarefas,
+        worker_database_url=worker_database_url,
+        worker_id=worker_id,
+        testar_integracao_banco=testar_integracao_banco,
+        processar_fila_banco=processar_fila_banco,
     )
 
 

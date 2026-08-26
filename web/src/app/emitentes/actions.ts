@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { db } from "@/db";
 import { emitentes } from "@/db/schema";
 import { desc, eq } from "drizzle-orm";
@@ -10,8 +11,10 @@ import {
   exigirUuid,
   limitarTexto,
 } from "@/lib/validacao";
+import { exigirSessaoAdministrativa } from "@/lib/auth-server";
 
 export async function listarEmitentes() {
+  await exigirSessaoAdministrativa();
   return db
     .select({
       id: emitentes.id,
@@ -62,12 +65,15 @@ function lerDadosEmitente(formData: FormData) {
 }
 
 export async function criarEmitente(formData: FormData) {
+  await exigirSessaoAdministrativa();
   await db.insert(emitentes).values(lerDadosEmitente(formData));
   revalidatePath("/emitentes");
   revalidatePath("/clientes"); // clientes lista emitentes no dropdown de associação
+  redirect("/emitentes?salvo=emitente-criado");
 }
 
 export async function atualizarEmitente(formData: FormData) {
+  await exigirSessaoAdministrativa();
   const emitenteId = exigirUuid(String(formData.get("emitenteId") ?? ""), "Emitente");
   const atualizados = await db
     .update(emitentes)
@@ -79,4 +85,5 @@ export async function atualizarEmitente(formData: FormData) {
   revalidatePath("/emitentes");
   revalidatePath("/clientes");
   revalidatePath("/distribuicao");
+  redirect("/emitentes?salvo=emitente-atualizado");
 }

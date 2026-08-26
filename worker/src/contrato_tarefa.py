@@ -87,21 +87,13 @@ def carregar_contrato_tarefa(dados: Mapping[str, Any]) -> TarefaContratada:
             valor_select=_texto(emitente_raw.get("valorSelect"), "tarefa.emitente.valorSelect")
         ),
         destinatario=Destinatario(
-            cnpj=_texto_padrao(
-                destinatario_raw.get("cnpj"),
-                "tarefa.destinatario.cnpj",
-                r"\d{14}",
-            ),
+            cnpj=_cnpj(destinatario_raw.get("cnpj"), "tarefa.destinatario.cnpj"),
             indicador_ie=indicador_ie,
             razao_social=_texto(
                 destinatario_raw.get("razaoSocial"),
                 "tarefa.destinatario.razaoSocial",
             ),
-            cep=_texto_padrao(
-                destinatario_raw.get("cep"),
-                "tarefa.destinatario.cep",
-                r"\d{8}",
-            ),
+            cep=_cep(destinatario_raw.get("cep"), "tarefa.destinatario.cep"),
             numero_endereco=_texto(
                 destinatario_raw.get("numeroEndereco"),
                 "tarefa.destinatario.numeroEndereco",
@@ -273,6 +265,27 @@ def _texto_padrao(valor: Any, caminho: str, padrao: str) -> str:
     if not re.fullmatch(padrao, texto):
         raise ContratoTarefaInvalido(f"{caminho} possui formato inválido.")
     return texto
+
+
+def _cnpj(valor: Any, caminho: str) -> str:
+    cnpj = _texto_padrao(valor, caminho, r"\d{14}")
+    if len(set(cnpj)) == 1:
+        raise ContratoTarefaInvalido(f"{caminho} possui formato inválido.")
+    def digito(base: str, pesos: list[int]) -> int:
+        resto = sum(int(numero) * peso for numero, peso in zip(base, pesos)) % 11
+        return 0 if resto < 2 else 11 - resto
+    primeiro = digito(cnpj[:12], [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2])
+    segundo = digito(cnpj[:12] + str(primeiro), [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2])
+    if cnpj[-2:] != f"{primeiro}{segundo}":
+        raise ContratoTarefaInvalido(f"{caminho} possui formato inválido.")
+    return cnpj
+
+
+def _cep(valor: Any, caminho: str) -> str:
+    cep = _texto_padrao(valor, caminho, r"\d{8}")
+    if cep == "00000000":
+        raise ContratoTarefaInvalido(f"{caminho} possui formato inválido.")
+    return cep
 
 
 def _opcao(valor: Any, caminho: str, opcoes: set[str]) -> str:

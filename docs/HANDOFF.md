@@ -109,6 +109,36 @@ depois do resultado real implementar polling/reserva atômica do banco e envio
 de documentos ao Storage, para não misturar diagnóstico do Playwright com o
 da integração distribuída.
 
+## Integração Web → banco → Worker — fundação preparada
+
+- A migração `0007_fila_worker_lease.sql` cria tentativas, lease, erro
+  sanitizado, índice de fila e `fiscal.reservar_tarefas_worker`.
+- `worker/src/fonte_tarefas.py` reserva tarefas e projeta os joins do banco no
+  contrato v1. A biblioteca `asyncpg` só é importada quando a fonte é usada.
+- A fonte ainda não está ligada ao `main.py`/Playwright: primeiro aplicar a
+  migração e executar uma reserva/leitura de homologação sem emitir; então
+  implementar o retorno de status e Storage.
+- Somente `PENDENTE` com `lote_id` é elegível. Reserva expirada não é repetida
+  automaticamente, pois a Receita pode ter autorizado a nota antes da queda.
+- Validação local: **79 testes Worker**, **46 testes Web**, `tsc --noEmit` e
+  `git diff --check` passaram. Instalar `asyncpg==0.30.0` no venv antes do
+  primeiro teste conectado.
+
+## Continuação — ensaio controlado da fila
+
+- O `main.py` ganhou o modo explícito `FONTE_TAREFAS=banco`, protegido também
+  por `TESTAR_INTEGRACAO_BANCO=true`, `WORKER_DATABASE_URL` e `WORKER_ID`.
+- Nesse modo ele reserva até o limite de concorrência, valida o contrato e
+  confirma a referência de credencial local sem exibir segredo. Não abre
+  Chromium e não emite: o status vai para `AGUARDANDO_CONFERENCIA`.
+- A próxima tarefa para teste deve ser nova, com `lote_id` e cadastro fiscal
+  completo. As oito tarefas antigas permanecem inelegíveis. Antes do primeiro
+  ensaio, colocar no `.env` do Worker uma credencial de banco exclusiva e o
+  `WORKER_ID`; nunca copiar esse valor para Git ou chat.
+- Validação local desta continuação: **80 testes Worker** e **46 testes Web**.
+- A tela Web de tarefas também exibe tentativas, validade da reserva e a
+  mensagem sanitizada retornada pelo Worker quando a tarefa está expandida.
+
 Auditoria do banco de teste, sem exibir dados: 2 clientes ativos e os 2 ainda
 estão fiscalmente incompletos; nenhum está sem vínculo de emitente. Há 1
 emitente ativo sem `credencial_referencia`/`valor_select_nfpe`, 3 produtos

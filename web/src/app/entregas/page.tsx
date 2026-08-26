@@ -20,7 +20,7 @@ export default async function EntregasPage({
         Uma folha prática para o motorista: clientes, endereços, produtos e trocas — sem valores.
       </p>
       {loteSelecionado ? (
-        <RoteiroEntregaView lotes={lotes} loteSelecionado={loteSelecionado} roteiro={roteiro} />
+        <RoteiroEntregaView lotes={lotes} loteSelecionado={loteSelecionado} roteiro={roteiro} geradoEm={new Date().toISOString()} />
       ) : (
         <Card className="mt-5 p-5 text-sm text-[var(--ink-soft)]">
           Ainda não há distribuição registrada para imprimir.

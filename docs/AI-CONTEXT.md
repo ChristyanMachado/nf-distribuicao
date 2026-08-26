@@ -4,7 +4,7 @@
 
 Fonte de contexto compartilhada para pessoas e ferramentas de IA que trabalham no projeto. Antes de alterar código, ler também `docs/ARCHITECTURE.md`, `docs/HANDOFF.md` e `docs/COLABORACAO.md`.
 
-O sistema organiza a distribuição de produtos e automatiza, futuramente, a emissão de NFP-e na Receita PR. A aplicação web e o Worker fiscal ainda estão integrados apenas conceitualmente.
+O sistema organiza a distribuição de produtos e automatiza, futuramente, a emissão de NFP-e na Receita PR. Web e Worker já compartilham uma fronteira de fila no banco; a execução Playwright a partir dela segue deliberadamente desligada até o ensaio controlado de homologação.
 
 ## Estado validado em 25/08/2026
 
@@ -82,6 +82,14 @@ O resultado técnico detalhado e seletores reconhecidos estão em `docs/HANDOFF.
   `tarefas.lote_id` existe. Novos XML/DANFE usarão nome do mercado, emissor,
   número de distribuição e data; as 8 tarefas antigas sem lote ficam fora da
   integração até revisão.
+- A migração `0007_fila_worker_lease.sql` foi aplicada ao banco de teste. Ela
+  cria tentativas e lease atômico; somente tarefas `PENDENTE` com
+  lote são elegíveis. Uma reserva expirada exige conferência humana, nunca
+  volta automaticamente à fila.
+- `FONTE_TAREFAS=banco` + `TESTAR_INTEGRACAO_BANCO=true` permite ao Worker
+  local reservar tarefas, validar o contrato e a referência de credencial e
+  devolvê-las como `AGUARDANDO_CONFERENCIA`, sem navegador nem emissão. É a
+  primeira prova segura de comunicação entre Web, banco em nuvem e Worker.
 - O contrato v1 agora rejeita UUIDs/formato/opções inválidas, `NaN`, infinito,
   valores excessivos e mais de 200 itens antes de abrir o navegador.
 - O cadastro de mercados agora exige razão social, CNPJ válido, IE, CEP,

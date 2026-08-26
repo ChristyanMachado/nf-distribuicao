@@ -14,11 +14,20 @@ import {
 import { montarContratoTarefaV1 } from "@/lib/contrato-tarefa";
 import { exigirUuid } from "@/lib/validacao";
 
-/** Produz o contrato interno de uma tarefa; não é uma Server Action pública. */
-export async function gerarContratoTarefaPendente(tarefaId: string) {
+type LeitorContrato = Pick<typeof db, "select">;
+
+/**
+ * Produz o contrato interno de uma tarefa; não é uma Server Action pública.
+ * O executor opcional permite gerar o snapshot dentro da mesma transação que
+ * criou a tarefa, antes que ela fique visível para a função de reserva.
+ */
+export async function gerarContratoTarefaPendente(
+  tarefaId: string,
+  executor: LeitorContrato = db,
+) {
   exigirUuid(tarefaId, "Tarefa");
 
-  const [cabecalho] = await db
+  const [cabecalho] = await executor
     .select({
       tarefaId: tarefas.id,
       status: tarefas.status,
@@ -44,7 +53,7 @@ export async function gerarContratoTarefaPendente(tarefaId: string) {
     .limit(1);
   if (!cabecalho) throw new Error("Tarefa pendente não encontrada.");
 
-  const itens = await db
+  const itens = await executor
     .select({
       produtoId: tarefaItens.produtoId,
       descricao: produtos.descricao,

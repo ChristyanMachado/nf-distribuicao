@@ -13,6 +13,12 @@ if (!connectionString) {
 }
 
 // prepare: false é recomendado ao usar o connection pooler do Supabase (pgbouncer)
-const client = postgres(connectionString, { prepare: false });
+const client = postgres(connectionString, {
+  prepare: false,
+  ssl: "require",
+  connect_timeout: 10,
+  idle_timeout: 20,
+  max: 5,
+});
 
 export const db = drizzle(client, { schema });

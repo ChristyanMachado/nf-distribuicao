@@ -140,3 +140,14 @@ def test_falha_no_ambiente_teste_menciona_o_ambiente_na_mensagem():
                 PaginaFalsa(deve_expirar=True), _logger_silencioso(), ambiente="teste"
             )
         )
+
+
+def test_url_de_homologacao_exige_https():
+    caminho = "/nfae/produtor/emitir/emitente"
+
+    assert URL_EMISSAO_TESTE.match(
+        f"https://homologacao.nfae.fazenda.pr.gov.br{caminho}"
+    )
+    assert not URL_EMISSAO_TESTE.match(
+        f"http://homologacao.nfae.fazenda.pr.gov.br{caminho}"
+    )

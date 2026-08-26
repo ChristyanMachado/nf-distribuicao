@@ -24,7 +24,7 @@ def _contrato_valido() -> dict:
                 "credencialReferencia": "CLIENTE_A",
             },
             "destinatario": {
-                "cnpj": "00000000000100",
+                "cnpj": "00000000000191",
                 "indicadorIe": "CONTRIBUINTE",
                 "inscricaoEstadual": "1234567890",
                 "razaoSocial": "Destinatário de teste",
@@ -140,3 +140,11 @@ def test_identificadores_e_opcoes_adulterados_sao_rejeitados(caminho, valor):
 
     with pytest.raises(ContratoTarefaInvalido):
         carregar_contrato_tarefa(dados)
+
+
+def test_cnpj_com_digito_invalido_e_cep_zerado_sao_rejeitados():
+    for campo, valor in (("cnpj", "00000000000100"), ("cep", "00000000")):
+        dados = _contrato_valido()
+        dados["tarefa"]["destinatario"][campo] = valor
+        with pytest.raises(ContratoTarefaInvalido):
+            carregar_contrato_tarefa(dados)

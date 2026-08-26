@@ -3,7 +3,13 @@ import postgres from "postgres";
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) throw new Error("DATABASE_URL não definida.");
 
-const sql = postgres(connectionString, { prepare: false });
+const sql = postgres(connectionString, {
+  prepare: false,
+  ssl: "require",
+  connect_timeout: 10,
+  idle_timeout: 5,
+  max: 1,
+});
 
 try {
   const colunas = await sql`

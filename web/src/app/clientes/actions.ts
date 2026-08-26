@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { clientes, emitentes, clienteEmitentes } from "@/db/schema";
@@ -11,12 +12,15 @@ import {
   exigirUuid,
   limitarTexto,
 } from "@/lib/validacao";
+import { exigirSessaoAdministrativa } from "@/lib/auth-server";
 
 export async function listarClientes() {
+  await exigirSessaoAdministrativa();
   return db.select().from(clientes).where(eq(clientes.ativo, true)).orderBy(desc(clientes.criadoEm));
 }
 
 export async function listarEmitentes() {
+  await exigirSessaoAdministrativa();
   // Seleção explícita: as colunas legadas de credencial jamais atravessam a
   // fronteira Server Action -> navegador.
   return db
@@ -79,6 +83,7 @@ async function validarEmitentesAtivos(emitenteIds: string[]) {
 }
 
 export async function criarCliente(formData: FormData) {
+  await exigirSessaoAdministrativa();
   const dados = lerDadosCliente(formData);
   await validarEmitentesAtivos(dados.emitenteIds);
 
@@ -91,9 +96,11 @@ export async function criarCliente(formData: FormData) {
 
   revalidatePath("/clientes");
   revalidatePath("/distribuicao");
+  redirect("/clientes?salvo=cliente-criado");
 }
 
 export async function atualizarCliente(formData: FormData) {
+  await exigirSessaoAdministrativa();
   const clienteId = exigirUuid(String(formData.get("clienteId") ?? ""), "Cliente");
   const dados = lerDadosCliente(formData);
   await validarEmitentesAtivos(dados.emitenteIds);
@@ -114,4 +121,5 @@ export async function atualizarCliente(formData: FormData) {
 
   revalidatePath("/clientes");
   revalidatePath("/distribuicao");
+  redirect("/clientes?salvo=cliente-atualizado");
 }
