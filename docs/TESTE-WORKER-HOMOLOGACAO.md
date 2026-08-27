@@ -2,12 +2,8 @@
 
 Este roteiro libera emissão apenas na homologação e bloqueia qualquer página
 fora do domínio oficial. A própria flag explícita substitui a confirmação por
-<<<<<<< HEAD
 terminal; ela nunca habilita produção. O roteiro local e o conectado são
 separados.
-=======
-terminal; ele não habilita produção nem polling do banco.
->>>>>>> bb1f369fe5684487fbfe4bd6b69e53ede982c47d
 
 ## Antes de executar
 
@@ -106,7 +102,6 @@ AUTENTICAÇÃO OK
 
 Se houver erro, não repita várias vezes. Envie o trecho do log a partir da
 última etapa concluída e o HTML do elemento que ficou visível.
-<<<<<<< HEAD
 
 ## Segundo roteiro — fila do banco
 
@@ -150,5 +145,3 @@ locais. Storage ainda não faz parte desse teste.
 
 Se houver perda de lease ou incerteza depois do clique, não repetir. A tarefa
 deve ir para conferência humana.
-=======
->>>>>>> bb1f369fe5684487fbfe4bd6b69e53ede982c47d

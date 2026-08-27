@@ -6,10 +6,7 @@ import DistribuicaoForm from "./DistribuicaoForm";
 
 export default async function DistribuicaoPage() {
   const { clientes, produtos, precos, ultimaDistribuicao } = await carregarDadosDistribuicao();
-<<<<<<< HEAD
   const clientesProntos = clientes.filter((cliente) => cliente.prontoParaEmissao);
-=======
->>>>>>> bb1f369fe5684487fbfe4bd6b69e53ede982c47d
 
   if (produtos.length === 0 || clientes.length === 0) {
     return (

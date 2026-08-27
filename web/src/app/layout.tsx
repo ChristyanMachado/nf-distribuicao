@@ -68,11 +68,7 @@ export default function RootLayout({
                     key={href}
                     href={href}
                     label={label}
-<<<<<<< HEAD
                     icon={<Icon className="h-[18px] w-[18px] shrink-0" />}
-=======
-                    Icon={Icon}
->>>>>>> bb1f369fe5684487fbfe4bd6b69e53ede982c47d
                   />
                 )
               )}
@@ -109,11 +105,7 @@ export default function RootLayout({
               key={href}
               href={href}
               label={label}
-<<<<<<< HEAD
               icon={<Icon className="h-5 w-5" />}
-=======
-              Icon={Icon}
->>>>>>> bb1f369fe5684487fbfe4bd6b69e53ede982c47d
               mobile
             />
           ))}

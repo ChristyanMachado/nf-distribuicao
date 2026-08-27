@@ -160,7 +160,6 @@ def carregar_config() -> Config:
     fonte_tarefas = os.getenv("FONTE_TAREFAS", "arquivo").strip().lower()
     if fonte_tarefas not in {"arquivo", "banco"}:
         raise RuntimeError("FONTE_TAREFAS deve ser arquivo ou banco.")
-<<<<<<< HEAD
     worker_database_url_raw = os.getenv("WORKER_DATABASE_URL")
     worker_database_url = (
         _url_banco_worker(worker_database_url_raw)
@@ -173,10 +172,6 @@ def carregar_config() -> Config:
         or any(ord(caractere) < 32 or ord(caractere) == 127 for caractere in worker_id)
     ):
         raise RuntimeError("WORKER_ID deve ter até 120 caracteres visíveis.")
-=======
-    worker_database_url = os.getenv("WORKER_DATABASE_URL") or None
-    worker_id = os.getenv("WORKER_ID") or None
->>>>>>> bb1f369fe5684487fbfe4bd6b69e53ede982c47d
     testar_integracao_banco = os.getenv("TESTAR_INTEGRACAO_BANCO", "false").lower() == "true"
     processar_fila_banco = os.getenv("PROCESSAR_FILA_BANCO", "false").lower() == "true"
     if fonte_tarefas == "banco" and (not worker_database_url or not worker_id):
@@ -268,7 +263,6 @@ def _url_sistema_fiscal(valor: str) -> str:
             "SISTEMA_FISCAL_URL deve ser exatamente o login HTTPS oficial da Receita/PR."
         )
     return "https://receita.pr.gov.br/login"
-<<<<<<< HEAD
 
 
 def _url_banco_worker(valor: str) -> str:
@@ -288,5 +282,3 @@ def _url_banco_worker(valor: str) -> str:
     ):
         raise RuntimeError("WORKER_DATABASE_URL possui formato inválido.")
     return valor.strip()
-=======
->>>>>>> bb1f369fe5684487fbfe4bd6b69e53ede982c47d

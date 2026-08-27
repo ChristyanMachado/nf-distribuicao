@@ -29,7 +29,6 @@ Web Next.js no Vercel ───► Banco / Storage (Supabase)
 - **Worker em VM:** processo persistente com Chromium, Playwright e scheduler.
   Ele busca/reserva tarefa, executa o fluxo e devolve resultado ao banco.
 
-<<<<<<< HEAD
 Durante o desenvolvimento, o Web usa uma sessão administrativa HMAC e fecha o
 acesso em produção quando os segredos não estão configurados. Ela deve ser
 substituída por autenticação individual e autorização antes do uso comercial.
@@ -63,12 +62,6 @@ Variáveis mínimas do Worker conectado: `FONTE_TAREFAS=banco`,
 `TESTAR_INTEGRACAO_BANCO=true`, `WORKER_DATABASE_URL`, `WORKER_ID`, lease,
 limite da busca e referências de credencial. `PROCESSAR_FILA_BANCO=true` só é
 usado com todas as travas de homologação descritas no roteiro de teste.
-=======
-Durante o desenvolvimento, o Web tem uma trava Basic Auth fail-closed em
-produção. Ela evita exposição acidental, mas deve ser substituída por
-autenticação individual/autorização antes do uso comercial. O checklist de
-segurança obrigatório está em `docs/SECURITY.md`.
->>>>>>> bb1f369fe5684487fbfe4bd6b69e53ede982c47d
 
 ## Por que separar o Worker do Vercel
 
@@ -112,13 +105,8 @@ escolhida. [Documentação oficial do Playwright](https://playwright.dev/python/
 
 ## Como uma distribuição dispara trabalho
 
-<<<<<<< HEAD
 No clique de “Registrar distribuição”, o Web cria tarefa `PENDENTE`, snapshot
 e hash na mesma transação e devolve sucesso à tela. Um Worker ativo faz polling
-=======
-No clique de “Registrar distribuição”, o Web deve criar a tarefa como
-`PENDENTE` em transação e devolver sucesso à tela. Um Worker ativo faz polling
->>>>>>> bb1f369fe5684487fbfe4bd6b69e53ede982c47d
 curto ou consome uma fila, reserva a tarefa atomicamente e passa a executar.
 Assim o usuário vê o status quase imediatamente, sem depender de manter a
 tela aberta nem de a requisição HTTP sobreviver por minutos.
@@ -133,7 +121,6 @@ Para o primeiro piloto, a tabela `fiscal.tarefas` mais uma reserva atômica é
 suficiente e reduz serviços novos. Uma fila pode ser introduzida depois sem
 alterar o contrato. Vercel Queues é compatível com consumidores externos em
 polling, mas está em beta; não será dependência obrigatória do MVP.
-<<<<<<< HEAD
 
 ## Estado real da implantação
 
@@ -142,5 +129,3 @@ migrações `0001`–`0009` e o canal TLS foi verificado, mas atualmente há zer
 tarefas elegíveis. A próxima prova é local: completar cadastros, criar uma
 distribuição nova, fazer o ensaio sem navegador e só depois a homologação
 conectada com uma tarefa.
-=======
->>>>>>> bb1f369fe5684487fbfe4bd6b69e53ede982c47d

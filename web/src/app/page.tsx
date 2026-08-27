@@ -1,10 +1,6 @@
 export const dynamic = "force-dynamic";
 
-<<<<<<< HEAD
 import { count, desc, eq, sql } from "drizzle-orm";
-=======
-import { count, desc, eq } from "drizzle-orm";
->>>>>>> bb1f369fe5684487fbfe4bd6b69e53ede982c47d
 import Card from "@/components/Card";
 import {
   IconChart,
@@ -16,10 +12,7 @@ import {
 import { db } from "@/db";
 import { lotesDistribuicao, notas, tarefas } from "@/db/schema";
 import { dataOperacionalBrasil } from "@/lib/datas";
-<<<<<<< HEAD
 import { pendenciasCliente, pendenciasEmitente } from "@/lib/prontidao-integracao";
-=======
->>>>>>> bb1f369fe5684487fbfe4bd6b69e53ede982c47d
 import {
   calcularKpisOperacionais,
   type TarefaOperacional,
@@ -68,7 +61,6 @@ async function carregarResumoOperacional() {
     .orderBy(desc(tarefas.criadoEm))
     .limit(LIMITE_TAREFAS_DO_DIA);
 
-<<<<<<< HEAD
   type ProntidaoBanco = {
     clientes: Array<{
       id: string;
@@ -168,22 +160,11 @@ async function carregarResumoOperacional() {
     (produto) => !produto.codigoFiscal?.trim() || !produto.regraFiscalId,
   ).length;
 
-=======
-  // Contagens agregadas mantêm a resposta pequena mesmo quando o histórico
-  // crescer. Elas representam operação, não faturamento ou lucro.
-  const [tarefasHoje, [contagemLotes], [contagemNotas]] = await Promise.all([
-    consultaTarefasHoje,
-    db.select({ total: count() }).from(lotesDistribuicao),
-    db.select({ total: count() }).from(notas),
-  ]);
-
->>>>>>> bb1f369fe5684487fbfe4bd6b69e53ede982c47d
   return {
     hoje,
     totalDistribuicoes: Number(contagemLotes?.total ?? 0),
     totalNotas: Number(contagemNotas?.total ?? 0),
     operacaoHoje: calcularKpisOperacionais(tarefasHoje satisfies TarefaOperacional[]),
-<<<<<<< HEAD
     prontidao: {
       emitentes: emitentesAtivos.length,
       emitentesIncompletos,
@@ -199,17 +180,11 @@ async function carregarResumoOperacional() {
         && produtosAtivos.length > 0
         && produtosIncompletos === 0,
     },
-=======
->>>>>>> bb1f369fe5684487fbfe4bd6b69e53ede982c47d
   };
 }
 
 export default async function DashboardPage() {
-<<<<<<< HEAD
   const { hoje, totalDistribuicoes, totalNotas, operacaoHoje, prontidao } =
-=======
-  const { hoje, totalDistribuicoes, totalNotas, operacaoHoje } =
->>>>>>> bb1f369fe5684487fbfe4bd6b69e53ede982c47d
     await carregarResumoOperacional();
   const tarefasAbertas = operacaoHoje.pendentes + operacaoHoje.emAndamento;
   const existeAtencao = operacaoHoje.erros > 0;
@@ -239,11 +214,8 @@ export default async function DashboardPage() {
         <IconScale className="h-7 w-7 shrink-0" />
       </a>
 
-<<<<<<< HEAD
       <PreparacaoFiscal prontidao={prontidao} />
 
-=======
->>>>>>> bb1f369fe5684487fbfe4bd6b69e53ede982c47d
       <section aria-labelledby="status-hoje" className="mt-6">
         <div className="flex items-end justify-between gap-3">
           <div>
@@ -359,7 +331,6 @@ export default async function DashboardPage() {
   );
 }
 
-<<<<<<< HEAD
 function PreparacaoFiscal({
   prontidao,
 }: {
@@ -426,8 +397,6 @@ function PreparacaoFiscal({
   );
 }
 
-=======
->>>>>>> bb1f369fe5684487fbfe4bd6b69e53ede982c47d
 function StatusItem({
   rotulo,
   valor,

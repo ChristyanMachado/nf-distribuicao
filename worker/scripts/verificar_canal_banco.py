@@ -61,7 +61,6 @@ def main() -> int:
     if not valor and args.env_file:
         valor = dotenv_values(args.env_file).get(args.database_key)
     if not valor:
-<<<<<<< HEAD
         print(json.dumps({
             "canalBancoWorker": "nao_configurado",
             "variavelAusente": args.database_key,
@@ -75,10 +74,6 @@ def main() -> int:
             "tipoErro": type(exc).__name__,
         }))
         return 1
-=======
-        raise RuntimeError(f"Variável {args.database_key} não definida.")
-    return asyncio.run(_verificar(valor))
->>>>>>> bb1f369fe5684487fbfe4bd6b69e53ede982c47d
 
 
 if __name__ == "__main__":

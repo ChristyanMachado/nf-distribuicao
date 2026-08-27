@@ -3,10 +3,7 @@ export const dynamic = "force-dynamic";
 import Card from "@/components/Card";
 import { Label } from "@/components/Field";
 import PrimaryButton from "@/components/PrimaryButton";
-<<<<<<< HEAD
 import { pendenciasEmitente, resumirPendencias } from "@/lib/prontidao-integracao";
-=======
->>>>>>> bb1f369fe5684487fbfe4bd6b69e53ede982c47d
 import { atualizarEmitente, criarEmitente, listarEmitentes } from "./actions";
 
 const MENSAGENS_SALVAMENTO: Record<string, string> = {
@@ -134,13 +131,9 @@ export default async function EmitentesPage({
           Cadastrados ({emitentes.length})
         </p>
         <Card className="divide-y divide-[var(--line)]">
-<<<<<<< HEAD
           {emitentes.map((e) => {
             const pendencias = pendenciasEmitente(e);
             return (
-=======
-          {emitentes.map((e) => (
->>>>>>> bb1f369fe5684487fbfe4bd6b69e53ede982c47d
             <div key={e.id} className="px-4 py-3 text-sm">
               <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
                 <div className="min-w-0">
@@ -158,12 +151,9 @@ export default async function EmitentesPage({
                   )}
                 </div>
               </div>
-<<<<<<< HEAD
               <p className={`mt-2 text-[12px] ${pendencias.length === 0 ? "text-[var(--field-strong)]" : "text-[var(--wheat)]"}`}>
                 {resumirPendencias(pendencias)}
               </p>
-=======
->>>>>>> bb1f369fe5684487fbfe4bd6b69e53ede982c47d
               <details className="mt-3 border-t border-[var(--line)] pt-3">
                 <summary className="tap-target flex min-h-11 cursor-pointer items-center text-[13px] font-medium text-[var(--ink-soft)]">
                   Revisar ou completar integração
