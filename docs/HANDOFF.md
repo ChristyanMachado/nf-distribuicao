@@ -76,6 +76,10 @@
 - `.tools/` e `graphify-out/` estão ignorados. Não foram ativados backend
   semântico, modo estrito, hooks, watch ou MCP.
 - Uso, reinstalação e handoff seguro estão documentados em `GRAPHIFY.md`.
+- A política foi calibrada por eficiência: usar em trabalho transversal,
+  arquitetura, segurança, banco, integração ou impacto incerto; dispensar em
+  edição pequena com arquivos já conhecidos. Atualizar o mapa somente quando
+  relações de código mudarem.
 - A adoção inicial do Graphify não alterou código funcional. A continuação
   abaixo acrescenta somente testes de orquestração, sem mudar o Worker.
 

@@ -22,6 +22,20 @@ A estimativa de tokens pertence ao benchmark do próprio Graphify e não é uma
 garantia de economia em toda tarefa. O ganho tende a ser maior em perguntas
 amplas; numa edição pequena, abrir diretamente o arquivo continua mais eficiente.
 
+### Critério de uso eficiente
+
+Use o Graphify quando pelo menos uma condição for verdadeira:
+
+- a mudança atravessa Web, Worker, banco, contrato ou vários módulos;
+- a tarefa é de arquitetura, segurança, impacto ou investigação;
+- o módulo ainda é desconhecido para quem está trabalhando;
+- não está claro quais consumidores ou dependências serão afetados.
+
+Dispense a consulta quando a alteração for pequena, localizada e os arquivos,
+testes e relações relevantes já estiverem identificados. Nesse caso, `rg`, o
+diff e a leitura direta custam menos. Atualize o mapa após mudanças estruturais
+ou de relações; não por edição somente documental ou cosmética.
+
 ## Regras de segurança
 
 1. Usar apenas `--code-only`. Não configurar chaves ou backends semânticos.
@@ -75,8 +89,8 @@ Depois, gerar o mapa com os comandos da seção anterior. A ferramenta oficial �
 ## Fluxo recomendado para Codex e Claude
 
 1. Ler os quatro documentos obrigatórios do projeto.
-2. Antes de qualquer implementação ou revisão, consultar o grafo com uma busca
-   focada e orçamento entre 800 e 2.000 tokens.
+2. Aplicar o critério acima. Quando houver benefício, consultar o grafo com uma
+   busca focada e orçamento entre 800 e 2.000 tokens.
 3. Abrir somente os arquivos e testes apontados pela consulta.
 4. Conferir `git status` e `git diff` antes de editar.
 5. Implementar, testar e atualizar o `HANDOFF.md`.

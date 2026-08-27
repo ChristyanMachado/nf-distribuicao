@@ -14,8 +14,9 @@ altere arquitetura ou migrações aplicadas sem registrar e justificar.
 2. Confira branch, `git status` e diff. Preserve alterações existentes.
 3. Considere `0001`–`0009` já aplicadas no banco de teste; não reaplique às
    cegas. Em outro banco, rode primeiro a verificação pré-0008.
-4. Se `graphify-out/graph.json` existir, use uma consulta focada para localizar
-   relações amplas antes de abrir muitos arquivos. Siga `GRAPHIFY.md`, limite a
+4. Se `graphify-out/graph.json` existir, use uma consulta focada para trabalho
+   transversal ou de impacto incerto. Em correção pequena com arquivos já
+   conhecidos, vá direto ao código, testes e diff. Siga `GRAPHIFY.md`, limite a
    saída e confirme toda conclusão no código real. Se o mapa não existir, ele é
    opcional: não bloqueie o trabalho nem peça credenciais para gerá-lo.
 

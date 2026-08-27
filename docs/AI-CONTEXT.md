@@ -115,7 +115,9 @@ distribuição para produzir o primeiro snapshot elegível.
 O Graphify 0.9.50 foi validado em 27/08/2026 como ferramenta auxiliar local,
 com suporte SQL e extração `--code-only`. O mapa não é fonte de verdade, não é
 versionado e não autoriza pular a leitura do código ou os testes. Regras e
-comandos seguros estão em `GRAPHIFY.md`.
+comandos seguros estão em `GRAPHIFY.md`. O uso é seletivo: obrigatório quando
+há impacto transversal ou incerto e dispensável em correções locais já
+mapeadas, nas quais a consulta acrescentaria custo sem reduzir leitura.
 
 ## Princípios imutáveis
 

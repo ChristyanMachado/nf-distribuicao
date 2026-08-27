@@ -27,9 +27,10 @@ registrada.
 
 ## Graphify
 
-Quando houver `graphify-out/graph.json`, faça uma consulta pequena e focada do
-Graphify antes de qualquer implementação ou revisão de código e atualize o mapa
-incrementalmente depois de validar a alteração. Siga `docs/GRAPHIFY.md`. O
-resultado é apenas um índice: confirme o comportamento no código e nos testes
-antes de editar ou afirmar que algo funciona. Não ative modo estrito, hooks,
-watch nem extração semântica neste projeto.
+Quando houver `graphify-out/graph.json`, use uma consulta pequena e focada em
+trabalho transversal, arquitetura, segurança, banco, integração, módulo
+desconhecido ou impacto incerto. Para uma correção local em arquivos e relações
+já conhecidos, vá direto ao código, testes e diff. Atualize o mapa após mudanças
+estruturais, não após edição apenas documental ou estritamente local. Siga
+`docs/GRAPHIFY.md`: o índice nunca substitui a confirmação no código. Não ative
+modo estrito, hooks, watch nem extração semântica neste projeto.

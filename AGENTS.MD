@@ -30,9 +30,15 @@ Não retornar para a API Sync + ThreadPool sem uma justificativa técnica docume
 
 ## Graphify
 
-- Antes de qualquer implementação ou revisão de código, fazer ao menos uma
-  consulta pequena e focada no índice local conforme `docs/GRAPHIFY.md`.
-- Depois de uma alteração validada, atualizar incrementalmente o índice.
+- Consultar o índice conforme `docs/GRAPHIFY.md` quando a tarefa atravessar
+  módulos, envolver arquitetura/segurança/banco/integração, atingir código
+  desconhecido ou tiver impacto incerto.
+- Em correções pequenas e localizadas, com arquivos e dependências já
+  conhecidos, abrir diretamente código, testes e diff; não gastar uma consulta
+  Graphify apenas para cumprir ritual.
+- Atualizar incrementalmente o índice depois de alterações estruturais ou que
+  mudem relações entre módulos. Edições apenas documentais ou locais não exigem
+  nova extração.
 - O grafo é auxiliar e pode estar desatualizado. Antes de editar, confirmar tudo
   nos arquivos reais, no diff e nos testes.
 - Usar somente extração local `--code-only`; não ativar backend semântico, modo
