@@ -2,67 +2,112 @@
 
 ## Visão geral
 
-O sistema possui duas partes desacopladas:
-
 ```text
-Aplicação web → banco/filas de tarefas → Worker fiscal → Receita PR
-                                      ← status, PDF/XML e logs ←
+Web Next.js → PostgreSQL/fila → Worker Playwright → Receita PR
+        ↑         status/nota/metadados         ↓
+        └────────── documentos (Storage futuro) ┘
 ```
 
-A aplicação web cadastra emitentes, clientes, produtos e distribuições. Ela gera tarefas de emissão; o Worker é responsável por executá-las no sistema fiscal. A integração automática entre as duas partes ainda não foi ligada.
+O Web é a interface operacional. O banco é a fonte de verdade e separa os
+processos. O Worker é persistente e pode rodar em outra máquina/rede. Ele não
+deve executar dentro de uma função Vercel.
+
+## Web e domínio
+
+O Web mantém emitentes, clientes, produtos, regras fiscais, preços,
+distribuições, lotes, tarefas e notas. Cliente ↔ emitente é N:N e a seleção é
+gravada na tarefa. O preço padrão é produto + cliente. Regras fiscais são
+reutilizáveis, associadas ao produto e preservadas no item da tarefa.
+
+Cada envio de distribuição cria um lote idempotente, numerado e usado também
+como recorte do roteiro do motorista. A Server Action valida tamanho, UUIDs,
+cadastros fiscais e relações antes de gravar tudo em transação.
+
+Ao final da transação cada tarefa recebe, no mesmo comando:
+
+- `contrato_versao=1`;
+- `payload_worker` JSONB imutável;
+- `payload_hash` SHA-256 da representação JSONB persistida.
+
+Isso impede que uma mudança posterior de cadastro altere silenciosamente uma
+tarefa fiscal já preparada.
 
 ## Worker fiscal
 
-O Worker usa exclusivamente Playwright Async:
-
 ```text
-1 Chromium Browser
-    ├── BrowserContext da tarefa A → Page A
-    ├── BrowserContext da tarefa B → Page B
-    └── BrowserContext da tarefa C → Page C
+1 Chromium
+  ├─ BrowserContext tarefa A → Page A
+  ├─ BrowserContext tarefa B → Page B
+  └─ BrowserContext tarefa C → Page C
 ```
 
-Cada `BrowserContext` é exclusivo de uma tarefa. Cookies, local storage e a sessão autenticada nunca são compartilhados entre emitentes.
+O Worker usa apenas Playwright Async. Cada contexto tem cookies, storage e
+sessão próprios. `asyncio.gather()` isola resultados e um semáforo limita a
+concorrência a no máximo 3 no modo atual.
 
-`asyncio.gather()` coordena as tarefas; cada falha vira um `ResultadoProcessamento` próprio. A concorrência pode ser limitada por `MAX_CONCORRENCIA` para adequar o consumo de memória da máquina/servidor.
+Existem duas fontes:
 
-Não usar `sync_playwright()` com browser compartilhado entre threads. Essa abordagem já causou `greenlet.error: Cannot switch to a different thread`.
+- `arquivo`: demonstração/smoke local com JSON;
+- `banco`: fila real por `worker/src/fonte_tarefas.py`.
 
-## Fluxo fiscal no estado atual
+No banco, `fiscal.reservar_tarefas_worker` usa `FOR UPDATE SKIP LOCKED`, muda a
+tarefa para `PROCESSANDO` e devolve um token exclusivo. O Worker verifica o
+hash antes do navegador, resolve a credencial apenas no ambiente protegido,
+renova o lease e usa token fencing em todas as transições.
 
-`src/auth.py` e `src/flows/emissao.py` já usam API Async. No ambiente de homologação, foi validado ao vivo o preenchimento até a etapa posterior a Transporte, para um e dois produtos. O Worker para antes de `validar_antes_de_emitir()` e nunca clica em **Emitir**.
+### Modos da fonte banco
 
-O padrão é `AMBIENTE_EMISSAO=teste`, com o caminho NFP-e TESTES → Emissão - TESTE. Produção só poderá ser usada após validação explícita.
+1. **Ensaio sem navegador:** reserva, valida e devolve a `PENDENTE`, limpando
+   token/lease e restituindo a tentativa.
+2. **Homologação processada:** sob todas as flags explícitas, executa
+   reserva → Playwright → `EMITINDO` → XML `cStat=100` → registro transacional
+   de nota e tarefa `EMITIDA`.
 
-Ainda faltam o reconhecimento da tela final de resumo/validação, emissão, download de PDF/XML, cancelamento e a integração real com a fila.
+Contrato/hash/credencial inválidos vão para `AGUARDANDO_CONFERENCIA`. Lease
+vencido ou incerteza depois do clique fiscal não volta automaticamente à fila.
 
-## Modelo de domínio
+## Travas fiscais
 
-Uma tarefa de emissão deve guardar a escolha efetiva de emitente e cliente, além dos itens e valores. A regra de produto aprovada é relação N:N:
+- `AMBIENTE_EMISSAO=teste`;
+- host HTTPS exato `homologacao.nfae.fazenda.pr.gov.br` revalidado no clique;
+- `HEADLESS=false` para o ensaio humano;
+- navegação, preenchimento e emissão exigem flags separadas;
+- banco exige `TESTAR_INTEGRACAO_BANCO`, URL TLS e `WORKER_ID`;
+- `PROCESSAR_FILA_BANCO` exige todas as travas anteriores;
+- primeiro ensaio conectado usa concorrência 1; teto técnico atual é 3.
 
-```text
-Emitente A ──┐
-             ├── Cliente X
-Emitente B ──┘
-```
+## Persistência e migrações
 
-O código usa `cliente_emitentes`, `distribuicoes.emitenteId` e
-`tarefas.emitenteId`. A migração `0001_emitente_por_tarefa.sql` foi aplicada
-ao banco de teste em 22/08; ela copiou o vínculo legado de
-`clientes.emitente_id`, criou as relações N:N e preencheu os registros de
-teste. O campo legado é preservado temporariamente para auditoria; não deve
-ser usado pela aplicação nova.
+As migrações `0001`–`0009` estão ativas no banco de teste. Destaques:
 
-O preço padrão é por **produto + cliente/mercado**, independentemente do emitente. A distribuição pode substituir esse preço em uma promoção, e o comportamento atual salva o último preço usado como padrão do par.
+- `0001`: relação N:N e emitente por distribuição/tarefa;
+- `0002`–`0006`: regras fiscais, lotes, credencial por referência,
+  identificador NFP-e e numeração operacional;
+- `0007`: tentativas, lease e reserva atômica;
+- `0008`: idempotência, snapshot/hash, token de reserva, protocolo,
+  unicidades e revogação de `EXECUTE` público;
+- `0009`: correção do retorno `reserva_token` da função.
 
-## Agendamento futuro
+As 8 tarefas antigas sem lote são inelegíveis deliberadamente.
 
-O requisito operacional é que as tarefas pendentes sejam executadas automaticamente entre 00:00 e 06:00, não apenas aceitas quando alguém abre o Worker nesse intervalo. A implementação deverá ter um agendador que acorde o Worker, busque as tarefas elegíveis, respeite a janela e registre o resultado. Definir antes a zona horária operacional, política de repetição e tratamento de tarefa que não terminar dentro da janela.
+## Segurança
 
-## Segurança e operação
+O Web possui sessão administrativa HMAC curta, bloqueio por inatividade,
+proteção das Server Actions e cabeçalhos defensivos. É uma etapa inicial, não
+uma solução multiusuário. Credenciais fiscais ficam no Worker e o Web guarda
+somente uma referência. O banco do Worker deverá usar papel próprio com
+privilégios mínimos; a URL do proprietário do Web não deve ir para a VM.
 
-- Não colocar credenciais no código, logs, documentos ou commits.
-- Não versionar `.env`.
-- Dados fiscais reais e emissão em produção exigem conferência humana até a fase de validação estar concluída.
-- `INSPECIONAR`/`page.pause()` não pode bloquear execução headless.
-- PDFs/XMLs e logs deverão retornar ao armazenamento da aplicação após a integração com o Worker.
+XML/DANFE são validados e salvos localmente com permissões restritas. Ainda
+faltam Storage privado com URL assinada, política de retenção, autorização por
+papéis/tenant, scheduler e alertas. Produção permanece bloqueada.
+
+## Implantação proposta
+
+- Web: Vercel ou serviço equivalente;
+- PostgreSQL/Storage: serviço gerenciado;
+- Worker: VM Linux persistente (Oracle é candidata para o piloto, ainda não
+  implantada), com Chromium, scheduler, supervisão e diretório privado.
+
+Consulte `DEPLOYMENT.md`, `SECURITY.md`, `CONTRATO-WEB-WORKER.md` e
+`ROADMAP.md` para os gates operacionais.

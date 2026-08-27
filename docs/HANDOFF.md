@@ -1,8 +1,266 @@
 # Handoff — Estado Atual
 
-## Atualização de contexto — 22/08/2026
+## Estado autoritativo — 26/08/2026
 
-O commit atual é `9224655` (`navegacao worker multicliente funcionando, dados hardcoded`). O teste/demonstração mais recente confirmou preenchimento em homologação com múltiplos contextos, sem clicar em **Emitir**. A carga local (transmissão e outros programas) afetou a velocidade, mas falhas continuaram isoladas por contexto.
+> Esta seção substitui afirmações de estado das continuações históricas abaixo.
+> O restante do arquivo preserva decisões e reconhecimentos anteriores, mas
+> contagens e “próximos passos” antigos não descrevem mais o código atual.
+
+### Entregue no código
+
+- Web responsivo com cadastros, distribuição idempotente por lote, tarefas,
+  notas, roteiro de motorista e relatórios operacionais.
+- Sessão administrativa HMAC, bloqueio por inatividade, Server Actions
+  protegidas, validação de entrada e cabeçalhos de segurança.
+- Migrações `0001`–`0009` aplicadas no banco de teste. `0008` adiciona
+  snapshot/hash, idempotência, token, protocolo e unicidades; `0009` corrige o
+  retorno ambíguo de `reserva_token`. `EXECUTE` público foi revogado.
+- Snapshot da tarefa gravado atomicamente: versão, payload e SHA-256 entram no
+  mesmo comando, compatível com a constraint da migration `0008`.
+- Worker Async com 1 Browser e até 3 contextos; fonte banco ligada ao `main.py`,
+  pool TLS, reserva atômica, token fencing, heartbeat e transições seguras.
+- Modo ensaio reserva/valida e devolve a `PENDENTE`, limpando lease/token e
+  restituindo a tentativa. Falha de contrato/hash/credencial vai para
+  `AGUARDANDO_CONFERENCIA`.
+- Modo processado de homologação liga banco → Playwright → `EMITINDO` → XML
+  `cStat=100` → nota + tarefa `EMITIDA`. Resultado incerto não ganha retry.
+- XML/DANFE são baixados e validados; arquivos ficam locais e privados. Storage
+  remoto ainda não existe.
+
+### Evidências atuais
+
+- Worker: **145 testes passando**.
+- Web: **64 testes em 10 arquivos passando**.
+- `npx tsc --noEmit`, `npm run build` e `git diff --check` passaram.
+- `npm audit --omit=dev`: 0 vulnerabilidades conhecidas.
+- Banco: migrações sincronizadas, canal TLS/fila OK e 0 reservas elegíveis.
+- `db:verify-integration` e `db:verify-security` passaram em 26/08; ainda não
+  existe `WORKER_DATABASE_URL` dedicada no `.env` local.
+- Dados: 2 clientes ativos/incompletos; 1 emitente ativo/incompleto e sem
+  referência; 3 produtos completos; 8 tarefas antigas sem lote; 5 lotes.
+
+### Continuação autônoma — prontidão e menor privilégio
+
+- A Home ganhou checklist de preparação fiscal com links de um toque para
+  emitentes, clientes e produtos pendentes. CNPJ/CEP/IE usam exatamente os
+  mesmos validadores do salvamento, incluindo dígitos verificadores do CNPJ.
+- Emitentes e clientes mostram em cada cartão o que falta para gerar tarefas.
+- A tela Distribuição filtra produtos fiscalmente incompletos e não abre o
+  formulário quando nenhum cliente está pronto, evitando trabalho descartado.
+- `error.tsx` e `loading.tsx` oferecem recuperação segura e feedback mobile em
+  falha ou rede lenta; nenhum erro interno/banco é mostrado ao usuário.
+- `WORKER_ID` e formato de `WORKER_DATABASE_URL` foram endurecidos sem incluir a
+  URL em mensagens. O verificador do canal agora responde JSON sanitizado.
+- `scripts/verificar_privilegios_banco.py` comprova privilégios obrigatórios e
+  rejeita acesso excessivo, inclusive leitura de login/senha legados.
+- `web/scripts/provisionar-worker-role.sql.template` concede somente leitura e
+  colunas de escrita necessárias; continua não aplicado e não contém senha.
+- Inspeção visual mobile concluída em viewport 390×844: checklist, bloqueio da
+  Distribuição, alvos de toque e barra inferior ficaram legíveis e sem rolagem
+  horizontal. Ainda convém repetir em celular físico no piloto.
+- A primeira versão do checklist abriu quatro consultas extras e chegou a 71 s
+  no ambiente local. Os campos de prontidão foram consolidados em um único
+  round-trip sem credenciais; a Home voltou a HTTP 200 em ~0,95 s no ensaio
+  local.
+
+### Próximo gate
+
+1. Completar um cliente e um emitente no Web.
+2. Criar uma distribuição nova e rodar `npm run db:verify-integration`.
+3. Ensaio da fonte banco com processamento desligado, concorrência 1; esperado:
+   reserva, validação e retorno a `PENDENTE`.
+4. Depois, com autorização explícita, processamento completo em homologação
+   visível de uma tarefa; conferir nota, metadados e arquivos.
+5. Só então testar até 3 contextos e avançar para Storage/scheduler/VM.
+
+### Comandos de validação
+
+```powershell
+cd web
+npm test
+npx tsc --noEmit
+npm run build
+npm audit --omit=dev
+npm run db:verify-integration
+npm run db:verify-security
+
+# Antes de aplicar 0008 em outro banco:
+npm run db:verify-pre-0008
+npm run db:migrate
+
+cd ..\worker
+.\.venv\Scripts\python.exe -m pytest tests -v
+.\.venv\Scripts\python.exe -m compileall main.py src scripts tests
+.\.venv\Scripts\python.exe -m scripts.verificar_canal_banco --env-file .env
+.\.venv\Scripts\python.exe -m scripts.verificar_privilegios_banco --env-file .env
+```
+
+Não executar o script de canal pelo caminho direto: ele deve ser chamado como
+módulo para que `src` seja resolvido corretamente.
+
+### Travas que não podem ser relaxadas
+
+Ambiente `teste`; host HTTPS exato revalidado no clique; navegador visível no
+primeiro ensaio; flags separadas de navegação, preenchimento e emissão; fonte
+banco exige integração, URL e Worker ID; processamento exige todas as flags;
+primeiro ciclo conectado usa concorrência 1 (teto técnico 3); lease vencido e
+resultado pós-clique incerto sempre exigem conferência humana. Produção segue
+bloqueada.
+
+---
+
+## Histórico de continuações
+
+## Revisão de segurança — 25/08/2026
+
+Foi concluída uma varredura de segurança no Web, no contrato Web → Worker,
+na configuração do Worker e nas dependências. Alterações principais:
+
+- `web/src/proxy.ts` cria uma trava Basic Auth provisória em produção e fecha
+  o acesso com `503` quando as variáveis obrigatórias não estão configuradas;
+- `next.config.ts` aplica CSP e cabeçalhos contra iframe, interpretação de
+  conteúdo e uso indevido de recursos do dispositivo;
+- Server Actions agora validam UUIDs, datas, comprimentos, números finitos,
+  limites de volume, duplicidades e relações antes de gravar;
+- URLs de PDF/XML são aceitas somente quando HTTPS, bloqueando esquemas como
+  `javascript:` e `data:`;
+- o Web deixou de coletar, gravar e projetar login/senha fiscal. Emitentes
+  guardam apenas `credencial_referencia`, resolvida futuramente no Worker;
+- a migração `0004_credencial_fora_do_web.sql` foi aplicada e validada no
+  banco de teste: coluna e índice único presentes; 1 emitente preservado e 0
+  referências configuradas. As colunas antigas continuam temporariamente no
+  banco de teste, mas não são lidas/escritas pela aplicação;
+- o contrato v1 rejeita payloads excessivos/adulterados, UUIDs inválidos,
+  `NaN`/infinito, opções fiscais desconhecidas e mais de 200 itens;
+- o Worker só aceita a URL HTTPS oficial da Receita/PR, limita clientes e
+  concorrência, neutraliza injeção de linhas em logs e restringe permissões
+  de logs/screenshots quando o sistema operacional permite;
+- `npm audit --omit=dev`: 0 vulnerabilidades conhecidas de produção.
+
+Validação final desta rodada: **44 testes Web**, **61 testes Worker**,
+`tsc --noEmit`, build de produção e `git diff --check` passaram. O fluxo
+Playwright e seus seletores não foram alterados.
+
+Riscos que ainda bloqueiam produção: substituir Basic Auth por autenticação
+individual/autorização; migrar e remover as colunas legadas de credencial;
+RLS/menor privilégio; Storage privado com URLs assinadas; rate limiting/WAF;
+retenção de artefatos; lease/idempotência da emissão. Checklist completo em
+`docs/SECURITY.md`.
+
+Também foi criado o produtor interno v1 no Web: ele projeta uma tarefa
+`PENDENTE`, normaliza CNPJ/CEP, exige todos os campos fiscais e fixa
+`ambiente: teste`. Não é Server Action pública e ainda não é consumido pelo
+Worker. A migração `0005_identificador_emitente_nfpe.sql` adiciona o valor da
+opção do emitente sem segredo e foi aplicada ao banco de teste; o registro
+existente permanece pendente até o reconhecimento humano.
+
+Próximo código que não depende de novos seletores: estados, tentativas e lease
+atômica. Próximo passo humano no site fiscal: preencher os identificadores dos
+emitentes e reconhecer a tela final em homologação sem clicar em **Emitir**.
+
+## Continuação — tela final e downloads reconhecidos em 25/08/2026
+
+- Após Transporte, **Avançar** leva ao Resumo; o botão final tem nome visível
+  `Emitir`.
+- Após emissão manual em homologação, foram observados `Baixar XML` e
+  `Visualizar DANFE`. O segundo baixa diretamente um PDF chamado
+  genericamente `DANFE.pdf`.
+- `baixar_documentos()` agora usa `page.expect_download()` e botões por role
+  + nome exato; XML e DANFE passam a ser salvos com nome próprio baseado na
+  tarefa. O `BrowserContext` aceita downloads explicitamente.
+- O modo padrão segue sem emissão. Um modo controlado foi ligado ao `main.py`
+  depois desta observação; ainda faltam seletor/texto da resposta
+  autorizada/rejeitada e os dados do Resumo para que sucesso não seja inferido
+  apenas pela existência de botões/downloads.
+- Validação desta continuação: **63 testes Worker**, `compileall` e
+  `git diff --check` passaram.
+
+## Continuação — emissão controlada pronta para teste
+
+- `TESTAR_EMISSAO_HOMOLOGACAO=true` liga o circuito
+  preenchimento → conferência humana → Emitir → XML → DANFE.
+- Há bloqueio em configuração e no instante do clique: ambiente precisa ser
+  `teste`, host precisa ser exatamente o da homologação e `HEADLESS=false`.
+  A emissão de homologação aceita até 3 clientes/contextos simultâneos, com
+  `MAX_CONCORRENCIA=3`.
+- Downloads inválidos, vazios, acima de 20 MB ou com assinatura incompatível
+  são recusados e removidos.
+- O navegador permanece aberto após o download para captura do status
+  Autorizada/Rejeitada. Passo a passo em
+  `docs/TESTE-WORKER-HOMOLOGACAO.md`.
+- A autorização observada ao vivo é `<span class="autorizada">AUTORIZADA</span>`.
+  O Worker agora exige classe + texto exato antes de iniciar XML/DANFE; não
+  infere mais sucesso apenas pela presença dos botões de download.
+- Teste ao vivo em 25/08/2026: emissão em homologação autorizada, XML e DANFE
+  capturados com sucesso. Não há mais prompt antes do clique: a flag explícita
+  de homologação e as travas técnicas autorizam o teste. Após os downloads, o
+  contexto fecha automaticamente.
+- Sem `AUTORIZADA`, o Worker não baixa documentos e salva HTML + captura local
+  de diagnóstico na pasta ignorada `worker/downloads/`, sem incluir o conteúdo
+  fiscal no log.
+- A nomenclatura local de XML/DANFE agora usa tipo, nome curto do mercado (ou
+  razão social), emissor, número da distribuição e data. `0006` adiciona o
+  contador sequencial dos lotes e `tarefas.lote_id`, para que o número oficial
+  venha do banco e não seja inventado no Worker. A migração foi aplicada e
+  verificada: 5 lotes numerados, colunas presentes e 8 tarefas pendentes
+  antigas sem lote preservadas para revisão; polling segue desligado para elas.
+  No teste local A/B/C, `CLIENTE_X_NOME_EMITENTE` identifica corretamente o
+  emissor de cada contexto sem armazenar segredo no Web.
+- O cadastro Web de mercados passou a exigir todos os dados fiscais hoje
+  confirmados e ganhou edição dos registros existentes.
+- O cadastro de emitentes também exige CNPJ, IE, referência da credencial e
+  identificador NFP-e; registros existentes podem ser completados em
+  `/emitentes`, sem guardar login ou senha no Web.
+- Validação local final: **77 testes Worker**, **46 testes Web**, `compileall`,
+  `tsc --noEmit`, `git diff --check` e
+  build de produção passaram.
+
+Próximo gate: executar uma emissão em homologação seguindo o roteiro. Somente
+depois do resultado real implementar polling/reserva atômica do banco e envio
+de documentos ao Storage, para não misturar diagnóstico do Playwright com o
+da integração distribuída.
+
+## Integração Web → banco → Worker — fundação preparada
+
+- A migração `0007_fila_worker_lease.sql` cria tentativas, lease, erro
+  sanitizado, índice de fila e `fiscal.reservar_tarefas_worker`.
+- `worker/src/fonte_tarefas.py` reserva tarefas e projeta os joins do banco no
+  contrato v1. A biblioteca `asyncpg` só é importada quando a fonte é usada.
+- A fonte ainda não está ligada ao `main.py`/Playwright: primeiro aplicar a
+  migração e executar uma reserva/leitura de homologação sem emitir; então
+  implementar o retorno de status e Storage.
+- Somente `PENDENTE` com `lote_id` é elegível. Reserva expirada não é repetida
+  automaticamente, pois a Receita pode ter autorizado a nota antes da queda.
+- Validação local: **79 testes Worker**, **46 testes Web**, `tsc --noEmit` e
+  `git diff --check` passaram. Instalar `asyncpg==0.30.0` no venv antes do
+  primeiro teste conectado.
+
+## Continuação — ensaio controlado da fila
+
+- O `main.py` ganhou o modo explícito `FONTE_TAREFAS=banco`, protegido também
+  por `TESTAR_INTEGRACAO_BANCO=true`, `WORKER_DATABASE_URL` e `WORKER_ID`.
+- Nesse modo ele reserva até o limite de concorrência, valida o contrato e
+  confirma a referência de credencial local sem exibir segredo. Não abre
+  Chromium e não emite: o status vai para `AGUARDANDO_CONFERENCIA`.
+- A próxima tarefa para teste deve ser nova, com `lote_id` e cadastro fiscal
+  completo. As oito tarefas antigas permanecem inelegíveis. Antes do primeiro
+  ensaio, colocar no `.env` do Worker uma credencial de banco exclusiva e o
+  `WORKER_ID`; nunca copiar esse valor para Git ou chat.
+- Validação local desta continuação: **80 testes Worker** e **46 testes Web**.
+- A tela Web de tarefas também exibe tentativas, validade da reserva e a
+  mensagem sanitizada retornada pelo Worker quando a tarefa está expandida.
+
+Auditoria do banco de teste, sem exibir dados: 2 clientes ativos e os 2 ainda
+estão fiscalmente incompletos; nenhum está sem vínculo de emitente. Há 1
+emitente ativo sem `credencial_referencia`/`valor_select_nfpe`, 3 produtos
+ativos completos e 8 tarefas pendentes. Portanto, o polling permanece
+desligado: primeiro corrigir os cadastros pela nova edição em `/clientes` e
+completar o emitente; tarefas antigas deverão ser revisadas antes de serem
+consideradas elegíveis.
+
+## Atualização de contexto — 24/08/2026
+
+O marco anterior `59da6cc` implementou a relação emitente por tarefa no Web. O teste/demonstração mais recente confirmou preenchimento em homologação com múltiplos contextos, sem clicar em **Emitir**. A carga local (transmissão e outros programas) afetou a velocidade, mas falhas continuaram isoladas por contexto.
 
 Decisões de domínio registradas em `docs/REUNIAO-2026-08-22.md`:
 
@@ -17,6 +275,68 @@ Decisões de domínio registradas em `docs/REUNIAO-2026-08-22.md`:
 2. O Worker ainda usa dados hardcoded para a demonstração. Priorizar contrato de tarefa + carregamento do banco/fila em vez de adicionar novos valores fixos.
 3. Confirmar visualmente o relatório após aplicar a migração. A causa de troca cancelada no KPI foi corrigida e coberta por teste unitário.
 4. Antes de ligar a emissão, reconhecer a tela final em homologação e apenas identificar (sem clicar) o botão de emitir.
+5. Não integrar Web e Worker por leitura direta improvisada. Primeiro definir e testar o contrato de tarefa, estados e reserva/retorno; ver `docs/ROADMAP.md`.
+
+### Implementado nesta rodada — 24/08/2026
+
+- Corrigida a separação entre smoke test e preenchimento: autenticação ou
+  navegação sem `tarefa_real.json` não tenta mais alterar uma tarefa ausente.
+- `CLIENTE_X_EMITENTE` deixou de ser obrigatório para login/navegação; é
+  validado com mensagem clara apenas quando há preenchimento completo.
+- `AMBIENTE_EMISSAO` agora é repassado por `main.py` para
+  `navegar_ate_emissao()`. Assim, o valor configurado controla de fato o
+  caminho de homologação/produção.
+- Atualizados `.env.example` e testes unitários. Testes do Worker: **37
+  passando**; `compileall` e `git diff --check` também passaram.
+
+Próxima implementação recomendada: documentar e implementar o contrato de
+leitura de tarefas Web → Worker, inicialmente com uma fonte local/testável e
+sem emissão real. O detalhamento por fases está em `docs/ROADMAP.md`.
+
+### Continuação — contrato e implantação proposta
+
+- Criado `worker/src/contrato_tarefa.py`: valida o contrato versionado v1 e
+  converte o payload seguro para o modelo fiscal, sem banco, navegador ou
+  credenciais.
+- Cobertos em teste: payload válido, versão desconhecida, código fiscal de
+  produto ausente, endereço ausente, referência de credencial ausente, IE
+  obrigatória e benefício fiscal sem código.
+- Testes do Worker após esta alteração: **44 passando**, sem navegador,
+  banco ou credenciais.
+- Criado `docs/DEPLOYMENT.md`: recomenda Web no Vercel e Worker persistente
+  em VM/container. Oracle Always Free é opção de piloto, sujeita a uma prova
+  de capacidade; não confundir com uma garantia de produção.
+
+### Continuação — regra fiscal reutilizável por produto
+
+- Preparada a migração `0002_regras_fiscais_reutilizaveis.sql`: cria uma
+  regra NFP-e inicial com os dados fiscais confirmados, associa os produtos
+  existentes e preserva a regra escolhida em cada item de tarefa.
+- O cadastro de produto passou a exigir código fiscal e usa automaticamente
+  a regra ativa quando houver apenas uma, reduzindo cliques no celular.
+- A listagem exibe a regra aplicada ao produto; o formulário virou uma coluna
+  no mobile e duas colunas apenas a partir de telas maiores.
+- Aplicada ao banco de teste em 24/08 junto com a migração `0003`.
+- Validação local: 25 testes do Web, `tsc --noEmit` e build de produção
+  passaram.
+
+### Continuação — roteiro profissional de entrega
+
+- Criada a página Web `/entregas`, com impressão de roteiro da **Graalys**.
+  Ela agrupa cada lote por cliente e mostra CEP, produto, quantidade e
+  troca; não há preços, subtotais ou faturamento nessa tela.
+- A migração `0003_lotes_e_endereco_entrega.sql` cria um lote por confirmação
+  de distribuição. O legado é agrupado por data apenas para manter histórico;
+  novas rodadas são exatas.
+- A página abre o lote mais recente por padrão, permite selecionar outro lote
+  e ocultar endereço/trocas antes de imprimir. Ação de imprimir usa o diálogo
+  nativo do dispositivo, inclusive em celular/tablet.
+- Validação local: 26 testes do Web, TypeScript e build de produção passaram.
+- As migrações `0002` e `0003` foram aplicadas e conferidas no banco de
+  teste: 1 regra fiscal, 5 lotes históricos e zero produto/item/
+  disponibilidade sem a referência nova.
+- Após feedback operacional, o roteiro foi simplificado: usa CEP e número
+  existente; não adiciona campos de endereço no cadastro de cliente.
 
 ### Implementado nesta rodada — 22/08/2026
 
@@ -252,7 +572,7 @@ Ambiente de TESTE (homologação) + correção de bug real
 
 O teste ao vivo de 20/08 confirmou que tentativas no ambiente fiscal normal ficam registradas no histórico do governo mesmo sem clicar em Emitir. Por isso foi criado e ligado por padrão o ambiente de homologação (NFP-e TESTES → Emissão - TESTE).
 
-src/auth.py: navegar_ate_emissao() ganhou ambiente: Literal["normal", "teste"] = "normal".
+src/auth.py: navegar_ate_emissao() ganhou ambiente: Literal["normal", "teste"] = "teste".
 
 src/config.py: adicionada AMBIENTE_EMISSAO com default "teste".
 

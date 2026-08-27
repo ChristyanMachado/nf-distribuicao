@@ -10,12 +10,14 @@ só pra provar que os 3 contextos funcionam de forma isolada e em paralelo.
 
 Quando os seletores de src/auth.py e src/flows/emissao.py estiverem prontos,
 troque `processar_uma_tarefa` para chamar o fluxo real (realizar_login →
-preencher_nota → validar_antes_de_emitir → emitir → baixar_documentos).
+preencher_nota → emitir → aguardar_autorizacao → baixar_documentos).
 """
 from __future__ import annotations
 
 import asyncio
 import logging
+import os
+import traceback
 from contextlib import nullcontext
 from dataclasses import dataclass
 from typing import Awaitable, Callable
@@ -64,8 +66,10 @@ async def _processar_uma_tarefa(
                 tarefa_id,
             )
 
-            # Cada tarefa possui sua própria sessão.
-            context = await browser.new_context()
+            # Cada tarefa possui sua própria sessão e aceita downloads
+            # iniciados pelo sistema fiscal (XML/DANFE), sem depender da UI
+            # visual de downloads do Chromium.
+            context = await browser.new_context(accept_downloads=True)
 
             logger.info(
                 "[%s] Contexto criado",
@@ -88,15 +92,23 @@ async def _processar_uma_tarefa(
             )
 
         except Exception as exc:
-            logger.exception(
-                "[%s] Falha isolada",
+            pilha = traceback.extract_tb(exc.__traceback__)
+            origem = pilha[-1] if pilha else None
+            logger.error(
+                "[%s] Falha isolada (%s%s)",
                 tarefa_id,
+                type(exc).__name__,
+                (
+                    f" em {os.path.basename(origem.filename)}:{origem.lineno}"
+                    if origem
+                    else ""
+                ),
             )
 
             return ResultadoProcessamento(
                 tarefa_id=tarefa_id,
                 sucesso=False,
-                erro=str(exc),
+                erro=f"Falha operacional isolada ({type(exc).__name__}).",
                 tipo_erro=type(exc).__name__,
             )
 
@@ -105,8 +117,8 @@ async def _processar_uma_tarefa(
                 try:
                     await context.close()
                 except Exception:
-                    logger.exception(
-                        "[%s] Erro ao fechar contexto",
+                    logger.error(
+                        "[%s] Erro ao fechar contexto do navegador",
                         tarefa_id,
                     )
 

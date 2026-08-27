@@ -19,6 +19,7 @@ from __future__ import annotations
 import logging
 import re
 from typing import Literal
+from urllib.parse import urlsplit
 
 from playwright.async_api import (
     Page,
@@ -58,10 +59,10 @@ SELETOR_MENU_NFPE_TESTES = "#menulateral412 > div:nth-child(4) > a"
 # Confirmado — "Emissão - TESTE" dentro do submenu NFP-e TESTES.
 SELETOR_MENU_EMISSAO_TESTE = "#menuLink1131"
 # Domínio de homologação é diferente do de produção (nfae.fazenda.pr.gov.br
-# -> homologacao.nfae.fazenda.pr.gov.br), inclusive sem HTTPS no exemplo
-# observado — aceitando http/https por segurança caso o site redirecione.
+# -> homologacao.nfae.fazenda.pr.gov.br). Credenciais e dados fiscais nunca
+# devem trafegar em HTTP; um downgrade agora falha de modo fechado.
 URL_EMISSAO_TESTE = re.compile(
-    r"^https?://homologacao\.nfae\.fazenda\.pr\.gov\.br/nfae/produtor/emitir/"
+    r"^https://homologacao\.nfae\.fazenda\.pr\.gov\.br/nfae/produtor/emitir/"
 )
 
 
@@ -75,6 +76,30 @@ class FalhaIdentidadeAutenticada(Exception):
 
 class FalhaNavegacaoEmissao(Exception):
     """Levantada quando a tela de emissão não é confirmada após a navegação."""
+
+
+def _pagina_login_permanece_oficial(valor: str) -> bool:
+    """Confere a origem final antes de inserir qualquer credencial.
+
+    A URL inicial já é validada pela configuração, mas uma resposta HTTP pode
+    redirecionar a Page. Conferir novamente depois de ``goto`` evita entregar
+    CPF/senha a um host adulterado por DNS, proxy ou mudança inesperada no
+    portal. A consulta e o caminho podem mudar legitimamente; a origem não.
+    """
+
+    try:
+        url = urlsplit(valor)
+        porta = url.port
+    except (TypeError, ValueError):
+        return False
+
+    return (
+        url.scheme == "https"
+        and url.hostname == "receita.pr.gov.br"
+        and porta in {None, 443}
+        and url.username is None
+        and url.password is None
+    )
 
 
 async def validar_identidade_autenticada(
@@ -138,6 +163,15 @@ async def realizar_login(
         url_base,
         wait_until="domcontentloaded",
     )
+
+    # Defesa em profundidade: ``url_base`` pode estar correto e ainda assim
+    # a navegação terminar em outra origem por redirecionamento. Não registrar
+    # a URL final, pois query strings também podem carregar identificadores.
+    if not _pagina_login_permanece_oficial(page.url):
+        raise FalhaAutenticacao(
+            f"[{credencial.cliente_id}] A página de login saiu da origem "
+            "HTTPS oficial da Receita/PR. Credenciais não foram preenchidas."
+        )
 
     logger.info(
         "[%s] Preenchendo credenciais",
@@ -214,9 +248,8 @@ async def navegar_ate_emissao(
 
     Os dois primeiros cliques (Produtor Rural, NFP-e) são idênticos nos
     dois ambientes — só o que vem depois de "NFP-e" muda. O parâmetro
-    `ambiente` decide qual caminho seguir; o padrão continua sendo
-    "normal" (comportamento já validado), então nada muda pra quem chama
-    esta função sem especificar nada.
+    `ambiente` decide qual caminho seguir; o padrão é "teste" para impedir
+    que um teste de desenvolvimento acesse produção por acidente.
     """
 
     logger.info("Navegando: Produtor Rural -> NFP-e -> %s", "Emissão" if ambiente == "normal" else "NFP-e TESTES -> Emissão - TESTE")

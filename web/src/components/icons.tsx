@@ -107,3 +107,15 @@ export function IconChart({ className }: IconProps) {
     </svg>
   );
 }
+
+export function IconTruck({ className }: IconProps) {
+  return <svg {...base} className={className}><path d="M3 6h11v11H3z"/><path d="M14 10h4l3 3v4h-7"/><circle cx="7" cy="19" r="2"/><circle cx="18" cy="19" r="2"/></svg>;
+}
+
+export function IconMore({ className }: IconProps) {
+  return <svg {...base} className={className}><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg>;
+}
+
+export function IconLock({ className }: IconProps) {
+  return <svg {...base} className={className}><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>;
+}

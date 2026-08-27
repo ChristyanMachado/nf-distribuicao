@@ -3,9 +3,8 @@
 Enquanto a migração está em andamento, este ponto de entrada executa somente
 testes controlados sobre Async Playwright: autenticação, navegação até a
 emissão e (opcionalmente) o preenchimento completo do formulário — sem
-nunca clicar em "Emitir". O fluxo fiscal completo automatizado (emissão de
-verdade) permanece desabilitado até que todas as etapas sejam validadas ao
-vivo.
+nunca emitir no ambiente normal. Uma emissão controlada em homologação pode
+ser liberada por flag explícita; produção permanece desabilitada.
 """
 
 from __future__ import annotations
@@ -13,7 +12,9 @@ from __future__ import annotations
 import asyncio
 import os
 import sys
+from time import perf_counter
 from dataclasses import replace
+from contextlib import suppress
 
 from playwright.async_api import BrowserContext
 
@@ -21,26 +22,101 @@ from src.auth import navegar_ate_emissao, realizar_login
 from src.config import Config, carregar_config, carregar_credencial
 from src.flows import emissao as fluxo_emissao
 from src.flows.emissao import Emitente, Tarefa
-from src.orquestrador import processar_tarefas_em_paralelo
+from src.fonte_tarefas import FontePostgresTarefas, FonteTarefasErro
+from src.orquestrador import (
+    processar_tarefas_em_paralelo,
+    processar_tarefas_em_paralelo_async,
+)
 from src.utils.logging import configurar_logger
 
 
 async def preencher_formulario_completo(page, tarefa: Tarefa, logger) -> None:
     """
     RF13 passos 4-10 — parte da tela de emissão (já alcançada por
-    navegar_ate_emissao) e vai até o fim de Transporte. NÃO chama
-    validar_antes_de_emitir() nem emitir() — este teste é só de
-    preenchimento, a etapa de emissão de verdade continua fora do escopo
-    até ser explicitamente decidida e testada à parte (docs/ARCHITECTURE.md
-    — "limite operacional atual").
+    navegar_ate_emissao) e vai até o fim de Transporte. A emissão continua
+    desabilitada por padrão e só é chamada posteriormente quando a flag de
+    homologação estiver explícita.
     """
-    await fluxo_emissao.aceitar_consentimento(page, logger)
-    await fluxo_emissao.selecionar_emitente(page, tarefa.emitente, logger)
-    await fluxo_emissao.preencher_destinatario(page, tarefa.destinatario, logger)
-    await fluxo_emissao.preencher_identificacao_operacao(page, tarefa, logger)
-    await fluxo_emissao.avancar_local_retirada(page, logger)
-    await fluxo_emissao.preencher_produtos(page, tarefa, logger)
-    await fluxo_emissao.preencher_transporte(page, tarefa, logger)
+    async def etapa(nome, chamada):
+        inicio = perf_counter()
+        try:
+            return await chamada
+        finally:
+            logger.info("[%s] Desempenho · %s: %.2fs", tarefa.tarefa_id, nome, perf_counter() - inicio)
+
+    await etapa("consentimento", fluxo_emissao.aceitar_consentimento(page, logger))
+    await etapa("emitente", fluxo_emissao.selecionar_emitente(page, tarefa.emitente, logger))
+    await etapa("destinatário", fluxo_emissao.preencher_destinatario(page, tarefa.destinatario, logger))
+    await etapa("operação", fluxo_emissao.preencher_identificacao_operacao(page, tarefa, logger))
+    await etapa("retirada", fluxo_emissao.avancar_local_retirada(page, logger))
+    await etapa("produtos", fluxo_emissao.preencher_produtos(page, tarefa, logger))
+    await etapa("transporte", fluxo_emissao.preencher_transporte(page, tarefa, logger))
+
+
+async def executar_emissao_homologacao(page, tarefa: Tarefa, config: Config, logger):
+    """Executa emissão de teste após as travas técnicas de homologação."""
+    await fluxo_emissao.emitir(
+        page,
+        tarefa,
+        logger,
+        ambiente=config.ambiente_emissao,
+    )
+    try:
+        await fluxo_emissao.aguardar_autorizacao(
+            page,
+            tarefa,
+            logger,
+            ambiente=config.ambiente_emissao,
+        )
+    except fluxo_emissao.FalhaConfirmacaoEmissao:
+        caminhos = await fluxo_emissao.salvar_diagnostico_resultado(
+            page,
+            tarefa,
+            config.download_dir,
+            logger,
+        )
+        logger.warning(
+            "[%s] RESULTADO NÃO AUTORIZADO OU NÃO CONFIRMADO; "
+            "%d artefato(s) de diagnóstico protegido(s) foram salvo(s).",
+            tarefa.tarefa_id,
+            len(caminhos),
+        )
+        raise
+    return await fluxo_emissao.baixar_documentos(
+        page,
+        tarefa,
+        config.download_dir,
+        logger,
+    )
+
+
+def preparar_tarefa_para_cliente(
+    tarefa: Tarefa | None,
+    tarefa_id: str,
+    emitente: str | None,
+    nome_emitente: str | None = None,
+) -> Tarefa | None:
+    """Associa o emitente da sessão à tarefa somente quando ela existe.
+
+    O smoke test de autenticação/navegação não carrega ``tarefa_real.json``.
+    Portanto, ele não deve exigir ``CLIENTE_X_EMITENTE`` nem tentar alterar
+    uma tarefa inexistente. O emitente passa a ser obrigatório somente no
+    modo de preenchimento completo, que de fato seleciona esse campo.
+    """
+    if tarefa is None:
+        return None
+
+    if not emitente:
+        raise RuntimeError(
+            f"[{tarefa_id}] Emitente não configurado para este cliente. "
+            "Defina CLIENTE_X_EMITENTE antes do preenchimento completo."
+        )
+
+    return replace(
+        tarefa,
+        emitente=Emitente(valor_select=emitente),
+        nome_emitente=nome_emitente or tarefa.nome_emitente,
+    )
 
 
 async def teste_autenticacao(
@@ -53,22 +129,12 @@ async def teste_autenticacao(
     """Valida Context -> Page -> login -> confirmação, sem emitir nota."""
 
     credencial = carregar_credencial(tarefa_id)
-    
-    tarefa_cliente = tarefa
-
-    if tarefa is not None:
-     if not credencial.emitente:
-        raise RuntimeError(
-            f"[{tarefa_id}] Emitente não configurado para este cliente."
-        )
-
-    tarefa_cliente = replace(
+    tarefa_cliente = preparar_tarefa_para_cliente(
         tarefa,
-        emitente=Emitente(
-            valor_select=credencial.emitente
-        ),
+        tarefa_id,
+        credencial.emitente,
+        credencial.nome_emitente,
     )
-    
     page = await context.new_page()
 
     try:
@@ -83,11 +149,15 @@ async def teste_autenticacao(
 
         if config.testar_navegacao_emissao:
             logger.info("[%s] Iniciando teste de navegação até emissão", tarefa_id)
-            await navegar_ate_emissao(page, logger)
+            await navegar_ate_emissao(
+                page,
+                logger,
+                ambiente=config.ambiente_emissao,
+            )
             logger.info("[%s] TESTE DE NAVEGAÇÃO ATÉ EMISSÃO OK", tarefa_id)
 
             if config.testar_preenchimento_completo:
-                if tarefa is None:
+                if tarefa_cliente is None:
                     raise RuntimeError(
                         f"[{tarefa_id}] TESTAR_PREENCHIMENTO_COMPLETO=true mas nenhuma "
                         "tarefa foi carregada — isso não deveria acontecer (bug em main())."
@@ -95,12 +165,31 @@ async def teste_autenticacao(
                 logger.info("[%s] Iniciando preenchimento completo (sem emitir)", tarefa_id)
                 await preencher_formulario_completo(page, tarefa_cliente, logger)
                 logger.info(
-                    "[%s] PREENCHIMENTO COMPLETO OK — parado antes de 'Emitir' "
-                    "(não implementado/testado de propósito)",
+                    "[%s] PREENCHIMENTO COMPLETO OK",
                     tarefa_id,
                 )
 
-        # Mantém a página visível brevemente para conferência manual.
+                if config.testar_emissao_homologacao:
+                    logger.warning(
+                        "[%s] TESTE CONTROLADO DE EMISSÃO EM HOMOLOGAÇÃO habilitado",
+                        tarefa_id,
+                    )
+                    documentos = await executar_emissao_homologacao(
+                        page,
+                        tarefa_cliente,
+                        config,
+                        logger,
+                    )
+                    if documentos is None:
+                        return
+                    logger.info(
+                        "[%s] EMISSÃO DE HOMOLOGAÇÃO E DOWNLOADS CONCLUÍDOS (%s)",
+                        tarefa_id,
+                        ", ".join(sorted(documentos)),
+                    )
+                    return
+
+        # Mantém a página visível brevemente apenas nos testes sem emissão.
         if not config.headless:
             await asyncio.sleep(5)
     finally:
@@ -137,6 +226,239 @@ def executar_smoke_test(config: Config, logger, tarefa: Tarefa | None) -> int:
     return int(any(not resultado.sucesso for resultado in resultados))
 
 
+async def executar_validacao_fila_banco(config: Config, logger) -> int:
+    """Reserva e valida tarefas reais sem abrir o navegador nesta primeira etapa.
+
+    Contratos válidos voltam para PENDENTE sem consumir uma tentativa. Somente
+    contrato, hash ou credencial incompatíveis vão para conferência: é o ensaio
+    seguro do canal entre máquinas, não uma habilitação de emissão automática.
+    """
+    assert config.worker_database_url and config.worker_id
+    limite = config.max_concorrencia or 1
+    try:
+        async with FontePostgresTarefas(
+            config.worker_database_url,
+            config.worker_id,
+        ) as fonte:
+            reservas = await fonte.reservar(limite)
+
+            if not reservas:
+                logger.info("Nenhuma tarefa elegível encontrada na fila do banco.")
+                return 0
+
+            falhas = 0
+            for reserva in reservas:
+                contratada = reserva.contratada
+                try:
+                    # Confirma que a referência sem segredo aponta para uma
+                    # credencial disponível somente neste Worker.
+                    carregar_credencial(contratada.credencial_referencia)
+                    await fonte.devolver_pendente_sem_processar(
+                        contratada.tarefa.tarefa_id,
+                        reserva.reserva_token,
+                    )
+                    logger.info(
+                        "[%s] Contrato do banco validado; tarefa continua pendente.",
+                        contratada.tarefa.tarefa_id,
+                    )
+                except (FonteTarefasErro, RuntimeError) as exc:
+                    logger.error(
+                        "[%s] Tarefa reservada requer conferência (%s).",
+                        contratada.tarefa.tarefa_id,
+                        type(exc).__name__,
+                    )
+                    falhas += 1
+                    try:
+                        await fonte.registrar_status(
+                            contratada.tarefa.tarefa_id,
+                            reserva.reserva_token,
+                            "AGUARDANDO_CONFERENCIA",
+                            mensagem="Credencial local ausente ou tarefa requer revisão.",
+                        )
+                    except FonteTarefasErro:
+                        logger.error(
+                            "[%s] Não foi possível devolver a tarefa para conferência.",
+                            contratada.tarefa.tarefa_id,
+                        )
+            return int(falhas > 0)
+    except FonteTarefasErro as exc:
+        logger.error("Integração com banco falhou (%s).", type(exc).__name__)
+        return 1
+
+
+async def _manter_reserva_ativa(
+    fonte: FontePostgresTarefas,
+    tarefa_id: str,
+    reserva_token: str,
+    logger,
+) -> None:
+    """Heartbeat silencioso: uma tela lenta não perde a posse da tarefa."""
+    while True:
+        await asyncio.sleep(120)
+        try:
+            await fonte.renovar_reserva(tarefa_id, reserva_token)
+        except FonteTarefasErro:
+            # Uma indisponibilidade curta não cancela o lease original de 15
+            # minutos. A conclusão continua protegida pelo token e falhará
+            # fechada se a posse realmente tiver expirado.
+            logger.warning(
+                "[%s] Não foi possível renovar a reserva nesta tentativa.",
+                tarefa_id,
+            )
+
+
+async def executar_fila_banco_homologacao(config: Config, logger) -> int:
+    """Processa até três tarefas do banco, exclusivamente em homologação.
+
+    O token de reserva acompanha todas as mudanças de estado. Falhas depois
+    de entrar em EMITINDO nunca voltam automaticamente à fila, pois o clique
+    pode ter chegado à Receita mesmo quando a resposta não voltou ao Worker.
+    """
+    assert config.worker_database_url and config.worker_id
+    limite = min(config.max_concorrencia or 1, 3)
+
+    try:
+        async with FontePostgresTarefas(
+            config.worker_database_url,
+            config.worker_id,
+        ) as fonte:
+            reservas = await fonte.reservar(limite)
+            if not reservas:
+                logger.info("Nenhuma tarefa elegível encontrada na fila do banco.")
+                return 0
+
+            por_id = {
+                reserva.contratada.tarefa.tarefa_id: reserva for reserva in reservas
+            }
+
+            async def processar_reserva(
+                tarefa_id: str,
+                context: BrowserContext,
+            ) -> None:
+                reserva = por_id[tarefa_id]
+                contratada = reserva.contratada
+                entrou_em_emissao = False
+                page = None
+                heartbeat = asyncio.create_task(
+                    _manter_reserva_ativa(
+                        fonte,
+                        tarefa_id,
+                        reserva.reserva_token,
+                        logger,
+                    )
+                )
+                try:
+                    if contratada.ambiente != "teste" or config.ambiente_emissao != "teste":
+                        raise RuntimeError("Contrato não pertence à homologação.")
+
+                    credencial = carregar_credencial(
+                        contratada.credencial_referencia
+                    )
+                    if not credencial.identidade_esperada:
+                        raise RuntimeError(
+                            "Identidade esperada não configurada para a credencial."
+                        )
+                    if (
+                        not credencial.emitente
+                        or credencial.emitente
+                        != contratada.tarefa.emitente.valor_select
+                    ):
+                        raise RuntimeError(
+                            "Credencial e emitente da tarefa não foram vinculados."
+                        )
+
+                    page = await context.new_page()
+                    await realizar_login(
+                        page,
+                        config.sistema_fiscal_url,
+                        credencial,
+                        logger,
+                    )
+                    await navegar_ate_emissao(page, logger, ambiente="teste")
+                    await preencher_formulario_completo(
+                        page,
+                        contratada.tarefa,
+                        logger,
+                    )
+                    await fonte.registrar_status(
+                        tarefa_id,
+                        reserva.reserva_token,
+                        "EMITINDO",
+                        mensagem="Formulário conferido; emissão em homologação iniciada.",
+                    )
+                    entrou_em_emissao = True
+                    documentos = await executar_emissao_homologacao(
+                        page,
+                        contratada.tarefa,
+                        config,
+                        logger,
+                    )
+                    if not documentos:
+                        raise RuntimeError("Documentos fiscais não foram baixados.")
+                    metadados = fluxo_emissao.extrair_metadados_xml(
+                        documentos["xml_path"]
+                    )
+                    await fonte.registrar_emissao_autorizada(
+                        tarefa_id,
+                        reserva.reserva_token,
+                        chave_acesso=metadados.chave_acesso,
+                        numero=metadados.numero,
+                        protocolo=metadados.protocolo,
+                    )
+                    logger.info(
+                        "[%s] Autorização registrada no banco; documentos locais protegidos.",
+                        tarefa_id,
+                    )
+                except Exception as exc:
+                    destino = (
+                        "AGUARDANDO_CONFERENCIA" if entrou_em_emissao else "ERRO"
+                    )
+                    mensagem = (
+                        "Resultado fiscal incerto; confira a Receita antes de qualquer nova tentativa."
+                        if entrou_em_emissao
+                        else "Falha antes da emissão; revise configuração, cadastro ou portal."
+                    )
+                    try:
+                        await fonte.registrar_status(
+                            tarefa_id,
+                            reserva.reserva_token,
+                            destino,
+                            mensagem=mensagem,
+                        )
+                    except FonteTarefasErro:
+                        logger.error(
+                            "[%s] Falha também ao registrar o estado seguro da tarefa.",
+                            tarefa_id,
+                        )
+                    raise RuntimeError(
+                        f"Processamento fiscal interrompido ({type(exc).__name__})."
+                    ) from None
+                finally:
+                    heartbeat.cancel()
+                    with suppress(asyncio.CancelledError):
+                        await heartbeat
+                    if page is not None:
+                        try:
+                            await page.close()
+                        except Exception:
+                            logger.warning(
+                                "[%s] A página não fechou normalmente; o contexto será encerrado.",
+                                tarefa_id,
+                            )
+
+            resultados = await processar_tarefas_em_paralelo_async(
+                tarefas_ids=list(por_id),
+                processar_tarefa=processar_reserva,
+                logger=logger,
+                headless=config.headless,
+                max_concorrencia=limite,
+            )
+            return int(any(not resultado.sucesso for resultado in resultados))
+    except FonteTarefasErro as exc:
+        logger.error("Integração com banco falhou (%s).", type(exc).__name__)
+        return 1
+
+
 def main() -> int:
     config = carregar_config()
     logger = configurar_logger(config.log_dir)
@@ -158,6 +480,17 @@ def main() -> int:
             "Defina SMOKE_TEST=true para testar somente a autenticação."
         )
         return 2
+
+    if config.fonte_tarefas == "banco":
+        if config.processar_fila_banco:
+            logger.warning(
+                "FONTE_TAREFAS=banco — processando fila exclusivamente em homologação"
+            )
+            return asyncio.run(executar_fila_banco_homologacao(config, logger))
+        logger.info(
+            "FONTE_TAREFAS=banco — validando contratos sem abrir o navegador"
+        )
+        return asyncio.run(executar_validacao_fila_banco(config, logger))
 
     tarefa: Tarefa | None = None
     if config.testar_preenchimento_completo:

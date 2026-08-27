@@ -15,6 +15,62 @@
       "when": 1787485482845,
       "tag": "0001_emitente_por_tarefa",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1787658282845,
+      "tag": "0002_regras_fiscais_reutilizaveis",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1787744682845,
+      "tag": "0003_lotes_e_endereco_entrega",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1787831082845,
+      "tag": "0004_credencial_fora_do_web",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1787917482845,
+      "tag": "0005_identificador_emitente_nfpe",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1788003882845,
+      "tag": "0006_lote_numerado_por_tarefa",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1788090282845,
+      "tag": "0007_fila_worker_lease",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1788176682845,
+      "tag": "0008_idempotencia_distribuicao_e_fila",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1788263082845,
+      "tag": "0009_corrige_retorno_reserva_worker",
+      "breakpoints": true
     }
   ]
 }

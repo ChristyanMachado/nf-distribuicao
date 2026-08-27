@@ -1,0 +1,48 @@
+-- Execute manualmente com psql conectado como proprietário do banco.
+-- Nunca preencha nem versione a senha neste arquivo.
+-- Exemplo de variáveis psql (fora do histórico do shell quando possível):
+--   \set worker_role 'nf_worker'
+--   \set worker_password 'SEGREDO_GERADO_NO_GERENCIADOR'
+
+\if :{?worker_role}
+\else
+  \echo 'Defina worker_role antes de executar.'
+  \quit
+\endif
+
+\if :{?worker_password}
+\else
+  \echo 'Defina worker_password antes de executar.'
+  \quit
+\endif
+
+CREATE ROLE :"worker_role"
+  LOGIN
+  PASSWORD :'worker_password'
+  NOSUPERUSER
+  NOCREATEDB
+  NOCREATEROLE
+  NOINHERIT
+  NOREPLICATION;
+
+GRANT CONNECT ON DATABASE :DBNAME TO :"worker_role";
+GRANT USAGE ON SCHEMA fiscal TO :"worker_role";
+GRANT USAGE ON TYPE fiscal.status_tarefa TO :"worker_role";
+
+GRANT SELECT ON TABLE fiscal.tarefas TO :"worker_role";
+GRANT UPDATE (
+  status, reservada_por, reserva_token, reserva_expira_em, tentativas,
+  iniciado_em, atualizado_em, mensagem_status, ultimo_erro, concluido_em
+) ON TABLE fiscal.tarefas TO :"worker_role";
+GRANT SELECT ON TABLE fiscal.notas TO :"worker_role";
+GRANT INSERT (
+  tarefa_id, cliente_id, numero, chave_acesso, protocolo_autorizacao,
+  status, valor_total, data_emissao
+) ON TABLE fiscal.notas TO :"worker_role";
+GRANT EXECUTE ON FUNCTION fiscal.reservar_tarefas_worker(text, integer, integer)
+  TO :"worker_role";
+
+-- Não conceder acesso às tabelas/colunas legadas que possam conter segredos.
+-- Depois de provisionar, valide usando WORKER_DATABASE_URL e o script seguro:
+-- python -m scripts.verificar_canal_banco --env-file .env
+-- python -m scripts.verificar_privilegios_banco --env-file .env

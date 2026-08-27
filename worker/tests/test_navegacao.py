@@ -73,8 +73,7 @@ def _logger_silencioso() -> logging.Logger:
 
 
 def test_navega_e_confirma_tela_de_emissao():
-    """Sem especificar ambiente, o padrão da FUNÇÃO continua sendo 'normal'
-    (o padrão do .env/Config é outra coisa — ver test_config.py)."""
+    """Sem especificar ambiente, a função preserva a homologação como padrão."""
     pagina = PaginaFalsa()
 
     asyncio.run(navegar_ate_emissao(pagina, _logger_silencioso()))
@@ -82,10 +81,11 @@ def test_navega_e_confirma_tela_de_emissao():
     assert pagina.cliques == [
         "link:Produtor Rural",
         "link:NFP-e",
-        "#menuLink1119",
+        SELETOR_MENU_NFPE_TESTES,
+        SELETOR_MENU_EMISSAO_TESTE,
     ]
     assert pagina.seletor_aguardado == SELETOR_POS_NAVEGACAO_EMISSAO
-    assert pagina.url_esperada_recebida == URL_EMISSAO
+    assert pagina.url_esperada_recebida == URL_EMISSAO_TESTE
 
 
 def test_falha_quando_tela_de_emissao_nao_carrega():
@@ -140,3 +140,14 @@ def test_falha_no_ambiente_teste_menciona_o_ambiente_na_mensagem():
                 PaginaFalsa(deve_expirar=True), _logger_silencioso(), ambiente="teste"
             )
         )
+
+
+def test_url_de_homologacao_exige_https():
+    caminho = "/nfae/produtor/emitir/emitente"
+
+    assert URL_EMISSAO_TESTE.match(
+        f"https://homologacao.nfae.fazenda.pr.gov.br{caminho}"
+    )
+    assert not URL_EMISSAO_TESTE.match(
+        f"http://homologacao.nfae.fazenda.pr.gov.br{caminho}"
+    )

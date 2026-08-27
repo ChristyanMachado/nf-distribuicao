@@ -2,6 +2,9 @@
   "_comentario": "Copie para tarefa_real.json (já no .gitignore) e preencha com dados reais pra testar contra o site de verdade. python main.py tarefa_real.json",
   "tarefa_id": "teste-real-001",
   "cliente_id": "CLIENTE_A",
+  "nome_cliente": "Nome curto do mercado",
+  "nome_emitente": "Nome do emissor",
+  "numero_distribuicao": 1,
   "emitente": {
     "valor_select": "9595048491"
   },
