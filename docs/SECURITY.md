@@ -18,6 +18,8 @@
 - cabeçalhos CSP/anti-frame/nosniff/referrer e HSTS em produção;
 - URLs de documentos restritas a hosts de Storage permitidos;
 - respostas administrativas sem cache e páginas sem indexação.
+- diagnóstico de prontidão não imprime documentos nem conexão e valida vínculo
+  apenas com emitente ativo e produto com regra fiscal ativa;
 
 Essa autenticação é adequada apenas ao piloto de um administrador. Não
 substitui identidade multiusuário, papéis, tenant e RLS.

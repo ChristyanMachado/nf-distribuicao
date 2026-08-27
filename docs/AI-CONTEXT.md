@@ -28,7 +28,7 @@ executa cada tarefa em um `BrowserContext` independente.
   idempotência do lote, snapshot `payload_worker` + SHA-256, token de reserva,
   protocolo e unicidades. `0009` corrige a ambiguidade do retorno
   `reserva_token`. `EXECUTE` público da função de reserva está revogado.
-- Validação local: **150 testes Worker**, **71 testes Web**, TypeScript e build
+- Validação local: **150 testes Worker**, **75 testes Web**, TypeScript e build
   de produção passaram.
 - Cadastros de emitente agora aceitam CPF ou CNPJ e IE opcional. A coluna
   física ainda se chama `cnpj` por compatibilidade; não criar migração apenas
@@ -55,6 +55,8 @@ executa cada tarefa em um `BrowserContext` independente.
 - O provisionamento de menor privilégio possui template SQL e auditor Python.
   O `.env` local ainda não tem `WORKER_DATABASE_URL` dedicada; os verificadores
   retornam diagnóstico JSON sanitizado, sem traceback ou segredo.
+- O verificador Web de integração agora aplica dígitos verificadores a CPF/CNPJ,
+  exige vínculo com emitente ativo e regra fiscal ativa, sem imprimir documentos.
 
 ## Estado observado no banco de teste em 27/08/2026
 

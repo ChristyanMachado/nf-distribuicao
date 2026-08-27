@@ -20,9 +20,10 @@ um portal autenticado, sem misturar autorização administrativa nesta entrega.
   banco → navegador → nota com uma tarefa real.
 - **Fases 5/6 — operação e produção:** não iniciadas.
 
-Migrações `0001`–`0009` estão ativas. Hoje existem 0 tarefas elegíveis: os 2
-clientes e o emitente de teste estão incompletos; as 8 tarefas antigas não têm
-lote e ficam fora da fila por segurança.
+Migrações `0001`–`0009` estão ativas. A verificação somente-leitura de 27/08
+confirmou 0 tarefas elegíveis: há 2 clientes ativos (1 incompleto), 1 emitente
+ativo ainda incompleto, 3 produtos prontos e nenhuma tarefa pendente. O legado
+sem lote está cancelado e permanece apenas como histórico.
 
 O Web já indica quais cadastros impedem o teste e bloqueia o formulário antes
 de o usuário montar um lote inviável. O papel mínimo do Worker possui template

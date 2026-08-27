@@ -30,7 +30,7 @@
 ### Evidências atuais
 
 - Worker: **150 testes passando**.
-- Web: **71 testes em 12 arquivos passando**.
+- Web: **75 testes em 13 arquivos passando**.
 - `npx tsc --noEmit`, `npm run build` e `git diff --check` passaram.
 - `npm audit --omit=dev`: 0 vulnerabilidades conhecidas.
 - Banco: migrações sincronizadas, canal TLS/fila OK e 0 reservas elegíveis.
@@ -65,12 +65,25 @@
   `/tarefas`: sem rolagem horizontal, abas e ações acessíveis. Nenhum cadastro
   foi alterado no ensaio visual.
 
+### Continuação autônoma — diagnóstico fiel antes do round-trip
+
+- `db:verify-integration` deixou de verificar apenas tamanho de documentos:
+  agora aplica os mesmos dígitos verificadores de CPF/CNPJ usados no Web.
+- Cliente só conta como vinculado quando existe ao menos um emitente ativo;
+  produto só está pronto quando sua regra fiscal também está ativa.
+- O script continua somente-leitura, não consulta login/senha e nunca imprime
+  CPF, CNPJ, URL ou dados fiscais; falhas retornam apenas o tipo do erro.
+- Teste real somente-leitura em 27/08: 2 clientes ativos (1 incompleto), 1
+  emitente ativo/incompleto, 3 produtos prontos, 0 tarefas pendentes, 5 lotes
+  numerados, contrato/função/remoção de `PUBLIC EXECUTE` confirmados.
+- Validação: **75 testes Web em 13 arquivos**, TypeScript e build passaram.
+
 ### Ferramenta local de contexto — Graphify
 
 - Graphify oficial `graphifyy` 0.9.50 foi instalado fora dos ambientes de
   produção, em `.tools/graphify`, com o complemento SQL.
-- O mapa `--code-only` foi atualizado após esta rodada: 112 fontes, 961 nós,
-  2.209 relações e 61 comunidades.
+- O mapa `--code-only` foi atualizado após esta rodada: 114 fontes, 970 nós,
+  2.237 relações e 57 comunidades.
 - A auditoria inicial não encontrou `.env`, downloads, logs, tarefa real ou
   caminhos pessoais nos artefatos pesquisados.
 - `.tools/` e `graphify-out/` estão ignorados. Não foram ativados backend
