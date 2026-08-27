@@ -154,9 +154,12 @@ export default async function ClientesPage({
                     emitentes: {emitentesDoCliente.map((emitente) => emitente.nome).join(", ")}
                   </p>
                 )}
+<<<<<<< HEAD
                 <p className={`mt-2 text-[12px] ${pendencias.length === 0 ? "text-[var(--field-strong)]" : "text-[var(--wheat)]"}`}>
                   {resumirPendencias(pendencias)}
                 </p>
+=======
+>>>>>>> bb1f369fe5684487fbfe4bd6b69e53ede982c47d
                 <details className="mt-3 border-t border-[var(--line)] pt-3">
                   <summary className="tap-target flex min-h-11 cursor-pointer items-center text-[13px] font-medium text-[var(--ink-soft)]">
                     Revisar ou corrigir cadastro fiscal

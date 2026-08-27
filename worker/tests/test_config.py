@@ -253,7 +253,11 @@ def test_fonte_banco_exige_trava_e_configuracao(monkeypatch):
     with pytest.raises(RuntimeError, match="WORKER_DATABASE_URL"):
         carregar_config()
 
+<<<<<<< HEAD
     monkeypatch.setenv("WORKER_DATABASE_URL", "postgresql://usuario@localhost/teste")
+=======
+    monkeypatch.setenv("WORKER_DATABASE_URL", "postgresql://teste")
+>>>>>>> bb1f369fe5684487fbfe4bd6b69e53ede982c47d
     monkeypatch.setenv("WORKER_ID", "worker-teste")
     with pytest.raises(RuntimeError, match="TESTAR_INTEGRACAO_BANCO"):
         carregar_config()
@@ -270,7 +274,11 @@ def test_processar_fila_banco_exige_fonte_e_travas_de_homologacao(monkeypatch):
         carregar_config()
 
     monkeypatch.setenv("FONTE_TAREFAS", "banco")
+<<<<<<< HEAD
     monkeypatch.setenv("WORKER_DATABASE_URL", "postgresql://usuario@localhost/teste")
+=======
+    monkeypatch.setenv("WORKER_DATABASE_URL", "postgresql://teste")
+>>>>>>> bb1f369fe5684487fbfe4bd6b69e53ede982c47d
     monkeypatch.setenv("WORKER_ID", "worker-teste")
     monkeypatch.setenv("TESTAR_INTEGRACAO_BANCO", "true")
     with pytest.raises(RuntimeError, match="TESTAR_EMISSAO_HOMOLOGACAO"):
@@ -280,7 +288,11 @@ def test_processar_fila_banco_exige_fonte_e_travas_de_homologacao(monkeypatch):
 def test_processar_fila_banco_e_permitido_so_com_homologacao_completa(monkeypatch):
     _habilitar_emissao_homologacao(monkeypatch)
     monkeypatch.setenv("FONTE_TAREFAS", "banco")
+<<<<<<< HEAD
     monkeypatch.setenv("WORKER_DATABASE_URL", "postgresql://usuario@localhost/teste")
+=======
+    monkeypatch.setenv("WORKER_DATABASE_URL", "postgresql://teste")
+>>>>>>> bb1f369fe5684487fbfe4bd6b69e53ede982c47d
     monkeypatch.setenv("WORKER_ID", "worker-teste")
     monkeypatch.setenv("TESTAR_INTEGRACAO_BANCO", "true")
     monkeypatch.setenv("PROCESSAR_FILA_BANCO", "true")
@@ -305,6 +317,7 @@ def test_repr_da_configuracao_nao_expoe_url_do_banco(monkeypatch):
     assert config.worker_database_url == segredo
     assert segredo not in texto
     assert "senha-super-secreta" not in texto
+<<<<<<< HEAD
 
 
 @pytest.mark.parametrize(
@@ -342,3 +355,5 @@ def test_worker_id_rejeita_caracteres_de_controle(monkeypatch):
 
     with pytest.raises(RuntimeError, match="WORKER_ID"):
         carregar_config()
+=======
+>>>>>>> bb1f369fe5684487fbfe4bd6b69e53ede982c47d

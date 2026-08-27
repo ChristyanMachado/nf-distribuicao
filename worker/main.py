@@ -229,9 +229,15 @@ def executar_smoke_test(config: Config, logger, tarefa: Tarefa | None) -> int:
 async def executar_validacao_fila_banco(config: Config, logger) -> int:
     """Reserva e valida tarefas reais sem abrir o navegador nesta primeira etapa.
 
+<<<<<<< HEAD
     Contratos válidos voltam para PENDENTE sem consumir uma tentativa. Somente
     contrato, hash ou credencial incompatíveis vão para conferência: é o ensaio
     seguro do canal entre máquinas, não uma habilitação de emissão automática.
+=======
+    A transição para AGUARDANDO_CONFERENCIA torna o resultado visível no Web e
+    exige ação humana antes de uma emissão: é o ensaio seguro do canal entre
+    máquinas, não uma habilitação de emissão automática.
+>>>>>>> bb1f369fe5684487fbfe4bd6b69e53ede982c47d
     """
     assert config.worker_database_url and config.worker_id
     limite = config.max_concorrencia or 1

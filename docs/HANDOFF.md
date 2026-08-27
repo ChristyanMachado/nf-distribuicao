@@ -1,5 +1,6 @@
 # Handoff — Estado Atual
 
+<<<<<<< HEAD
 ## Estado autoritativo — 26/08/2026
 
 > Esta seção substitui afirmações de estado das continuações históricas abaixo.
@@ -113,6 +114,10 @@ bloqueada.
 
 ## Revisão de segurança — 25/08/2026
 
+=======
+## Revisão de segurança — 25/08/2026
+
+>>>>>>> bb1f369fe5684487fbfe4bd6b69e53ede982c47d
 Foi concluída uma varredura de segurança no Web, no contrato Web → Worker,
 na configuração do Worker e nas dependências. Alterações principais:
 

@@ -5,103 +5,41 @@
 Contexto autoritativo para pessoas e IAs. Antes de alterar código, ler também
 `ARCHITECTURE.md`, `HANDOFF.md` e `COLABORACAO.md` e conferir o diff atual.
 
-O produto organiza distribuições diárias e automatiza NFP-e. O Web cadastra e
-gera tarefas; o banco mantém snapshots imutáveis e a fila; o Worker reserva e
-executa cada tarefa em um `BrowserContext` independente.
+O sistema organiza a distribuição de produtos e automatiza, futuramente, a emissão de NFP-e na Receita PR. A aplicação web e o Worker fiscal ainda estão integrados apenas conceitualmente.
 
-## Estado validado em 26/08/2026
+## Estado validado em 22/08/2026
 
-- Web: cadastros, distribuição por lote, tarefas, notas, roteiro de entrega e
-  relatórios operacionais; interface responsiva e fluxo diário reduzido.
-- Worker: Playwright Async, 1 Browser + até 3 contextos isolados. Login,
-  preenchimento, autorização em homologação e download de XML/DANFE já foram
-  demonstrados ao vivo. Produção permanece bloqueada.
-- A fonte de banco está ligada ao `main.py`. Com `FONTE_TAREFAS=banco` e as
-  flags de integração, o modo seguro reserva, valida e devolve a tarefa a
-  `PENDENTE`. Com `PROCESSAR_FILA_BANCO=true` e todas as travas de homologação,
-  o código liga reserva → Playwright → `EMITINDO` → XML autorizado → `EMITIDA`.
-  Esse ciclo de banco ainda não foi ensaiado com uma tarefa elegível real.
-- XML só é aceito com estrutura NF-e, chave de 44 dígitos, número, protocolo e
-  `cStat=100`. PDF precisa começar com `%PDF-`. Arquivos ficam locais e
-  privados; o Storage remoto ainda não foi implementado.
-- Migrações `0001` a `0009` estão aplicadas no banco de teste. `0008` adiciona
-  idempotência do lote, snapshot `payload_worker` + SHA-256, token de reserva,
-  protocolo e unicidades. `0009` corrige a ambiguidade do retorno
-  `reserva_token`. `EXECUTE` público da função de reserva está revogado.
-- Validação local: **145 testes Worker**, **64 testes Web**, TypeScript e build
-  de produção passaram.
-- A Home mostra um checklist fiscal calculado com as mesmas validações usadas
-  no salvamento e leva diretamente ao cadastro pendente. A Distribuição não
-  abre o formulário quando nenhum cliente/produto está pronto.
-- O checklist usa uma única consulta agregada e foi validado visualmente em
-  390×844; a Home respondeu em ~0,95 s no ensaio local após a otimização.
-- Falhas temporárias do Web exibem recuperação neutra, sem detalhes técnicos e
-  sem sugerir o reenvio cego de uma distribuição.
-- O provisionamento de menor privilégio possui template SQL e auditor Python.
-  O `.env` local ainda não tem `WORKER_DATABASE_URL` dedicada; os verificadores
-  retornam diagnóstico JSON sanitizado, sem traceback ou segredo.
+- A aplicação web já possui cadastros de emitentes, clientes e produtos; distribuição de múltiplos itens; preços por produto+cliente; tarefas; e relatórios de faturamento bruto, notas, ticket médio, rankings e gráfico.
+- O Worker usa 1 Chromium + N `BrowserContext`s independentes, Async Playwright e concorrência isolada.
+- Três fluxos concorrentes foram demonstrados ao vivo, concluindo o preenchimento em homologação. Em máquina sobrecarregada houve lentidão e uma falha isolada, sem invalidar o modelo de contextos.
+- O fluxo de homologação foi validado até depois de Transporte com uma e duas linhas de produto. Ele para antes da tela final/ação de emitir.
+- `AMBIENTE_EMISSAO=teste` é o padrão. Não executar testes de preenchimento no ambiente fiscal normal sem uma decisão consciente.
 
-## Estado real do banco de teste
+O resultado técnico detalhado e seletores reconhecidos estão em `docs/HANDOFF.md` e `worker/RECON.md`.
 
-- 2 clientes ativos, ambos com cadastro fiscal incompleto;
-- 1 emitente ativo, sem `credencial_referencia` e integração NFP-e completa;
-- 3 produtos ativos e fiscalmente completos;
-- 8 tarefas antigas `PENDENTE`, todas sem lote e inelegíveis por projeto;
-- 5 lotes numerados;
-- 0 tarefas elegíveis para o Worker;
-- canal TLS e função de reserva confirmados, sem consumir tarefa.
+## Regras de domínio confirmadas na reunião de 22/08
 
-Não corrigir tarefas antigas à força. Completar cadastros e criar uma nova
-distribuição para produzir o primeiro snapshot elegível.
+1. Emitente e cliente/mercado têm relação flexível N:N. A escolha do emitente é feita por tarefa/distribuição; não criar uma regra permanente de um emitente por cliente.
+2. O cliente precisa de nome curto de exibição e razão social/destinatário fiscal separados.
+3. O preço padrão é por produto+cliente/mercado, e não por emitente. Uma promoção pode substituir o valor em uma distribuição. Hoje o sistema usa o último preço empregado como novo padrão desse par.
+4. Relatórios operacionais mostram faturamento bruto, quantidade de notas, ticket médio, série diária e recortes por cliente/produto. Financeiro líquido, descontos e valores a pagar a produtores pertencem a módulo futuro.
+5. Tarefas pendentes devem ser processadas automaticamente na janela noturna de 00:00 a 06:00. Uma simples verificação de horário quando o usuário abre o Worker não atende ao requisito.
 
-## Contrato e estados
+## Pontos técnicos abertos
 
-- Cada confirmação de distribuição cria um lote idempotente e numerado.
-- Cada tarefa nova guarda `contrato_versao=1`, `payload_worker` imutável e
-  `payload_hash`; os três campos são gravados atomicamente.
-- A reserva retorna `tarefa_id` e um `reserva_token` único, com lease entre 60
-  e 3600 segundos. Toda renovação/transição exige o token vigente.
-- Ensaio seguro bem-sucedido: valida contrato/hash/credencial e devolve a
-  tarefa a `PENDENTE`, limpando lease/token e restituindo a tentativa.
-- Contrato, hash ou referência inválidos: `AGUARDANDO_CONFERENCIA`.
-- Incerteza depois do clique fiscal ou lease vencido nunca entra novamente em
-  retry automático; exige conferência humana para evitar nota duplicada.
-- Autorização comprovada pelo XML registra nota e tarefa na mesma transação.
-
-## Regras de domínio confirmadas
-
-1. Emitente ↔ cliente é N:N; o emitente é escolhido por tarefa/distribuição.
-2. Cliente tem nome curto operacional e razão social fiscal separados.
-3. Preço padrão é por produto + cliente, podendo ser substituído no lote.
-4. Regra fiscal é reutilizável e associada ao produto; o item guarda a
-   referência usada, sem reinterpretar tarefas antigas.
-5. Um lote representa uma distribuição e também delimita o relatório do
-   motorista, que não contém valores monetários.
-6. Relatórios atuais são operacionais. Financeiro líquido, auditoria, RH e
-   autorização multiusuário pertencem às próximas fases.
-7. O requisito futuro é processamento automático entre 00:00 e 06:00 em
-   `America/Sao_Paulo`; ainda falta scheduler persistente.
-
-## Próximo gate seguro
-
-1. Completar um cliente e um emitente no Web, sem colocar senha fiscal no Web.
-2. Criar exatamente uma nova distribuição e rodar
-   `npm run db:verify-integration`.
-3. Executar o Worker com fonte banco, processamento desligado e concorrência 1;
-   confirmar reserva, validação e retorno a `PENDENTE`.
-4. Somente com autorização explícita, ativar o processamento completo em
-   homologação, visível, com uma tarefa.
-5. Conferir status, nota, chave/número/protocolo e arquivos locais.
-6. Depois repetir com até 3 contextos e implementar Storage privado, scheduler,
-   observabilidade e papel de banco dedicado com menor privilégio.
+- A migração `web/src/db/migrations/0001_emitente_por_tarefa.sql` foi aplicada ao banco de teste em 22/08. Ela preserva `clientes.emitente_id` como legado e cria `cliente_emitentes`, `distribuicoes.emitente_id` e `tarefas.emitente_id`.
+- Após a aplicação: 1 emitente preservado, 2 relações cliente↔emitente criadas e nenhuma tarefa ou distribuição sem emitente. Os logins continuam em `fiscal.emitentes`.
+- O cálculo de "perdido em trocas" agora exclui registros vinculados a tarefas canceladas. A consulta também passou a relacionar troca, tarefa e emitente; o comportamento foi coberto por teste unitário.
+- Definir sem ambiguidade quais status entram no faturamento. Hoje a regra de código exclui somente `CANCELADA`; tarefas pendentes entram por serem valores já comprometidos na distribuição.
+- Implementar agendador, estratégia de retries, fuso operacional e tratamento de tarefas fora da janela.
+- Reconhecer resumo/validação final de homologação antes de implementar emissão, downloads e produção.
 
 ## Princípios imutáveis
 
-- Não misturar Playwright Sync e Async nem compartilhar `BrowserContext`.
-- Não colocar segredos no código, Git, logs, documentos ou banco acessível ao
-  Web; `.env` nunca é versionado.
-- Não emitir em produção sem decisão e validação humana explícitas.
-- Não repetir automaticamente uma tarefa fiscal de resultado incerto.
-- Não afirmar que algo funciona sem teste proporcional ao risco.
-- Toda mudança de arquitetura deve ser registrada.
-- Commits usam a identidade do programador; IA é ferramenta de apoio.
+- Não misturar Playwright Sync e Async.
+- Não compartilhar `BrowserContext` entre tarefas.
+- Falha de uma tarefa não pode cancelar as demais.
+- Não expor credenciais ou dados fiscais reais.
+- Não emitir de verdade sem testes e validação explícita.
+- Testar e documentar cada alteração antes do commit.
+- A autoria de commits é humana; IA é ferramenta de apoio.

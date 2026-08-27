@@ -183,11 +183,15 @@ export async function carregarDadosDistribuicao() {
         prontoParaEmissao: pronto,
       };
     }),
+<<<<<<< HEAD
     // Produto ativo mas fiscalmente incompleto não pode entrar no formulário:
     // o erro seria descoberto apenas depois de o usuário distribuir tudo.
     produtos: listaProdutos.filter(
       (produto) => Boolean(produto.codigoFiscal?.trim() && produto.regraFiscalId),
     ),
+=======
+    produtos: listaProdutos,
+>>>>>>> bb1f369fe5684487fbfe4bd6b69e53ede982c47d
     precos,
     ultimaDistribuicao: ultimoLote && produtosUltimoLote.size > 0
       ? {
@@ -296,6 +300,7 @@ export async function processarDistribuicao(input: {
           .limit(1);
         if (!semSnapshot) continue;
         const payload = await gerarContratoTarefaPendente(tarefa.id, tx);
+<<<<<<< HEAD
         const payloadJson = JSON.stringify(payload);
         await tx
           .update(tarefas)
@@ -308,6 +313,20 @@ export async function processarDistribuicao(input: {
             )`,
           })
           .where(eq(tarefas.id, tarefa.id));
+=======
+        await tx
+          .update(tarefas)
+          .set({ contratoVersao: 1, payloadWorker: payload })
+          .where(eq(tarefas.id, tarefa.id));
+        await tx.execute(sql`
+          UPDATE ${tarefas}
+          SET ${tarefas.payloadHash}=encode(
+            digest(${tarefas.payloadWorker}::text, 'sha256'),
+            'hex'
+          )
+          WHERE ${tarefas.id}=${tarefa.id}
+        `);
+>>>>>>> bb1f369fe5684487fbfe4bd6b69e53ede982c47d
       }
       return { loteId: existente.id, numeroDistribuicao: existente.numero, tarefasCriadas: tarefasExistentes.length, reutilizada: true, tarefaIds: tarefasExistentes.map((tarefa) => tarefa.id) };
     }
@@ -496,6 +515,7 @@ export async function processarDistribuicao(input: {
     }
     for (const tarefaId of tarefasDoLote) {
       const payload = await gerarContratoTarefaPendente(tarefaId, tx);
+<<<<<<< HEAD
       const payloadJson = JSON.stringify(payload);
       await tx
         .update(tarefas)
@@ -508,6 +528,20 @@ export async function processarDistribuicao(input: {
           )`,
         })
         .where(eq(tarefas.id, tarefaId));
+=======
+      await tx
+        .update(tarefas)
+        .set({ contratoVersao: 1, payloadWorker: payload })
+        .where(eq(tarefas.id, tarefaId));
+      await tx.execute(sql`
+        UPDATE ${tarefas}
+        SET ${tarefas.payloadHash}=encode(
+          digest(${tarefas.payloadWorker}::text, 'sha256'),
+          'hex'
+        )
+        WHERE ${tarefas.id}=${tarefaId}
+      `);
+>>>>>>> bb1f369fe5684487fbfe4bd6b69e53ede982c47d
     }
 
     return { loteId: lote.id, numeroDistribuicao: lote.numero, tarefasCriadas: tarefasDoLote.size, reutilizada: false, tarefaIds: [...tarefasDoLote] };

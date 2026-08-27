@@ -2,17 +2,31 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+<<<<<<< HEAD
 import type { ReactNode } from "react";
+=======
+import type { ComponentType } from "react";
+
+type Icone = ComponentType<{ className?: string }>;
+>>>>>>> bb1f369fe5684487fbfe4bd6b69e53ede982c47d
 
 export default function AppNavLink({
   href,
   label,
+<<<<<<< HEAD
   icon,
+=======
+  Icon,
+>>>>>>> bb1f369fe5684487fbfe4bd6b69e53ede982c47d
   mobile = false,
 }: {
   href: string;
   label: string;
+<<<<<<< HEAD
   icon: ReactNode;
+=======
+  Icon: Icone;
+>>>>>>> bb1f369fe5684487fbfe4bd6b69e53ede982c47d
   mobile?: boolean;
 }) {
   const caminho = usePathname();
@@ -27,7 +41,11 @@ export default function AppNavLink({
           ativo ? "text-[var(--field-strong)]" : "text-[var(--ink-soft)]"
         }`}
       >
+<<<<<<< HEAD
         <span aria-hidden="true">{icon}</span>
+=======
+        <span aria-hidden="true"><Icon className="h-5 w-5" /></span>
+>>>>>>> bb1f369fe5684487fbfe4bd6b69e53ede982c47d
         <span className="text-[10px] font-medium">{label}</span>
       </Link>
     );
@@ -44,7 +62,15 @@ export default function AppNavLink({
       }`}
     >
       <span aria-hidden="true">
+<<<<<<< HEAD
         {icon}
+=======
+        <Icon
+          className={`h-[18px] w-[18px] shrink-0 ${
+            ativo ? "text-[var(--field)]" : "text-[var(--ink-soft)]"
+          }`}
+        />
+>>>>>>> bb1f369fe5684487fbfe4bd6b69e53ede982c47d
       </span>
       {label}
     </Link>
