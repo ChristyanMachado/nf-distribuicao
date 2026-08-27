@@ -6,9 +6,13 @@ node_modules/
 
 # Python
 .venv/
+.tools/
 __pycache__/
 *.pyc
 .pytest_cache/
+
+# Índice local auxiliar (Graphify); revisar antes de qualquer compartilhamento.
+graphify-out/
 
 # Worker runtime
 worker/downloads/*

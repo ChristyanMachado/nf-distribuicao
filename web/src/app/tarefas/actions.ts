@@ -26,6 +26,7 @@ export async function listarTarefasComItens() {
       ultimoErro: tarefas.ultimoErro,
       mensagemStatus: tarefas.mensagemStatus,
       valorTotal: tarefas.valorTotal,
+      loteId: tarefas.loteId,
       numeroDistribuicao: lotesDistribuicao.numero,
       clienteNome: clientes.nome,
       emitenteNome: emitentes.nome,
@@ -65,21 +66,28 @@ export async function listarTarefasComItens() {
 
 export async function cancelarTarefa(tarefaId: string) {
   await exigirSessaoAdministrativa();
-  exigirUuid(tarefaId, "Tarefa");
-  // Só cancela se ainda estiver PENDENTE — não faz sentido cancelar algo
-  // que o worker já começou a processar ou já emitiu.
-  const canceladas = await db
-    .update(tarefas)
-    .set({
-      status: "CANCELADA",
-      mensagemStatus: "Cancelada antes do início do processamento fiscal.",
-      atualizadoEm: new Date(),
-    })
-    .where(and(eq(tarefas.id, tarefaId), eq(tarefas.status, "PENDENTE")))
-    .returning({ id: tarefas.id });
-  if (canceladas.length === 0) {
-    throw new Error("A tarefa já começou ou não está mais disponível para cancelamento.");
+  try {
+    exigirUuid(tarefaId, "Tarefa");
+    // Só cancela se ainda estiver PENDENTE — não faz sentido cancelar algo
+    // que o worker já começou a processar ou já emitiu.
+    const canceladas = await db
+      .update(tarefas)
+      .set({
+        status: "CANCELADA",
+        mensagemStatus: "Cancelada antes do início do processamento fiscal.",
+        atualizadoEm: new Date(),
+      })
+      .where(and(eq(tarefas.id, tarefaId), eq(tarefas.status, "PENDENTE")))
+      .returning({ id: tarefas.id });
+    if (canceladas.length === 0) {
+      return {
+        erro: "A tarefa já começou ou não está mais disponível para cancelamento.",
+      };
+    }
+  } catch {
+    return { erro: "Não foi possível cancelar a tarefa. Atualize a página e tente novamente." };
   }
 
   revalidatePath("/tarefas");
+  return {};
 }

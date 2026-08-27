@@ -27,3 +27,15 @@ A arquitetura atual utiliza:
 N BrowserContexts independentes.
 
 Não retornar para a API Sync + ThreadPool sem uma justificativa técnica documentada.
+
+## Graphify
+
+- Antes de qualquer implementação ou revisão de código, fazer ao menos uma
+  consulta pequena e focada no índice local conforme `docs/GRAPHIFY.md`.
+- Depois de uma alteração validada, atualizar incrementalmente o índice.
+- O grafo é auxiliar e pode estar desatualizado. Antes de editar, confirmar tudo
+  nos arquivos reais, no diff e nos testes.
+- Usar somente extração local `--code-only`; não ativar backend semântico, modo
+  estrito, watch ou hooks sem uma decisão registrada.
+- Nunca versionar ou compartilhar `graphify-out/` sem uma revisão explícita de
+  segurança.

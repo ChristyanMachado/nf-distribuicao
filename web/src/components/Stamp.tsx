@@ -9,6 +9,7 @@ const STAMP_CONFIG: Record<
   EMITIDA: { label: "Emitida", tone: "field" },
   DOCUMENTOS_ARMAZENADOS: { label: "Armazenada", tone: "field" },
   ERRO: { label: "Erro", tone: "stamp" },
+  CANCELADA: { label: "Cancelada", tone: "stamp" },
   AUTORIZADA: { label: "Autorizada", tone: "field" },
   REJEITADA: { label: "Rejeitada", tone: "stamp" },
   AGUARDANDO_EMISSAO: { label: "Aguardando", tone: "neutral" },

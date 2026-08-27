@@ -9,6 +9,12 @@
 - produção fecha quando a autenticação não está configurada;
 - Server Actions sensíveis exigem sessão novamente;
 - validação e limites para texto, UUID, CNPJ, CEP, IE, números e lote;
+- CPF/CNPJ de emitente validados por dígitos verificadores e IE opcional;
+- validações esperadas retornam feedback local, enquanto exceções internas são
+  reduzidas a mensagens genéricas sem detalhes de conexão ou SQL;
+- exclusão operacional de cliente, emitente ou produto usa desativação lógica
+  e é bloqueada diante de tarefa aberta, preservando histórico e evitando
+  processamento órfão;
 - cabeçalhos CSP/anti-frame/nosniff/referrer e HSTS em produção;
 - URLs de documentos restritas a hosts de Storage permitidos;
 - respostas administrativas sem cache e páginas sem indexação.

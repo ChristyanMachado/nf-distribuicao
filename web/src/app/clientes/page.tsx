@@ -3,7 +3,15 @@ export const dynamic = "force-dynamic";
 import Card from "@/components/Card";
 import { Label, Legend } from "@/components/Field";
 import PrimaryButton from "@/components/PrimaryButton";
-import { atualizarCliente, criarCliente, listarClientes, listarEmitentes } from "./actions";
+import FormularioComFeedback from "@/components/FormularioComFeedback";
+import {
+  atualizarCliente,
+  criarCliente,
+  desativarCliente,
+  listarClientes,
+  listarEmitentes,
+  reativarCliente,
+} from "./actions";
 import { db } from "@/db";
 import { clienteEmitentes } from "@/db/schema";
 import { pendenciasCliente, resumirPendencias } from "@/lib/prontidao-integracao";
@@ -11,6 +19,8 @@ import { pendenciasCliente, resumirPendencias } from "@/lib/prontidao-integracao
 const MENSAGENS_SALVAMENTO: Record<string, string> = {
   "cliente-criado": "Cliente cadastrado com sucesso. O formulário já está pronto para o próximo cadastro.",
   "cliente-atualizado": "Cadastro fiscal do cliente atualizado com sucesso.",
+  "cliente-desativado": "Cliente desativado. O histórico foi preservado.",
+  "cliente-reativado": "Cliente reativado e disponível novamente.",
 };
 
 export default async function ClientesPage({
@@ -27,6 +37,8 @@ export default async function ClientesPage({
   const mensagemSalvamento = parametros.salvo
     ? MENSAGENS_SALVAMENTO[parametros.salvo]
     : undefined;
+  const clientesAtivos = clientes.filter((cliente) => cliente.ativo);
+  const clientesInativos = clientes.filter((cliente) => !cliente.ativo);
 
   return (
     <div>
@@ -56,7 +68,7 @@ export default async function ClientesPage({
       )}
 
       <Card className="mt-5 p-4">
-        <form action={criarCliente} className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-3">
+        <FormularioComFeedback action={criarCliente} className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-3">
           <div className="sm:col-span-2">
             <Label htmlFor="novo-cliente-nome" required>Nome curto</Label>
             <input
@@ -127,15 +139,15 @@ export default async function ClientesPage({
               Cadastrar cliente
             </PrimaryButton>
           </div>
-        </form>
+        </FormularioComFeedback>
       </Card>
 
       <div className="mt-6">
         <p className="font-mono-tab mb-2 text-[11px] font-bold uppercase tracking-widest text-[var(--ink-faint)]">
-          Cadastrados ({clientes.length})
+          Ativos ({clientesAtivos.length})
         </p>
         <Card className="divide-y divide-[var(--line)]">
-          {clientes.map((c) => {
+          {clientesAtivos.map((c) => {
             const emitentesDoCliente = relacoes
               .filter((relacao) => relacao.clienteId === c.id)
               .map((relacao) => emitentes.find((e) => e.id === relacao.emitenteId))
@@ -161,7 +173,7 @@ export default async function ClientesPage({
                   <summary className="tap-target flex min-h-11 cursor-pointer items-center text-[13px] font-medium text-[var(--ink-soft)]">
                     Revisar ou corrigir cadastro fiscal
                   </summary>
-                  <form action={atualizarCliente} className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-3">
+                  <FormularioComFeedback action={atualizarCliente} className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-3">
                     <input type="hidden" name="clienteId" value={c.id} />
                     <div className="sm:col-span-2">
                       <Label htmlFor={`cliente-${c.id}-nome`} required>Nome curto</Label>
@@ -212,18 +224,53 @@ export default async function ClientesPage({
                         Salvar cadastro fiscal
                       </PrimaryButton>
                     </div>
-                  </form>
+                  </FormularioComFeedback>
+                  <FormularioComFeedback action={desativarCliente} className="mt-3">
+                    <input type="hidden" name="clienteId" value={c.id} />
+                    <button
+                      type="submit"
+                      className="tap-target min-h-11 text-[13px] text-[var(--stamp)]"
+                    >
+                      Desativar cliente
+                    </button>
+                  </FormularioComFeedback>
                 </details>
               </div>
             );
           })}
-          {clientes.length === 0 && (
+          {clientesAtivos.length === 0 && (
             <div className="px-4 py-8 text-center text-sm text-[var(--ink-faint)]">
               Nenhum cliente cadastrado ainda.
             </div>
           )}
         </Card>
       </div>
+
+      {clientesInativos.length > 0 && (
+        <details className="mt-5">
+          <summary className="tap-target flex min-h-11 cursor-pointer items-center text-sm font-medium text-[var(--ink-soft)]">
+            Desativados ({clientesInativos.length})
+          </summary>
+          <Card className="divide-y divide-[var(--line)]">
+            {clientesInativos.map((cliente) => (
+              <div key={cliente.id} className="flex flex-col gap-2 px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="font-medium">{cliente.nome}</p>
+                  <p className="font-mono-tab text-[12px] text-[var(--ink-faint)]">
+                    {cliente.cnpj ?? "CNPJ não informado"}
+                  </p>
+                </div>
+                <FormularioComFeedback action={reativarCliente}>
+                  <input type="hidden" name="clienteId" value={cliente.id} />
+                  <PrimaryButton type="submit" pendingText="Reativando…" className="w-full sm:w-auto">
+                    Reativar
+                  </PrimaryButton>
+                </FormularioComFeedback>
+              </div>
+            ))}
+          </Card>
+        </details>
+      )}
     </div>
   );
 }

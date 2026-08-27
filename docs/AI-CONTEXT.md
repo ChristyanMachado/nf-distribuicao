@@ -9,7 +9,7 @@ O produto organiza distribuições diárias e automatiza NFP-e. O Web cadastra e
 gera tarefas; o banco mantém snapshots imutáveis e a fila; o Worker reserva e
 executa cada tarefa em um `BrowserContext` independente.
 
-## Estado validado em 26/08/2026
+## Estado validado em 27/08/2026
 
 - Web: cadastros, distribuição por lote, tarefas, notas, roteiro de entrega e
   relatórios operacionais; interface responsiva e fluxo diário reduzido.
@@ -28,8 +28,23 @@ executa cada tarefa em um `BrowserContext` independente.
   idempotência do lote, snapshot `payload_worker` + SHA-256, token de reserva,
   protocolo e unicidades. `0009` corrige a ambiguidade do retorno
   `reserva_token`. `EXECUTE` público da função de reserva está revogado.
-- Validação local: **145 testes Worker**, **64 testes Web**, TypeScript e build
+- Validação local: **150 testes Worker**, **71 testes Web**, TypeScript e build
   de produção passaram.
+- Cadastros de emitente agora aceitam CPF ou CNPJ e IE opcional. A coluna
+  física ainda se chama `cnpj` por compatibilidade; não criar migração apenas
+  para renomeá-la durante o gate de integração.
+- Clientes, emitentes e produtos podem ser desativados/reativados sem apagar histórico.
+  A desativação é bloqueada enquanto houver tarefa operacional aberta.
+- Produtos ativos podem ser editados no próprio cartão. Novas distribuições
+  mostram somente produtos ativos; tarefas já criadas preservam seu snapshot.
+- Erros esperados de formulário são mostrados na própria tela; falhas internas
+  recebem mensagem genérica e não abrem a tela técnica do Next.js.
+- Tarefas têm abas Pendentes, Concluídas e Canceladas e são agrupadas pelo lote
+  de distribuição. Legado sem lote é consolidado por data, explicitamente sem
+  inventar número de distribuição.
+- A orquestração da fonte banco possui testes sem navegador para devolução segura
+  a `PENDENTE`, credencial ausente, falha pré-emissão, incerteza pós-`EMITINDO`
+  e registro de uma autorização confirmada com o token da reserva.
 - A Home mostra um checklist fiscal calculado com as mesmas validações usadas
   no salvamento e leva diretamente ao cadastro pendente. A Distribuição não
   abre o formulário quando nenhum cliente/produto está pronto.
@@ -41,12 +56,12 @@ executa cada tarefa em um `BrowserContext` independente.
   O `.env` local ainda não tem `WORKER_DATABASE_URL` dedicada; os verificadores
   retornam diagnóstico JSON sanitizado, sem traceback ou segredo.
 
-## Estado real do banco de teste
+## Estado observado no banco de teste em 27/08/2026
 
-- 2 clientes ativos, ambos com cadastro fiscal incompleto;
-- 1 emitente ativo, sem `credencial_referencia` e integração NFP-e completa;
+- 2 clientes ativos, um fiscalmente completo e um incompleto;
+- 1 emitente ativo, ainda sem `credencial_referencia` e sem identificador NFP-e;
 - 3 produtos ativos e fiscalmente completos;
-- 8 tarefas antigas `PENDENTE`, todas sem lote e inelegíveis por projeto;
+- 10 tarefas antigas `CANCELADA`, todas sem lote;
 - 5 lotes numerados;
 - 0 tarefas elegíveis para o Worker;
 - canal TLS e função de reserva confirmados, sem consumir tarefa.
@@ -84,7 +99,7 @@ distribuição para produzir o primeiro snapshot elegível.
 
 ## Próximo gate seguro
 
-1. Completar um cliente e um emitente no Web, sem colocar senha fiscal no Web.
+1. Completar o emitente no Web e manter login/senha fiscal somente no Worker.
 2. Criar exatamente uma nova distribuição e rodar
    `npm run db:verify-integration`.
 3. Executar o Worker com fonte banco, processamento desligado e concorrência 1;
@@ -94,6 +109,13 @@ distribuição para produzir o primeiro snapshot elegível.
 5. Conferir status, nota, chave/número/protocolo e arquivos locais.
 6. Depois repetir com até 3 contextos e implementar Storage privado, scheduler,
    observabilidade e papel de banco dedicado com menor privilégio.
+
+## Índice local de código
+
+O Graphify 0.9.50 foi validado em 27/08/2026 como ferramenta auxiliar local,
+com suporte SQL e extração `--code-only`. O mapa não é fonte de verdade, não é
+versionado e não autoriza pular a leitura do código ou os testes. Regras e
+comandos seguros estão em `GRAPHIFY.md`.
 
 ## Princípios imutáveis
 

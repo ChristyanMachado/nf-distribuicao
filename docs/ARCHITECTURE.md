@@ -19,6 +19,19 @@ distribuições, lotes, tarefas e notas. Cliente ↔ emitente é N:N e a seleç�
 gravada na tarefa. O preço padrão é produto + cliente. Regras fiscais são
 reutilizáveis, associadas ao produto e preservadas no item da tarefa.
 
+Emitente aceita CPF ou CNPJ; inscrição estadual é opcional. Por compatibilidade
+com o esquema aplicado, o documento continua persistido na coluna histórica
+`emitentes.cnpj`. O Web guarda somente `credencial_referencia`: login e senha
+fiscal são segredos operacionais do Worker e nunca entram no navegador ou neste
+banco. Clientes, emitentes e produtos usam desativação lógica, preservando
+tarefas, notas e auditoria; registros inativos deixam de aparecer nos novos
+fluxos. Produtos ativos podem ser editados, mas tarefas existentes mantêm o
+snapshot fiscal criado na confirmação da distribuição.
+
+Server Actions de formulário devolvem falhas de validação esperadas para o
+componente exibir junto ao formulário. Exceções internas são substituídas por
+mensagem neutra, evitando tela técnica e vazamento acidental de banco.
+
 Cada envio de distribuição cria um lote idempotente, numerado e usado também
 como recorte do roteiro do motorista. A Server Action valida tamanho, UUIDs,
 cadastros fiscais e relações antes de gravar tudo em transação.
@@ -88,7 +101,8 @@ As migrações `0001`–`0009` estão ativas no banco de teste. Destaques:
   unicidades e revogação de `EXECUTE` público;
 - `0009`: correção do retorno `reserva_token` da função.
 
-As 8 tarefas antigas sem lote são inelegíveis deliberadamente.
+Tarefas antigas sem lote são inelegíveis deliberadamente; as observadas no
+banco de teste já estão canceladas e permanecem apenas como histórico.
 
 ## Segurança
 

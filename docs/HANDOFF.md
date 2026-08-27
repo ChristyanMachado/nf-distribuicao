@@ -1,6 +1,6 @@
 # Handoff — Estado Atual
 
-## Estado autoritativo — 26/08/2026
+## Estado autoritativo — 27/08/2026
 
 > Esta seção substitui afirmações de estado das continuações históricas abaixo.
 > O restante do arquivo preserva decisões e reconhecimentos anteriores, mas
@@ -29,15 +29,68 @@
 
 ### Evidências atuais
 
-- Worker: **145 testes passando**.
-- Web: **64 testes em 10 arquivos passando**.
+- Worker: **150 testes passando**.
+- Web: **71 testes em 12 arquivos passando**.
 - `npx tsc --noEmit`, `npm run build` e `git diff --check` passaram.
 - `npm audit --omit=dev`: 0 vulnerabilidades conhecidas.
 - Banco: migrações sincronizadas, canal TLS/fila OK e 0 reservas elegíveis.
 - `db:verify-integration` e `db:verify-security` passaram em 26/08; ainda não
   existe `WORKER_DATABASE_URL` dedicada no `.env` local.
-- Dados: 2 clientes ativos/incompletos; 1 emitente ativo/incompleto e sem
-  referência; 3 produtos completos; 8 tarefas antigas sem lote; 5 lotes.
+- Dados observados na UI em 27/08: 2 clientes ativos (um completo); 1 emitente
+  ativo/incompleto e sem referência; 3 produtos completos; 10 tarefas antigas
+  canceladas e sem lote; 5 lotes conhecidos.
+
+### Continuação autônoma — cadastros e tarefas operacionais
+
+- Emitente aceita CPF ou CNPJ com dígitos verificadores; inscrição estadual é
+  opcional. `emitentes.cnpj` permanece como nome físico legado para evitar uma
+  migração cosmética no gate crítico de integração.
+- A tela explica com exemplo como `credencial_referencia` aponta para
+  `<REFERENCIA>_LOGIN` e `<REFERENCIA>_SENHA` no Worker. Senha não foi adicionada
+  ao Web nem ao banco.
+- Clientes e emitentes ganharam desativação/reativação lógica. A desativação é
+  recusada se existir tarefa aberta, protegendo o processamento e o histórico.
+- Produtos também podem ser editados, desativados e reativados. A lista
+  principal mostra apenas ativos; inativos ficam recolhidos em `Desativados`.
+  Produto presente em tarefa aberta não pode ser desativado.
+- Formulários passaram a mostrar validações como “CNPJ inválido” dentro da
+  página. Erros inesperados ficam genéricos e detalhes internos não vazam.
+- Tarefas foram separadas em Pendentes, Concluídas e Canceladas, com contadores
+  e agrupamento por lote. Registros antigos sem lote são agrupados por data com
+  rótulo explícito de ausência do número da distribuição.
+- Cancelamento concorrente ou inválido também retorna feedback amigável no
+  cartão, sem Runtime Error do Next.js.
+- Validação: **71 testes Web em 12 arquivos**, TypeScript e build de produção.
+  Inspeção local em 390×844 de `/emitentes`, `/clientes`, `/produtos` e
+  `/tarefas`: sem rolagem horizontal, abas e ações acessíveis. Nenhum cadastro
+  foi alterado no ensaio visual.
+
+### Ferramenta local de contexto — Graphify
+
+- Graphify oficial `graphifyy` 0.9.50 foi instalado fora dos ambientes de
+  produção, em `.tools/graphify`, com o complemento SQL.
+- O mapa `--code-only` foi atualizado após esta rodada: 112 fontes, 961 nós,
+  2.209 relações e 61 comunidades.
+- A auditoria inicial não encontrou `.env`, downloads, logs, tarefa real ou
+  caminhos pessoais nos artefatos pesquisados.
+- `.tools/` e `graphify-out/` estão ignorados. Não foram ativados backend
+  semântico, modo estrito, hooks, watch ou MCP.
+- Uso, reinstalação e handoff seguro estão documentados em `GRAPHIFY.md`.
+- A adoção inicial do Graphify não alterou código funcional. A continuação
+  abaixo acrescenta somente testes de orquestração, sem mudar o Worker.
+
+### Continuação autônoma — testes da orquestração da fila
+
+- `worker/tests/test_main.py` passou a cobrir diretamente as duas funções que
+  ligam `main.py` à fonte PostgreSQL, sem navegador ou banco real.
+- Contrato e credencial válidos voltam a `PENDENTE` sem consumir tentativa;
+  credencial ausente vai para `AGUARDANDO_CONFERENCIA`.
+- Falha antes de `EMITINDO` é registrada como `ERRO`. Falha depois dessa
+  transição exige `AGUARDANDO_CONFERENCIA`, sem registrar autorização.
+- O caminho autorizado comprova o repasse de chave, número e protocolo junto
+  ao token vigente da reserva.
+- Validação desta continuação: 10 testes focados, **150 testes Worker**,
+  `compileall` e `git diff --check` passaram. Nenhum seletor Playwright mudou.
 
 ### Continuação autônoma — prontidão e menor privilégio
 
@@ -65,7 +118,7 @@
 
 ### Próximo gate
 
-1. Completar um cliente e um emitente no Web.
+1. Completar o emitente no Web; o cliente COOPERATIVA observado já está pronto.
 2. Criar uma distribuição nova e rodar `npm run db:verify-integration`.
 3. Ensaio da fonte banco com processamento desligado, concorrência 1; esperado:
    reserva, validação e retorno a `PENDENTE`.

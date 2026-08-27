@@ -1,3 +1,10 @@
+import {
+  exigirCep,
+  exigirCnpj,
+  exigirCpfOuCnpj,
+  exigirInscricaoEstadual,
+} from "./validacao";
+
 type EmitenteParaProntidao = {
   cnpj: string | null;
   inscricaoEstadual: string | null;
@@ -25,9 +32,8 @@ function valido(validacao: () => unknown): boolean {
 
 export function pendenciasEmitente(emitente: EmitenteParaProntidao): string[] {
   const pendencias: string[] = [];
-  if (!valido(() => exigirCnpj(emitente.cnpj ?? ""))) pendencias.push("CNPJ");
-  if (!valido(() => exigirInscricaoEstadual(emitente.inscricaoEstadual ?? ""))) {
-    pendencias.push("inscrição estadual");
+  if (!valido(() => exigirCpfOuCnpj(emitente.cnpj ?? ""))) {
+    pendencias.push("CPF ou CNPJ");
   }
   if (!/^[A-Z][A-Z0-9_]{2,63}$/.test((emitente.credencialReferencia ?? "").trim())) {
     pendencias.push("referência da credencial");
@@ -60,4 +66,3 @@ export function resumirPendencias(pendencias: string[]): string {
   if (pendencias.length === 1) return `Falta ${pendencias[0]}`;
   return `Faltam ${pendencias.slice(0, -1).join(", ")} e ${pendencias.at(-1)}`;
 }
-import { exigirCep, exigirCnpj, exigirInscricaoEstadual } from "./validacao";

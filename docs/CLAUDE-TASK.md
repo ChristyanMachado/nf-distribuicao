@@ -1,4 +1,4 @@
-# Ordem de continuidade para Claude — 26/08/2026
+# Ordem de continuidade para Claude — 27/08/2026
 
 ## Papel
 
@@ -14,6 +14,10 @@ altere arquitetura ou migrações aplicadas sem registrar e justificar.
 2. Confira branch, `git status` e diff. Preserve alterações existentes.
 3. Considere `0001`–`0009` já aplicadas no banco de teste; não reaplique às
    cegas. Em outro banco, rode primeiro a verificação pré-0008.
+4. Se `graphify-out/graph.json` existir, use uma consulta focada para localizar
+   relações amplas antes de abrir muitos arquivos. Siga `GRAPHIFY.md`, limite a
+   saída e confirme toda conclusão no código real. Se o mapa não existir, ele é
+   opcional: não bloqueie o trabalho nem peça credenciais para gerá-lo.
 
 ## Estado que deve ser preservado
 
@@ -24,13 +28,20 @@ altere arquitetura ou migrações aplicadas sem registrar e justificar.
   tarefa. Resultado incerto exige conferência, nunca retry automático.
 - Snapshot v1/payload/hash é imutável e gravado atomicamente.
 - Credenciais não entram no Web, payload, Git, relatório ou logs.
+- Emitente aceita CPF ou CNPJ, IE opcional e apenas referência de credencial.
+  Não transforme essa referência em campos de login/senha no Web.
+- Clientes, emitentes e produtos são desativados logicamente; não apague
+  histórico em cascata. Tarefas possuem três visões e agrupamento por lote.
+- As transições da orquestração banco já possuem testes diretos para sucesso,
+  falha pré-emissão e resultado incerto pós-`EMITINDO`; preserve esses gates.
 
 ## Próxima tarefa prioritária
 
-O código já concluiu a preparação técnica do primeiro round-trip. Não inicie
-Storage, scheduler ou reestruturação ampla antes do ensaio humano. Se receber
-o projeto enquanto ainda não houver uma tarefa elegível, faça somente revisão
-focada e testes sem navegador:
+O código já concluiu a preparação técnica e a correção dos cadastros para o
+primeiro round-trip. O responsável humano precisa completar o emitente e criar
+uma distribuição nova. Não inicie Storage, scheduler ou reestruturação ampla
+antes desse ensaio. Se receber o projeto enquanto ainda não houver uma tarefa
+elegível, faça somente revisão focada e testes sem navegador:
 
 1. revisar configuração e mensagens do fluxo `FONTE_TAREFAS=banco` com
    `PROCESSAR_FILA_BANCO=false`;
@@ -38,9 +49,15 @@ focada e testes sem navegador:
 3. confirmar que o checklist Web e os bloqueios antecipados continuam
    coerentes com as validações das Server Actions e preservam a consulta
    agregada de prontidão; não voltar a várias consultas na Home;
-4. adicionar apenas testes unitários/integrados sem navegador que cubram falhas
+4. preservar o tratamento de erros dentro dos formulários e a desativação
+   lógica; falhas internas nunca devem aparecer na interface;
+5. adicionar apenas testes unitários/integrados sem navegador que cubram falhas
    reais encontradas;
-5. atualizar `HANDOFF.md` se houver mudança material.
+6. atualizar `HANDOFF.md` se houver mudança material.
+
+Não habilite modo estrito, hooks, watch, MCP ou backend semântico do Graphify.
+Não envie nem versione o grafo inteiro; para handoff, prefira uma saída curta da
+consulta junto dos arquivos reais e do diff.
 
 Quando o responsável humano completar cliente/emitente e criar uma nova
 distribuição, a ordem passa a ser: verificar prontidão; ensaio banco sem

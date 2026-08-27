@@ -15,6 +15,15 @@ describe("prontidão da integração fiscal", () => {
     })).toEqual([]);
   });
 
+  it("aceita emitente com CPF e sem inscrição estadual", () => {
+    expect(pendenciasEmitente({
+      cnpj: "529.982.247-25",
+      inscricaoEstadual: null,
+      credencialReferencia: "EMITENTE_JOAO",
+      valorSelectNfpe: "emitente-homologacao",
+    })).toEqual([]);
+  });
+
   it("lista os campos ausentes do emitente", () => {
     expect(pendenciasEmitente({
       cnpj: null,
@@ -22,8 +31,7 @@ describe("prontidão da integração fiscal", () => {
       credencialReferencia: "inválida",
       valorSelectNfpe: "",
     })).toEqual([
-      "CNPJ",
-      "inscrição estadual",
+      "CPF ou CNPJ",
       "referência da credencial",
       "identificador NFP-e",
     ]);
@@ -35,7 +43,7 @@ describe("prontidão da integração fiscal", () => {
       inscricaoEstadual: "1234567890",
       credencialReferencia: "CLIENTE_A",
       valorSelectNfpe: "emitente-homologacao",
-    })).toEqual(["CNPJ"]);
+    })).toEqual(["CPF ou CNPJ"]);
   });
 
   it("exige IE apenas do cliente contribuinte e ao menos um emitente", () => {

@@ -49,6 +49,8 @@ export const indicadorIeEnum = fiscalSchema.enum("indicador_ie", [
 export const emitentes = fiscalSchema.table("emitentes", {
   id: uuid("id").primaryKey().defaultRandom(),
   nome: text("nome").notNull(),
+  // Nome físico legado. Para emitentes, guarda CPF ou CNPJ normalizado;
+  // mercados/clientes continuam exigindo CNPJ na tabela própria.
   cnpj: text("cnpj"),
   inscricaoEstadual: text("inscricao_estadual"),
   // Referência sem segredo que o Worker usa para resolver credenciais em seu

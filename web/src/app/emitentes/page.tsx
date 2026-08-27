@@ -3,12 +3,21 @@ export const dynamic = "force-dynamic";
 import Card from "@/components/Card";
 import { Label } from "@/components/Field";
 import PrimaryButton from "@/components/PrimaryButton";
+import FormularioComFeedback from "@/components/FormularioComFeedback";
 import { pendenciasEmitente, resumirPendencias } from "@/lib/prontidao-integracao";
-import { atualizarEmitente, criarEmitente, listarEmitentes } from "./actions";
+import {
+  atualizarEmitente,
+  criarEmitente,
+  desativarEmitente,
+  listarEmitentes,
+  reativarEmitente,
+} from "./actions";
 
 const MENSAGENS_SALVAMENTO: Record<string, string> = {
   "emitente-criado": "Emitente cadastrado com sucesso. O formulário já está pronto para o próximo cadastro.",
   "emitente-atualizado": "Integração do emitente atualizada com sucesso.",
+  "emitente-desativado": "Emitente desativado. O histórico foi preservado.",
+  "emitente-reativado": "Emitente reativado e disponível novamente.",
 };
 
 export default async function EmitentesPage({
@@ -17,6 +26,8 @@ export default async function EmitentesPage({
   searchParams: Promise<{ salvo?: string }>;
 }) {
   const [emitentes, parametros] = await Promise.all([listarEmitentes(), searchParams]);
+  const emitentesAtivos = emitentes.filter((emitente) => emitente.ativo);
+  const emitentesInativos = emitentes.filter((emitente) => !emitente.ativo);
   const mensagemSalvamento = parametros.salvo
     ? MENSAGENS_SALVAMENTO[parametros.salvo]
     : undefined;
@@ -25,8 +36,8 @@ export default async function EmitentesPage({
     <div>
       <h1 className="text-2xl font-medium">Emitentes</h1>
       <p className="mt-1 text-[15px] text-[var(--ink-soft)]">
-        Quem vende e emite. Login e senha fiscal ficam protegidos no Worker;
-        o Web guarda somente uma referência sem segredo.
+        Quem vende e emite. O documento pode ser CPF ou CNPJ; login e senha
+        fiscal ficam protegidos no Worker.
       </p>
 
       {mensagemSalvamento && (
@@ -40,7 +51,7 @@ export default async function EmitentesPage({
       )}
 
       <Card className="mt-5 p-4">
-        <form
+        <FormularioComFeedback
           action={criarEmitente}
           className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-3"
         >
@@ -49,7 +60,7 @@ export default async function EmitentesPage({
             <input id="novo-emitente-nome" name="nome" required maxLength={160} autoComplete="organization" enterKeyHint="next" className="w-full" placeholder="Razão social" />
           </div>
           <div>
-            <Label htmlFor="novo-emitente-cnpj" required>CNPJ</Label>
+            <Label htmlFor="novo-emitente-cnpj" required>CPF ou CNPJ</Label>
             <input
               id="novo-emitente-cnpj"
               name="cnpj"
@@ -59,14 +70,14 @@ export default async function EmitentesPage({
               autoComplete="off"
               enterKeyHint="next"
               className="font-mono-tab w-full"
+              placeholder="CPF ou CNPJ do emitente"
             />
           </div>
           <div>
-            <Label htmlFor="novo-emitente-ie" required>Inscrição estadual</Label>
+            <Label htmlFor="novo-emitente-ie">Inscrição estadual (opcional)</Label>
             <input
               id="novo-emitente-ie"
               name="inscricaoEstadual"
-              required
               inputMode="numeric"
               maxLength={20}
               autoComplete="off"
@@ -80,7 +91,7 @@ export default async function EmitentesPage({
             </p>
           </div>
           <div className="sm:col-span-2">
-            <Label htmlFor="novo-emitente-credencial" required>Referência da credencial</Label>
+            <Label htmlFor="novo-emitente-credencial" required>Código da credencial no Worker</Label>
             <input
               id="novo-emitente-credencial"
               name="credencialReferencia"
@@ -91,17 +102,21 @@ export default async function EmitentesPage({
               spellCheck={false}
               enterKeyHint="next"
               className="font-mono-tab w-full uppercase"
-              placeholder="CLIENTE_A"
+              placeholder="EMITENTE_JOAO"
               pattern="[A-Z][A-Z0-9_]{2,63}"
               title="Use de 3 a 64 caracteres: letras maiúsculas, números e sublinhado."
               aria-describedby="novo-emitente-credencial-ajuda"
             />
             <p id="novo-emitente-credencial-ajuda" className="mt-1 text-[12px] text-[var(--ink-faint)]">
-              Não é CPF nem senha. É apenas o nome da credencial configurada no Worker.
+              Liga este emitente às variáveis LOGIN e SENHA protegidas no Worker.
+              Exemplo: <span className="font-mono">EMITENTE_JOAO</span> usa
+              <span className="font-mono"> EMITENTE_JOAO_LOGIN</span> e
+              <span className="font-mono"> EMITENTE_JOAO_SENHA</span>. A senha nunca é
+              enviada ao navegador nem gravada neste banco.
             </p>
           </div>
           <div className="sm:col-span-2">
-            <Label htmlFor="novo-emitente-nfpe" required>Identificador do emitente na NFP-e</Label>
+            <Label htmlFor="novo-emitente-nfpe" required>Código interno do emitente na NFP-e</Label>
             <input
               id="novo-emitente-nfpe"
               name="valorSelectNfpe"
@@ -115,7 +130,8 @@ export default async function EmitentesPage({
               aria-describedby="novo-emitente-nfpe-ajuda"
             />
             <p id="novo-emitente-nfpe-ajuda" className="mt-1 text-[12px] text-[var(--ink-faint)]">
-              Valor da opção no sistema fiscal, por exemplo o já confirmado no Worker.
+              Não é o nome. É o valor interno da opção do emitente já confirmado
+              no ambiente de teste do Worker.
             </p>
           </div>
           <div className="sm:col-span-2 mt-1">
@@ -123,15 +139,15 @@ export default async function EmitentesPage({
               Cadastrar emitente
             </PrimaryButton>
           </div>
-        </form>
+        </FormularioComFeedback>
       </Card>
 
       <div className="mt-6">
         <p className="font-mono-tab mb-2 text-[11px] font-bold uppercase tracking-widest text-[var(--ink-faint)]">
-          Cadastrados ({emitentes.length})
+          Ativos ({emitentesAtivos.length})
         </p>
         <Card className="divide-y divide-[var(--line)]">
-          {emitentes.map((e) => {
+          {emitentesAtivos.map((e) => {
             const pendencias = pendenciasEmitente(e);
             return (
             <div key={e.id} className="px-4 py-3 text-sm">
@@ -158,7 +174,7 @@ export default async function EmitentesPage({
                 <summary className="tap-target flex min-h-11 cursor-pointer items-center text-[13px] font-medium text-[var(--ink-soft)]">
                   Revisar ou completar integração
                 </summary>
-                <form
+                <FormularioComFeedback
                   action={atualizarEmitente}
                   className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-3"
                 >
@@ -168,7 +184,7 @@ export default async function EmitentesPage({
                     <input id={`emitente-${e.id}-nome`} name="nome" required maxLength={160} autoComplete="organization" enterKeyHint="next" defaultValue={e.nome} className="w-full" />
                   </div>
                   <div>
-                    <Label htmlFor={`emitente-${e.id}-cnpj`} required>CNPJ</Label>
+                    <Label htmlFor={`emitente-${e.id}-cnpj`} required>CPF ou CNPJ</Label>
                     <input
                       id={`emitente-${e.id}-cnpj`}
                       name="cnpj"
@@ -182,11 +198,10 @@ export default async function EmitentesPage({
                     />
                   </div>
                   <div>
-                    <Label htmlFor={`emitente-${e.id}-ie`} required>Inscrição estadual</Label>
+                    <Label htmlFor={`emitente-${e.id}-ie`}>Inscrição estadual (opcional)</Label>
                     <input
                       id={`emitente-${e.id}-ie`}
                       name="inscricaoEstadual"
-                      required
                       inputMode="numeric"
                       maxLength={20}
                       autoComplete="off"
@@ -196,7 +211,7 @@ export default async function EmitentesPage({
                     />
                   </div>
                   <div className="sm:col-span-2">
-                    <Label htmlFor={`emitente-${e.id}-credencial`} required>Referência da credencial</Label>
+                    <Label htmlFor={`emitente-${e.id}-credencial`} required>Código da credencial no Worker</Label>
                     <input
                       id={`emitente-${e.id}-credencial`}
                       name="credencialReferencia"
@@ -213,7 +228,7 @@ export default async function EmitentesPage({
                     />
                   </div>
                   <div className="sm:col-span-2">
-                    <Label htmlFor={`emitente-${e.id}-nfpe`} required>Identificador do emitente na NFP-e</Label>
+                    <Label htmlFor={`emitente-${e.id}-nfpe`} required>Código interno do emitente na NFP-e</Label>
                     <input
                       id={`emitente-${e.id}-nfpe`}
                       name="valorSelectNfpe"
@@ -231,18 +246,53 @@ export default async function EmitentesPage({
                       Salvar integração
                     </PrimaryButton>
                   </div>
-                </form>
+                </FormularioComFeedback>
+                <FormularioComFeedback action={desativarEmitente} className="mt-3">
+                  <input type="hidden" name="emitenteId" value={e.id} />
+                  <button
+                    type="submit"
+                    className="tap-target min-h-11 text-[13px] text-[var(--stamp)]"
+                  >
+                    Desativar emitente
+                  </button>
+                </FormularioComFeedback>
               </details>
             </div>
             );
           })}
-          {emitentes.length === 0 && (
+          {emitentesAtivos.length === 0 && (
             <div className="px-4 py-8 text-center text-sm text-[var(--ink-faint)]">
               Nenhum emitente cadastrado ainda.
             </div>
           )}
         </Card>
       </div>
+
+      {emitentesInativos.length > 0 && (
+        <details className="mt-5">
+          <summary className="tap-target flex min-h-11 cursor-pointer items-center text-sm font-medium text-[var(--ink-soft)]">
+            Desativados ({emitentesInativos.length})
+          </summary>
+          <Card className="divide-y divide-[var(--line)]">
+            {emitentesInativos.map((emitente) => (
+              <div key={emitente.id} className="flex flex-col gap-2 px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="font-medium">{emitente.nome}</p>
+                  <p className="font-mono-tab text-[12px] text-[var(--ink-faint)]">
+                    {emitente.cnpj ?? "Documento não informado"}
+                  </p>
+                </div>
+                <FormularioComFeedback action={reativarEmitente}>
+                  <input type="hidden" name="emitenteId" value={emitente.id} />
+                  <PrimaryButton type="submit" pendingText="Reativando…" className="w-full sm:w-auto">
+                    Reativar
+                  </PrimaryButton>
+                </FormularioComFeedback>
+              </div>
+            ))}
+          </Card>
+        </details>
+      )}
     </div>
   );
 }

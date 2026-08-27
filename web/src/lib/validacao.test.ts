@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   exigirCep,
   exigirCnpj,
+  exigirCpf,
+  exigirCpfOuCnpj,
   exigirDataIso,
   exigirInscricaoEstadual,
   exigirNumeroFinito,
@@ -32,9 +34,17 @@ describe("validação de fronteira", () => {
     expect(exigirInscricaoEstadual("909.68532-00")).toBe("9096853200");
   });
 
+  it("aceita CPF ou CNPJ para identificar o emitente", () => {
+    expect(exigirCpf("529.982.247-25")).toBe("52998224725");
+    expect(exigirCpfOuCnpj("529.982.247-25")).toBe("52998224725");
+    expect(exigirCpfOuCnpj("48.188.487/0001-04")).toBe("48188487000104");
+  });
+
   it("rejeita documentos fiscais inválidos", () => {
     expect(() => exigirCnpj("00.000.000/0000-00")).toThrow(/CNPJ/);
     expect(() => exigirCnpj("48.188.487/0001-05")).toThrow(/CNPJ/);
+    expect(() => exigirCpf("529.982.247-24")).toThrow(/CPF/);
+    expect(() => exigirCpfOuCnpj("123")).toThrow(/CPF ou CNPJ/);
     expect(() => exigirCep("00000-000")).toThrow(/CEP/);
     expect(() => exigirInscricaoEstadual("x")).toThrow(/Inscrição/);
   });

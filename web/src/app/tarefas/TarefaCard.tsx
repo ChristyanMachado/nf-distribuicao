@@ -31,6 +31,7 @@ type Tarefa = {
 
 export default function TarefaCard({ tarefa }: { tarefa: Tarefa }) {
   const [aberto, setAberto] = useState(false);
+  const [erroCancelamento, setErroCancelamento] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   return (
@@ -88,11 +89,22 @@ export default function TarefaCard({ tarefa }: { tarefa: Tarefa }) {
             <button
               type="button"
               disabled={pending}
-              onClick={() => startTransition(() => cancelarTarefa(tarefa.id))}
+              onClick={() => {
+                setErroCancelamento(null);
+                startTransition(async () => {
+                  const resultado = await cancelarTarefa(tarefa.id);
+                  setErroCancelamento(resultado.erro ?? null);
+                });
+              }}
               className="mt-2 text-[13px] text-[var(--stamp)] disabled:opacity-40"
             >
               {pending ? "Cancelando…" : "Cancelar tarefa"}
             </button>
+          )}
+          {erroCancelamento && (
+            <p role="alert" className="mt-2 text-[12px] text-[var(--stamp)]">
+              {erroCancelamento}
+            </p>
           )}
 
           {tarefa.status !== "PENDENTE" && (
