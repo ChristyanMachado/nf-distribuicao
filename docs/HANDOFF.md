@@ -1,6 +1,6 @@
 # Handoff — Estado Atual
 
-## Estado autoritativo — 27/08/2026
+## Estado autoritativo — 28/08/2026
 
 > Esta seção substitui afirmações de estado das continuações históricas abaixo.
 > O restante do arquivo preserva decisões e reconhecimentos anteriores, mas
@@ -26,6 +26,13 @@
   `cStat=100` → nota + tarefa `EMITIDA`. Resultado incerto não ganha retry.
 - XML/DANFE são baixados e validados; arquivos ficam locais e privados. Storage
   remoto ainda não existe.
+- Papel local `nf_worker_local` criado com acesso mínimo, credencial somente no
+  `.env` ignorado e auditoria `papelWorkerSeguro: true`. Nenhum segredo foi
+  impresso ou versionado.
+- Primeiro round-trip real da fila concluído: 1 tarefa foi reservada, teve
+  snapshot/hash/credencial validados e voltou a `PENDENTE`, sem navegador e sem
+  emissão. O pool async usa cache de prepared statements desligado para ser
+  compatível com o pooler transacional.
 
 ### Evidências atuais
 
@@ -33,12 +40,10 @@
 - Web: **75 testes em 13 arquivos passando**.
 - `npx tsc --noEmit`, `npm run build` e `git diff --check` passaram.
 - `npm audit --omit=dev`: 0 vulnerabilidades conhecidas.
-- Banco: migrações sincronizadas, canal TLS/fila OK e 0 reservas elegíveis.
-- `db:verify-integration` e `db:verify-security` passaram em 26/08; ainda não
-  existe `WORKER_DATABASE_URL` dedicada no `.env` local.
-- Dados observados na UI em 27/08: 2 clientes ativos (um completo); 1 emitente
-  ativo/incompleto e sem referência; 3 produtos completos; 10 tarefas antigas
-  canceladas e sem lote; 5 lotes conhecidos.
+- Banco: migrações sincronizadas, canal TLS/fila OK, papel exclusivo seguro e
+  1 tarefa real elegível que permaneceu `PENDENTE` após o ensaio.
+- `db:verify-integration` passou em 28/08: 1 cliente e 1 emitente completos,
+  3 produtos completos, 6 lotes numerados e 1 tarefa pronta para o Worker.
 
 ### Continuação autônoma — cadastros e tarefas operacionais
 

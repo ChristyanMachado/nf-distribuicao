@@ -49,11 +49,10 @@ substitui identidade multiusuário, papéis, tenant e RLS.
 
 ## Riscos que ainda bloqueiam produção
 
-1. Criar papel PostgreSQL exclusivo do Worker e conceder apenas SELECT/UPDATE,
-   INSERT de nota e EXECUTE estritamente necessários. Não usar a URL do dono
-   do Web na VM. Há um modelo não executável em
-   `web/scripts/provisionar-worker-role.sql.template` e uma auditoria somente
-   de metadados em `worker/scripts/verificar_privilegios_banco.py`.
+1. Criar uma identidade PostgreSQL exclusiva para cada implantação do Worker.
+   O papel local de teste já foi provisionado e auditado com sucesso; não
+   reutilizar sua senha nem a URL do dono do Web na futura VM. O modelo
+   revisável permanece em `web/scripts/provisionar-worker-role.sql.template`.
 2. Implementar Storage privado, URL assinada curta, autorização de download,
    retenção e limpeza local.
 3. Implementar autenticação individual, autorização por papel/empresa e
@@ -69,7 +68,7 @@ substitui identidade multiusuário, papéis, tenant e RLS.
 ## Checklist antes de qualquer piloto externo
 
 - [ ] segredos distintos e fora do Git;
-- [ ] papel dedicado do Worker testado;
+- [x] papel dedicado do Worker local testado (repetir com outra identidade na VM);
 - [ ] Storage privado e downloads autorizados;
 - [ ] autenticação/autorização adequadas ao público do piloto;
 - [ ] testes, TypeScript, build e auditoria de dependências limpos;

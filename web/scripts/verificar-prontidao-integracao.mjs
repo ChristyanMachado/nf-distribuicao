@@ -67,7 +67,15 @@ if (!connectionString) {
             and contrato_versao = 1
             and payload_worker is not null
             and payload_hash is not null
-        )::int as pendentes_prontas_worker
+        )::int as pendentes_prontas_worker,
+        count(*) filter (
+          where status = 'PENDENTE'
+            and (reservada_por is not null or reserva_token is not null
+              or reserva_expira_em is not null or iniciado_em is not null)
+        )::int as pendentes_com_reserva,
+        count(*) filter (
+          where status = 'PENDENTE' and tentativas > 0
+        )::int as pendentes_com_tentativa_consumida
       from fiscal.tarefas
     `;
     const [lotes] = await sql`

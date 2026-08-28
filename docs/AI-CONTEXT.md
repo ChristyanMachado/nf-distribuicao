@@ -9,7 +9,7 @@ O produto organiza distribuições diárias e automatiza NFP-e. O Web cadastra e
 gera tarefas; o banco mantém snapshots imutáveis e a fila; o Worker reserva e
 executa cada tarefa em um `BrowserContext` independente.
 
-## Estado validado em 27/08/2026
+## Estado validado em 28/08/2026
 
 - Web: cadastros, distribuição por lote, tarefas, notas, roteiro de entrega e
   relatórios operacionais; interface responsiva e fluxo diário reduzido.
@@ -20,7 +20,9 @@ executa cada tarefa em um `BrowserContext` independente.
   flags de integração, o modo seguro reserva, valida e devolve a tarefa a
   `PENDENTE`. Com `PROCESSAR_FILA_BANCO=true` e todas as travas de homologação,
   o código liga reserva → Playwright → `EMITINDO` → XML autorizado → `EMITIDA`.
-  Esse ciclo de banco ainda não foi ensaiado com uma tarefa elegível real.
+  O modo seguro foi ensaiado com uma tarefa elegível real em 28/08: reservou,
+  validou contrato/hash/credencial e devolveu a tarefa a `PENDENTE`. O ciclo
+  fiscal conectado ainda não foi executado.
 - XML só é aceito com estrutura NF-e, chave de 44 dígitos, número, protocolo e
   `cStat=100`. PDF precisa começar com `%PDF-`. Arquivos ficam locais e
   privados; o Storage remoto ainda não foi implementado.
@@ -52,24 +54,28 @@ executa cada tarefa em um `BrowserContext` independente.
   390×844; a Home respondeu em ~0,95 s no ensaio local após a otimização.
 - Falhas temporárias do Web exibem recuperação neutra, sem detalhes técnicos e
   sem sugerir o reenvio cego de uma distribuição.
-- O provisionamento de menor privilégio possui template SQL e auditor Python.
-  O `.env` local ainda não tem `WORKER_DATABASE_URL` dedicada; os verificadores
-  retornam diagnóstico JSON sanitizado, sem traceback ou segredo.
+- O Worker local possui papel PostgreSQL exclusivo de menor privilégio,
+  provisionado por comando explícito e salvo somente no `.env` ignorado. A
+  auditoria confirmou todos os privilégios obrigatórios e nenhum excessivo.
+- Asyncpg usa `statement_cache_size=0`, necessário para compatibilidade com o
+  pooler transacional usado pelo banco. Verificadores retornam somente JSON
+  sanitizado, sem traceback, host, usuário ou segredo.
 - O verificador Web de integração agora aplica dígitos verificadores a CPF/CNPJ,
   exige vínculo com emitente ativo e regra fiscal ativa, sem imprimir documentos.
 
-## Estado observado no banco de teste em 27/08/2026
+## Estado observado no banco de teste em 28/08/2026
 
-- 2 clientes ativos, um fiscalmente completo e um incompleto;
-- 1 emitente ativo, ainda sem `credencial_referencia` e sem identificador NFP-e;
+- 1 cliente ativo e fiscalmente completo, vinculado ao emitente;
+- 1 emitente ativo e completo para a integração;
 - 3 produtos ativos e fiscalmente completos;
 - 10 tarefas antigas `CANCELADA`, todas sem lote;
-- 5 lotes numerados;
-- 0 tarefas elegíveis para o Worker;
-- canal TLS e função de reserva confirmados, sem consumir tarefa.
+- 6 lotes numerados;
+- 1 tarefa `PENDENTE` elegível para o Worker;
+- canal TLS, papel restrito, função de reserva e round-trip seguro confirmados;
+  a tarefa voltou a `PENDENTE` sem emissão fiscal.
 
-Não corrigir tarefas antigas à força. Completar cadastros e criar uma nova
-distribuição para produzir o primeiro snapshot elegível.
+Não corrigir tarefas antigas à força. A tarefa elegível atual fica reservada
+para o primeiro ciclo conectado de homologação, somente com autorização explícita.
 
 ## Contrato e estados
 

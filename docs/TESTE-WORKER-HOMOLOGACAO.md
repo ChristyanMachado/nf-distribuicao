@@ -19,9 +19,7 @@ separados.
    Se a interface mostrar o ambiente normal, feche o navegador: o código
    também bloqueará o clique pela URL.
 
-Este primeiro teste usa `tarefa_real.json`, não as 8 tarefas antigas do banco.
-O polling está desligado porque os cadastros de teste ainda precisam ser
-completados e revisados.
+Este primeiro teste usa `tarefa_real.json`, não tarefas antigas do banco.
 
 ## Comandos no PowerShell
 
@@ -105,9 +103,9 @@ Se houver erro, não repita várias vezes. Envie o trecho do log a partir da
 
 ## Segundo roteiro — fila do banco
 
-Só executar depois de completar um cliente/emitente, criar uma distribuição
-nova e obter exatamente uma tarefa elegível em `npm run db:verify-integration`.
-As 8 tarefas antigas sem lote não devem ser adaptadas para este teste.
+O gate seguro foi concluído em 28/08/2026 com exatamente uma tarefa real. Ela
+foi reservada, validada e devolvida a `PENDENTE`, sem Chromium e sem consumir
+uma tentativa. Tarefas antigas sem lote não devem ser adaptadas para o teste.
 
 Primeiro rode com fonte banco e `PROCESSAR_FILA_BANCO=false`, concorrência 1.
 O resultado esperado é reserva, validação de snapshot/hash/credencial e retorno
@@ -123,6 +121,12 @@ Antes, verifique o canal sem reservar trabalho:
 O primeiro comando precisa retornar `papelWorkerSeguro: true`. Se a variável
 dedicada ainda não existir, ambos retornam JSON `nao_configurado`/configuração
 ausente sem revelar URL ou imprimir traceback.
+
+No ambiente local autorizado, a conta pode ser provisionada/rotacionada a
+partir de `web/` com `npm run db:provision-worker-local`. O comando usa a URL
+proprietária apenas para conceder os acessos mínimos, testa a nova identidade e
+grava a conexão exclusivamente em `worker/.env`; não imprime a senha. Em VM ou
+produção, crie outra identidade e use o template SQL revisável.
 
 Depois do ensaio seguro, e somente com autorização explícita, habilite:
 

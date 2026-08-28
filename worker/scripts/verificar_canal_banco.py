@@ -31,6 +31,7 @@ async def _verificar(database_url: str) -> int:
         timeout=15,
         command_timeout=30,
         ssl="require",
+        statement_cache_size=0,
     )
     try:
         elegiveis = await conexao.fetchval(

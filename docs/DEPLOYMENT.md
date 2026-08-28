@@ -40,13 +40,18 @@ A VM deve receber uma `WORKER_DATABASE_URL` própria, com TLS e papel de menor
 privilégio. Não copiar a `DATABASE_URL` proprietária usada pelo Web. O papel
 precisa apenas ler snapshots elegíveis, executar a função de reserva, renovar
 lease, atualizar estados protegidos pelo token e inserir a nota autorizada.
-`PUBLIC` já não executa a função de reserva, mas os `GRANT`s do papel dedicado
-ainda precisam ser definidos e testados antes da VM.
+`PUBLIC` já não executa a função de reserva. O papel local foi definido e
+auditado no banco de teste em 28/08/2026, mas a VM deve receber outra identidade
+dedicada; não reutilizar a senha do desenvolvimento.
 
 O modelo revisável está em
 `web/scripts/provisionar-worker-role.sql.template`. Ele não contém senha e não
 é executado por migration: criação/rotação de identidade operacional é uma
 ação explícita de provisionamento.
+
+Para o piloto local autorizado, `npm run db:provision-worker-local` em `web/`
+cria ou rotaciona `nf_worker_local`, testa a conexão e atualiza apenas o
+`worker/.env` ignorado. O comando não deve ser usado como mecanismo de deploy.
 
 Depois de criar a URL dedicada, executar como módulo:
 

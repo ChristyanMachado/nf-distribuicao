@@ -100,6 +100,9 @@ class FontePostgresTarefas:
                 timeout=15,
                 command_timeout=30,
                 ssl="require",
+                # Poolers em modo transacional (como o Supavisor) não mantêm
+                # prepared statements entre requisições.
+                statement_cache_size=0,
             )
         except Exception as exc:
             raise FonteTarefasErro("Não foi possível conectar à fila fiscal.") from exc
@@ -130,6 +133,7 @@ class FontePostgresTarefas:
             timeout=15,
             command_timeout=30,
             ssl="require",
+            statement_cache_size=0,
         )
         try:
             yield conexao

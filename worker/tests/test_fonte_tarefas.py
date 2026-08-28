@@ -559,6 +559,7 @@ def test_pool_e_criado_com_tls_e_fechado(monkeypatch: pytest.MonkeyPatch) -> Non
 
     assert argumentos["args"] == ("postgresql://fila",)
     assert argumentos["kwargs"]["ssl"] == "require"
+    assert argumentos["kwargs"]["statement_cache_size"] == 0
     assert argumentos["kwargs"]["min_size"] == 1
     assert argumentos["kwargs"]["max_size"] == 4
     assert pool.fechado is True
@@ -592,4 +593,5 @@ def test_conexao_curta_tambem_exige_tls_e_fecha(monkeypatch: pytest.MonkeyPatch)
 
     assert argumentos["args"] == ("postgresql://fila",)
     assert argumentos["kwargs"]["ssl"] == "require"
+    assert argumentos["kwargs"]["statement_cache_size"] == 0
     assert conexao.fechada is True

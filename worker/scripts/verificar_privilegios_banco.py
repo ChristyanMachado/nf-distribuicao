@@ -52,6 +52,7 @@ async def verificar(database_url: str) -> dict[str, object]:
         timeout=15,
         command_timeout=30,
         ssl="require",
+        statement_cache_size=0,
     )
     try:
         resultado = await conexao.fetchrow(
