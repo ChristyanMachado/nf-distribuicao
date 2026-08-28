@@ -30,6 +30,70 @@ from src.orquestrador import (
 from src.utils.logging import configurar_logger
 
 
+class FalhaPreparacaoTarefa(RuntimeError):
+    """Falha pré-navegador com diagnóstico seguro para o Web."""
+
+    def __init__(self, codigo: str, mensagem: str) -> None:
+        super().__init__(mensagem)
+        self.codigo = codigo
+        self.mensagem_usuario = mensagem
+
+
+def _validar_preparacao_reserva(reserva, config: Config):
+    contratada = reserva.contratada
+    if contratada.ambiente != "teste" or config.ambiente_emissao != "teste":
+        raise FalhaPreparacaoTarefa(
+            "AMBIENTE_INCORRETO",
+            "A tarefa não pertence ao ambiente seguro configurado no Worker.",
+        )
+
+    try:
+        credencial = carregar_credencial(contratada.credencial_referencia)
+    except RuntimeError as exc:
+        raise FalhaPreparacaoTarefa(
+            "CREDENCIAL_INCOMPLETA",
+            "A configuração segura do emitente está incompleta no Worker.",
+        ) from exc
+
+    if not credencial.identidade_esperada:
+        raise FalhaPreparacaoTarefa(
+            "CREDENCIAL_INCOMPLETA",
+            "A confirmação de identidade do emitente não está configurada no Worker.",
+        )
+    if (
+        not credencial.emitente
+        or credencial.emitente != contratada.tarefa.emitente.valor_select
+    ):
+        raise FalhaPreparacaoTarefa(
+            "EMITENTE_DIVERGENTE",
+            "O identificador NFP-e desta distribuição não corresponde à configuração segura do emitente.",
+        )
+    return credencial
+
+
+def _diagnostico_falha_pre_emissao(etapa: str) -> tuple[str, str]:
+    return {
+        "autenticacao": (
+            "FALHA_AUTENTICACAO",
+            "A Receita não confirmou o acesso do emitente.",
+        ),
+        "navegacao": (
+            "FALHA_NAVEGACAO",
+            "A tela de emissão da Receita não abriu como esperado.",
+        ),
+        "preenchimento": (
+            "FALHA_PREENCHIMENTO",
+            "Um dado da distribuição não foi aceito ou um campo do portal mudou.",
+        ),
+    }.get(
+        etapa,
+        (
+            "FALHA_TECNICA",
+            "O processamento foi interrompido com segurança antes da emissão.",
+        ),
+    )
+
+
 async def preencher_formulario_completo(page, tarefa: Tarefa, logger) -> None:
     """
     RF13 passos 4-10 — parte da tela de emissão (já alcançada por
@@ -274,6 +338,7 @@ async def executar_validacao_fila_banco(config: Config, logger) -> int:
                             reserva.reserva_token,
                             "AGUARDANDO_CONFERENCIA",
                             mensagem="Credencial local ausente ou tarefa requer revisão.",
+                            codigo_erro="CREDENCIAL_INCOMPLETA",
                         )
                     except FonteTarefasErro:
                         logger.error(
@@ -327,9 +392,34 @@ async def executar_fila_banco_homologacao(config: Config, logger) -> int:
                 logger.info("Nenhuma tarefa elegível encontrada na fila do banco.")
                 return 0
 
-            por_id = {
-                reserva.contratada.tarefa.tarefa_id: reserva for reserva in reservas
-            }
+            por_id = {}
+            credenciais = {}
+            falhas_preparacao = 0
+            for reserva in reservas:
+                tarefa_id = reserva.contratada.tarefa.tarefa_id
+                try:
+                    credenciais[tarefa_id] = _validar_preparacao_reserva(
+                        reserva,
+                        config,
+                    )
+                    por_id[tarefa_id] = reserva
+                except FalhaPreparacaoTarefa as exc:
+                    falhas_preparacao += 1
+                    await fonte.registrar_status(
+                        tarefa_id,
+                        reserva.reserva_token,
+                        "ERRO",
+                        mensagem=exc.mensagem_usuario,
+                        codigo_erro=exc.codigo,
+                    )
+                    logger.error(
+                        "[%s] Preparação bloqueada antes de abrir o navegador (%s).",
+                        tarefa_id,
+                        exc.codigo,
+                    )
+
+            if not por_id:
+                return int(falhas_preparacao > 0)
 
             async def processar_reserva(
                 tarefa_id: str,
@@ -338,6 +428,7 @@ async def executar_fila_banco_homologacao(config: Config, logger) -> int:
                 reserva = por_id[tarefa_id]
                 contratada = reserva.contratada
                 entrou_em_emissao = False
+                etapa = "preparacao"
                 page = None
                 heartbeat = asyncio.create_task(
                     _manter_reserva_ativa(
@@ -348,33 +439,18 @@ async def executar_fila_banco_homologacao(config: Config, logger) -> int:
                     )
                 )
                 try:
-                    if contratada.ambiente != "teste" or config.ambiente_emissao != "teste":
-                        raise RuntimeError("Contrato não pertence à homologação.")
-
-                    credencial = carregar_credencial(
-                        contratada.credencial_referencia
-                    )
-                    if not credencial.identidade_esperada:
-                        raise RuntimeError(
-                            "Identidade esperada não configurada para a credencial."
-                        )
-                    if (
-                        not credencial.emitente
-                        or credencial.emitente
-                        != contratada.tarefa.emitente.valor_select
-                    ):
-                        raise RuntimeError(
-                            "Credencial e emitente da tarefa não foram vinculados."
-                        )
-
+                    credencial = credenciais[tarefa_id]
                     page = await context.new_page()
+                    etapa = "autenticacao"
                     await realizar_login(
                         page,
                         config.sistema_fiscal_url,
                         credencial,
                         logger,
                     )
+                    etapa = "navegacao"
                     await navegar_ate_emissao(page, logger, ambiente="teste")
+                    etapa = "preenchimento"
                     await preencher_formulario_completo(
                         page,
                         contratada.tarefa,
@@ -387,6 +463,7 @@ async def executar_fila_banco_homologacao(config: Config, logger) -> int:
                         mensagem="Formulário conferido; emissão em homologação iniciada.",
                     )
                     entrou_em_emissao = True
+                    etapa = "emissao"
                     documentos = await executar_emissao_homologacao(
                         page,
                         contratada.tarefa,
@@ -413,17 +490,18 @@ async def executar_fila_banco_homologacao(config: Config, logger) -> int:
                     destino = (
                         "AGUARDANDO_CONFERENCIA" if entrou_em_emissao else "ERRO"
                     )
-                    mensagem = (
-                        "Resultado fiscal incerto; confira a Receita antes de qualquer nova tentativa."
-                        if entrou_em_emissao
-                        else "Falha antes da emissão; revise configuração, cadastro ou portal."
-                    )
+                    if entrou_em_emissao:
+                        codigo_erro = "RESULTADO_FISCAL_INCERTO"
+                        mensagem = "Resultado fiscal incerto; confira a Receita antes de qualquer nova tentativa."
+                    else:
+                        codigo_erro, mensagem = _diagnostico_falha_pre_emissao(etapa)
                     try:
                         await fonte.registrar_status(
                             tarefa_id,
                             reserva.reserva_token,
                             destino,
                             mensagem=mensagem,
+                            codigo_erro=codigo_erro,
                         )
                     except FonteTarefasErro:
                         logger.error(
@@ -453,7 +531,10 @@ async def executar_fila_banco_homologacao(config: Config, logger) -> int:
                 headless=config.headless,
                 max_concorrencia=limite,
             )
-            return int(any(not resultado.sucesso for resultado in resultados))
+            return int(
+                falhas_preparacao > 0
+                or any(not resultado.sucesso for resultado in resultados)
+            )
     except FonteTarefasErro as exc:
         logger.error("Integração com banco falhou (%s).", type(exc).__name__)
         return 1

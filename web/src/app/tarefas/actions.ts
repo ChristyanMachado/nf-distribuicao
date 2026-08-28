@@ -13,6 +13,7 @@ import {
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { exigirUuid } from "@/lib/validacao";
 import { exigirSessaoAdministrativa } from "@/lib/auth-server";
+import { CODIGOS_REPROCESSAVEIS } from "@/lib/erros-tarefa";
 
 export async function listarTarefasComItens() {
   await exigirSessaoAdministrativa();
@@ -25,6 +26,7 @@ export async function listarTarefasComItens() {
       reservaExpiraEm: tarefas.reservaExpiraEm,
       ultimoErro: tarefas.ultimoErro,
       mensagemStatus: tarefas.mensagemStatus,
+      codigoErro: tarefas.codigoErro,
       valorTotal: tarefas.valorTotal,
       loteId: tarefas.loteId,
       numeroDistribuicao: lotesDistribuicao.numero,
@@ -86,6 +88,47 @@ export async function cancelarTarefa(tarefaId: string) {
     }
   } catch {
     return { erro: "Não foi possível cancelar a tarefa. Atualize a página e tente novamente." };
+  }
+
+  revalidatePath("/tarefas");
+  return {};
+}
+
+export async function tentarNovamenteTarefa(tarefaId: string) {
+  await exigirSessaoAdministrativa();
+  try {
+    exigirUuid(tarefaId, "Tarefa");
+    // Somente códigos gerados antes do início fiscal podem voltar à fila.
+    // AGUARDANDO_CONFERENCIA e erros de snapshot jamais passam por este WHERE.
+    const liberadas = await db
+      .update(tarefas)
+      .set({
+        status: "PENDENTE",
+        reservadaPor: null,
+        reservaToken: null,
+        reservaExpiraEm: null,
+        concluidoEm: null,
+        ultimoErro: null,
+        codigoErro: null,
+        mensagemStatus: "Nova tentativa solicitada; aguardando o Worker.",
+        atualizadoEm: new Date(),
+      })
+      .where(and(
+        eq(tarefas.id, tarefaId),
+        eq(tarefas.status, "ERRO"),
+        inArray(tarefas.codigoErro, [...CODIGOS_REPROCESSAVEIS]),
+      ))
+      .returning({ id: tarefas.id });
+
+    if (liberadas.length === 0) {
+      return {
+        erro: "Esta tarefa não pode ser repetida com segurança. Siga a orientação exibida ou chame o suporte.",
+      };
+    }
+  } catch {
+    return {
+      erro: "Não foi possível solicitar uma nova tentativa. Atualize a página e tente novamente.",
+    };
   }
 
   revalidatePath("/tarefas");

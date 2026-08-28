@@ -75,7 +75,16 @@ if (!connectionString) {
         )::int as pendentes_com_reserva,
         count(*) filter (
           where status = 'PENDENTE' and tentativas > 0
-        )::int as pendentes_com_tentativa_consumida
+        )::int as pendentes_com_tentativa_consumida,
+        count(*) filter (
+          where status = 'ERRO'
+            and codigo_erro in (
+              'FALHA_AUTENTICACAO', 'FALHA_NAVEGACAO', 'FALHA_TECNICA'
+            )
+        )::int as erros_reprocessaveis,
+        count(*) filter (
+          where status = 'AGUARDANDO_CONFERENCIA'
+        )::int as aguardando_conferencia
       from fiscal.tarefas
     `;
     const [lotes] = await sql`
@@ -94,7 +103,7 @@ if (!connectionString) {
             and column_name in ('numero', 'chave_idempotencia'))
           or (table_name = 'tarefas' and column_name in (
             'lote_id', 'reserva_token', 'contrato_versao',
-            'payload_worker', 'payload_hash'
+            'payload_worker', 'payload_hash', 'codigo_erro'
           ))
           or (table_name = 'notas' and column_name = 'protocolo_autorizacao')
         )
@@ -132,7 +141,7 @@ if (!connectionString) {
         tarefas,
         lotes,
         contratoDistribuicaoPronto:
-          colunasIntegracao.length === 8 &&
+          colunasIntegracao.length === 9 &&
           funcaoFila.existe &&
           funcaoFila.public_revogado,
         segurancaFila: funcaoFila,

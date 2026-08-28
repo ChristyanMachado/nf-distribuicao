@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import Stamp from "@/components/Stamp";
-import { cancelarTarefa } from "./actions";
+import { cancelarTarefa, tentarNovamenteTarefa } from "./actions";
 import { dataIsoParaBrasil } from "@/lib/datas";
+import { obterDiagnosticoTarefa } from "@/lib/erros-tarefa";
 
 const moeda = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 
@@ -22,6 +24,7 @@ type Tarefa = {
   reservaExpiraEm: Date | null;
   ultimoErro: string | null;
   mensagemStatus: string | null;
+  codigoErro: string | null;
   valorTotal: string;
   numeroDistribuicao: number | null;
   clienteNome: string;
@@ -31,8 +34,13 @@ type Tarefa = {
 
 export default function TarefaCard({ tarefa }: { tarefa: Tarefa }) {
   const [aberto, setAberto] = useState(false);
-  const [erroCancelamento, setErroCancelamento] = useState<string | null>(null);
+  const [erroAcao, setErroAcao] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const diagnostico = obterDiagnosticoTarefa(
+    tarefa.status,
+    tarefa.codigoErro,
+    tarefa.ultimoErro || tarefa.mensagemStatus,
+  );
 
   return (
     <div className="px-4 py-3.5">
@@ -90,10 +98,10 @@ export default function TarefaCard({ tarefa }: { tarefa: Tarefa }) {
               type="button"
               disabled={pending}
               onClick={() => {
-                setErroCancelamento(null);
+                setErroAcao(null);
                 startTransition(async () => {
                   const resultado = await cancelarTarefa(tarefa.id);
-                  setErroCancelamento(resultado.erro ?? null);
+                  setErroAcao(resultado.erro ?? null);
                 });
               }}
               className="mt-2 text-[13px] text-[var(--stamp)] disabled:opacity-40"
@@ -101,9 +109,46 @@ export default function TarefaCard({ tarefa }: { tarefa: Tarefa }) {
               {pending ? "Cancelando…" : "Cancelar tarefa"}
             </button>
           )}
-          {erroCancelamento && (
+
+          {diagnostico && (
+            <div className="mt-3 rounded-[var(--radius-control)] border border-[var(--stamp)]/35 bg-[var(--stamp-tint)] p-3 text-[13px]">
+              <p className="font-semibold text-[var(--stamp)]">{diagnostico.titulo}</p>
+              <p className="mt-1 text-[var(--ink-soft)]">{diagnostico.descricao}</p>
+              <p className="mt-2 font-medium text-[var(--ink)]">O que fazer</p>
+              <p className="mt-0.5 text-[var(--ink-soft)]">{diagnostico.orientacao}</p>
+
+              <div className="mt-3 flex flex-wrap gap-2">
+                {diagnostico.podeTentarNovamente && (
+                  <button
+                    type="button"
+                    disabled={pending}
+                    onClick={() => {
+                      setErroAcao(null);
+                      startTransition(async () => {
+                        const resultado = await tentarNovamenteTarefa(tarefa.id);
+                        setErroAcao(resultado.erro ?? null);
+                      });
+                    }}
+                    className="tap-target rounded-[var(--radius-control)] bg-[var(--field)] px-3 py-2 text-[13px] font-medium text-white disabled:opacity-40"
+                  >
+                    {pending ? "Solicitando…" : "Tentar novamente"}
+                  </button>
+                )}
+                {diagnostico.deveCriarNovaDistribuicao && (
+                  <Link
+                    href="/distribuicao"
+                    className="tap-target rounded-[var(--radius-control)] border border-[var(--line-strong)] px-3 py-2 text-[13px] font-medium text-[var(--ink)]"
+                  >
+                    Criar nova distribuição
+                  </Link>
+                )}
+              </div>
+            </div>
+          )}
+
+          {erroAcao && (
             <p role="alert" className="mt-2 text-[12px] text-[var(--stamp)]">
-              {erroCancelamento}
+              {erroAcao}
             </p>
           )}
 
@@ -115,10 +160,10 @@ export default function TarefaCard({ tarefa }: { tarefa: Tarefa }) {
                 : ""}
             </p>
           )}
-          {tarefa.ultimoErro && (
+          {!diagnostico && tarefa.ultimoErro && (
             <p className="mt-1 text-[12px] text-[var(--stamp)]">{tarefa.ultimoErro}</p>
           )}
-          {!tarefa.ultimoErro && tarefa.mensagemStatus && (
+          {!diagnostico && !tarefa.ultimoErro && tarefa.mensagemStatus && (
             <p className="mt-1 text-[12px] text-[var(--ink-soft)]">
               {tarefa.mensagemStatus}
             </p>

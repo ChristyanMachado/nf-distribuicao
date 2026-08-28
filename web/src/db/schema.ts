@@ -240,6 +240,9 @@ export const tarefas = fiscalSchema.table("tarefas", {
   concluidoEm: timestamp("concluido_em", { withTimezone: true }),
   ultimoErro: text("ultimo_erro"),
   mensagemStatus: text("mensagem_status"),
+  // Código estável e sem dados fiscais. O Web o traduz em orientação clara e
+  // decide se uma nova tentativa é segura sem interpretar texto livre.
+  codigoErro: text("codigo_erro"),
   contratoVersao: integer("contrato_versao"),
   payloadWorker: jsonb("payload_worker"),
   payloadHash: text("payload_hash"),

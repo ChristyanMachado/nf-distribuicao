@@ -12,7 +12,7 @@
   notas, roteiro de motorista e relatórios operacionais.
 - Sessão administrativa HMAC, bloqueio por inatividade, Server Actions
   protegidas, validação de entrada e cabeçalhos de segurança.
-- Migrações `0001`–`0009` aplicadas no banco de teste. `0008` adiciona
+- Migrações `0001`–`0010` aplicadas no banco de teste. `0008` adiciona
   snapshot/hash, idempotência, token, protocolo e unicidades; `0009` corrige o
   retorno ambíguo de `reserva_token`. `EXECUTE` público foi revogado.
 - Snapshot da tarefa gravado atomicamente: versão, payload e SHA-256 entram no
@@ -33,17 +33,25 @@
   snapshot/hash/credencial validados e voltou a `PENDENTE`, sem navegador e sem
   emissão. O pool async usa cache de prepared statements desligado para ser
   compatível com o pooler transacional.
+- Diagnóstico operacional estruturado em `codigo_erro`. A tela de tarefas mostra
+  causa e solução em linguagem simples; erros seguros recebem **Tentar
+  novamente**, enquanto snapshot divergente aponta para uma nova distribuição
+  e incerteza fiscal permanece bloqueada.
+- O primeiro ciclo conectado abriu apenas o Chromium e parou antes do login por
+  `EMITENTE_DIVERGENTE`. Não houve preenchimento nem emissão. O pré-voo agora
+  detecta essa classe antes de iniciar o navegador.
 
 ### Evidências atuais
 
-- Worker: **150 testes passando**.
-- Web: **75 testes em 13 arquivos passando**.
+- Worker: **153 testes passando**.
+- Web: **80 testes em 14 arquivos passando**.
 - `npx tsc --noEmit`, `npm run build` e `git diff --check` passaram.
 - `npm audit --omit=dev`: 0 vulnerabilidades conhecidas.
-- Banco: migrações sincronizadas, canal TLS/fila OK, papel exclusivo seguro e
-  1 tarefa real elegível que permaneceu `PENDENTE` após o ensaio.
-- `db:verify-integration` passou em 28/08: 1 cliente e 1 emitente completos,
-  3 produtos completos, 6 lotes numerados e 1 tarefa pronta para o Worker.
+- Banco: migrações sincronizadas, canal TLS/fila OK e papel exclusivo seguro.
+  Após o ensaio inicial, a primeira tarefa conectada ficou em `ERRO` antes do
+  login por snapshot de emitente divergente; existem 0 tarefas pendentes.
+- Cadastros atuais: 1 cliente e 1 emitente completos e 3 produtos completos.
+  O próximo passo é criar uma nova distribuição após a correção do emitente.
 
 ### Continuação autônoma — cadastros e tarefas operacionais
 

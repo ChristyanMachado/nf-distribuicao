@@ -43,6 +43,9 @@ substitui identidade multiusuário, papéis, tenant e RLS.
 - credenciais resolvidas por referência fora do Web;
 - logs sanitizados, rotacionados e sem dados fiscais brutos;
 - mensagens de banco limitadas e sem CR/LF;
+- códigos de erro limitados a formato estável e sem dados fiscais; retry usa
+  lista fechada e transição atômica apenas a partir de `ERRO` pré-emissão;
+- `AGUARDANDO_CONFERENCIA` nunca recebe botão de nova tentativa;
 - XML e PDF validados antes de sucesso;
 - diretório/arquivos privados e recusa de link simbólico;
 - configuração não revela URL do banco em `repr`.

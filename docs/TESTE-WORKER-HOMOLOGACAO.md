@@ -122,11 +122,11 @@ O primeiro comando precisa retornar `papelWorkerSeguro: true`. Se a variável
 dedicada ainda não existir, ambos retornam JSON `nao_configurado`/configuração
 ausente sem revelar URL ou imprimir traceback.
 
-No ambiente local autorizado, a conta pode ser provisionada/rotacionada a
-partir de `web/` com `npm run db:provision-worker-local`. O comando usa a URL
-proprietária apenas para conceder os acessos mínimos, testa a nova identidade e
-grava a conexão exclusivamente em `worker/.env`; não imprime a senha. Em VM ou
-produção, crie outra identidade e use o template SQL revisável.
+No ambiente local autorizado, a conta pode ser criada ou ter seus privilégios
+reaplicados a partir de `web/` com `npm run db:provision-worker-local`. O comando
+usa a URL proprietária apenas para conceder os acessos mínimos, testa a
+identidade e grava a conexão exclusivamente em `worker/.env`; não imprime a
+senha. Em VM ou produção, crie outra identidade e use o template SQL revisável.
 
 Depois do ensaio seguro, e somente com autorização explícita, habilite:
 

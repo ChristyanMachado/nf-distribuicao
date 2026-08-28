@@ -8,6 +8,7 @@ def _resultado_minimo() -> dict[str, bool]:
         "executar_reserva": True,
         "ler_tarefas": True,
         "atualizar_status": True,
+        "atualizar_codigo_erro": True,
         "ler_notas": True,
         "inserir_notas": True,
         "ler_emitentes": False,

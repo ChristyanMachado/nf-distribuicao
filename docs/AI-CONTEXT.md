@@ -26,11 +26,15 @@ executa cada tarefa em um `BrowserContext` independente.
 - XML só é aceito com estrutura NF-e, chave de 44 dígitos, número, protocolo e
   `cStat=100`. PDF precisa começar com `%PDF-`. Arquivos ficam locais e
   privados; o Storage remoto ainda não foi implementado.
-- Migrações `0001` a `0009` estão aplicadas no banco de teste. `0008` adiciona
+- Migrações `0001` a `0010` estão aplicadas no banco de teste. `0008` adiciona
   idempotência do lote, snapshot `payload_worker` + SHA-256, token de reserva,
   protocolo e unicidades. `0009` corrige a ambiguidade do retorno
   `reserva_token`. `EXECUTE` público da função de reserva está revogado.
-- Validação local: **150 testes Worker**, **75 testes Web**, TypeScript e build
+- `0010` adiciona `codigo_erro`: o Worker registra uma causa sanitizada por
+  etapa e o Web mostra “o que aconteceu” + “o que fazer”. O botão **Tentar
+  novamente** aparece somente para falhas pré-emissão permitidas por lista
+  fechada; resultado fiscal incerto nunca volta à fila.
+- Validação local: **153 testes Worker**, **80 testes Web**, TypeScript e build
   de produção passaram.
 - Cadastros de emitente agora aceitam CPF ou CNPJ e IE opcional. A coluna
   física ainda se chama `cnpj` por compatibilidade; não criar migração apenas
@@ -70,12 +74,15 @@ executa cada tarefa em um `BrowserContext` independente.
 - 3 produtos ativos e fiscalmente completos;
 - 10 tarefas antigas `CANCELADA`, todas sem lote;
 - 6 lotes numerados;
-- 1 tarefa `PENDENTE` elegível para o Worker;
+- 0 tarefas `PENDENTE`; a única tarefa nova está em `ERRO` pré-emissão;
 - canal TLS, papel restrito, função de reserva e round-trip seguro confirmados;
   a tarefa voltou a `PENDENTE` sem emissão fiscal.
+- O primeiro ciclo conectado foi bloqueado antes do login porque o identificador
+  NFP-e do snapshot divergia da configuração local. Nenhuma nota foi emitida;
+  a tarefa ficou em `ERRO` e foi classificada como `EMITENTE_DIVERGENTE`.
 
-Não corrigir tarefas antigas à força. A tarefa elegível atual fica reservada
-para o primeiro ciclo conectado de homologação, somente com autorização explícita.
+Não corrigir snapshots antigos à força. O emitente já foi corrigido no cadastro;
+criar uma nova distribuição para gerar o próximo snapshot elegível.
 
 ## Contrato e estados
 

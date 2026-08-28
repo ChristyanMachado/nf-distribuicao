@@ -175,6 +175,7 @@ class FontePostgresTarefas:
                         await self._registrar_status_conexao(
                             conexao, str(tarefa_id), token, "AGUARDANDO_CONFERENCIA",
                             "Contrato fiscal incompleto ou incompatível; revise o cadastro.",
+                            "CONTRATO_INVALIDO",
                         )
                 return resultado
         except FonteTarefasErro:
@@ -182,20 +183,49 @@ class FontePostgresTarefas:
         except Exception as exc:
             raise FonteTarefasErro("Não foi possível reservar tarefas no banco.") from exc
 
-    async def registrar_status(self, tarefa_id: str, reserva_token: str, status: str, *, mensagem: str | None = None) -> None:
+    async def registrar_status(
+        self,
+        tarefa_id: str,
+        reserva_token: str,
+        status: str,
+        *,
+        mensagem: str | None = None,
+        codigo_erro: str | None = None,
+    ) -> None:
         try:
             async with self._conexao() as conexao:
-                await self._registrar_status_conexao(conexao, tarefa_id, reserva_token, status, mensagem)
+                await self._registrar_status_conexao(
+                    conexao,
+                    tarefa_id,
+                    reserva_token,
+                    status,
+                    mensagem,
+                    codigo_erro,
+                )
         except FonteTarefasErro:
             raise
         except Exception as exc:
             raise FonteTarefasErro("Não foi possível registrar o status no banco.") from exc
 
-    async def _registrar_status_conexao(self, conexao: Any, tarefa_id: str, reserva_token: str, status: str, mensagem: str | None) -> None:
+    async def _registrar_status_conexao(
+        self,
+        conexao: Any,
+        tarefa_id: str,
+        reserva_token: str,
+        status: str,
+        mensagem: str | None,
+        codigo_erro: str | None = None,
+    ) -> None:
         if status not in {"AGUARDANDO_CONFERENCIA", "EMITINDO", "EMITIDA", "ERRO"}:
             raise FonteTarefasErro("Transição de status não permitida.")
         if mensagem and (len(mensagem) > 300 or "\n" in mensagem or "\r" in mensagem):
             raise FonteTarefasErro("Mensagem de resultado inválida.")
+        if codigo_erro and not re.fullmatch(r"[A-Z][A-Z0-9_]{2,63}", codigo_erro):
+            raise FonteTarefasErro("Código de erro inválido.")
+        if status in {"ERRO", "AGUARDANDO_CONFERENCIA"} and not codigo_erro:
+            raise FonteTarefasErro("Código de erro obrigatório para esta transição.")
+        if status not in {"ERRO", "AGUARDANDO_CONFERENCIA"} and codigo_erro:
+            raise FonteTarefasErro("Código de erro não permitido para esta transição.")
         origens = {
             "AGUARDANDO_CONFERENCIA": ("PROCESSANDO", "EMITINDO"),
             "EMITINDO": ("PROCESSANDO",),
@@ -204,13 +234,19 @@ class FontePostgresTarefas:
         }[status]
         alteradas = await conexao.execute(
             """UPDATE fiscal.tarefas SET status=$1::text::fiscal.status_tarefa, mensagem_status=$2,
+               codigo_erro=$3,
                ultimo_erro=CASE WHEN $1::text='ERRO' THEN $2 ELSE NULL END,
                concluido_em=CASE WHEN $1::text IN ('EMITIDA','ERRO') THEN now() ELSE concluido_em END,
                reserva_expira_em=CASE WHEN $1::text='EMITINDO' THEN reserva_expira_em ELSE NULL END,
                atualizado_em=now()
-               WHERE id=$3::uuid AND reserva_token=$4::uuid AND reserva_expira_em>now()
-                 AND status::text=ANY($5::text[])""",
-            status, mensagem, str(_uuid(tarefa_id)), str(_uuid(reserva_token)), list(origens),
+               WHERE id=$4::uuid AND reserva_token=$5::uuid AND reserva_expira_em>now()
+                 AND status::text=ANY($6::text[])""",
+            status,
+            mensagem,
+            codigo_erro,
+            str(_uuid(tarefa_id)),
+            str(_uuid(reserva_token)),
+            list(origens),
         )
         if alteradas == "UPDATE 1":
             return
@@ -275,7 +311,8 @@ class FontePostgresTarefas:
                        SET status='PENDENTE', reservada_por=NULL,
                            reserva_token=NULL, reserva_expira_em=NULL,
                            tentativas=GREATEST(tentativas-1,0), iniciado_em=NULL,
-                           mensagem_status=$1, atualizado_em=now()
+                           mensagem_status=$1, ultimo_erro=NULL, codigo_erro=NULL,
+                           atualizado_em=now()
                        WHERE id=$2::uuid AND reserva_token=$3::uuid
                          AND reserva_expira_em>now() AND status='PROCESSANDO'""",
                     mensagem,
@@ -323,6 +360,7 @@ class FontePostgresTarefas:
                         """UPDATE fiscal.tarefas
                            SET status='EMITIDA', concluido_em=now(),
                                reserva_expira_em=NULL, ultimo_erro=NULL,
+                               codigo_erro=NULL,
                                mensagem_status='Autorizada; documentos aguardam armazenamento em nuvem.',
                                atualizado_em=now()
                            WHERE id=$1::uuid AND reserva_token=$2::uuid

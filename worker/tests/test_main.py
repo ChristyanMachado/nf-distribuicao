@@ -220,6 +220,7 @@ def test_validacao_banco_isola_credencial_ausente_para_conferencia():
         reserva.reserva_token,
         "AGUARDANDO_CONFERENCIA",
         mensagem="Credencial local ausente ou tarefa requer revisão.",
+        codigo_erro="CREDENCIAL_INCOMPLETA",
     )
 
 
@@ -249,7 +250,8 @@ def test_fila_banco_falha_antes_de_emitir_vai_para_erro():
         reserva.contratada.tarefa.tarefa_id,
         reserva.reserva_token,
         "ERRO",
-        mensagem="Falha antes da emissão; revise configuração, cadastro ou portal.",
+        mensagem="A Receita não confirmou o acesso do emitente.",
+        codigo_erro="FALHA_AUTENTICACAO",
     )
 
 
@@ -288,9 +290,45 @@ def test_fila_banco_falha_depois_de_emitindo_exige_conferencia():
     assert fonte.registrar_status.await_args_list[1].kwargs == {
         "mensagem": (
             "Resultado fiscal incerto; confira a Receita antes de qualquer nova tentativa."
-        )
+        ),
+        "codigo_erro": "RESULTADO_FISCAL_INCERTO",
     }
     fonte.registrar_emissao_autorizada.assert_not_awaited()
+
+
+def test_fila_banco_bloqueia_emitente_divergente_antes_do_navegador():
+    reserva = _reserva_banco()
+    fonte = _FonteBancoFake([reserva])
+    logger = logging.getLogger("teste-fila-emitente-divergente")
+    credencial = SimpleNamespace(
+        identidade_esperada="Emitente esperado",
+        emitente="outro-emitente",
+    )
+
+    with (
+        patch("main.FontePostgresTarefas", return_value=fonte),
+        patch("main.carregar_credencial", return_value=credencial),
+        patch(
+            "main.processar_tarefas_em_paralelo_async",
+            new_callable=AsyncMock,
+        ) as orquestrador,
+    ):
+        resultado = asyncio.run(
+            executar_fila_banco_homologacao(_config_banco(), logger)
+        )
+
+    assert resultado == 1
+    orquestrador.assert_not_awaited()
+    fonte.registrar_status.assert_awaited_once_with(
+        reserva.contratada.tarefa.tarefa_id,
+        reserva.reserva_token,
+        "ERRO",
+        mensagem=(
+            "O identificador NFP-e desta distribuição não corresponde à "
+            "configuração segura do emitente."
+        ),
+        codigo_erro="EMITENTE_DIVERGENTE",
+    )
 
 
 def test_fila_banco_autorizada_registra_metadados_com_token_da_reserva():

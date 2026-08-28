@@ -79,6 +79,13 @@ renova o lease e usa token fencing em todas as transições.
 Contrato/hash/credencial inválidos vão para `AGUARDANDO_CONFERENCIA`. Lease
 vencido ou incerteza depois do clique fiscal não volta automaticamente à fila.
 
+Falhas operacionais usam `codigo_erro` estruturado e mensagem sanitizada. O Web
+traduz o código em causa e orientação para o usuário. Uma Server Action só
+devolve `ERRO` a `PENDENTE` para a lista fechada de falhas comprovadamente
+pré-emissão (`FALHA_AUTENTICACAO`, `FALHA_NAVEGACAO`, `FALHA_TECNICA`).
+`AGUARDANDO_CONFERENCIA`, contrato inválido, emitente divergente e falha de
+preenchimento não possuem retry; exigem conferência ou nova distribuição.
+
 ## Travas fiscais
 
 - `AMBIENTE_EMISSAO=teste`;

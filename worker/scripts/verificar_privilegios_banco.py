@@ -20,6 +20,7 @@ PRIVILEGIOS_OBRIGATORIOS = (
     "executar_reserva",
     "ler_tarefas",
     "atualizar_status",
+    "atualizar_codigo_erro",
     "ler_notas",
     "inserir_notas",
 )
@@ -70,6 +71,8 @@ async def verificar(database_url: str) -> dict[str, object]:
                 AND has_column_privilege(current_user, 'fiscal.tarefas', 'reserva_token', 'UPDATE')
                 AND has_column_privilege(current_user, 'fiscal.tarefas', 'atualizado_em', 'UPDATE')
                 AS atualizar_status,
+              has_column_privilege(current_user, 'fiscal.tarefas', 'codigo_erro', 'UPDATE')
+                AS atualizar_codigo_erro,
               has_table_privilege(current_user, 'fiscal.notas', 'SELECT') AS ler_notas,
               has_column_privilege(current_user, 'fiscal.notas', 'tarefa_id', 'INSERT')
                 AND has_column_privilege(current_user, 'fiscal.notas', 'chave_acesso', 'INSERT')

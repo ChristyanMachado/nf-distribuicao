@@ -229,8 +229,9 @@ def test_reserva_snapshot_adulterado_vai_para_conferencia_e_continua_lote() -> N
     ]
     atualizacao = next(chamada for chamada in conexao.chamadas if chamada[0] == "execute")
     assert atualizacao[2][0] == "AGUARDANDO_CONFERENCIA"
-    assert atualizacao[2][2] == TAREFA_ID
-    assert atualizacao[2][3] == RESERVA_TOKEN
+    assert atualizacao[2][2] == "CONTRATO_INVALIDO"
+    assert atualizacao[2][3] == TAREFA_ID
+    assert atualizacao[2][4] == RESERVA_TOKEN
 
 
 def test_reserva_json_corrompido_isola_tarefa_em_vez_de_cancelar_lote() -> None:
@@ -272,12 +273,42 @@ def test_registrar_status_usa_uuid_token_lease_e_origem_permitida() -> None:
     asyncio.run(fonte.registrar_status(TAREFA_ID, RESERVA_TOKEN, "EMITINDO"))
 
     _, consulta, args = conexao.chamadas[0]
-    assert "reserva_token=$4::uuid" in consulta
+    assert "reserva_token=$5::uuid" in consulta
     assert "reserva_expira_em>now()" in consulta
     assert args[0] == "EMITINDO"
-    assert args[2] == TAREFA_ID
-    assert args[3] == RESERVA_TOKEN
-    assert args[4] == ["PROCESSANDO"]
+    assert args[2] is None
+    assert args[3] == TAREFA_ID
+    assert args[4] == RESERVA_TOKEN
+    assert args[5] == ["PROCESSANDO"]
+
+
+def test_registrar_erro_exige_codigo_estruturado() -> None:
+    fonte = _fonte_com_conexao(_ConexaoFake())
+
+    with pytest.raises(FonteTarefasErro, match="Código de erro obrigatório"):
+        asyncio.run(
+            fonte.registrar_status(
+                TAREFA_ID,
+                RESERVA_TOKEN,
+                "ERRO",
+                mensagem="Falha segura.",
+            )
+        )
+
+
+def test_registrar_status_recusa_codigo_com_caracteres_de_log() -> None:
+    fonte = _fonte_com_conexao(_ConexaoFake())
+
+    with pytest.raises(FonteTarefasErro, match="Código de erro inválido"):
+        asyncio.run(
+            fonte.registrar_status(
+                TAREFA_ID,
+                RESERVA_TOKEN,
+                "ERRO",
+                mensagem="Falha segura.",
+                codigo_erro="ERRO\nFORJADO",
+            )
+        )
 
 
 @pytest.mark.parametrize(

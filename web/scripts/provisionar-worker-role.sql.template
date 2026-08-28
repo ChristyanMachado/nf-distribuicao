@@ -32,7 +32,8 @@ GRANT USAGE ON TYPE fiscal.status_tarefa TO :"worker_role";
 GRANT SELECT ON TABLE fiscal.tarefas TO :"worker_role";
 GRANT UPDATE (
   status, reservada_por, reserva_token, reserva_expira_em, tentativas,
-  iniciado_em, atualizado_em, mensagem_status, ultimo_erro, concluido_em
+  iniciado_em, atualizado_em, mensagem_status, ultimo_erro, codigo_erro,
+  concluido_em
 ) ON TABLE fiscal.tarefas TO :"worker_role";
 GRANT SELECT ON TABLE fiscal.notas TO :"worker_role";
 GRANT INSERT (

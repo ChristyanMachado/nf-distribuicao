@@ -50,8 +50,10 @@ O modelo revisável está em
 ação explícita de provisionamento.
 
 Para o piloto local autorizado, `npm run db:provision-worker-local` em `web/`
-cria ou rotaciona `nf_worker_local`, testa a conexão e atualiza apenas o
-`worker/.env` ignorado. O comando não deve ser usado como mecanismo de deploy.
+cria `nf_worker_local` na primeira execução ou reaplica os privilégios mínimos
+quando ele já existe, testa a conexão e atualiza apenas o `worker/.env` ignorado.
+Rotação posterior de senha depende da administração oferecida pelo provedor. O
+comando não deve ser usado como mecanismo de deploy.
 
 Depois de criar a URL dedicada, executar como módulo:
 
