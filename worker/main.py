@@ -71,7 +71,15 @@ def _validar_preparacao_reserva(reserva, config: Config):
     return credencial
 
 
-def _diagnostico_falha_pre_emissao(etapa: str) -> tuple[str, str]:
+def _diagnostico_falha_pre_emissao(
+    etapa: str,
+    exc: Exception | None = None,
+) -> tuple[str, str]:
+    if isinstance(exc, fluxo_emissao.AcessoPortalNegado):
+        return (
+            "ACESSO_PORTAL_NEGADO",
+            "A Receita negou acesso ao módulo seguinte antes da emissão.",
+        )
     return {
         "autenticacao": (
             "FALHA_AUTENTICACAO",
@@ -518,7 +526,10 @@ async def executar_fila_banco_homologacao(config: Config, logger) -> int:
                         codigo_erro = "RESULTADO_FISCAL_INCERTO"
                         mensagem = "Resultado fiscal incerto; confira a Receita antes de qualquer nova tentativa."
                     else:
-                        codigo_erro, mensagem = _diagnostico_falha_pre_emissao(etapa)
+                        codigo_erro, mensagem = _diagnostico_falha_pre_emissao(
+                            etapa,
+                            exc,
+                        )
                     try:
                         await fonte.registrar_status(
                             tarefa_id,

@@ -31,6 +31,16 @@ describe("diagnóstico seguro de tarefas", () => {
     ).toBe(false);
   });
 
+  it("bloqueia retry quando o portal nega acesso ao módulo seguinte", () => {
+    const diagnostico = obterDiagnosticoTarefa(
+      "ERRO",
+      "ACESSO_PORTAL_NEGADO",
+      null,
+    );
+    expect(diagnostico?.podeTentarNovamente).toBe(false);
+    expect(diagnostico?.deveCriarNovaDistribuicao).toBe(false);
+  });
+
   it("não mostra retry em conferência mesmo com código pré-emissão inconsistente", () => {
     expect(
       obterDiagnosticoTarefa(

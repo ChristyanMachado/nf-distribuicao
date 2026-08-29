@@ -45,6 +45,10 @@ class FalhaConfirmacaoEmissao(RuntimeError):
     """A Receita não exibiu a confirmação de autorização esperada."""
 
 
+class AcessoPortalNegado(RuntimeError):
+    """O portal recusou o módulo seguinte antes de iniciar a emissão."""
+
+
 @dataclass(frozen=True)
 class MetadadosDocumentoFiscal:
     chave_acesso: str
@@ -1098,6 +1102,22 @@ async def preencher_produtos(
         # Clicamos em "Avançar" para ir para Transporte.
         # ------------------------------------------------------------
         else:
+            # O clique que encerra o ICMS atualiza a interface de forma
+            # assíncrona. Confirmar a tela-resumo evita reencontrar e clicar
+            # novamente no botão "Avançar" da etapa anterior durante essa
+            # curta transição (condição observada ao vivo em 28/08/2026).
+            adicionar_produto = page.get_by_role(
+                "button",
+                name="Adicionar Produto"
+            )
+            await adicionar_produto.wait_for(
+                state="visible",
+                timeout=10000
+            )
+            logger.info(
+                "Último produto consolidado na tela-resumo"
+            )
+
             logger.info(
                 "Último produto concluído — "
                 "clicando 'Avançar' para Transporte"
@@ -1133,11 +1153,33 @@ async def preencher_produtos(
                     f"mas encontrados {len(candidatos)}."
                 )
 
+            inspecao_transporte = (
+                os.getenv("PAUSAR_ANTES_TRANSPORTE", "false").lower() == "true"
+            )
+            if inspecao_transporte:
+                if os.getenv("HEADLESS", "false").lower() == "true":
+                    raise RuntimeError(
+                        "PAUSAR_ANTES_TRANSPORTE exige HEADLESS=false."
+                    )
+                await candidatos[0].highlight()
+                logger.warning(
+                    "INSPEÇÃO MANUAL — confira o Avançar destacado e clique "
+                    "somente em Resume (▶) no Playwright Inspector."
+                )
+                await page.pause()
+
             await candidatos[0].click()
 
             logger.info(
                 "Avançar pós-produto clicado — aguardando Transporte"
             )
+
+            if inspecao_transporte:
+                logger.warning(
+                    "INSPEÇÃO MANUAL — clique em Resume (▶) após conferir "
+                    "a resposta do portal."
+                )
+                await page.pause()
 
             # preencher_transporte aguarda explicitamente o respectivo label.
     
@@ -1154,10 +1196,20 @@ async def preencher_transporte(
         has_text="Modalidade do Frete"
     )
 
-    await label_frete.wait_for(
-        state="visible",
-        timeout=10000
-    )
+    try:
+        await label_frete.wait_for(
+            state="visible",
+            timeout=10000
+        )
+    except PlaywrightTimeoutError as exc:
+        acesso_negado = page.get_by_text(
+            re.compile(r"Você não tem acesso a esta aplicação", re.IGNORECASE)
+        )
+        if await acesso_negado.count() and await acesso_negado.first.is_visible():
+            raise AcessoPortalNegado(
+                "O portal negou acesso ao módulo seguinte antes da emissão."
+            ) from exc
+        raise
 
     logger.info("Tela de transporte carregada")
 

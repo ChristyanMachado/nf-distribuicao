@@ -39,28 +39,32 @@
   e incerteza fiscal permanece bloqueada. As visões agora são Pendentes, Em
   andamento, Atenção, Concluídas e Canceladas; erro pré-emissão pode ser movido
   para Canceladas sem apagar histórico.
-- Ciclos conectados posteriores confirmaram login, identidade, navegação,
-  destinatário e identificação da operação. Nenhuma tentativa chegou a
-  `EMITINDO`. A SPA mantém etapas anteriores no DOM; o Worker agora seleciona o
-  Avançar da operação por contexto, aguarda retirada/entrega renderizar e marca
-  explicitamente os dois rádios “Não”. A âncora final foi corrigida, mas essa
-  última alteração ainda não teve reteste ao vivo.
+- Ciclos conectados confirmaram todo o caminho banco → Receita → autorização →
+  documentos → banco. A SPA mantém etapas anteriores no DOM; o Worker seleciona
+  o Avançar da operação por contexto, aguarda retirada/entrega e confirma os
+  dois rádios “Não”. Antes de sair do último produto, também aguarda a tela-
+  resumo aparecer pelo botão `Adicionar Produto`, eliminando uma corrida com o
+  Avançar antigo sem adicionar `sleep` fixo.
 - Com `INSPECIONAR=true`, falha pré-emissão salva HTML/PNG privados na pasta
   ignorada `worker/downloads/`; no fluxo normal a opção permanece desligada e
   não adiciona captura nem espera.
 
 ### Evidências atuais
 
-- Worker: **157 testes passando**.
-- Web: **81 testes em 14 arquivos passando**.
+- Worker: **158 testes passando**.
+- Web: **82 testes em 14 arquivos passando**.
 - `npx tsc --noEmit`, `npm run build` e `git diff --check` passaram.
 - `npm audit --omit=dev`: 0 vulnerabilidades conhecidas.
 - Banco: migrações sincronizadas, canal TLS/fila OK e papel exclusivo seguro.
-  Existem 0 tarefas pendentes; 000006–000009 ficaram em `ERRO` pré-emissão.
-- O responsável confirmou que os 3 produtos atuais são fictícios, apesar de
-  passarem nas validações estruturais. Não repetir 000009. O próximo passo é
-  cadastrar produtos reais, conferir seus códigos internos NFP-e e criar uma
-  distribuição nova.
+  Após o teste existem 0 tarefas pendentes, 12 lotes numerados, 14 tarefas
+  canceladas e 3 concluídas visíveis no Web.
+- As 000010 e 000011 foram autorizadas com pausas manuais. A 000012 foi
+  autorizada automaticamente após a espera por estado real, sem Inspector:
+  produtos em 4,61 s, XML/DANFE salvos e aproximadamente 18 s de processo.
+- O primeiro round-trip fiscal Web → banco → Worker → Receita → banco está
+  comprovado em homologação. Storage remoto e produção continuam bloqueados.
+- `ACESSO_PORTAL_NEGADO` possui diagnóstico próprio no Web, sem retry e sem
+  sugerir nova distribuição.
 
 ### Continuação autônoma — cadastros e tarefas operacionais
 
@@ -104,8 +108,8 @@
 
 - Graphify oficial `graphifyy` 0.9.50 foi instalado fora dos ambientes de
   produção, em `.tools/graphify`, com o complemento SQL.
-- O mapa `--code-only` foi atualizado após esta rodada: 121 fontes, 1.030 nós,
-  2.331 relações e 75 comunidades.
+- O mapa `--code-only` foi atualizado após esta rodada: 121 fontes, 1.035 nós,
+  2.341 relações e 69 comunidades.
 - A auditoria inicial não encontrou `.env`, downloads, logs, tarefa real ou
   caminhos pessoais nos artefatos pesquisados.
 - `.tools/` e `graphify-out/` estão ignorados. Não foram ativados backend

@@ -8,17 +8,29 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from main import (
+    _diagnostico_falha_pre_emissao,
     executar_emissao_homologacao,
     executar_fila_banco_homologacao,
     executar_validacao_fila_banco,
     preparar_tarefa_para_cliente,
 )
 from src.flows.emissao import (
+    AcessoPortalNegado,
     Destinatario,
     Emitente,
     FalhaConfirmacaoEmissao,
     Tarefa,
 )
+
+
+def test_diagnostico_especifico_quando_portal_nega_modulo():
+    assert _diagnostico_falha_pre_emissao(
+        "preenchimento",
+        AcessoPortalNegado("negado"),
+    ) == (
+        "ACESSO_PORTAL_NEGADO",
+        "A Receita negou acesso ao módulo seguinte antes da emissão.",
+    )
 
 
 def _tarefa_de_teste() -> Tarefa:

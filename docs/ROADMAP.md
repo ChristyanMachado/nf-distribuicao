@@ -16,33 +16,28 @@ um portal autenticado, sem misturar autorização administrativa nesta entrega.
   hash, idempotência, token fencing e estados.
 - **Fase 3 — integração:** implementada em código; canal TLS, papel mínimo,
   reserva, snapshot e retorno de erros ao Web foram verificados.
-- **Fase 4 — homologação conectada:** chegou com tarefa real até retirada/
-  entrega, sempre antes de `EMITINDO`. Falta cadastrar produtos reais e validar
-  o ciclo banco → navegador → nota autorizada.
+- **Fase 4 — homologação conectada:** concluída com as distribuições
+  000010–000012 autorizadas. A 000012 comprovou o ciclo automático completo,
+  incluindo XML/DANFE e retorno `EMITIDA` ao banco.
 - **Fases 5/6 — operação e produção:** não iniciadas.
 
-Migrações `0001`–`0010` estão ativas. Cliente e emitente do teste estão
-estruturalmente completos. Os três produtos atuais são fictícios e não devem
-ser usados em novo ensaio. As distribuições 000006–000009 são snapshots antigos
-em erro pré-emissão e não devem ser repetidas.
+Migrações `0001`–`0010` estão ativas. Cliente, emitente e três produtos reais
+foram aceitos pelo portal. Uma espera por estado da tela-resumo corrigiu a
+corrida entre o Avançar do ICMS e o Avançar para Transporte, sem `sleep` fixo.
 
 O Web já indica quais cadastros impedem o teste e bloqueia o formulário antes
-de o usuário montar um lote inviável. O papel mínimo do Worker possui template
-e verificador, mas ainda não foi criado.
+de o usuário montar um lote inviável. O papel mínimo do Worker foi criado no
+banco de teste e passou no verificador de privilégios.
 
-## Meta imediata — primeiro round-trip Web → banco → Worker
+## Meta imediata — documentos no celular e operação concorrente
 
-1. Cadastrar no Web produtos reais e seus códigos internos NFP-e.
-2. Criar exatamente uma distribuição nova com os produtos reais.
-3. Executar `npm run db:verify-integration` e confirmar 1 tarefa elegível com
-   snapshot/hash.
-4. Rodar fonte banco com `PROCESSAR_FILA_BANCO=false`, concorrência 1 e sem
-   navegador. Esperado: reservar, validar e devolver a `PENDENTE`.
-5. Conferir token, lease, tentativa e integridade do snapshot.
-6. Com autorização humana explícita, ativar todas as travas e processar essa
-   única tarefa em homologação visível.
-7. Conferir `EMITIDA`, nota única, chave/número/protocolo, XML e DANFE locais.
-8. Só depois testar até 3 tarefas/contextos simultâneos.
+1. Criar Storage privado para XML/DANFE e política de retenção.
+2. Fazer upload pelo Worker, persistir referências internas e disponibilizar
+   download autenticado por URL assinada curta no Web.
+3. Testar até 3 tarefas/contextos simultâneos com emitentes distintos,
+   conferindo isolamento, nomes e estados finais.
+4. Medir o ciclo conectado e garantir que observabilidade não aumente de forma
+   relevante o tempo fiscal.
 
 ## Próximas entregas de código
 

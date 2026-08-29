@@ -1,9 +1,9 @@
 Reconhecimento manual do sistema fiscal
 
-Status em 25/08/2026: o fluxo de preenchimento da NFP-e foi validado ao vivo
-no ambiente de TESTE (homologação), incluindo 1 e 2 produtos, ICMS, tela
-intermediária de Adicionar Produto / Avançar, Transporte, Resumo e a resposta
-pós-emissão. O Worker ainda não invoca a emissão automaticamente.
+Status em 28/08/2026: o fluxo completo foi validado ao vivo em TESTE, incluindo
+3 produtos reais, ICMS, tela intermediária, Transporte, Resumo, autorização e
+download de XML/DANFE. A distribuição 000012 concluiu automaticamente a partir
+da fila do banco, sem Inspector.
 
 2-A. Ambiente de TESTE (NFP-e TESTES / homologação) — confirmado
 
@@ -21,7 +21,8 @@ AMBIENTE_EMISSAO=teste é o padrão.
 
 O fluxo após Emissão - TESTE usa as mesmas telas/campos reconhecidos no ambiente normal.
 
-O teste atual não chama Emitir.
+Produção continua bloqueada; Emitir só é chamado no host exato de homologação e
+com todas as travas explícitas do Worker.
 
 Observação operacional
 
@@ -137,12 +138,14 @@ No fluxo manual validado, os valores permanecem no padrão. No ciclo conectado
 de 28/08, a SPA ainda renderizava a etapa anterior quando esta função começou e
 mantinha vários botões `Avançar` no DOM. A automação agora aguarda a pergunta
 “Local de Retirada diferente do Emitente”, confirma explicitamente `Não` para
-retirada e entrega e ancora o botão na pergunta final. A última âncora foi
-corrigida depois do ensaio e ainda precisa de reteste ao vivo.
+retirada e entrega e ancora o botão na pergunta final. Essa correção foi
+validada nas distribuições 000010–000012.
 
-Os produtos usados nas distribuições 000006–000009 foram confirmados como
-fictícios pelo responsável. Não usar esses snapshots para validar busca de
-produto; cadastrar produtos reais e gerar uma distribuição nova.
+Depois do segundo Avançar do ICMS do último item, a automação agora espera o
+botão `Adicionar Produto` ficar visível. Esse é o sinal de que a tela-resumo foi
+consolidada; só então localiza e clica o Avançar para Transporte. Isso corrigiu
+uma corrida com o botão anterior sem espera fixa. A 000012 foi AUTORIZADA e
+teve XML/DANFE salvos; produtos levaram 4,61 s no ciclo automático.
 
 8. Produtos — fluxo completo confirmado ao vivo
 

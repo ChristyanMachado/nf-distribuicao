@@ -20,9 +20,9 @@ executa cada tarefa em um `BrowserContext` independente.
   flags de integração, o modo seguro reserva, valida e devolve a tarefa a
   `PENDENTE`. Com `PROCESSAR_FILA_BANCO=true` e todas as travas de homologação,
   o código liga reserva → Playwright → `EMITINDO` → XML autorizado → `EMITIDA`.
-  O modo seguro foi ensaiado com tarefa real. O ciclo conectado também foi
-  executado repetidamente em homologação, mas sempre parou antes de `EMITINDO`;
-  ainda não há round-trip fiscal banco → nota autorizada comprovado.
+  O modo seguro foi ensaiado com tarefa real. O ciclo conectado completo foi
+  comprovado nas distribuições 000010–000012: banco → reserva → Playwright →
+  `EMITINDO` → autorização → XML/DANFE → nota e tarefa `EMITIDA`.
 - XML só é aceito com estrutura NF-e, chave de 44 dígitos, número, protocolo e
   `cStat=100`. PDF precisa começar com `%PDF-`. Arquivos ficam locais e
   privados; o Storage remoto ainda não foi implementado.
@@ -34,7 +34,7 @@ executa cada tarefa em um `BrowserContext` independente.
   etapa e o Web mostra “o que aconteceu” + “o que fazer”. O botão **Tentar
   novamente** aparece somente para falhas pré-emissão permitidas por lista
   fechada; resultado fiscal incerto nunca volta à fila.
-- Validação local: **157 testes Worker**, **81 testes Web**, TypeScript e build
+- Validação local: **158 testes Worker**, **82 testes Web**, TypeScript e build
   de produção passaram.
 - Cadastros de emitente agora aceitam CPF ou CNPJ e IE opcional. A coluna
   física ainda se chama `cnpj` por compatibilidade; não criar migração apenas
@@ -71,24 +71,21 @@ executa cada tarefa em um `BrowserContext` independente.
 
 - 1 cliente ativo e fiscalmente completo, vinculado ao emitente;
 - 1 emitente ativo e completo para a integração;
-- 3 produtos ativos passam nas validações estruturais, mas o responsável
-  confirmou que são fictícios e não correspondem aos produtos do portal;
-- 10 tarefas antigas `CANCELADA`, todas sem lote;
-- 9 lotes numerados;
-- 0 tarefas `PENDENTE`; as distribuições 000006–000009 estão em `ERRO`
-  pré-emissão e permanecem apenas como histórico/diagnóstico;
-- canal TLS, papel restrito, função de reserva e round-trip seguro confirmados;
+- 5 produtos ativos passam nas validações estruturais. As distribuições
+  000010–000012 usaram 3 produtos reais, localizados e preenchidos no portal;
+- 14 tarefas `CANCELADA` e 3 tarefas `EMITIDA` visíveis no Web;
+- 12 lotes numerados e 0 tarefas `PENDENTE` após o ensaio;
+- canal TLS, papel restrito e função de reserva confirmados; no ensaio seguro,
   a tarefa voltou a `PENDENTE` sem emissão fiscal.
-- Os ciclos seguintes confirmaram login, identidade, navegação, destinatário e
-  identificação da operação. A SPA acumula etapas no DOM; retirada/entrega
-  exige aguardar a renderização e confirmar explicitamente as duas opções
-  “Não”. A última âncora dessa transição foi corrigida, mas não pôde ser
-  retestada ao vivo após a correção por limite da ferramenta.
-- Nenhuma execução entrou em `EMITINDO`; nenhuma nota foi emitida.
-
-Não corrigir nem repetir snapshots antigos. Cadastrar produtos reais, conferir
-o código interno usado no portal e criar uma nova distribuição para o próximo
-snapshot elegível.
+- Duas execuções com pausa manual atravessaram Transporte e foram autorizadas.
+  A investigação mostrou uma corrida: depois do segundo Avançar do ICMS, a SPA
+  podia manter o botão antigo visível por alguns milissegundos.
+- O Worker agora aguarda a tela-resumo pelo botão `Adicionar Produto` antes de
+  localizar o Avançar para Transporte. A 000012 validou essa sincronização sem
+  Inspector nem espera fixa: produtos em 4,61 s, autorização confirmada e XML/
+  DANFE salvos; o processo inteiro levou cerca de 18 s.
+- `ACESSO_PORTAL_NEGADO` permanece como defesa caso o portal realmente negue o
+  módulo; o Web não oferece retry automático para esse código.
 
 ## Contrato e estados
 
@@ -120,16 +117,14 @@ snapshot elegível.
 
 ## Próximo gate seguro
 
-1. Cadastrar produtos reais com seus códigos internos NFP-e e regra fiscal.
-2. Criar exatamente uma nova distribuição com esses produtos e rodar
-   `npm run db:verify-integration`.
-3. Executar o Worker com fonte banco, processamento desligado e concorrência 1;
-   confirmar reserva, validação e retorno a `PENDENTE`.
-4. Somente com autorização explícita, ativar o processamento completo em
-   homologação, visível, com uma tarefa.
-5. Conferir status, nota, chave/número/protocolo e arquivos locais.
-6. Depois repetir com até 3 contextos e implementar Storage privado, scheduler,
-   observabilidade e papel de banco dedicado com menor privilégio.
+1. Implementar Storage privado para XML/DANFE, persistindo apenas referências
+   internas e oferecendo download autorizado por URL assinada curta.
+2. Repetir o fluxo conectado com até 3 tarefas/contextos simultâneos, medindo
+   desempenho e confirmando isolamento de emitentes e nomes dos documentos.
+3. Preparar execução persistente em VM/container, scheduler 00:00–06:00,
+   healthcheck, métricas e alerta de falhas.
+4. Manter produção bloqueada até autenticação/autorização definitiva, backup,
+   retenção, recuperação e piloto humano aprovado.
 
 ## Índice local de código
 

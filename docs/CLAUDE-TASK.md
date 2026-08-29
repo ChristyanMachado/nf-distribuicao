@@ -38,15 +38,14 @@ altere arquitetura ou migrações aplicadas sem registrar e justificar.
 
 ## Próxima tarefa prioritária
 
-O responsável confirmou que os três produtos atuais são fictícios. As
-distribuições 000006–000009 não devem ser repetidas. Aguarde produtos reais com
-seus códigos internos NFP-e e uma nova distribuição. A última correção da
-transição retirada → Produtos ainda não teve reteste ao vivo; não declare o
-round-trip concluído. Não inicie Storage, scheduler ou reestruturação ampla.
+O round-trip conectado está comprovado em homologação. As 000010 e 000011 foram
+autorizadas com pausa humana; a 000012 foi autorizada automaticamente depois de
+o Worker passar a aguardar a tela-resumo do último produto. Não substitua essa
+espera por `sleep` nem remova a validação do domínio de homologação.
 
-1. revisar configuração e mensagens do fluxo `FONTE_TAREFAS=banco` com
-   `PROCESSAR_FILA_BANCO=false`;
-2. revisar o template e o auditor do papel dedicado, sem aplicar no banco;
+1. revisar e implementar o desenho de Storage privado para XML/DANFE, sem
+   expor bucket, chave fiscal ou caminho local;
+2. planejar o teste de até 3 tarefas simultâneas com isolamento por contexto;
 3. confirmar que o checklist Web e os bloqueios antecipados continuam
    coerentes com as validações das Server Actions e preservam a consulta
    agregada de prontidão; não voltar a várias consultas na Home;
@@ -60,10 +59,9 @@ Não habilite modo estrito, hooks, watch, MCP ou backend semântico do Graphify.
 Não envie nem versione o grafo inteiro; para handoff, prefira uma saída curta da
 consulta junto dos arquivos reais e do diff.
 
-Quando o responsável cadastrar produtos reais e criar uma nova distribuição, a
-ordem passa a ser: verificar prontidão; confirmar snapshot novo; somente depois,
-com autorização explícita, homologação visível de uma tarefa. Não reutilize os
-snapshots antigos.
+Preserve `ACESSO_PORTAL_NEGADO` como defesa e o modo opcional
+`PAUSAR_ANTES_TRANSPORTE` apenas para diagnóstico visível. O fluxo normal deve
+permanecer sem Inspector e sincronizado por evidências da interface.
 
 ## Validação e entrega
 
