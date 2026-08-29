@@ -26,7 +26,8 @@
   `cStat=100` → nota + tarefa `EMITIDA`. Resultado incerto não ganha retry.
 - XML/DANFE são baixados e validados. A integração com Storage privado está no
   código: upload imutável/idempotente, referências no banco e URL assinada no
-  servidor. Ainda falta configurar chaves locais e validar o primeiro upload.
+  servidor. As chaves locais foram configuradas e o acesso autenticado ao
+  bucket privado respondeu HTTP 200; ainda falta validar o primeiro upload.
 - Papel local `nf_worker_local` criado com acesso mínimo, credencial somente no
   `.env` ignorado e auditoria `papelWorkerSeguro: true`. Nenhum segredo foi
   impresso ou versionado.
@@ -67,6 +68,9 @@
 - Bucket `documentos-fiscais`: existência, privacidade, limite e MIME PDF/XML
   verificados sem listar objetos. Papel do Worker reprovisionado com UPDATE
   somente nas 3 colunas de documentos e auditoria de menor privilégio aprovada.
+- Ensaio de 29/08: configuração Web/Worker coerente, bucket privado autenticado,
+  canal TLS e privilégios aprovados. O ciclo seguro encontrou zero tarefas
+  elegíveis e terminou sem navegador ou alteração fiscal.
 - `@supabase/supabase-js` 2.112.4 foi fixado no lockfile. O Web assina links por
   5 minutos no servidor; caminhos adulterados ou tipo/extensão divergentes são
   recusados. `npm audit --omit=dev` encontrou 0 vulnerabilidades.

@@ -25,8 +25,8 @@ executa cada tarefa em um `BrowserContext` independente.
   `EMITINDO` → autorização → XML/DANFE → nota e tarefa `EMITIDA`.
 - XML só é aceito com estrutura NF-e, chave de 44 dígitos, número, protocolo e
   `cStat=100`. PDF precisa começar com `%PDF-`. O upload privado está
-  implementado em código, mas permanece desligado até configurar as chaves e
-  executar um teste real de Storage.
+  implementado em código e configurado localmente. A autenticação do bucket
+  privado foi confirmada; ainda falta executar o primeiro upload real.
 - Migrações `0001` a `0010` estão aplicadas no banco de teste. `0008` adiciona
   idempotência do lote, snapshot `payload_worker` + SHA-256, token de reserva,
   protocolo e unicidades. `0009` corrige a ambiguidade do retorno
@@ -125,9 +125,9 @@ executa cada tarefa em um `BrowserContext` independente.
 
 ## Próximo gate seguro
 
-1. Preencher `SUPABASE_URL` e `SUPABASE_SECRET_KEY` (preferencialmente com uma
-   chave atual `sb_secret_`) somente nos `.env` locais, habilitar
-   `ARMAZENAR_DOCUMENTOS` e validar uma nova emissão em homologação.
+1. Criar exatamente uma distribuição elegível e validar uma nova emissão em
+   homologação com upload real; as chaves atuais já estão somente nos `.env`
+   locais ignorados pelo Git.
 2. Confirmar `DOCUMENTOS_ARMAZENADOS`, caminhos internos e downloads PDF/XML
    pelo Web; depois preparar recuperação de upload interrompido.
 3. Repetir o fluxo conectado com até 3 tarefas/contextos simultâneos, medindo

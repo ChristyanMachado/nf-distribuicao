@@ -31,7 +31,8 @@ banco de teste e passou no verificador de privilégios.
 
 ## Meta imediata — documentos no celular e operação concorrente
 
-1. Configurar as chaves locais e validar ao vivo o Storage já implementado.
+1. Criar uma distribuição elegível e validar ao vivo o primeiro upload no
+   Storage já configurado localmente.
 2. Confirmar upload, `DOCUMENTOS_ARMAZENADOS` e download por URL assinada no
    celular; implementar recuperação de upload interrompido sem reemissão.
 3. Testar até 3 tarefas/contextos simultâneos com emitentes distintos,
