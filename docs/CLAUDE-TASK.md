@@ -62,7 +62,8 @@ Não envie nem versione o grafo inteiro; para handoff, prefira uma saída curta 
 consulta junto dos arquivos reais e do diff.
 
 Preserve `ACESSO_PORTAL_NEGADO` como defesa e o modo opcional
-`PAUSAR_ANTES_TRANSPORTE` apenas para diagnóstico visível. O fluxo normal deve
+`PAUSAR_ANTES_TRANSPORTE` apenas para diagnóstico visível e sempre em conjunto
+com `INSPECIONAR=true`. O fluxo normal deve
 permanecer sem Inspector e sincronizado por evidências da interface.
 
 ## Validação e entrega

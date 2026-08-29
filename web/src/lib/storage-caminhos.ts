@@ -9,3 +9,33 @@ export function caminhoStorageInternoValido(valor: string): boolean {
     && !valor.includes("\\")
     && CAMINHO_DOCUMENTO.test(valor);
 }
+
+type DadosNomeDocumento = {
+  tipo: "danfe" | "xml";
+  cliente: string;
+  emitente: string;
+  numeroDistribuicao: number | null;
+  data: string;
+};
+
+function slugNome(valor: string, maximo: number): string {
+  return valor
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^A-Za-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, maximo)
+    .replace(/-+$/g, "") || "Sem-nome";
+}
+
+export function nomeDownloadDocumento(dados: DadosNomeDocumento): string {
+  const tipo = dados.tipo === "danfe" ? "DANFE" : "XML";
+  const extensao = dados.tipo === "danfe" ? "pdf" : "xml";
+  const cliente = slugNome(dados.cliente, 56);
+  const emitente = slugNome(dados.emitente, 48);
+  const distribuicao = dados.numeroDistribuicao === null
+    ? "Distribuicao-historica"
+    : `Distribuicao-${String(dados.numeroDistribuicao).padStart(6, "0")}`;
+  const data = dados.data.replace(/\D/g, "").slice(0, 8) || "Sem-data";
+  return `${tipo}_${cliente}_${emitente}_${distribuicao}_${data}.${extensao}`;
+}

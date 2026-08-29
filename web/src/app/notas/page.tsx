@@ -1,11 +1,12 @@
 export const dynamic = "force-dynamic";
 
 import { db } from "@/db";
-import { notas, clientes } from "@/db/schema";
+import { notas, clientes, emitentes, tarefas, lotesDistribuicao } from "@/db/schema";
 import { desc, eq } from "drizzle-orm";
 import Card from "@/components/Card";
 import NotaCard from "./NotaCard";
 import { assinarDocumentosPrivados } from "@/lib/storage.server";
+import { nomeDownloadDocumento } from "@/lib/storage-caminhos";
 
 export default async function NotasPage() {
   const lista = await db
@@ -18,12 +19,37 @@ export default async function NotasPage() {
       pdfPath: notas.pdfPath,
       xmlPath: notas.xmlPath,
       clienteNome: clientes.nome,
+      emitenteNome: emitentes.nome,
+      numeroDistribuicao: lotesDistribuicao.numero,
+      dataDistribuicao: lotesDistribuicao.data,
     })
     .from(notas)
     .innerJoin(clientes, eq(notas.clienteId, clientes.id))
+    .innerJoin(tarefas, eq(notas.tarefaId, tarefas.id))
+    .innerJoin(emitentes, eq(tarefas.emitenteId, emitentes.id))
+    .leftJoin(lotesDistribuicao, eq(tarefas.loteId, lotesDistribuicao.id))
     .orderBy(desc(notas.criadoEm));
   const urls = await assinarDocumentosPrivados(
-    lista.flatMap((nota) => [nota.pdfPath, nota.xmlPath]),
+    lista.flatMap((nota) => {
+      const dados = {
+        cliente: nota.clienteNome,
+        emitente: nota.emitenteNome,
+        numeroDistribuicao: nota.numeroDistribuicao,
+        data: nota.dataDistribuicao
+          ?? nota.dataEmissao?.toISOString().slice(0, 10)
+          ?? "",
+      };
+      return [
+        {
+          caminho: nota.pdfPath,
+          nomeDownload: nomeDownloadDocumento({ tipo: "danfe", ...dados }),
+        },
+        {
+          caminho: nota.xmlPath,
+          nomeDownload: nomeDownloadDocumento({ tipo: "xml", ...dados }),
+        },
+      ];
+    }),
   );
 
   return (

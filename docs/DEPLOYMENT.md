@@ -132,9 +132,9 @@ polling, mas está em beta; não será dependência obrigatória do MVP.
 ## Estado real da implantação
 
 Web e VM ainda não foram publicados. O bucket privado de teste foi criado e a
-integração de upload/assinatura foi implementada. A chave atual está somente
-nos ambientes locais ignorados pelo Git e o acesso ao bucket privado foi
-confirmado; ainda falta validar um upload e download reais. O banco contém as
+integração de upload/assinatura foi implementada e o primeiro upload/download
+real foi validado. A chave atual está somente nos ambientes locais ignorados
+pelo Git. O banco contém as
 migrações `0001`–`0010`, o canal TLS e o papel mínimo foram verificados. A
 próxima prova é local: habilitar Storage e criar uma
 distribuição nova, fazer o ensaio sem navegador e só depois a homologação

@@ -25,8 +25,8 @@ executa cada tarefa em um `BrowserContext` independente.
   `EMITINDO` → autorização → XML/DANFE → nota e tarefa `EMITIDA`.
 - XML só é aceito com estrutura NF-e, chave de 44 dígitos, número, protocolo e
   `cStat=100`. PDF precisa começar com `%PDF-`. O upload privado está
-  implementado em código e configurado localmente. A autenticação do bucket
-  privado foi confirmada; ainda falta executar o primeiro upload real.
+  implementado, configurado e validado ao vivo: o primeiro XML/DANFE chegou ao
+  bucket privado, a nota ficou disponível no Web e o PDF foi baixado com sucesso.
 - Migrações `0001` a `0010` estão aplicadas no banco de teste. `0008` adiciona
   idempotência do lote, snapshot `payload_worker` + SHA-256, token de reserva,
   protocolo e unicidades. `0009` corrige a ambiguidade do retorno
@@ -35,7 +35,7 @@ executa cada tarefa em um `BrowserContext` independente.
   etapa e o Web mostra “o que aconteceu” + “o que fazer”. O botão **Tentar
   novamente** aparece somente para falhas pré-emissão permitidas por lista
   fechada; resultado fiscal incerto nunca volta à fila.
-- Validação local: **169 testes Worker**, **87 testes Web**, TypeScript e build
+- Validação local: **169 testes Worker**, **88 testes Web**, TypeScript e build
   de produção passaram.
 - O bucket `documentos-fiscais` foi conferido somente por metadados: existe, é
   privado, limita tamanho e aceita PDF/XML. O papel `nf_worker_local` ganhou
@@ -125,11 +125,9 @@ executa cada tarefa em um `BrowserContext` independente.
 
 ## Próximo gate seguro
 
-1. Criar exatamente uma distribuição elegível e validar uma nova emissão em
-   homologação com upload real; as chaves atuais já estão somente nos `.env`
-   locais ignorados pelo Git.
-2. Confirmar `DOCUMENTOS_ARMAZENADOS`, caminhos internos e downloads PDF/XML
-   pelo Web; depois preparar recuperação de upload interrompido.
+1. Confirmar em uma próxima abertura do Web que PDF/XML usam o novo nome legível
+   no download; depois preparar recuperação de upload interrompido.
+2. Preservar as chaves atuais somente nos `.env` locais ignorados pelo Git.
 3. Repetir o fluxo conectado com até 3 tarefas/contextos simultâneos, medindo
    desempenho e confirmando isolamento de emitentes e nomes dos documentos.
 4. Preparar execução persistente em VM/container, scheduler 00:00–06:00,

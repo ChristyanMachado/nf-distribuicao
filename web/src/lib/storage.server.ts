@@ -40,13 +40,17 @@ function configuracaoStorage() {
 }
 
 export async function assinarDocumentosPrivados(
-  caminhos: Array<string | null>,
+  documentos: Array<{ caminho: string | null; nomeDownload: string }>,
 ): Promise<Map<string, string>> {
   const config = configuracaoStorage();
   if (!config) return new Map();
-  const unicos = [...new Set(
-    caminhos.filter((item): item is string => Boolean(item) && caminhoStorageInternoValido(item!)),
-  )];
+  const porCaminho = new Map<string, string>();
+  for (const documento of documentos) {
+    if (documento.caminho && caminhoStorageInternoValido(documento.caminho)) {
+      porCaminho.set(documento.caminho, documento.nomeDownload);
+    }
+  }
+  const unicos = [...porCaminho.keys()];
   if (unicos.length === 0) return new Map();
 
   const supabase = createClient(config.baseUrl, config.chave, {
@@ -59,7 +63,9 @@ export async function assinarDocumentosPrivados(
   const pares = await Promise.all(unicos.map(async (caminho) => {
     const { data, error } = await supabase.storage
       .from(config.bucket)
-      .createSignedUrl(caminho, DURACAO_URL_SEGUNDOS, { download: true });
+      .createSignedUrl(caminho, DURACAO_URL_SEGUNDOS, {
+        download: porCaminho.get(caminho),
+      });
     if (error || !data?.signedUrl) return null;
     try {
       const url = new URL(data.signedUrl);

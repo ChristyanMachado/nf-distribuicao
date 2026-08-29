@@ -26,8 +26,7 @@
   `cStat=100` → nota + tarefa `EMITIDA`. Resultado incerto não ganha retry.
 - XML/DANFE são baixados e validados. A integração com Storage privado está no
   código: upload imutável/idempotente, referências no banco e URL assinada no
-  servidor. As chaves locais foram configuradas e o acesso autenticado ao
-  bucket privado respondeu HTTP 200; ainda falta validar o primeiro upload.
+  servidor. O primeiro upload real e o download do PDF pelo Web foram validados.
 - Papel local `nf_worker_local` criado com acesso mínimo, credencial somente no
   `.env` ignorado e auditoria `papelWorkerSeguro: true`. Nenhum segredo foi
   impresso ou versionado.
@@ -54,7 +53,7 @@
 ### Evidências atuais
 
 - Worker: **169 testes passando**.
-- Web: **87 testes em 15 arquivos passando**.
+- Web: **88 testes em 15 arquivos passando**.
 - `npx tsc --noEmit`, `npm run build` e `git diff --check` passaram.
 - `npm audit --omit=dev`: 0 vulnerabilidades conhecidas.
 - Banco: migrações sincronizadas, canal TLS/fila OK e papel exclusivo seguro.
@@ -71,6 +70,10 @@
 - Ensaio de 29/08: configuração Web/Worker coerente, bucket privado autenticado,
   canal TLS e privilégios aprovados. O ciclo seguro encontrou zero tarefas
   elegíveis e terminou sem navegador ou alteração fiscal.
+- Teste real seguinte concluído pelo usuário: emissão autorizada, XML/DANFE no
+  Storage e PDF baixado pelo Web. Downloads agora recebem nome legível com tipo,
+  cliente, emitente, distribuição e data. A pausa de transporte exige também
+  `INSPECIONAR=true`, evitando Inspector acidental com configuração antiga.
 - `@supabase/supabase-js` 2.112.4 foi fixado no lockfile. O Web assina links por
   5 minutos no servidor; caminhos adulterados ou tipo/extensão divergentes são
   recusados. `npm audit --omit=dev` encontrou 0 vulnerabilidades.
@@ -119,8 +122,8 @@
 
 - Graphify oficial `graphifyy` 0.9.50 foi instalado fora dos ambientes de
   produção, em `.tools/graphify`, com o complemento SQL.
-- O mapa `--code-only` foi atualizado após esta rodada: 126 fontes, 1.078 nós,
-  2.465 relações e 84 comunidades.
+- O mapa `--code-only` foi atualizado após esta rodada: 126 fontes, 1.081 nós,
+  2.475 relações e 86 comunidades.
 - A auditoria inicial não encontrou `.env`, downloads, logs, tarefa real ou
   caminhos pessoais nos artefatos pesquisados.
 - `.tools/` e `graphify-out/` estão ignorados. Não foram ativados backend

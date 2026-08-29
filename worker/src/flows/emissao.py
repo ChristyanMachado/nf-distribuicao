@@ -1153,8 +1153,12 @@ async def preencher_produtos(
                     f"mas encontrados {len(candidatos)}."
                 )
 
+            # A pausa de diagnóstico exige as duas chaves. Assim, um valor
+            # antigo de PAUSAR_ANTES_TRANSPORTE no .env nunca abre o Inspector
+            # quando o operador desativou explicitamente INSPECIONAR.
             inspecao_transporte = (
-                os.getenv("PAUSAR_ANTES_TRANSPORTE", "false").lower() == "true"
+                os.getenv("INSPECIONAR", "false").lower() == "true"
+                and os.getenv("PAUSAR_ANTES_TRANSPORTE", "false").lower() == "true"
             )
             if inspecao_transporte:
                 if os.getenv("HEADLESS", "false").lower() == "true":

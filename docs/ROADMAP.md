@@ -31,10 +31,9 @@ banco de teste e passou no verificador de privilégios.
 
 ## Meta imediata — documentos no celular e operação concorrente
 
-1. Criar uma distribuição elegível e validar ao vivo o primeiro upload no
-   Storage já configurado localmente.
-2. Confirmar upload, `DOCUMENTOS_ARMAZENADOS` e download por URL assinada no
-   celular; implementar recuperação de upload interrompido sem reemissão.
+1. Primeiro upload e download por URL assinada validados; confirmar o novo nome
+   legível de PDF/XML no celular.
+2. Implementar recuperação de upload interrompido sem reemissão.
 3. Testar até 3 tarefas/contextos simultâneos com emitentes distintos,
    conferindo isolamento, nomes e estados finais.
 4. Medir o ciclo conectado e garantir que observabilidade não aumente de forma
