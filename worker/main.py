@@ -381,7 +381,12 @@ async def _manter_reserva_ativa(
             )
 
 
-async def executar_fila_banco_homologacao(config: Config, logger) -> int:
+async def executar_fila_banco_homologacao(
+    config: Config,
+    logger,
+    *,
+    silencioso_sem_tarefas: bool = False,
+) -> int:
     """Processa até três tarefas do banco, exclusivamente em homologação.
 
     O token de reserva acompanha todas as mudanças de estado. Falhas depois
@@ -398,7 +403,8 @@ async def executar_fila_banco_homologacao(config: Config, logger) -> int:
         ) as fonte:
             reservas = await fonte.reservar(limite)
             if not reservas:
-                logger.info("Nenhuma tarefa elegível encontrada na fila do banco.")
+                if not silencioso_sem_tarefas:
+                    logger.info("Nenhuma tarefa elegível encontrada na fila do banco.")
                 return 0
 
             por_id = {}

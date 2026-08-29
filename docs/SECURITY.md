@@ -49,6 +49,10 @@ substitui identidade multiusuário, papéis, tenant e RLS.
 - XML e PDF validados antes de sucesso;
 - diretório/arquivos privados e recusa de link simbólico;
 - configuração não revela URL do banco em `repr`.
+- serviço persistente recusa produção, modo visível, Inspector, pausa e
+  configuração parcial; o papel PostgreSQL é auditado antes do primeiro ciclo;
+- container sem porta pública, com raiz somente leitura, capabilities removidas,
+  `no-new-privileges`, volumes explícitos e healthcheck sanitizado.
 
 ## Riscos que ainda bloqueiam produção
 
@@ -56,15 +60,15 @@ substitui identidade multiusuário, papéis, tenant e RLS.
    O papel local de teste já foi provisionado e auditado com sucesso; não
    reutilizar sua senha nem a URL do dono do Web na futura VM. O modelo
    revisável permanece em `web/scripts/provisionar-worker-role.sql.template`.
-2. Validar ao vivo o Storage privado já implementado, adicionar recuperação de
-   upload interrompido, autorização individual de download e limpeza local.
+2. Storage privado e primeiro download real estão validados; adicionar
+   recuperação de upload interrompido, autorização individual e limpeza local.
 3. Implementar autenticação individual, autorização por papel/empresa e
    isolamento por implantação ou tenant + RLS antes de integrar Financeiro/RH.
 4. Remover colunas legadas de login/senha fiscal após migração auditada.
 5. Adicionar rate limit distribuído/WAF, auditoria, alertas e resposta a
    incidentes.
-6. Implantar scheduler e supervisão; definir recuperação manual de lease
-   vencido e resultado fiscal incerto.
+6. Validar o container na VM, implantar scheduler/alertas e definir recuperação
+   manual de lease vencido e resultado fiscal incerto.
 7. Validar backup/restauração e políticas de retenção.
 8. Executar o primeiro ciclo conectado apenas em homologação e com uma tarefa.
 
@@ -72,8 +76,8 @@ substitui identidade multiusuário, papéis, tenant e RLS.
 
 - [ ] segredos distintos e fora do Git;
 - [x] papel dedicado do Worker local testado (repetir com outra identidade na VM);
-- [ ] Storage privado implementado e verificado estruturalmente; falta teste de
-  upload/download real e autorização multiusuário;
+- [x] Storage privado e primeiro upload/download real validados;
+- [ ] autorização multiusuário e recuperação de upload interrompido;
 - [ ] autenticação/autorização adequadas ao público do piloto;
 - [ ] testes, TypeScript, build e auditoria de dependências limpos;
 - [ ] backup e restauração exercitados;

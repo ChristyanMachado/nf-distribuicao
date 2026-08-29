@@ -5,6 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "deploy:check": "node --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/verificar-env-deploy.mjs",
+    "deploy:check:test": "node --test scripts/verificar-env-deploy.node-test.mjs",
     "start": "next start",
     "demo:calculo": "tsx scripts/demo-calculo.ts",
     "test": "vitest run",

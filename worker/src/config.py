@@ -78,6 +78,9 @@ class Config:
     # True permite abrir o portal e emitir somente quando todas as travas de
     # homologação acima também estiverem ativas.
     processar_fila_banco: bool
+    # Ativa o invólucro contínuo para VM/container. Continua restrito à
+    # homologação até existir uma decisão separada e auditada para produção.
+    worker_persistente: bool
     # None mantém o comportamento anterior: documentos validados ficam locais.
     # Quando configurado, a chave permanece apenas no processo do Worker.
     storage_documentos: ConfigStorageDocumentos | None = field(
@@ -137,6 +140,10 @@ def carregar_config() -> Config:
         )
 
     headless = os.getenv("HEADLESS", "false").lower() == "true"
+    inspecionar = os.getenv("INSPECIONAR", "false").lower() == "true"
+    worker_persistente = (
+        os.getenv("WORKER_PERSISTENTE", "false").lower() == "true"
+    )
     if testar_emissao_homologacao:
         if not testar_preenchimento_completo:
             raise RuntimeError(
@@ -148,9 +155,10 @@ def carregar_config() -> Config:
                 "TESTAR_EMISSAO_HOMOLOGACAO só é permitido com "
                 "AMBIENTE_EMISSAO=teste."
             )
-        if headless:
+        if headless and not worker_persistente:
             raise RuntimeError(
-                "O primeiro teste de emissão exige HEADLESS=false para conferência visual."
+                "O primeiro teste de emissão exige HEADLESS=false; execução headless "
+                "é liberada somente por WORKER_PERSISTENTE=true."
             )
         if len(clientes_ativos) > 3:
             raise RuntimeError(
@@ -201,6 +209,28 @@ def carregar_config() -> Config:
     )
     if storage_documentos is not None and fonte_tarefas != "banco":
         raise RuntimeError("ARMAZENAR_DOCUMENTOS=true exige FONTE_TAREFAS=banco.")
+    if worker_persistente:
+        if (
+            not headless
+            or inspecionar
+            or os.getenv("PAUSAR_ANTES_TRANSPORTE", "false").lower() == "true"
+        ):
+            raise RuntimeError(
+                "WORKER_PERSISTENTE exige HEADLESS=true e todas as pausas de inspeção desativadas."
+            )
+        if (
+            fonte_tarefas != "banco"
+            or not testar_integracao_banco
+            or not processar_fila_banco
+            or not testar_emissao_homologacao
+            or ambiente_emissao != "teste"
+            or storage_documentos is None
+            or max_concorrencia is None
+        ):
+            raise RuntimeError(
+                "WORKER_PERSISTENTE exige fila do banco, homologação completa, "
+                "Storage privado e MAX_CONCORRENCIA explícita."
+            )
 
     return Config(
         sistema_fiscal_url=_url_sistema_fiscal(_obrigatorio("SISTEMA_FISCAL_URL")),
@@ -209,7 +239,7 @@ def carregar_config() -> Config:
         download_dir=os.getenv("DOWNLOAD_DIR", "./downloads"),
         log_dir=os.getenv("LOG_DIR", "./logs"),
         clientes_ativos=clientes_ativos,
-        inspecionar=os.getenv("INSPECIONAR", "false").lower() == "true",
+        inspecionar=inspecionar,
         testar_navegacao_emissao=testar_navegacao_emissao,
         testar_preenchimento_completo=testar_preenchimento_completo,
         testar_emissao_homologacao=testar_emissao_homologacao,
@@ -220,6 +250,7 @@ def carregar_config() -> Config:
         worker_id=worker_id,
         testar_integracao_banco=testar_integracao_banco,
         processar_fila_banco=processar_fila_banco,
+        worker_persistente=worker_persistente,
         storage_documentos=storage_documentos,
     )
 

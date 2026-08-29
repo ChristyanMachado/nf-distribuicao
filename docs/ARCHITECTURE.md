@@ -143,10 +143,24 @@ Chaves atuais `sb_secret_` são enviadas ao Storage somente no cabeçalho
 
 ## Implantação proposta
 
-- Web: Vercel ou serviço equivalente;
+- Web: Vercel, com raiz do projeto em `web/` e preflight de variáveis antes do
+  build;
 - PostgreSQL/Storage: serviço gerenciado;
-- Worker: VM Linux persistente (Oracle é candidata para o piloto, ainda não
-  implantada), com Chromium, scheduler, supervisão e diretório privado.
+- Worker: container persistente em VM Linux (Oracle é candidata para o piloto,
+  ainda não implantada), com a imagem oficial do Playwright fixada na mesma
+  versão da biblioteca Python.
+
+O container usa filesystem raiz somente leitura, capabilities removidas,
+`no-new-privileges`, volumes separados para logs/downloads e healthcheck local
+sem dados fiscais. O serviço audita o papel PostgreSQL antes de iniciar e só
+aceita `WORKER_PERSISTENTE=true` quando está headless, sem Inspector ou pausa,
+com fila processada, Storage, concorrência explícita e todas as travas de
+homologação. Ele não amplia a autorização para produção.
+
+O polling persistente reutiliza o mesmo contrato/reserva já testado e omite a
+mensagem repetitiva de fila vazia. Manter uma conexão/fila durável e o
+scheduler noturno continuam melhorias posteriores; o primeiro piloto pode
+operar com polling curto e supervisionado.
 
 Consulte `DEPLOYMENT.md`, `SECURITY.md`, `CONTRATO-WEB-WORKER.md` e
 `ROADMAP.md` para os gates operacionais.

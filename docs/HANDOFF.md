@@ -8,6 +8,14 @@
 
 ### Entregue no código
 
+- Implantação preparada sem publicação: `web/vercel.json` executa um preflight
+  fail-closed de banco, Supabase e autenticação antes do build; o Worker ganhou
+  imagem oficial Playwright fixada, Compose endurecido, polling persistente,
+  healthcheck local e auditoria obrigatória do papel PostgreSQL.
+- `WORKER_PERSISTENTE=true` continua exclusivo de homologação e exige headless,
+  Inspector/pausa desligados, fila processada, Storage e concorrência explícita.
+  Nenhuma porta é publicada e produção fiscal segue bloqueada.
+
 - Web responsivo com cadastros, distribuição idempotente por lote, tarefas,
   notas, roteiro de motorista e relatórios operacionais.
 - Sessão administrativa HMAC, bloqueio por inatividade, Server Actions
@@ -52,8 +60,9 @@
 
 ### Evidências atuais
 
-- Worker: **169 testes passando**.
+- Worker: **180 testes passando**.
 - Web: **88 testes em 15 arquivos passando**.
+- Preflight Vercel: **2 testes Node passando**.
 - `npx tsc --noEmit`, `npm run build` e `git diff --check` passaram.
 - `npm audit --omit=dev`: 0 vulnerabilidades conhecidas.
 - Banco: migrações sincronizadas, canal TLS/fila OK e papel exclusivo seguro.
@@ -122,8 +131,8 @@
 
 - Graphify oficial `graphifyy` 0.9.50 foi instalado fora dos ambientes de
   produção, em `.tools/graphify`, com o complemento SQL.
-- O mapa `--code-only` foi atualizado após esta rodada: 126 fontes, 1.081 nós,
-  2.475 relações e 86 comunidades.
+- O mapa `--code-only` foi atualizado após a preparação de deploy: 133 fontes,
+  1.127 nós, 2.558 relações e 89 comunidades.
 - A auditoria inicial não encontrou `.env`, downloads, logs, tarefa real ou
   caminhos pessoais nos artefatos pesquisados.
 - `.tools/` e `graphify-out/` estão ignorados. Não foram ativados backend
@@ -175,13 +184,15 @@
 
 ### Próximo gate
 
-1. Completar o emitente no Web; o cliente COOPERATIVA observado já está pronto.
-2. Criar uma distribuição nova e rodar `npm run db:verify-integration`.
-3. Ensaio da fonte banco com processamento desligado, concorrência 1; esperado:
-   reserva, validação e retorno a `PENDENTE`.
-4. Depois, com autorização explícita, processamento completo em homologação
-   visível de uma tarefa; conferir nota, metadados e arquivos.
-5. Só então testar até 3 contextos e avançar para Storage/scheduler/VM.
+1. No Vercel, definir a raiz `web/` e configurar as variáveis `APP_*`, banco e
+   Supabase somente no painel; Preview não deve compartilhar segredos reais.
+2. Construir o container em uma máquina com Docker. Esta estação não possui
+   Docker/Vercel CLI, então nenhum runtime remoto foi validado nem publicado.
+3. Na VM, auditar o papel e canal antes de subir o polling; iniciar com fila
+   controlada e `MAX_CONCORRENCIA=1`, ainda em homologação.
+4. Medir CPU/RAM, healthcheck e encerramento gracioso; depois testar até 3
+   contextos distintos e implementar scheduler/alertas.
+5. Implementar recuperação de Storage sem reemissão antes do piloto externo.
 
 ### Comandos de validação
 

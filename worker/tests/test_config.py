@@ -23,6 +23,9 @@ def _preparar_env_minimo(monkeypatch):
     monkeypatch.delenv("WORKER_ID", raising=False)
     monkeypatch.delenv("TESTAR_INTEGRACAO_BANCO", raising=False)
     monkeypatch.delenv("ARMAZENAR_DOCUMENTOS", raising=False)
+    monkeypatch.delenv("WORKER_PERSISTENTE", raising=False)
+    monkeypatch.delenv("PAUSAR_ANTES_TRANSPORTE", raising=False)
+    monkeypatch.delenv("INSPECIONAR", raising=False)
     monkeypatch.delenv("SUPABASE_URL", raising=False)
     monkeypatch.delenv("SUPABASE_SECRET_KEY", raising=False)
     monkeypatch.delenv("SUPABASE_STORAGE_BUCKET", raising=False)
@@ -228,6 +231,46 @@ def test_emissao_homologacao_ate_tres_clientes_em_paralelo_e_permitida(monkeypat
 
     assert config.clientes_ativos == ("CLIENTE_A", "CLIENTE_B", "CLIENTE_C")
     assert config.max_concorrencia == 3
+
+
+def test_worker_persistente_exige_conjunto_fechado_de_travas(monkeypatch):
+    _habilitar_emissao_homologacao(monkeypatch)
+    monkeypatch.setenv("WORKER_PERSISTENTE", "true")
+    monkeypatch.setenv("HEADLESS", "true")
+
+    with pytest.raises(RuntimeError, match="fila do banco"):
+        carregar_config()
+
+
+def test_worker_persistente_headless_com_storage_e_fila_e_permitido(monkeypatch):
+    _habilitar_emissao_homologacao(monkeypatch)
+    monkeypatch.setenv("WORKER_PERSISTENTE", "true")
+    monkeypatch.setenv("HEADLESS", "true")
+    monkeypatch.setenv("INSPECIONAR", "false")
+    monkeypatch.setenv("FONTE_TAREFAS", "banco")
+    monkeypatch.setenv("WORKER_DATABASE_URL", "postgresql://usuario@localhost/teste")
+    monkeypatch.setenv("WORKER_ID", "worker-vm-teste")
+    monkeypatch.setenv("TESTAR_INTEGRACAO_BANCO", "true")
+    monkeypatch.setenv("PROCESSAR_FILA_BANCO", "true")
+    monkeypatch.setenv("MAX_CONCORRENCIA", "1")
+    monkeypatch.setenv("ARMAZENAR_DOCUMENTOS", "true")
+    monkeypatch.setenv("SUPABASE_URL", "https://projeto.supabase.co")
+    monkeypatch.setenv("SUPABASE_SECRET_KEY", "sb_secret_" + "x" * 32)
+
+    config = carregar_config()
+
+    assert config.worker_persistente is True
+    assert config.headless is True
+
+
+def test_worker_persistente_recusa_inspector_ou_pausa_residual(monkeypatch):
+    _preparar_env_minimo(monkeypatch)
+    monkeypatch.setenv("WORKER_PERSISTENTE", "true")
+    monkeypatch.setenv("HEADLESS", "true")
+    monkeypatch.setenv("INSPECIONAR", "true")
+
+    with pytest.raises(RuntimeError, match="pausas de inspeção"):
+        carregar_config()
 
 
 def test_emitente_e_opcional_para_login_e_navegacao(monkeypatch):

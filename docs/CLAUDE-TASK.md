@@ -1,4 +1,4 @@
-# Ordem de continuidade para Claude — 28/08/2026
+# Ordem de continuidade para Claude — 29/08/2026
 
 ## Papel
 
@@ -37,6 +37,20 @@ altere arquitetura ou migrações aplicadas sem registrar e justificar.
   falha pré-emissão e resultado incerto pós-`EMITINDO`; preserve esses gates.
 
 ## Próxima tarefa prioritária
+
+O Web e o Worker foram preparados para implantação, mas nada foi publicado.
+Revise primeiro `web/vercel.json`, `web/scripts/verificar-env-deploy.mjs`,
+`worker/Dockerfile`, `worker/compose.yaml`, `worker/src/servico.py` e os testes.
+Não relaxe o preflight nem as travas de homologação. Docker não existe nesta
+estação, então não afirme que a imagem roda até haver build/healthcheck na VM.
+
+Ao orientar o deploy:
+
+1. raiz Vercel deve ser `web/`; segredos apenas no painel e Preview isolado;
+2. Worker não expõe porta e usa uma identidade PostgreSQL exclusiva;
+3. auditar papel/canal antes de `docker compose up`;
+4. confirmar ausência de tarefa involuntária, pois o serviço reserva ao subir;
+5. começar com concorrência 1 e nunca trocar `AMBIENTE_EMISSAO` para normal.
 
 O round-trip conectado está comprovado em homologação. As 000010 e 000011 foram
 autorizadas com pausa humana; a 000012 foi autorizada automaticamente depois de

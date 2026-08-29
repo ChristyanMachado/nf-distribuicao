@@ -1,85 +1,73 @@
-# Worker — Automação de Emissão de Notas Fiscais
+# Worker — Automação NFP-e
 
-Python + Playwright, executando localmente por enquanto (seção 14 do
-documento de visão), migrando para uma VM (Oracle Cloud Always Free) depois
-de validado (Fase 6).
+Worker Python/Playwright que reserva tarefas no PostgreSQL, executa cada nota
+em um `BrowserContext` independente, valida a autorização e envia XML/DANFE ao
+Supabase Storage privado. O fluxo completo já foi comprovado em homologação;
+produção fiscal permanece bloqueada.
 
-## Estado atual (25/08)
+## Arquitetura atual
 
-- Reconhecimento, preenchimento, emissão autorizada e download de XML/DANFE
-  validados em homologação. Detalhes em `RECON.md` e `docs/HANDOFF.md`.
-- **Todos os dados fiscais confirmados** (CFOP `5101`, situação tributária
-  `40`, origem `0`, transporte `3`, indicador de IE, e o código do
-  benefício fiscal `PR810128`). O que falta agora é só **seletor** (onde
-  clicar), não mais **dado** (o que preencher).
-- `src/utils/debug.py`: toda etapa do fluxo passa por `rodar_etapa()`, que
-  loga entrada/saída, tira screenshot automático em `downloads/` se falhar,
-  e — com `INSPECIONAR=true` — abre o Playwright Inspector direto no ponto
-  da falha.
-- **Tentativas educadas de seletor** (não confirmadas, mas com base em
-  padrão já validado no mesmo formulário): busca de produto via combobox
-  SLDS (mesmo padrão que já funciona pra "Venda"), e botão de emissão por
-  nome "Emitir". Se a estrutura real for diferente, falham rápido e limpo
-  — o Inspector assume dali.
-- `CLIENTES_ATIVOS` no `.env` controla quantos/quais clientes rodam (útil
-  para testar 1 ou até 3 em paralelo no ambiente de homologação).
-- `src/orquestrador.py`: BrowserContexts Async independentes (RF14), com
-  falha isolada por tarefa (RF24). O login Async foi validado contra a
-  Receita PR com um e com três clientes em paralelo.
-- `src/auth.py`: autenticação e navegação inicial já usam Playwright Async.
-- `src/flows/emissao.py`: usa Playwright Async, emite somente quando
-  `TESTAR_EMISSAO_HOMOLOGACAO=true` e confirma `AUTORIZADA` antes de baixar.
-- O Worker ainda recebe `tarefa_real.json` local. A integração Web → Worker
-  será implementada pelo contrato registrado em `docs/ROADMAP.md`.
-
-## Rodando os testes (não precisa de login nem de navegador instalado)
-
-```bash
-python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-pytest tests/ -v
+```text
+PostgreSQL/Supabase → reserva com token → 1 Chromium + até 3 contextos
+                    → Receita PR homologação → XML/DANFE → Storage + status
 ```
 
-## Rodando o smoke test de autenticação
+- somente Playwright Async;
+- snapshot/hash imutável e token fencing;
+- resultado fiscal incerto nunca recebe retry automático;
+- credenciais fiscais ficam apenas no ambiente protegido do Worker;
+- XML/DANFE são validados antes do upload;
+- serviço persistente audita o papel do banco antes do primeiro ciclo.
 
-```bash
-source .venv/bin/activate
-playwright install chromium   # baixa o navegador, só precisa rodar 1x
+## Desenvolvimento local
 
-cp .env.example .env
-# preencher CLIENTE_A_LOGIN / CLIENTE_A_SENHA (login é o CPF do emitente)
-# CLIENTE_A_EMITENTE só é necessário para TESTAR_PREENCHIMENTO_COMPLETO=true
-# CLIENTES_ATIVOS já vem como "CLIENTE_A" só, e INSPECIONAR="true" por padrão
-
-cp tarefa_real.json.template tarefa_real.json   # já está no .gitignore
-# preencher com dados reais
-
-$env:SMOKE_TEST="true"
-$env:CLIENTES_ATIVOS="CLIENTE_A,CLIENTE_B,CLIENTE_C"
-$env:HEADLESS="false"
-python main.py tarefa_real.json
-```
-
-O smoke test abre uma página por contexto, autentica cada cliente ativo e
-não navega até a emissão, não preenche nota e não emite nada. Sem
-`SMOKE_TEST=true`, o Worker encerra com mensagem clara: o fluxo completo só
-voltará a ser habilitado após a migração gradual de todas as etapas para
-Async.
-
-Para testar somente a navegação até a tela de emissão após o login:
+No PowerShell:
 
 ```powershell
-$env:TESTAR_NAVEGACAO_EMISSAO="true"
-$env:CLIENTES_ATIVOS="CLIENTE_A"
-python main.py tarefa_real.json
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe -m pytest tests -v
+.\.venv\Scripts\python.exe -m compileall main.py src scripts tests
 ```
 
-Esse modo confirma a chegada à tela de emissão, mas não marca o
-consentimento, não preenche dados fiscais e não emite nota.
+Copie `.env.example` para `.env`, preencha localmente e nunca versione esse
+arquivo. Os roteiros controlados e todas as travas estão em
+`../docs/HANDOFF.md` e `../docs/DEPLOYMENT.md`.
 
-## Próximos passos
+## Serviço persistente em VM/container
 
-1. Reconhecer a tela final de resumo/validação em homologação, sem emitir.
-2. Definir e testar o contrato de uma tarefa entre Web e Worker.
-3. Integrar leitura, reserva e retorno de status da tarefa.
-4. Só então validar emissão/download em homologação e planejar produção.
+O `Dockerfile` usa a imagem oficial Playwright 1.48.0 Noble, fixada na mesma
+versão da biblioteca Python. O `compose.yaml` não publica portas, usa raiz
+somente leitura, volumes para logs/downloads e healthcheck sanitizado.
+
+O serviço recusa iniciar se `WORKER_PERSISTENTE=true` não estiver acompanhado
+por modo headless, Inspector/pausas desligados, banco, Storage, concorrência
+explícita e todas as travas de homologação. O comando de runtime é:
+
+```powershell
+docker compose build
+docker compose up -d
+docker compose ps
+docker compose logs --tail=100 worker
+```
+
+Antes do `up`, execute as auditorias e confirme que não existe tarefa
+involuntária elegível, pois o polling começa a reservar assim que sobe:
+
+```powershell
+docker compose run --rm worker python -m scripts.verificar_privilegios_banco
+docker compose run --rm worker python -m scripts.verificar_canal_banco
+```
+
+Use `docker compose stop` para dar ao ciclo atual até cinco minutos de
+encerramento gracioso. Consulte `../docs/DEPLOYMENT.md` para as variáveis e a
+sequência completa. A imagem ainda precisa ser construída e testada na VM;
+Docker não está instalado na estação onde esta preparação foi criada.
+
+## Limites atuais
+
+- execução persistente continua exclusiva de homologação;
+- scheduler noturno, alertas e métricas externas ainda não foram implementados;
+- recuperação automática de upload interrompido deve ocorrer sem reemitir;
+- primeiro piloto na VM começa com `MAX_CONCORRENCIA=1`; subir para 3 somente
+  após medir CPU/RAM e isolamento.

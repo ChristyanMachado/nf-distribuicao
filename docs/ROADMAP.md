@@ -19,7 +19,10 @@ um portal autenticado, sem misturar autorização administrativa nesta entrega.
 - **Fase 4 — homologação conectada:** concluída com as distribuições
   000010–000012 autorizadas. A 000012 comprovou o ciclo automático completo,
   incluindo XML/DANFE e retorno `EMITIDA` ao banco.
-- **Fases 5/6 — operação e produção:** não iniciadas.
+- **Fase 5 — operação persistente:** fundação pronta em código: preflight do
+  Web, imagem/Compose do Worker, serviço de polling, healthcheck e auditoria de
+  privilégios. Falta validar a imagem numa VM e adicionar scheduler/alertas.
+- **Fase 6 — produção:** não iniciada e explicitamente bloqueada.
 
 Migrações `0001`–`0010` estão ativas. Cliente, emitente e três produtos reais
 foram aceitos pelo portal. Uma espera por estado da tela-resumo corrigiu a
@@ -29,29 +32,27 @@ O Web já indica quais cadastros impedem o teste e bloqueia o formulário antes
 de o usuário montar um lote inviável. O papel mínimo do Worker foi criado no
 banco de teste e passou no verificador de privilégios.
 
-## Meta imediata — documentos no celular e operação concorrente
+## Meta imediata — publicar o Web e provar o Worker na VM
 
-1. Primeiro upload e download por URL assinada validados; confirmar o novo nome
-   legível de PDF/XML no celular.
-2. Implementar recuperação de upload interrompido sem reemissão.
+1. Configurar no Vercel a raiz `web/` e todas as variáveis exigidas pelo
+   preflight; usar dados isolados ou nenhum segredo fiscal em Preview.
+2. Construir o container do Worker na VM e validar healthcheck, papel mínimo,
+   Chromium e encerramento gracioso antes de liberar a fila.
 3. Testar até 3 tarefas/contextos simultâneos com emitentes distintos,
-   conferindo isolamento, nomes e estados finais.
-4. Medir o ciclo conectado e garantir que observabilidade não aumente de forma
-   relevante o tempo fiscal.
+   conferindo isolamento, nomes, estados finais, CPU e memória.
+4. Implementar recuperação de upload interrompido sem reemissão e o scheduler
+   noturno supervisionado.
 
 ## Próximas entregas de código
 
 ### Storage e retorno ao celular
 
-- criar bucket privado;
-- upload do XML/DANFE pelo Worker;
-- persistir somente referências internas;
-- download por URL assinada curta e autorizada;
-- retenção e limpeza de arquivos locais.
+- bucket privado, upload, referências internas e URL assinada estão validados;
+- falta recuperação de upload interrompido, retenção e limpeza local.
 
 ### Operação persistente
 
-- VM Linux com usuário não privilegiado, Chromium e supervisão;
+- construir e validar na VM a imagem preparada com Chromium e supervisão;
 - papel PostgreSQL exclusivo do Worker com privilégios mínimos;
 - scheduler entre 00:00 e 06:00 em `America/Sao_Paulo`;
 - healthcheck, métricas, alertas e recuperação segura;

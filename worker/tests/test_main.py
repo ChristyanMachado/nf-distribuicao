@@ -109,6 +109,24 @@ def test_smoke_test_sem_tarefa_nao_exige_emitente():
     assert preparar_tarefa_para_cliente(None, "CLIENTE_A", None) is None
 
 
+def test_fila_persistente_nao_repete_log_quando_esta_ociosa(caplog):
+    fonte = _FonteBancoFake([])
+    logger = logging.getLogger("teste-fila-ociosa")
+
+    with patch("main.FontePostgresTarefas", return_value=fonte):
+        with caplog.at_level(logging.INFO, logger=logger.name):
+            resultado = asyncio.run(
+                executar_fila_banco_homologacao(
+                    _config_banco(),
+                    logger,
+                    silencioso_sem_tarefas=True,
+                )
+            )
+
+    assert resultado == 0
+    assert "Nenhuma tarefa elegível" not in caplog.text
+
+
 def test_preenchimento_completo_exige_emitente():
     tarefa = _tarefa_de_teste()
 

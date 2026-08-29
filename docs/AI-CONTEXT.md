@@ -35,8 +35,8 @@ executa cada tarefa em um `BrowserContext` independente.
   etapa e o Web mostra “o que aconteceu” + “o que fazer”. O botão **Tentar
   novamente** aparece somente para falhas pré-emissão permitidas por lista
   fechada; resultado fiscal incerto nunca volta à fila.
-- Validação local: **169 testes Worker**, **88 testes Web**, TypeScript e build
-  de produção passaram.
+- Validação local: **180 testes Worker**, **88 testes Web**, 2 testes do
+  preflight de deploy, TypeScript e build de produção passaram.
 - O bucket `documentos-fiscais` foi conferido somente por metadados: existe, é
   privado, limita tamanho e aceita PDF/XML. O papel `nf_worker_local` ganhou
   UPDATE apenas de `pdf_path`, `xml_path` e expiração; a auditoria continua sem
@@ -125,14 +125,18 @@ executa cada tarefa em um `BrowserContext` independente.
 
 ## Próximo gate seguro
 
-1. Confirmar em uma próxima abertura do Web que PDF/XML usam o novo nome legível
-   no download; depois preparar recuperação de upload interrompido.
-2. Preservar as chaves atuais somente nos `.env` locais ignorados pelo Git.
-3. Repetir o fluxo conectado com até 3 tarefas/contextos simultâneos, medindo
-   desempenho e confirmando isolamento de emitentes e nomes dos documentos.
-4. Preparar execução persistente em VM/container, scheduler 00:00–06:00,
-   healthcheck, métricas e alerta de falhas.
-5. Manter produção bloqueada até autenticação/autorização definitiva, backup,
+1. No Vercel, apontar a raiz para `web/` e configurar os segredos de produção
+   sem copiá-los para Preview. O build fecha se autenticação ou Supabase não
+   estiverem configurados.
+2. Construir a imagem do Worker em uma máquina com Docker e executar primeiro
+   as auditorias sem consumir a fila. Docker não está instalado nesta máquina,
+   portanto o container ainda não foi validado em runtime.
+3. Criar a VM do piloto, fornecer uma identidade PostgreSQL própria e iniciar o
+   serviço somente quando não houver tarefa involuntária elegível.
+4. Repetir o fluxo conectado com até 3 tarefas/contextos simultâneos, medindo
+   CPU/RAM, isolamento e tempo, e depois implementar scheduler/alertas.
+5. Implementar recuperação de upload interrompido sem reemissão e manter
+   produção bloqueada até autenticação/autorização definitiva, backup,
    retenção, recuperação e piloto humano aprovado.
 
 ## Índice local de código

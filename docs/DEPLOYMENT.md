@@ -83,6 +83,86 @@ em modo de polling.
 Fontes oficiais: [limites de duração do Vercel](https://vercel.com/docs/functions/configuring-functions/duration),
 [Vercel Queues — poll mode](https://vercel.com/docs/queues/poll-mode).
 
+## Publicar o Web no Vercel
+
+Crie o projeto Vercel a partir do repositório e defina **Root Directory** como
+`web`. O `web/vercel.json` executa `npm run deploy:check` antes do build; assim
+uma publicação sem banco, Storage ou sessão administrativa falha sem expor os
+valores recebidos.
+
+Configure no painel do Vercel, em Settings → Environment Variables:
+
+- `DATABASE_URL`;
+- `SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_URL` com a mesma Project URL;
+- `SUPABASE_SECRET_KEY` somente no servidor;
+- `SUPABASE_STORAGE_BUCKET=documentos-fiscais`;
+- `APP_AUTH_ENABLED=true`;
+- `APP_ADMIN_USER`, `APP_ADMIN_PASSWORD` e `APP_SESSION_SECRET` fortes.
+
+`NEXT_PUBLIC_STORAGE_HOSTS` é opcional quando o host já é derivado da Project
+URL. Nunca use prefixo `NEXT_PUBLIC_` em segredo. Não disponibilize a conexão,
+chave secreta ou credenciais reais no ambiente Preview: use recursos isolados
+de teste ou mantenha previews sem backend. Não copiar valores para tickets,
+chat, commits ou documentação.
+
+O preflight pode ser ensaiado localmente em `web/` com:
+
+```powershell
+npm run deploy:check
+npm run build
+```
+
+Na configuração local observada em 29/08/2026, o preflight fecha porque as
+quatro variáveis `APP_*` ainda não estão definidas. Esse é um bloqueio esperado,
+não uma falha do build.
+
+## Executar o Worker em container
+
+O diretório `worker/` contém `Dockerfile`, `compose.yaml`, `.dockerignore` e
+dependências de runtime fixadas. A imagem oficial Playwright 1.48.0 Noble é a
+mesma versão do pacote Python já testado e existe para `linux/amd64` e
+`linux/arm64`, incluindo a opção Oracle Ampere A1.
+
+Antes de iniciar o serviço na VM, crie `worker/.env` fora do Git e configure,
+além das credenciais por referência e do banco/Storage:
+
+```dotenv
+WORKER_PERSISTENTE="true"
+HEADLESS="true"
+INSPECIONAR="false"
+PAUSAR_ANTES_TRANSPORTE="false"
+FONTE_TAREFAS="banco"
+TESTAR_INTEGRACAO_BANCO="true"
+PROCESSAR_FILA_BANCO="true"
+TESTAR_NAVEGACAO_EMISSAO="true"
+TESTAR_PREENCHIMENTO_COMPLETO="true"
+TESTAR_EMISSAO_HOMOLOGACAO="true"
+AMBIENTE_EMISSAO="teste"
+MAX_CONCORRENCIA="1"
+ARMAZENAR_DOCUMENTOS="true"
+```
+
+Primeiro audite a identidade sem iniciar o polling:
+
+```powershell
+docker compose run --rm worker python -m scripts.verificar_privilegios_banco
+docker compose run --rm worker python -m scripts.verificar_canal_banco
+```
+
+Como `PROCESSAR_FILA_BANCO=true` passa a reservar tarefas assim que o serviço
+sobe, confirme antes que não existe trabalho involuntário elegível. Depois:
+
+```powershell
+docker compose build
+docker compose up -d
+docker compose ps
+docker compose logs --tail=100 worker
+```
+
+Para encerrar, use `docker compose stop`; o Compose concede cinco minutos para
+o ciclo fiscal atual terminar. O container não publica porta. O healthcheck lê
+somente um arquivo local sanitizado e aceita os estados `ok`/`processando`.
+
 ## Oracle Cloud para o piloto
 
 Uma VM Linux na Oracle Cloud é uma opção adequada para o Worker inicial. O
@@ -100,9 +180,9 @@ Antes de adotá-la, fazer uma prova de capacidade:
 2. Instalar Playwright e Chromium; executar os testes e um login de
    homologação, sem emitir.
 3. Medir memória com 1 e 3 contextos concorrentes.
-4. Configurar `systemd`, atualização de segurança, firewall e acesso SSH por
-   chave. Não expor uma porta pública do Worker se ele puder apenas consultar
-   o banco/fila para buscar trabalho.
+4. Instalar Docker/Compose, atualização de segurança, firewall e acesso SSH por
+   chave. A política de reinício está no Compose e nenhuma porta do Worker deve
+   ser exposta.
 5. Definir backup e alerta; caso o uso cresça, migrar para uma VM paga ou
    serviço de containers persistente sem mudar o contrato Web → Worker.
 
@@ -131,11 +211,10 @@ polling, mas está em beta; não será dependência obrigatória do MVP.
 
 ## Estado real da implantação
 
-Web e VM ainda não foram publicados. O bucket privado de teste foi criado e a
-integração de upload/assinatura foi implementada e o primeiro upload/download
-real foi validado. A chave atual está somente nos ambientes locais ignorados
-pelo Git. O banco contém as
-migrações `0001`–`0010`, o canal TLS e o papel mínimo foram verificados. A
-próxima prova é local: habilitar Storage e criar uma
-distribuição nova, fazer o ensaio sem navegador e só depois a homologação
-conectada com uma tarefa.
+Web e VM ainda não foram publicados. O bucket privado de teste e o primeiro
+upload/download real foram validados; a chave permanece somente nos ambientes
+locais ignorados pelo Git. O banco contém as migrações `0001`–`0010`, e canal
+TLS e papel mínimo passaram nas verificações. O código agora inclui preflight
+Vercel e serviço/container do Worker, mas esta máquina não possui Docker nem
+Vercel CLI; portanto a próxima prova é construir a imagem na VM, validar o
+healthcheck sem tarefa e somente então liberar uma tarefa de homologação.
