@@ -26,6 +26,9 @@ export function pendenciasEnvDeploy(ambiente) {
   const publicaUrl = texto(ambiente, "NEXT_PUBLIC_SUPABASE_URL");
   const chaveServidor = texto(ambiente, "SUPABASE_SECRET_KEY")
     || texto(ambiente, "SUPABASE_SERVICE_ROLE_KEY");
+  const provedorAuth = texto(ambiente, "APP_AUTH_PROVIDER") || "administrativo";
+  const chavePublica = texto(ambiente, "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY")
+    || texto(ambiente, "NEXT_PUBLIC_SUPABASE_ANON_KEY");
 
   if (!/^postgres(?:ql)?:\/\//.test(databaseUrl)) pendencias.push("DATABASE_URL");
   if (!urlSupabase(supabaseUrl)) pendencias.push("SUPABASE_URL");
@@ -41,9 +44,17 @@ export function pendenciasEnvDeploy(ambiente) {
   if (texto(ambiente, "APP_AUTH_ENABLED") !== "true") {
     pendencias.push("APP_AUTH_ENABLED");
   }
-  if (!texto(ambiente, "APP_ADMIN_USER")) pendencias.push("APP_ADMIN_USER");
-  if (texto(ambiente, "APP_ADMIN_PASSWORD").length < 12) {
-    pendencias.push("APP_ADMIN_PASSWORD");
+  if (!["administrativo", "supabase"].includes(provedorAuth)) {
+    pendencias.push("APP_AUTH_PROVIDER");
+  } else if (provedorAuth === "supabase") {
+    if (chavePublica.length < 20 || !/^[!-~]+$/.test(chavePublica)) {
+      pendencias.push("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY");
+    }
+  } else {
+    if (!texto(ambiente, "APP_ADMIN_USER")) pendencias.push("APP_ADMIN_USER");
+    if (texto(ambiente, "APP_ADMIN_PASSWORD").length < 12) {
+      pendencias.push("APP_ADMIN_PASSWORD");
+    }
   }
   if (texto(ambiente, "APP_SESSION_SECRET").length < 32) {
     pendencias.push("APP_SESSION_SECRET");

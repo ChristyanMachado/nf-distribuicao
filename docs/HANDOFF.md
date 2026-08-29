@@ -61,8 +61,8 @@
 ### Evidências atuais
 
 - Worker: **180 testes passando**.
-- Web: **89 testes em 16 arquivos passando**.
-- Preflight Vercel: **2 testes Node passando**.
+- Web: **93 testes em 17 arquivos passando**.
+- Preflight Vercel: **3 testes Node passando**.
 - `npx tsc --noEmit`, `npm run build` e `git diff --check` passaram.
 - `npm audit --omit=dev`: 0 vulnerabilidades conhecidas.
 - Banco: migrações sincronizadas, canal TLS/fila OK e papel exclusivo seguro.
@@ -92,6 +92,11 @@
   visualmente branca porque `visibility:hidden` atingia `.app-shell`, que também
   contém o formulário. A correção limita a ocultação à navegação e ganhou teste
   de regressão; nenhum segredo ou contrato foi alterado.
+- O projeto Supabase compartilhado foi auditado por leitura: o usuário gerente
+  indicado existe, possui perfil e está ativo. O Web ganhou provedor opcional
+  Supabase Auth com autorização por `public.perfis`; o login HMAC anterior fica
+  como fallback até a chave publicável e `APP_AUTH_PROVIDER=supabase` serem
+  configurados no Vercel. Nenhuma senha foi lida, redefinida ou versionada.
 
 ### Continuação autônoma — cadastros e tarefas operacionais
 
@@ -135,8 +140,8 @@
 
 - Graphify oficial `graphifyy` 0.9.50 foi instalado fora dos ambientes de
   produção, em `.tools/graphify`, com o complemento SQL.
-- O mapa `--code-only` foi atualizado após a preparação de deploy: 133 fontes,
-  1.127 nós, 2.558 relações e 89 comunidades.
+- O mapa `--code-only` foi atualizado após Auth/deploy: 137 fontes, 1.137 nós,
+  2.584 relações e 89 comunidades.
 - A auditoria inicial não encontrou `.env`, downloads, logs, tarefa real ou
   caminhos pessoais nos artefatos pesquisados.
 - `.tools/` e `graphify-out/` estão ignorados. Não foram ativados backend

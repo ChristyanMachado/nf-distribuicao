@@ -5,6 +5,8 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { COOKIE_SESSAO, DURACAO_SESSAO_SEGUNDOS, criarTokenSessao, retornoSeguro } from "@/lib/auth-session";
+import { provedorAutenticacao } from "@/lib/auth-provider";
+import { autenticarGerenteSupabase } from "@/lib/supabase-auth.server";
 
 function igual(recebido: string, esperado: string): boolean {
   return timingSafeEqual(createHash("sha256").update(recebido).digest(), createHash("sha256").update(esperado).digest());
@@ -40,17 +42,29 @@ export async function entrar(formData: FormData) {
   const usuario = String(formData.get("usuario") ?? "").slice(0, 160);
   const senha = String(formData.get("senha") ?? "").slice(0, 1024);
   const retorno = retornoSeguro(formData.get("retorno"));
-  const usuarioEsperado = process.env.APP_ADMIN_USER ?? process.env.APP_BASIC_AUTH_USER;
-  const senhaEsperada = process.env.APP_ADMIN_PASSWORD ?? process.env.APP_BASIC_AUTH_PASSWORD;
   const segredo = process.env.APP_SESSION_SECRET;
-  if (!usuarioEsperado || !senhaEsperada || !segredo || segredo.length < 32) redirect("/login?config=1");
+  if (!segredo || segredo.length < 32) redirect("/login?config=1");
   const cabecalhos = await headers();
   const origem = (cabecalhos.get("x-forwarded-for") ?? cabecalhos.get("x-real-ip") ?? "local").split(",")[0].trim().slice(0, 80);
   if (!registrarTentativa(origem)) redirect(`/login?bloqueado=1&retorno=${encodeURIComponent(retorno)}`);
-  if (!igual(usuario, usuarioEsperado) || !igual(senha, senhaEsperada)) redirect(`/login?erro=1&retorno=${encodeURIComponent(retorno)}`);
+  let usuarioAutorizado: string;
+  if (provedorAutenticacao() === "supabase") {
+    const resultado = await autenticarGerenteSupabase(usuario.trim().toLowerCase(), senha);
+    if (resultado.estado === "configuracao_invalida") redirect("/login?config=1");
+    if (resultado.estado === "indisponivel") redirect(`/login?indisponivel=1&retorno=${encodeURIComponent(retorno)}`);
+    if (resultado.estado === "sem_permissao") redirect(`/login?permissao=1&retorno=${encodeURIComponent(retorno)}`);
+    if (resultado.estado !== "autorizado") redirect(`/login?erro=1&retorno=${encodeURIComponent(retorno)}`);
+    usuarioAutorizado = resultado.usuario;
+  } else {
+    const usuarioEsperado = process.env.APP_ADMIN_USER ?? process.env.APP_BASIC_AUTH_USER;
+    const senhaEsperada = process.env.APP_ADMIN_PASSWORD ?? process.env.APP_BASIC_AUTH_PASSWORD;
+    if (!usuarioEsperado || !senhaEsperada) redirect("/login?config=1");
+    if (!igual(usuario, usuarioEsperado) || !igual(senha, senhaEsperada)) redirect(`/login?erro=1&retorno=${encodeURIComponent(retorno)}`);
+    usuarioAutorizado = usuarioEsperado;
+  }
   tentativas.delete(origem);
   const armazenamento = await cookies();
-  armazenamento.set(COOKIE_SESSAO, criarTokenSessao(usuarioEsperado, segredo), {
+  armazenamento.set(COOKIE_SESSAO, criarTokenSessao(usuarioAutorizado, segredo), {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "strict",

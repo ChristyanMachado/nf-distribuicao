@@ -35,7 +35,7 @@ executa cada tarefa em um `BrowserContext` independente.
   etapa e o Web mostra “o que aconteceu” + “o que fazer”. O botão **Tentar
   novamente** aparece somente para falhas pré-emissão permitidas por lista
   fechada; resultado fiscal incerto nunca volta à fila.
-- Validação local: **180 testes Worker**, **89 testes Web**, 2 testes do
+- Validação local: **180 testes Worker**, **93 testes Web**, 3 testes do
   preflight de deploy, TypeScript e build de produção passaram.
 - O bucket `documentos-fiscais` foi conferido somente por metadados: existe, é
   privado, limita tamanho e aceita PDF/XML. O papel `nf_worker_local` ganhou
@@ -69,6 +69,11 @@ executa cada tarefa em um `BrowserContext` independente.
 - O primeiro deploy Vercel revelou uma regressão exclusiva da autenticação
   ativa: o CSS escondia `.app-shell`, ancestral do próprio formulário. A regra
   agora oculta somente navegação lateral/cabeçalho/barra inferior e possui teste.
+- Autenticação de transição por Supabase Auth foi adicionada atrás de
+  `APP_AUTH_PROVIDER=supabase`. Ela reutiliza usuários do projeto compartilhado,
+  mas só cria a sessão curta da aplicação depois de confirmar no próprio token
+  do usuário que `public.perfis` contém `papel=gerente` e `ativo=true`. O login
+  administrativo permanece como fallback até a chave publicável ser configurada.
 - O Worker local possui papel PostgreSQL exclusivo de menor privilégio,
   provisionado por comando explícito e salvo somente no `.env` ignorado. A
   auditoria confirmou todos os privilégios obrigatórios e nenhum excessivo.
@@ -128,9 +133,10 @@ executa cada tarefa em um `BrowserContext` independente.
 
 ## Próximo gate seguro
 
-1. No Vercel, apontar a raiz para `web/` e configurar os segredos de produção
-   sem copiá-los para Preview. O build fecha se autenticação ou Supabase não
-   estiverem configurados.
+1. No Vercel, adicionar `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` e então mudar
+   `APP_AUTH_PROVIDER` para `supabase`; redefinir a senha do usuário gerente no
+   painel sem enviá-la ao chat e validar login/logout. O fallback atual continua
+   ativo enquanto essa variável não for trocada.
 2. Construir a imagem do Worker em uma máquina com Docker e executar primeiro
    as auditorias sem consumir a fila. Docker não está instalado nesta máquina,
    portanto o container ainda não foi validado em runtime.

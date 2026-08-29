@@ -6,6 +6,7 @@ import {
   criarTokenSessao,
   validarTokenSessao,
 } from "./lib/auth-session";
+import { provedorAutenticacao } from "./lib/auth-provider";
 
 function configuracao() {
   return {
@@ -17,9 +18,14 @@ function configuracao() {
 
 export function proxy(request: NextRequest) {
   const auth = configuracao();
+  const usaSupabase = provedorAutenticacao() === "supabase";
   const obrigatoria = process.env.NODE_ENV === "production" || process.env.APP_AUTH_ENABLED === "true";
   if (!obrigatoria && (!auth.usuario || !auth.senha || !auth.segredo)) return NextResponse.next();
-  if (!auth.usuario || !auth.senha || !auth.segredo || auth.segredo.length < 32) {
+  if (
+    !auth.segredo
+    || auth.segredo.length < 32
+    || (!usaSupabase && (!auth.usuario || !auth.senha))
+  ) {
     return new NextResponse("Acesso administrativo não configurado.", { status: 503 });
   }
   if (request.nextUrl.pathname === "/login") return NextResponse.next();

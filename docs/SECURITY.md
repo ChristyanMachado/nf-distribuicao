@@ -35,6 +35,10 @@ substitui identidade multiusuário, papéis, tenant e RLS.
 - unicidade de nota/tarefa e chave de acesso;
 - protocolo e prova fiscal persistidos;
 - incerteza pós-clique nunca retorna automaticamente à fila.
+- `anon` e `authenticated` não possuem `USAGE` nem grants de tabela no schema
+  `fiscal`; o Web continua acessando-o somente pelo servidor. O aviso genérico
+  de RLS desligado deve ser acompanhado, mas não autoriza habilitar políticas
+  às cegas e interromper o papel dedicado do Worker.
 
 ### Worker
 
@@ -55,6 +59,14 @@ substitui identidade multiusuário, papéis, tenant e RLS.
   `no-new-privileges`, volumes explícitos e healthcheck sanitizado.
 
 ## Riscos que ainda bloqueiam produção
+
+0. O projeto Supabase também hospeda o sistema de ponto. A auditoria encontrou
+   `public.criar_usuario`, `atualizar_usuario`, `is_gerente` e
+   `obter_email_usuario` como `SECURITY DEFINER` executáveis por `anon`; as
+   funções fazem verificações internas, mas os grants devem ser revisados. A
+   função legada `is_gerente()` não exige `ativo=true` e a proteção contra
+   senhas vazadas está desligada. Corrigir em uma migration própria e testar o
+   sistema de ponto antes de aplicar, sem improvisar durante o deploy fiscal.
 
 1. Criar uma identidade PostgreSQL exclusiva para cada implantação do Worker.
    O papel local de teste já foi provisionado e auditado com sucesso; não

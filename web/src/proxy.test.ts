@@ -22,4 +22,15 @@ describe("proteção administrativa", () => {
     vi.stubEnv("APP_SESSION_SECRET", "");
     expect(proxy(new NextRequest("https://app.local/")).status).toBe(503);
   });
+  it("no modo Supabase exige apenas a sessão assinada, não a senha administrativa", () => {
+    vi.stubEnv("APP_AUTH_PROVIDER", "supabase");
+    vi.stubEnv("APP_ADMIN_USER", "");
+    vi.stubEnv("APP_ADMIN_PASSWORD", "");
+    const token = criarTokenSessao("gerente@interno.test", "s".repeat(48));
+    const requisicao = new NextRequest("https://app.local/", {
+      headers: { cookie: `${COOKIE_SESSAO}=${token}` },
+    });
+
+    expect(proxy(requisicao).status).toBe(200);
+  });
 });

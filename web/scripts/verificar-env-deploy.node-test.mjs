@@ -32,3 +32,19 @@ test("bloqueia segredo público, autenticação desligada e URL divergente", () 
     "APP_AUTH_ENABLED",
   ]);
 });
+
+test("modo Supabase troca a senha administrativa pela chave pública", () => {
+  const ambienteSupabase = {
+    ...ambienteValido,
+    APP_AUTH_PROVIDER: "supabase",
+    APP_ADMIN_USER: "",
+    APP_ADMIN_PASSWORD: "",
+    NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: `sb_publishable_${"p".repeat(24)}`,
+  };
+  assert.deepEqual(pendenciasEnvDeploy(ambienteSupabase), []);
+
+  ambienteSupabase.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = "";
+  assert.deepEqual(pendenciasEnvDeploy(ambienteSupabase), [
+    "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
+  ]);
+});

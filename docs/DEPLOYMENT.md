@@ -97,7 +97,12 @@ Configure no painel do Vercel, em Settings → Environment Variables:
 - `SUPABASE_SECRET_KEY` somente no servidor;
 - `SUPABASE_STORAGE_BUCKET=documentos-fiscais`;
 - `APP_AUTH_ENABLED=true`;
-- `APP_ADMIN_USER`, `APP_ADMIN_PASSWORD` e `APP_SESSION_SECRET` fortes.
+- `APP_SESSION_SECRET` forte;
+- para o fallback atual: `APP_AUTH_PROVIDER=administrativo`,
+  `APP_ADMIN_USER` e `APP_ADMIN_PASSWORD`;
+- para reutilizar usuários existentes: `APP_AUTH_PROVIDER=supabase` e
+  `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`. Nesse modo, somente perfil gerente
+  ativo entra; a chave publicável não substitui a secret key do servidor.
 
 `NEXT_PUBLIC_STORAGE_HOSTS` é opcional quando o host já é derivado da Project
 URL. Nunca use prefixo `NEXT_PUBLIC_` em segredo. Não disponibilize a conexão,
