@@ -5,6 +5,7 @@ import { notas, clientes } from "@/db/schema";
 import { desc, eq } from "drizzle-orm";
 import Card from "@/components/Card";
 import NotaCard from "./NotaCard";
+import { assinarDocumentosPrivados } from "@/lib/storage.server";
 
 export default async function NotasPage() {
   const lista = await db
@@ -21,6 +22,9 @@ export default async function NotasPage() {
     .from(notas)
     .innerJoin(clientes, eq(notas.clienteId, clientes.id))
     .orderBy(desc(notas.criadoEm));
+  const urls = await assinarDocumentosPrivados(
+    lista.flatMap((nota) => [nota.pdfPath, nota.xmlPath]),
+  );
 
   return (
     <div>
@@ -32,7 +36,14 @@ export default async function NotasPage() {
 
       <Card className="mt-5 divide-y divide-[var(--line)]">
         {lista.map((n) => (
-          <NotaCard key={n.id} nota={n} />
+          <NotaCard
+            key={n.id}
+            nota={{
+              ...n,
+              pdfUrl: n.pdfPath ? urls.get(n.pdfPath) ?? null : null,
+              xmlUrl: n.xmlPath ? urls.get(n.xmlPath) ?? null : null,
+            }}
+          />
         ))}
         {lista.length === 0 && (
           <div className="px-4 py-10 text-center text-sm text-[var(--ink-faint)]">

@@ -11,6 +11,7 @@ from typing import Any, Mapping
 from uuid import UUID
 
 from .contrato_tarefa import ContratoTarefaInvalido, TarefaContratada, carregar_contrato_tarefa
+from .storage_documentos import caminho_storage_valido
 
 
 class FonteTarefasErro(RuntimeError):
@@ -408,6 +409,84 @@ class FontePostgresTarefas:
             raise
         except Exception as exc:
             raise FonteTarefasErro("Não foi possível registrar a nota autorizada.") from exc
+
+    async def registrar_documentos_armazenados(
+        self,
+        tarefa_id: str,
+        reserva_token: str,
+        *,
+        pdf_path: str,
+        xml_path: str,
+        retencao_dias: int,
+    ) -> None:
+        """Associa objetos imutáveis à nota já autorizada, com token fencing."""
+
+        tarefa_uuid = str(_uuid(tarefa_id))
+        token_uuid = str(_uuid(reserva_token))
+        if not caminho_storage_valido(pdf_path, tarefa_uuid, "danfe"):
+            raise FonteTarefasErro("Caminho do DANFE no Storage é inválido.")
+        if not caminho_storage_valido(xml_path, tarefa_uuid, "xml"):
+            raise FonteTarefasErro("Caminho do XML no Storage é inválido.")
+        if not 30 <= retencao_dias <= 365:
+            raise FonteTarefasErro("Retenção dos documentos é inválida.")
+
+        try:
+            async with self._conexao() as conexao:
+                async with conexao.transaction():
+                    atual = await conexao.fetchrow(
+                        """SELECT t.status,t.reserva_token,n.pdf_path,n.xml_path
+                           FROM fiscal.tarefas t
+                           JOIN fiscal.notas n ON n.tarefa_id=t.id
+                           WHERE t.id=$1::uuid
+                           FOR UPDATE OF t,n""",
+                        tarefa_uuid,
+                    )
+                    if (
+                        atual is None
+                        or str(atual["reserva_token"]) != token_uuid
+                        or atual["status"] not in {"EMITIDA", "DOCUMENTOS_ARMAZENADOS"}
+                    ):
+                        raise FonteTarefasErro(
+                            "A nota autorizada não pertence à reserva informada."
+                        )
+                    caminhos_atuais = (atual["pdf_path"], atual["xml_path"])
+                    if caminhos_atuais not in {(None, None), (pdf_path, xml_path)}:
+                        raise FonteTarefasErro(
+                            "A nota já possui outros documentos armazenados."
+                        )
+
+                    nota = await conexao.execute(
+                        """UPDATE fiscal.notas
+                           SET pdf_path=$2,xml_path=$3,
+                               documento_expira_em=now()+make_interval(days=>$4)
+                           WHERE tarefa_id=$1::uuid
+                             AND (pdf_path IS NULL OR pdf_path=$2)
+                             AND (xml_path IS NULL OR xml_path=$3)""",
+                        tarefa_uuid,
+                        pdf_path,
+                        xml_path,
+                        retencao_dias,
+                    )
+                    tarefa = await conexao.execute(
+                        """UPDATE fiscal.tarefas
+                           SET status='DOCUMENTOS_ARMAZENADOS',
+                               mensagem_status='Autorizada; XML e DANFE disponíveis.',
+                               ultimo_erro=NULL,codigo_erro=NULL,atualizado_em=now()
+                           WHERE id=$1::uuid AND reserva_token=$2::uuid
+                             AND status IN ('EMITIDA','DOCUMENTOS_ARMAZENADOS')""",
+                        tarefa_uuid,
+                        token_uuid,
+                    )
+                    if nota != "UPDATE 1" or tarefa != "UPDATE 1":
+                        raise FonteTarefasErro(
+                            "Não foi possível associar os documentos à nota autorizada."
+                        )
+        except FonteTarefasErro:
+            raise
+        except Exception as exc:
+            raise FonteTarefasErro(
+                "Não foi possível registrar os documentos armazenados."
+            ) from exc
 
 
 def _uuid(valor: str) -> UUID:

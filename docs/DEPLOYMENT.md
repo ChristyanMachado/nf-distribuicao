@@ -131,8 +131,11 @@ polling, mas está em beta; não será dependência obrigatória do MVP.
 
 ## Estado real da implantação
 
-Web, VM e Storage ainda não foram publicados. O banco de teste já contém as
-migrações `0001`–`0009` e o canal TLS foi verificado, mas atualmente há zero
-tarefas elegíveis. A próxima prova é local: completar cadastros, criar uma
+Web e VM ainda não foram publicados. O bucket privado de teste foi criado e a
+integração de upload/assinatura foi implementada, mas falta configurar as
+chaves locais — preferencialmente uma chave atual `sb_secret_`, exclusivamente
+server-side — e validar um documento real. O banco de teste contém as
+migrações `0001`–`0010`, o canal TLS e o papel mínimo foram verificados. A
+próxima prova é local: habilitar Storage e criar uma
 distribuição nova, fazer o ensaio sem navegador e só depois a homologação
 conectada com uma tarefa.

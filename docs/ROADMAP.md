@@ -31,9 +31,9 @@ banco de teste e passou no verificador de privilégios.
 
 ## Meta imediata — documentos no celular e operação concorrente
 
-1. Criar Storage privado para XML/DANFE e política de retenção.
-2. Fazer upload pelo Worker, persistir referências internas e disponibilizar
-   download autenticado por URL assinada curta no Web.
+1. Configurar as chaves locais e validar ao vivo o Storage já implementado.
+2. Confirmar upload, `DOCUMENTOS_ARMAZENADOS` e download por URL assinada no
+   celular; implementar recuperação de upload interrompido sem reemissão.
 3. Testar até 3 tarefas/contextos simultâneos com emitentes distintos,
    conferindo isolamento, nomes e estados finais.
 4. Medir o ciclo conectado e garantir que observabilidade não aumente de forma

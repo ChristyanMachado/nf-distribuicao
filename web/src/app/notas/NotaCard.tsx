@@ -13,8 +13,8 @@ type Nota = {
   status: string;
   valorTotal: string;
   dataEmissao: Date | null;
-  pdfPath: string | null;
-  xmlPath: string | null;
+  pdfUrl: string | null;
+  xmlUrl: string | null;
 };
 
 /**
@@ -23,8 +23,8 @@ type Nota = {
  * assinadas do Supabase Storage quando essa integração entrar (RF19).
  */
 export default function NotaCard({ nota }: { nota: Nota }) {
-  const pdfUrl = urlHttpsSegura(nota.pdfPath);
-  const xmlUrl = urlHttpsSegura(nota.xmlPath);
+  const pdfUrl = urlHttpsSegura(nota.pdfUrl);
+  const xmlUrl = urlHttpsSegura(nota.xmlUrl);
 
   async function compartilhar() {
     if (!pdfUrl) return;

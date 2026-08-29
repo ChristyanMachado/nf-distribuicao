@@ -1509,7 +1509,9 @@ def _slug_nome_arquivo(valor: str, maximo: int) -> str:
 def _validar_arquivo_baixado(caminho: str, extensao: str) -> None:
     """Recusa resposta vazia, HTML de erro disfarçado ou arquivo excessivo."""
     tamanho = os.path.getsize(caminho)
-    if tamanho < 1 or tamanho > 20 * 1024 * 1024:
+    # Alinhado ao limite do bucket privado ``documentos-fiscais``. XML/DANFE
+    # normais são muito menores; respostas anormais não devem ser enviadas.
+    if tamanho < 1 or tamanho > 10 * 1024 * 1024:
         _remover_download_invalido(caminho)
         raise FalhaDownloadDocumento("Documento baixado possui tamanho inválido.")
 

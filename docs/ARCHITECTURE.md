@@ -5,7 +5,7 @@
 ```text
 Web Next.js → PostgreSQL/fila → Worker Playwright → Receita PR
         ↑         status/nota/metadados         ↓
-        └────────── documentos (Storage futuro) ┘
+        └────────── documentos (Supabase Storage privado) ┘
 ```
 
 O Web é a interface operacional. O banco é a fonte de verdade e separa os
@@ -126,9 +126,20 @@ uma solução multiusuário. Credenciais fiscais ficam no Worker e o Web guarda
 somente uma referência. O banco do Worker deverá usar papel próprio com
 privilégios mínimos; a URL do proprietário do Web não deve ir para a VM.
 
-XML/DANFE são validados e salvos localmente com permissões restritas. Ainda
-faltam Storage privado com URL assinada, política de retenção, autorização por
-papéis/tenant, scheduler e alertas. Produção permanece bloqueada.
+XML/DANFE são validados e salvos localmente com permissões restritas. Quando
+`ARMAZENAR_DOCUMENTOS=true`, a autorização fiscal é registrada primeiro; em
+seguida o Worker envia objetos imutáveis ao Supabase Storage e grava somente
+os caminhos internos e a expiração. Caminhos usam UUID + SHA-256, sem nome de
+cliente/emitente, e uma repetição só é aceita após comparar o conteúdo remoto.
+
+O Web assina esses caminhos no servidor por cinco minutos. A chave secreta não
+entra no bundle do navegador e o bucket permanece privado. Falha de upload não
+reabre a emissão: a tarefa fica `EMITIDA`, com documentos pendentes. Ainda
+faltam validar o upload ao vivo, automatizar recuperação de upload interrompido,
+autorização por papéis/tenant, scheduler e alertas. Produção permanece bloqueada.
+
+Chaves atuais `sb_secret_` são enviadas ao Storage somente no cabeçalho
+`apikey`; a compatibilidade com a `service_role` legada acrescenta o Bearer JWT.
 
 ## Implantação proposta
 

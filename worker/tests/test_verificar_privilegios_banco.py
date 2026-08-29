@@ -11,6 +11,7 @@ def _resultado_minimo() -> dict[str, bool]:
         "atualizar_codigo_erro": True,
         "ler_notas": True,
         "inserir_notas": True,
+        "atualizar_documentos_notas": True,
         "ler_emitentes": False,
         "ler_login_legado": False,
         "ler_senha_legada": False,

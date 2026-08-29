@@ -22,6 +22,11 @@ def _preparar_env_minimo(monkeypatch):
     monkeypatch.delenv("WORKER_DATABASE_URL", raising=False)
     monkeypatch.delenv("WORKER_ID", raising=False)
     monkeypatch.delenv("TESTAR_INTEGRACAO_BANCO", raising=False)
+    monkeypatch.delenv("ARMAZENAR_DOCUMENTOS", raising=False)
+    monkeypatch.delenv("SUPABASE_URL", raising=False)
+    monkeypatch.delenv("SUPABASE_SECRET_KEY", raising=False)
+    monkeypatch.delenv("SUPABASE_STORAGE_BUCKET", raising=False)
+    monkeypatch.delenv("DOCUMENTOS_RETENCAO_DIAS", raising=False)
     monkeypatch.setenv("CLIENTES_ATIVOS", "CLIENTE_A")
     monkeypatch.setenv("HEADLESS", "false")
 
@@ -342,3 +347,40 @@ def test_worker_id_rejeita_caracteres_de_controle(monkeypatch):
 
     with pytest.raises(RuntimeError, match="WORKER_ID"):
         carregar_config()
+
+
+def test_storage_desligado_por_padrao(monkeypatch):
+    _preparar_env_minimo(monkeypatch)
+
+    assert carregar_config().storage_documentos is None
+
+
+def test_storage_exige_fonte_banco_e_configuracao_segura(monkeypatch):
+    _preparar_env_minimo(monkeypatch)
+    monkeypatch.setenv("ARMAZENAR_DOCUMENTOS", "true")
+    with pytest.raises(RuntimeError, match="SUPABASE_URL"):
+        carregar_config()
+
+    monkeypatch.setenv("SUPABASE_URL", "https://projeto.supabase.co")
+    monkeypatch.setenv("SUPABASE_SECRET_KEY", "s" * 32)
+    with pytest.raises(RuntimeError, match="FONTE_TAREFAS=banco"):
+        carregar_config()
+
+
+def test_storage_configurado_nao_expoe_chave_no_repr(monkeypatch):
+    _habilitar_emissao_homologacao(monkeypatch)
+    monkeypatch.setenv("FONTE_TAREFAS", "banco")
+    monkeypatch.setenv("WORKER_DATABASE_URL", "postgresql://usuario@localhost/teste")
+    monkeypatch.setenv("WORKER_ID", "worker-teste")
+    monkeypatch.setenv("TESTAR_INTEGRACAO_BANCO", "true")
+    monkeypatch.setenv("PROCESSAR_FILA_BANCO", "true")
+    monkeypatch.setenv("ARMAZENAR_DOCUMENTOS", "true")
+    monkeypatch.setenv("SUPABASE_URL", "https://projeto.supabase.co")
+    segredo = "segredo-super-privado-123456789"
+    monkeypatch.setenv("SUPABASE_SECRET_KEY", segredo)
+
+    config = carregar_config()
+
+    assert config.storage_documentos is not None
+    assert segredo not in repr(config)
+    assert config.storage_documentos.bucket == "documentos-fiscais"

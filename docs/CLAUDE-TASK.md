@@ -43,17 +43,19 @@ autorizadas com pausa humana; a 000012 foi autorizada automaticamente depois de
 o Worker passar a aguardar a tela-resumo do último produto. Não substitua essa
 espera por `sleep` nem remova a validação do domínio de homologação.
 
-1. revisar e implementar o desenho de Storage privado para XML/DANFE, sem
-   expor bucket, chave fiscal ou caminho local;
-2. planejar o teste de até 3 tarefas simultâneas com isolamento por contexto;
-3. confirmar que o checklist Web e os bloqueios antecipados continuam
+1. revisar a integração de Storage já implementada, especialmente idempotência,
+   separação autorização/upload e assinatura server-only;
+2. não ativar sem chaves locais e teste humano; nunca pedir a chave no chat;
+3. planejar recuperação de upload interrompido sem reemitir nota e o teste de
+   até 3 tarefas simultâneas com isolamento por contexto;
+4. confirmar que o checklist Web e os bloqueios antecipados continuam
    coerentes com as validações das Server Actions e preservam a consulta
    agregada de prontidão; não voltar a várias consultas na Home;
-4. preservar o tratamento de erros dentro dos formulários e a desativação
+5. preservar o tratamento de erros dentro dos formulários e a desativação
    lógica; falhas internas nunca devem aparecer na interface;
-5. adicionar apenas testes unitários/integrados sem navegador que cubram falhas
+6. adicionar apenas testes unitários/integrados sem navegador que cubram falhas
    reais encontradas;
-6. atualizar `HANDOFF.md` se houver mudança material.
+7. atualizar `HANDOFF.md` se houver mudança material.
 
 Não habilite modo estrito, hooks, watch, MCP ou backend semântico do Graphify.
 Não envie nem versione o grafo inteiro; para handoff, prefira uma saída curta da

@@ -56,6 +56,7 @@ def _config_banco() -> SimpleNamespace:
         ambiente_emissao="teste",
         sistema_fiscal_url="https://receita.pr.gov.br/login",
         headless=False,
+        storage_documentos=None,
     )
 
 
@@ -76,6 +77,7 @@ class _FonteBancoFake:
         self.devolver_pendente_sem_processar = AsyncMock()
         self.registrar_status = AsyncMock()
         self.registrar_emissao_autorizada = AsyncMock()
+        self.registrar_documentos_armazenados = AsyncMock()
         self.renovar_reserva = AsyncMock()
 
     async def __aenter__(self):
@@ -390,4 +392,61 @@ def test_fila_banco_autorizada_registra_metadados_com_token_da_reserva():
         chave_acesso=metadados.chave_acesso,
         numero=metadados.numero,
         protocolo=metadados.protocolo,
+    )
+    fonte.registrar_documentos_armazenados.assert_not_awaited()
+
+
+def test_fila_banco_com_storage_associa_documentos_sem_reemitir():
+    reserva = _reserva_banco()
+    fonte = _FonteBancoFake([reserva])
+    logger = logging.getLogger("teste-fila-storage")
+    credencial = SimpleNamespace(
+        identidade_esperada="Emitente esperado",
+        emitente="emitente-original",
+    )
+    metadados = SimpleNamespace(
+        chave_acesso="1" * 44,
+        numero="123",
+        protocolo="456789",
+    )
+    storage = SimpleNamespace(retencao_dias=365)
+    config = _config_banco()
+    config.storage_documentos = storage
+
+    with (
+        patch("main.FontePostgresTarefas", return_value=fonte),
+        patch("main.carregar_credencial", return_value=credencial),
+        patch("main._manter_reserva_ativa", new_callable=AsyncMock),
+        patch("main.realizar_login", new_callable=AsyncMock),
+        patch("main.navegar_ate_emissao", new_callable=AsyncMock),
+        patch("main.preencher_formulario_completo", new_callable=AsyncMock),
+        patch(
+            "main.executar_emissao_homologacao",
+            new_callable=AsyncMock,
+            return_value={"xml_path": "nota.xml", "pdf_path": "danfe.pdf"},
+        ),
+        patch("main.fluxo_emissao.extrair_metadados_xml", return_value=metadados),
+        patch(
+            "main.armazenar_documentos",
+            new_callable=AsyncMock,
+            return_value={
+                "xml_path": f"notas/{reserva.contratada.tarefa.tarefa_id}/xml-{'a' * 64}.xml",
+                "pdf_path": f"notas/{reserva.contratada.tarefa.tarefa_id}/danfe-{'b' * 64}.pdf",
+            },
+        ),
+        patch(
+            "main.processar_tarefas_em_paralelo_async",
+            side_effect=_orquestrador_sem_browser,
+        ),
+    ):
+        resultado = asyncio.run(executar_fila_banco_homologacao(config, logger))
+
+    assert resultado == 0
+    fonte.registrar_emissao_autorizada.assert_awaited_once()
+    fonte.registrar_documentos_armazenados.assert_awaited_once_with(
+        reserva.contratada.tarefa.tarefa_id,
+        reserva.reserva_token,
+        pdf_path=f"notas/{reserva.contratada.tarefa.tarefa_id}/danfe-{'b' * 64}.pdf",
+        xml_path=f"notas/{reserva.contratada.tarefa.tarefa_id}/xml-{'a' * 64}.xml",
+        retencao_dias=365,
     )

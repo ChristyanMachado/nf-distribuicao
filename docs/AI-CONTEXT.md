@@ -9,7 +9,7 @@ O produto organiza distribuições diárias e automatiza NFP-e. O Web cadastra e
 gera tarefas; o banco mantém snapshots imutáveis e a fila; o Worker reserva e
 executa cada tarefa em um `BrowserContext` independente.
 
-## Estado validado em 28/08/2026
+## Estado validado em 29/08/2026
 
 - Web: cadastros, distribuição por lote, tarefas, notas, roteiro de entrega e
   relatórios operacionais; interface responsiva e fluxo diário reduzido.
@@ -24,8 +24,9 @@ executa cada tarefa em um `BrowserContext` independente.
   comprovado nas distribuições 000010–000012: banco → reserva → Playwright →
   `EMITINDO` → autorização → XML/DANFE → nota e tarefa `EMITIDA`.
 - XML só é aceito com estrutura NF-e, chave de 44 dígitos, número, protocolo e
-  `cStat=100`. PDF precisa começar com `%PDF-`. Arquivos ficam locais e
-  privados; o Storage remoto ainda não foi implementado.
+  `cStat=100`. PDF precisa começar com `%PDF-`. O upload privado está
+  implementado em código, mas permanece desligado até configurar as chaves e
+  executar um teste real de Storage.
 - Migrações `0001` a `0010` estão aplicadas no banco de teste. `0008` adiciona
   idempotência do lote, snapshot `payload_worker` + SHA-256, token de reserva,
   protocolo e unicidades. `0009` corrige a ambiguidade do retorno
@@ -34,8 +35,15 @@ executa cada tarefa em um `BrowserContext` independente.
   etapa e o Web mostra “o que aconteceu” + “o que fazer”. O botão **Tentar
   novamente** aparece somente para falhas pré-emissão permitidas por lista
   fechada; resultado fiscal incerto nunca volta à fila.
-- Validação local: **158 testes Worker**, **82 testes Web**, TypeScript e build
+- Validação local: **169 testes Worker**, **87 testes Web**, TypeScript e build
   de produção passaram.
+- O bucket `documentos-fiscais` foi conferido somente por metadados: existe, é
+  privado, limita tamanho e aceita PDF/XML. O papel `nf_worker_local` ganhou
+  UPDATE apenas de `pdf_path`, `xml_path` e expiração; a auditoria continua sem
+  privilégios obrigatórios ausentes ou excessivos.
+- O Worker envia XML/DANFE em paralelo para caminhos `notas/<tarefa>/<tipo>-<sha256>`.
+  Não usa upsert: conflito só é idempotente se o conteúdo remoto for idêntico.
+  O Web gera URLs assinadas de 5 minutos exclusivamente no servidor.
 - Cadastros de emitente agora aceitam CPF ou CNPJ e IE opcional. A coluna
   física ainda se chama `cnpj` por compatibilidade; não criar migração apenas
   para renomeá-la durante o gate de integração.
@@ -117,13 +125,16 @@ executa cada tarefa em um `BrowserContext` independente.
 
 ## Próximo gate seguro
 
-1. Implementar Storage privado para XML/DANFE, persistindo apenas referências
-   internas e oferecendo download autorizado por URL assinada curta.
-2. Repetir o fluxo conectado com até 3 tarefas/contextos simultâneos, medindo
+1. Preencher `SUPABASE_URL` e `SUPABASE_SECRET_KEY` (preferencialmente com uma
+   chave atual `sb_secret_`) somente nos `.env` locais, habilitar
+   `ARMAZENAR_DOCUMENTOS` e validar uma nova emissão em homologação.
+2. Confirmar `DOCUMENTOS_ARMAZENADOS`, caminhos internos e downloads PDF/XML
+   pelo Web; depois preparar recuperação de upload interrompido.
+3. Repetir o fluxo conectado com até 3 tarefas/contextos simultâneos, medindo
    desempenho e confirmando isolamento de emitentes e nomes dos documentos.
-3. Preparar execução persistente em VM/container, scheduler 00:00–06:00,
+4. Preparar execução persistente em VM/container, scheduler 00:00–06:00,
    healthcheck, métricas e alerta de falhas.
-4. Manter produção bloqueada até autenticação/autorização definitiva, backup,
+5. Manter produção bloqueada até autenticação/autorização definitiva, backup,
    retenção, recuperação e piloto humano aprovado.
 
 ## Índice local de código

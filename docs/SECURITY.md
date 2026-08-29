@@ -56,8 +56,8 @@ substitui identidade multiusuário, papéis, tenant e RLS.
    O papel local de teste já foi provisionado e auditado com sucesso; não
    reutilizar sua senha nem a URL do dono do Web na futura VM. O modelo
    revisável permanece em `web/scripts/provisionar-worker-role.sql.template`.
-2. Implementar Storage privado, URL assinada curta, autorização de download,
-   retenção e limpeza local.
+2. Validar ao vivo o Storage privado já implementado, adicionar recuperação de
+   upload interrompido, autorização individual de download e limpeza local.
 3. Implementar autenticação individual, autorização por papel/empresa e
    isolamento por implantação ou tenant + RLS antes de integrar Financeiro/RH.
 4. Remover colunas legadas de login/senha fiscal após migração auditada.
@@ -72,7 +72,8 @@ substitui identidade multiusuário, papéis, tenant e RLS.
 
 - [ ] segredos distintos e fora do Git;
 - [x] papel dedicado do Worker local testado (repetir com outra identidade na VM);
-- [ ] Storage privado e downloads autorizados;
+- [ ] Storage privado implementado e verificado estruturalmente; falta teste de
+  upload/download real e autorização multiusuário;
 - [ ] autenticação/autorização adequadas ao público do piloto;
 - [ ] testes, TypeScript, build e auditoria de dependências limpos;
 - [ ] backup e restauração exercitados;

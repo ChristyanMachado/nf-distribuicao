@@ -23,6 +23,7 @@ from src.config import Config, carregar_config, carregar_credencial
 from src.flows import emissao as fluxo_emissao
 from src.flows.emissao import Emitente, Tarefa
 from src.fonte_tarefas import FontePostgresTarefas, FonteTarefasErro
+from src.storage_documentos import armazenar_documentos
 from src.orquestrador import (
     processar_tarefas_em_paralelo,
     processar_tarefas_em_paralelo_async,
@@ -436,6 +437,7 @@ async def executar_fila_banco_homologacao(config: Config, logger) -> int:
                 reserva = por_id[tarefa_id]
                 contratada = reserva.contratada
                 entrou_em_emissao = False
+                autorizacao_registrada = False
                 etapa = "preparacao"
                 page = None
                 heartbeat = asyncio.create_task(
@@ -490,11 +492,43 @@ async def executar_fila_banco_homologacao(config: Config, logger) -> int:
                         numero=metadados.numero,
                         protocolo=metadados.protocolo,
                     )
-                    logger.info(
-                        "[%s] Autorização registrada no banco; documentos locais protegidos.",
-                        tarefa_id,
-                    )
+                    autorizacao_registrada = True
+                    storage = getattr(config, "storage_documentos", None)
+                    if storage is None:
+                        logger.info(
+                            "[%s] Autorização registrada no banco; documentos locais protegidos.",
+                            tarefa_id,
+                        )
+                    else:
+                        etapa = "armazenamento"
+                        caminhos_remotos = await armazenar_documentos(
+                            storage,
+                            tarefa_id,
+                            documentos,
+                            logger,
+                        )
+                        await fonte.registrar_documentos_armazenados(
+                            tarefa_id,
+                            reserva.reserva_token,
+                            pdf_path=caminhos_remotos["pdf_path"],
+                            xml_path=caminhos_remotos["xml_path"],
+                            retencao_dias=storage.retencao_dias,
+                        )
+                        logger.info(
+                            "[%s] Documentos privados associados à nota autorizada.",
+                            tarefa_id,
+                        )
                 except Exception as exc:
+                    if autorizacao_registrada:
+                        logger.error(
+                            "[%s] Nota autorizada, mas os documentos ainda não foram "
+                            "confirmados no Storage (%s). Não reemitir a nota.",
+                            tarefa_id,
+                            type(exc).__name__,
+                        )
+                        raise RuntimeError(
+                            "Nota autorizada; armazenamento pendente."
+                        ) from None
                     destino = (
                         "AGUARDANDO_CONFERENCIA" if entrou_em_emissao else "ERRO"
                     )

@@ -23,6 +23,7 @@ PRIVILEGIOS_OBRIGATORIOS = (
     "atualizar_codigo_erro",
     "ler_notas",
     "inserir_notas",
+    "atualizar_documentos_notas",
 )
 
 PRIVILEGIOS_PROIBIDOS = (
@@ -78,6 +79,10 @@ async def verificar(database_url: str) -> dict[str, object]:
                 AND has_column_privilege(current_user, 'fiscal.notas', 'chave_acesso', 'INSERT')
                 AND has_column_privilege(current_user, 'fiscal.notas', 'protocolo_autorizacao', 'INSERT')
                 AS inserir_notas,
+              has_column_privilege(current_user, 'fiscal.notas', 'pdf_path', 'UPDATE')
+                AND has_column_privilege(current_user, 'fiscal.notas', 'xml_path', 'UPDATE')
+                AND has_column_privilege(current_user, 'fiscal.notas', 'documento_expira_em', 'UPDATE')
+                AS atualizar_documentos_notas,
               has_table_privilege(current_user, 'fiscal.emitentes', 'SELECT') AS ler_emitentes,
               has_column_privilege(current_user, 'fiscal.emitentes', 'login_usuario', 'SELECT')
                 AS ler_login_legado,

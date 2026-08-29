@@ -15,6 +15,8 @@ from urllib.parse import urlsplit
 
 from dotenv import load_dotenv
 
+from .storage_documentos import ConfigStorageDocumentos
+
 load_dotenv()
 
 
@@ -76,6 +78,12 @@ class Config:
     # True permite abrir o portal e emitir somente quando todas as travas de
     # homologação acima também estiverem ativas.
     processar_fila_banco: bool
+    # None mantém o comportamento anterior: documentos validados ficam locais.
+    # Quando configurado, a chave permanece apenas no processo do Worker.
+    storage_documentos: ConfigStorageDocumentos | None = field(
+        default=None,
+        repr=False,
+    )
 
 
 def carregar_config() -> Config:
@@ -188,6 +196,12 @@ def carregar_config() -> Config:
             "TESTAR_EMISSAO_HOMOLOGACAO=true."
         )
 
+    storage_documentos = _carregar_storage_documentos(
+        habilitado=os.getenv("ARMAZENAR_DOCUMENTOS", "false").lower() == "true"
+    )
+    if storage_documentos is not None and fonte_tarefas != "banco":
+        raise RuntimeError("ARMAZENAR_DOCUMENTOS=true exige FONTE_TAREFAS=banco.")
+
     return Config(
         sistema_fiscal_url=_url_sistema_fiscal(_obrigatorio("SISTEMA_FISCAL_URL")),
         headless=headless,
@@ -206,6 +220,55 @@ def carregar_config() -> Config:
         worker_id=worker_id,
         testar_integracao_banco=testar_integracao_banco,
         processar_fila_banco=processar_fila_banco,
+        storage_documentos=storage_documentos,
+    )
+
+
+def _carregar_storage_documentos(
+    *,
+    habilitado: bool,
+) -> ConfigStorageDocumentos | None:
+    if not habilitado:
+        return None
+
+    base_url = (os.getenv("SUPABASE_URL") or "").strip().rstrip("/")
+    chave = (os.getenv("SUPABASE_SECRET_KEY") or "").strip()
+    bucket = (os.getenv("SUPABASE_STORAGE_BUCKET") or "documentos-fiscais").strip()
+    retencao_raw = (os.getenv("DOCUMENTOS_RETENCAO_DIAS") or "365").strip()
+
+    url = urlsplit(base_url)
+    host = (url.hostname or "").lower()
+    if (
+        url.scheme != "https"
+        or not host.endswith(".supabase.co")
+        or host == ".supabase.co"
+        or url.username is not None
+        or url.password is not None
+        or url.port not in {None, 443}
+        or url.path not in {"", "/"}
+        or url.query
+        or url.fragment
+    ):
+        raise RuntimeError("SUPABASE_URL deve ser a URL HTTPS oficial do projeto.")
+    if (
+        not 24 <= len(chave) <= 4096
+        or any(not 33 <= ord(caractere) <= 126 for caractere in chave)
+    ):
+        raise RuntimeError("SUPABASE_SECRET_KEY não está configurada corretamente.")
+    if not re.fullmatch(r"[a-z0-9][a-z0-9_-]{2,62}", bucket):
+        raise RuntimeError("SUPABASE_STORAGE_BUCKET possui formato inválido.")
+    try:
+        retencao = int(retencao_raw)
+    except ValueError as exc:
+        raise RuntimeError("DOCUMENTOS_RETENCAO_DIAS deve ser inteiro.") from exc
+    if not 30 <= retencao <= 365:
+        raise RuntimeError("DOCUMENTOS_RETENCAO_DIAS deve ficar entre 30 e 365.")
+
+    return ConfigStorageDocumentos(
+        base_url=base_url,
+        chave_secreta=chave,
+        bucket=bucket,
+        retencao_dias=retencao,
     )
 
 

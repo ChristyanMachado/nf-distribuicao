@@ -563,6 +563,52 @@ def test_conflito_na_insercao_da_nota_aborta_transacao() -> None:
     assert conexao.transacao_fake.tipo_excecao is FonteTarefasErro
 
 
+def test_documentos_armazenados_atualizam_nota_e_tarefa_atomicamente() -> None:
+    pdf = f"notas/{TAREFA_ID}/danfe-{'a' * 64}.pdf"
+    xml = f"notas/{TAREFA_ID}/xml-{'b' * 64}.xml"
+    conexao = _ConexaoFake(
+        fetchrow=[{
+            "status": "EMITIDA",
+            "reserva_token": UUID(RESERVA_TOKEN),
+            "pdf_path": None,
+            "xml_path": None,
+        }],
+        execute=["UPDATE 1", "UPDATE 1"],
+    )
+    fonte = _fonte_com_conexao(conexao)
+
+    asyncio.run(
+        fonte.registrar_documentos_armazenados(
+            TAREFA_ID,
+            RESERVA_TOKEN,
+            pdf_path=pdf,
+            xml_path=xml,
+            retencao_dias=365,
+        )
+    )
+
+    assert conexao.transacao_fake.tipo_excecao is None
+    assert "FOR UPDATE OF t,n" in conexao.chamadas[0][1]
+    assert "documento_expira_em" in conexao.chamadas[1][1]
+    assert "DOCUMENTOS_ARMAZENADOS" in conexao.chamadas[2][1]
+
+
+def test_documentos_armazenados_recusam_caminho_de_outra_tarefa() -> None:
+    fonte = _fonte_com_conexao(_ConexaoFake())
+    outro_id = "77777777-7777-4777-8777-777777777777"
+
+    with pytest.raises(FonteTarefasErro, match="DANFE"):
+        asyncio.run(
+            fonte.registrar_documentos_armazenados(
+                TAREFA_ID,
+                RESERVA_TOKEN,
+                pdf_path=f"notas/{outro_id}/danfe-{'a' * 64}.pdf",
+                xml_path=f"notas/{TAREFA_ID}/xml-{'b' * 64}.xml",
+                retencao_dias=365,
+            )
+        )
+
+
 def test_pool_e_criado_com_tls_e_fechado(monkeypatch: pytest.MonkeyPatch) -> None:
     argumentos: dict[str, Any] = {}
 

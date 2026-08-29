@@ -4,12 +4,19 @@
  * A integração com Storage deverá fornecer URLs assinadas HTTPS e de curta duração.
  */
 function hostsConfigurados(): Set<string> {
-  return new Set(
-    (process.env.NEXT_PUBLIC_STORAGE_HOSTS ?? "")
+  const hosts = (process.env.NEXT_PUBLIC_STORAGE_HOSTS ?? "")
       .split(",")
       .map((host) => host.trim().toLowerCase())
-      .filter(Boolean),
-  );
+      .filter(Boolean);
+  const urlPublica = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (urlPublica) {
+    try {
+      hosts.push(new URL(urlPublica).hostname.toLowerCase());
+    } catch {
+      // URL inválida não amplia a lista permitida.
+    }
+  }
+  return new Set(hosts);
 }
 
 export function urlHttpsSegura(

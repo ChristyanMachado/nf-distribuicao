@@ -1,6 +1,6 @@
 # Handoff — Estado Atual
 
-## Estado autoritativo — 28/08/2026
+## Estado autoritativo — 29/08/2026
 
 > Esta seção substitui afirmações de estado das continuações históricas abaixo.
 > O restante do arquivo preserva decisões e reconhecimentos anteriores, mas
@@ -24,8 +24,9 @@
   `AGUARDANDO_CONFERENCIA`.
 - Modo processado de homologação liga banco → Playwright → `EMITINDO` → XML
   `cStat=100` → nota + tarefa `EMITIDA`. Resultado incerto não ganha retry.
-- XML/DANFE são baixados e validados; arquivos ficam locais e privados. Storage
-  remoto ainda não existe.
+- XML/DANFE são baixados e validados. A integração com Storage privado está no
+  código: upload imutável/idempotente, referências no banco e URL assinada no
+  servidor. Ainda falta configurar chaves locais e validar o primeiro upload.
 - Papel local `nf_worker_local` criado com acesso mínimo, credencial somente no
   `.env` ignorado e auditoria `papelWorkerSeguro: true`. Nenhum segredo foi
   impresso ou versionado.
@@ -51,8 +52,8 @@
 
 ### Evidências atuais
 
-- Worker: **158 testes passando**.
-- Web: **82 testes em 14 arquivos passando**.
+- Worker: **169 testes passando**.
+- Web: **87 testes em 15 arquivos passando**.
 - `npx tsc --noEmit`, `npm run build` e `git diff --check` passaram.
 - `npm audit --omit=dev`: 0 vulnerabilidades conhecidas.
 - Banco: migrações sincronizadas, canal TLS/fila OK e papel exclusivo seguro.
@@ -62,7 +63,13 @@
   autorizada automaticamente após a espera por estado real, sem Inspector:
   produtos em 4,61 s, XML/DANFE salvos e aproximadamente 18 s de processo.
 - O primeiro round-trip fiscal Web → banco → Worker → Receita → banco está
-  comprovado em homologação. Storage remoto e produção continuam bloqueados.
+  comprovado em homologação. Produção continua bloqueada.
+- Bucket `documentos-fiscais`: existência, privacidade, limite e MIME PDF/XML
+  verificados sem listar objetos. Papel do Worker reprovisionado com UPDATE
+  somente nas 3 colunas de documentos e auditoria de menor privilégio aprovada.
+- `@supabase/supabase-js` 2.112.4 foi fixado no lockfile. O Web assina links por
+  5 minutos no servidor; caminhos adulterados ou tipo/extensão divergentes são
+  recusados. `npm audit --omit=dev` encontrou 0 vulnerabilidades.
 - `ACESSO_PORTAL_NEGADO` possui diagnóstico próprio no Web, sem retry e sem
   sugerir nova distribuição.
 
@@ -108,8 +115,8 @@
 
 - Graphify oficial `graphifyy` 0.9.50 foi instalado fora dos ambientes de
   produção, em `.tools/graphify`, com o complemento SQL.
-- O mapa `--code-only` foi atualizado após esta rodada: 121 fontes, 1.035 nós,
-  2.341 relações e 69 comunidades.
+- O mapa `--code-only` foi atualizado após esta rodada: 126 fontes, 1.078 nós,
+  2.465 relações e 84 comunidades.
 - A auditoria inicial não encontrou `.env`, downloads, logs, tarefa real ou
   caminhos pessoais nos artefatos pesquisados.
 - `.tools/` e `graphify-out/` estão ignorados. Não foram ativados backend
