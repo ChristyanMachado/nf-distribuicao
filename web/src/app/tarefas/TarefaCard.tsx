@@ -93,7 +93,7 @@ export default function TarefaCard({ tarefa }: { tarefa: Tarefa }) {
             </div>
           ))}
 
-          {tarefa.status === "PENDENTE" && (
+          {(tarefa.status === "PENDENTE" || tarefa.status === "ERRO") && (
             <button
               type="button"
               disabled={pending}
@@ -106,7 +106,11 @@ export default function TarefaCard({ tarefa }: { tarefa: Tarefa }) {
               }}
               className="mt-2 text-[13px] text-[var(--stamp)] disabled:opacity-40"
             >
-              {pending ? "Cancelando…" : "Cancelar tarefa"}
+              {pending
+                ? "Cancelando…"
+                : tarefa.status === "ERRO"
+                  ? "Mover para canceladas"
+                  : "Cancelar tarefa"}
             </button>
           )}
 

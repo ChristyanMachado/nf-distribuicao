@@ -70,20 +70,24 @@ export async function cancelarTarefa(tarefaId: string) {
   await exigirSessaoAdministrativa();
   try {
     exigirUuid(tarefaId, "Tarefa");
-    // Só cancela se ainda estiver PENDENTE — não faz sentido cancelar algo
-    // que o worker já começou a processar ou já emitiu.
+    // PENDENTE ainda não começou. ERRO é sempre pré-emissão: depois de entrar
+    // em EMITINDO qualquer incerteza vira AGUARDANDO_CONFERENCIA e permanece
+    // protegida contra cancelamento/retry para não ocultar possível emissão.
     const canceladas = await db
       .update(tarefas)
       .set({
         status: "CANCELADA",
-        mensagemStatus: "Cancelada antes do início do processamento fiscal.",
+        mensagemStatus: "Cancelada pelo usuário antes da emissão fiscal.",
         atualizadoEm: new Date(),
       })
-      .where(and(eq(tarefas.id, tarefaId), eq(tarefas.status, "PENDENTE")))
+      .where(and(
+        eq(tarefas.id, tarefaId),
+        inArray(tarefas.status, ["PENDENTE", "ERRO"]),
+      ))
       .returning({ id: tarefas.id });
     if (canceladas.length === 0) {
       return {
-        erro: "A tarefa já começou ou não está mais disponível para cancelamento.",
+        erro: "A tarefa está em processamento, já foi concluída ou precisa de conferência fiscal e não pode ser cancelada.",
       };
     }
   } catch {

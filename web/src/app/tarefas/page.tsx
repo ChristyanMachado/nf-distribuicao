@@ -12,6 +12,8 @@ import { listarTarefasComItens } from "./actions";
 
 const ABAS: { id: VisaoTarefas; label: string }[] = [
   { id: "pendentes", label: "Pendentes" },
+  { id: "andamento", label: "Em andamento" },
+  { id: "atencao", label: "Atenção" },
   { id: "concluidas", label: "Concluídas" },
   { id: "canceladas", label: "Canceladas" },
 ];
@@ -46,7 +48,7 @@ export default async function TarefasPage({
 
       <nav
         aria-label="Situação das tarefas"
-        className="mt-5 grid grid-cols-3 gap-1 rounded-[var(--radius-control)] bg-[var(--surface-raised)] p-1"
+        className="mt-5 grid grid-cols-2 gap-1 rounded-[var(--radius-control)] bg-[var(--surface-raised)] p-1 sm:grid-cols-5"
       >
         {ABAS.map((aba) => {
           const ativa = aba.id === visao;

@@ -71,7 +71,7 @@ if (!connectionString) {
         count(*) filter (
           where status = 'PENDENTE'
             and (reservada_por is not null or reserva_token is not null
-              or reserva_expira_em is not null or iniciado_em is not null)
+              or reserva_expira_em is not null)
         )::int as pendentes_com_reserva,
         count(*) filter (
           where status = 'PENDENTE' and tentativas > 0
@@ -79,7 +79,8 @@ if (!connectionString) {
         count(*) filter (
           where status = 'ERRO'
             and codigo_erro in (
-              'FALHA_AUTENTICACAO', 'FALHA_NAVEGACAO', 'FALHA_TECNICA'
+              'FALHA_AUTENTICACAO', 'FALHA_NAVEGACAO',
+              'FALHA_PREENCHIMENTO', 'FALHA_TECNICA'
             )
         )::int as erros_reprocessaveis,
         count(*) filter (

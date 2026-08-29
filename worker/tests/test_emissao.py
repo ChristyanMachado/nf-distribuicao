@@ -11,6 +11,8 @@ from src.flows.emissao import (
     FalhaConfirmacaoEmissao,
     Tarefa,
     aguardar_autorizacao,
+    clicar_avancar_por_contexto,
+    clicar_avancar_produto,
     emitir,
 )
 
@@ -163,3 +165,101 @@ def test_resultado_rejeitado_nao_e_tratado_como_autorizado():
                 ambiente="teste",
             )
         )
+
+
+class BotaoAvancarFalso:
+    def __init__(
+        self,
+        *,
+        visivel: bool = True,
+        habilitado: bool = True,
+        profundidade_contexto: int | None = None,
+    ) -> None:
+        self.visivel = visivel
+        self.habilitado = habilitado
+        self.clicado = False
+        self.profundidade_contexto = profundidade_contexto
+
+    async def is_visible(self) -> bool:
+        return self.visivel
+
+    async def is_enabled(self) -> bool:
+        return self.habilitado
+
+    async def click(self) -> None:
+        self.clicado = True
+
+    async def evaluate(self, _expressao, _termos):
+        return self.profundidade_contexto
+
+
+class ColecaoBotoesFalsa:
+    def __init__(self, botoes: list[BotaoAvancarFalso]) -> None:
+        self.botoes = botoes
+
+    async def count(self) -> int:
+        return len(self.botoes)
+
+    def nth(self, indice: int) -> BotaoAvancarFalso:
+        return self.botoes[indice]
+
+
+class PaginaSequenciaFalsa:
+    def __init__(self, botoes: list[BotaoAvancarFalso]) -> None:
+        self.colecao = ColecaoBotoesFalsa(botoes)
+
+    def get_by_role(self, papel: str, *, name: str):
+        assert papel == "button"
+        assert name == "Avançar"
+        return self.colecao
+
+
+def test_avancar_por_contexto_escolhe_o_ancestral_mais_proximo():
+    antigo = BotaoAvancarFalso(profundidade_contexto=8)
+    atual = BotaoAvancarFalso(profundidade_contexto=2)
+    pagina = PaginaSequenciaFalsa([antigo, atual])
+
+    asyncio.run(
+        clicar_avancar_por_contexto(
+            pagina,
+            ("local de retirada",),
+            _logger_silencioso(),
+        )
+    )
+
+    assert antigo.clicado is False
+    assert atual.clicado is True
+
+
+def test_avancar_por_contexto_recusa_empate():
+    pagina = PaginaSequenciaFalsa([
+        BotaoAvancarFalso(profundidade_contexto=2),
+        BotaoAvancarFalso(profundidade_contexto=2),
+    ])
+
+    with pytest.raises(RuntimeError, match="mais de um botão"):
+        asyncio.run(
+            clicar_avancar_por_contexto(
+                pagina,
+                ("local de retirada",),
+                _logger_silencioso(),
+            )
+        )
+
+
+def test_avancar_produto_clica_no_ultimo_botao_da_subetapa_ativa():
+    anterior = BotaoAvancarFalso()
+    atual = BotaoAvancarFalso()
+    pagina = PaginaSequenciaFalsa([anterior, atual])
+
+    asyncio.run(clicar_avancar_produto(pagina, _logger_silencioso()))
+
+    assert anterior.clicado is False
+    assert atual.clicado is True
+
+
+def test_avancar_produto_recusa_ausencia_de_botao_seguro():
+    pagina = PaginaSequenciaFalsa([BotaoAvancarFalso(visivel=False)])
+
+    with pytest.raises(RuntimeError, match="Nenhum botão 'Avançar'"):
+        asyncio.run(clicar_avancar_produto(pagina, _logger_silencioso()))

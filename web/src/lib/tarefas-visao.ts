@@ -1,18 +1,30 @@
-export type VisaoTarefas = "pendentes" | "concluidas" | "canceladas";
+export type VisaoTarefas =
+  | "pendentes"
+  | "andamento"
+  | "atencao"
+  | "concluidas"
+  | "canceladas";
 
 const STATUS_CONCLUIDO = new Set(["EMITIDA", "DOCUMENTOS_ARMAZENADOS"]);
 
 export function normalizarVisaoTarefas(valor: string | undefined): VisaoTarefas {
-  if (valor === "concluidas" || valor === "canceladas") return valor;
+  if (
+    valor === "andamento"
+    || valor === "atencao"
+    || valor === "concluidas"
+    || valor === "canceladas"
+  ) return valor;
   return "pendentes";
 }
 
 export function visaoDaTarefa(status: string): VisaoTarefas {
+  if (status === "PENDENTE") return "pendentes";
+  if (status === "PROCESSANDO" || status === "EMITINDO") return "andamento";
+  if (status === "ERRO" || status === "AGUARDANDO_CONFERENCIA") return "atencao";
   if (status === "CANCELADA") return "canceladas";
   if (STATUS_CONCLUIDO.has(status)) return "concluidas";
-  // PROCESSANDO, EMITINDO, ERRO e AGUARDANDO_CONFERENCIA continuam exigindo
-  // acompanhamento e, portanto, ficam junto das pendentes.
-  return "pendentes";
+  // Estado futuro/desconhecido deve ficar visível para revisão humana.
+  return "atencao";
 }
 
 export function agruparPorDistribuicao<

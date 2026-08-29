@@ -8,6 +8,13 @@ describe("diagnóstico seguro de tarefas", () => {
     ).toBe(true);
   });
 
+  it("permite repetir preenchimento após uma correção técnica", () => {
+    expect(
+      obterDiagnosticoTarefa("ERRO", "FALHA_PREENCHIMENTO", null)
+        ?.podeTentarNovamente,
+    ).toBe(true);
+  });
+
   it("manda criar nova distribuição quando o snapshot do emitente diverge", () => {
     const diagnostico = obterDiagnosticoTarefa("ERRO", "EMITENTE_DIVERGENTE", null);
     expect(diagnostico?.podeTentarNovamente).toBe(false);

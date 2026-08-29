@@ -14,16 +14,17 @@ um portal autenticado, sem misturar autorização administrativa nesta entrega.
   preenchimento, autorização e download XML/DANFE.
 - **Fase 2 — contrato:** concluída em código e banco com payload v1, snapshot,
   hash, idempotência, token fencing e estados.
-- **Fase 3 — integração:** implementada em código. Canal TLS real e fila vazia
-  foram verificados; falta uma tarefa nova elegível para o primeiro round-trip.
-- **Fase 4 — homologação conectada:** fluxo existe, mas ainda não foi executado
-  banco → navegador → nota com uma tarefa real.
+- **Fase 3 — integração:** implementada em código; canal TLS, papel mínimo,
+  reserva, snapshot e retorno de erros ao Web foram verificados.
+- **Fase 4 — homologação conectada:** chegou com tarefa real até retirada/
+  entrega, sempre antes de `EMITINDO`. Falta cadastrar produtos reais e validar
+  o ciclo banco → navegador → nota autorizada.
 - **Fases 5/6 — operação e produção:** não iniciadas.
 
-Migrações `0001`–`0009` estão ativas. A verificação somente-leitura de 27/08
-confirmou 0 tarefas elegíveis: há 2 clientes ativos (1 incompleto), 1 emitente
-ativo ainda incompleto, 3 produtos prontos e nenhuma tarefa pendente. O legado
-sem lote está cancelado e permanece apenas como histórico.
+Migrações `0001`–`0010` estão ativas. Cliente e emitente do teste estão
+estruturalmente completos. Os três produtos atuais são fictícios e não devem
+ser usados em novo ensaio. As distribuições 000006–000009 são snapshots antigos
+em erro pré-emissão e não devem ser repetidas.
 
 O Web já indica quais cadastros impedem o teste e bloqueia o formulário antes
 de o usuário montar um lote inviável. O papel mínimo do Worker possui template
@@ -31,8 +32,8 @@ e verificador, mas ainda não foi criado.
 
 ## Meta imediata — primeiro round-trip Web → banco → Worker
 
-1. Completar no Web um cliente e um emitente fiscalmente válidos.
-2. Criar exatamente uma distribuição nova.
+1. Cadastrar no Web produtos reais e seus códigos internos NFP-e.
+2. Criar exatamente uma distribuição nova com os produtos reais.
 3. Executar `npm run db:verify-integration` e confirmar 1 tarefa elegível com
    snapshot/hash.
 4. Rodar fonte banco com `PROCESSAR_FILA_BANCO=false`, concorrência 1 e sem

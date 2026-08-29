@@ -1,4 +1,4 @@
-# Ordem de continuidade para Claude — 27/08/2026
+# Ordem de continuidade para Claude — 28/08/2026
 
 ## Papel
 
@@ -12,7 +12,7 @@ altere arquitetura ou migrações aplicadas sem registrar e justificar.
    `ARCHITECTURE.md`, `HANDOFF.md`, `COLABORACAO.md`, `SECURITY.md` e
    `CONTRATO-WEB-WORKER.md`.
 2. Confira branch, `git status` e diff. Preserve alterações existentes.
-3. Considere `0001`–`0009` já aplicadas no banco de teste; não reaplique às
+3. Considere `0001`–`0010` já aplicadas no banco de teste; não reaplique às
    cegas. Em outro banco, rode primeiro a verificação pré-0008.
 4. Se `graphify-out/graph.json` existir, use uma consulta focada para trabalho
    transversal ou de impacto incerto. Em correção pequena com arquivos já
@@ -32,17 +32,17 @@ altere arquitetura ou migrações aplicadas sem registrar e justificar.
 - Emitente aceita CPF ou CNPJ, IE opcional e apenas referência de credencial.
   Não transforme essa referência em campos de login/senha no Web.
 - Clientes, emitentes e produtos são desativados logicamente; não apague
-  histórico em cascata. Tarefas possuem três visões e agrupamento por lote.
+  histórico em cascata. Tarefas possuem cinco visões e agrupamento por lote.
 - As transições da orquestração banco já possuem testes diretos para sucesso,
   falha pré-emissão e resultado incerto pós-`EMITINDO`; preserve esses gates.
 
 ## Próxima tarefa prioritária
 
-O código já concluiu a preparação técnica e a correção dos cadastros para o
-primeiro round-trip. O responsável humano precisa completar o emitente e criar
-uma distribuição nova. Não inicie Storage, scheduler ou reestruturação ampla
-antes desse ensaio. Se receber o projeto enquanto ainda não houver uma tarefa
-elegível, faça somente revisão focada e testes sem navegador:
+O responsável confirmou que os três produtos atuais são fictícios. As
+distribuições 000006–000009 não devem ser repetidas. Aguarde produtos reais com
+seus códigos internos NFP-e e uma nova distribuição. A última correção da
+transição retirada → Produtos ainda não teve reteste ao vivo; não declare o
+round-trip concluído. Não inicie Storage, scheduler ou reestruturação ampla.
 
 1. revisar configuração e mensagens do fluxo `FONTE_TAREFAS=banco` com
    `PROCESSAR_FILA_BANCO=false`;
@@ -60,10 +60,10 @@ Não habilite modo estrito, hooks, watch, MCP ou backend semântico do Graphify.
 Não envie nem versione o grafo inteiro; para handoff, prefira uma saída curta da
 consulta junto dos arquivos reais e do diff.
 
-Quando o responsável humano completar cliente/emitente e criar uma nova
-distribuição, a ordem passa a ser: verificar prontidão; ensaio banco sem
-navegador e retorno `PENDENTE`; somente depois, com autorização explícita,
-homologação visível de uma tarefa.
+Quando o responsável cadastrar produtos reais e criar uma nova distribuição, a
+ordem passa a ser: verificar prontidão; confirmar snapshot novo; somente depois,
+com autorização explícita, homologação visível de uma tarefa. Não reutilize os
+snapshots antigos.
 
 ## Validação e entrega
 

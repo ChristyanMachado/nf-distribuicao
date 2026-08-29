@@ -133,7 +133,16 @@ Quando os <select> possuem estruturas quase idênticas, localizar por texto de u
 
 7. Local de retirada/entrega
 
-No fluxo validado, os valores permaneceram no padrão e a etapa foi somente avançada.
+No fluxo manual validado, os valores permanecem no padrão. No ciclo conectado
+de 28/08, a SPA ainda renderizava a etapa anterior quando esta função começou e
+mantinha vários botões `Avançar` no DOM. A automação agora aguarda a pergunta
+“Local de Retirada diferente do Emitente”, confirma explicitamente `Não` para
+retirada e entrega e ancora o botão na pergunta final. A última âncora foi
+corrigida depois do ensaio e ainda precisa de reteste ao vivo.
+
+Os produtos usados nas distribuições 000006–000009 foram confirmados como
+fictícios pelo responsável. Não usar esses snapshots para validar busca de
+produto; cadastrar produtos reais e gerar uma distribuição nova.
 
 8. Produtos — fluxo completo confirmado ao vivo
 

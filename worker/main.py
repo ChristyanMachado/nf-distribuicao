@@ -490,6 +490,30 @@ async def executar_fila_banco_homologacao(config: Config, logger) -> int:
                     destino = (
                         "AGUARDANDO_CONFERENCIA" if entrou_em_emissao else "ERRO"
                     )
+                    if (
+                        getattr(config, "inspecionar", False)
+                        and not entrou_em_emissao
+                        and page is not None
+                    ):
+                        try:
+                            caminhos = await fluxo_emissao.salvar_diagnostico_resultado(
+                                page,
+                                contratada.tarefa,
+                                config.download_dir,
+                                logger,
+                            )
+                            logger.warning(
+                                "[%s] Diagnóstico privado pré-emissão salvo (%d artefato(s)); "
+                                "a pasta é ignorada pelo Git.",
+                                tarefa_id,
+                                len(caminhos),
+                            )
+                        except Exception as diagnostico_exc:  # noqa: BLE001
+                            logger.error(
+                                "[%s] Diagnóstico privado não pôde ser salvo (%s).",
+                                tarefa_id,
+                                type(diagnostico_exc).__name__,
+                            )
                     if entrou_em_emissao:
                         codigo_erro = "RESULTADO_FISCAL_INCERTO"
                         mensagem = "Resultado fiscal incerto; confira a Receita antes de qualquer nova tentativa."

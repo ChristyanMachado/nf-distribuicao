@@ -82,9 +82,16 @@ vencido ou incerteza depois do clique fiscal não volta automaticamente à fila.
 Falhas operacionais usam `codigo_erro` estruturado e mensagem sanitizada. O Web
 traduz o código em causa e orientação para o usuário. Uma Server Action só
 devolve `ERRO` a `PENDENTE` para a lista fechada de falhas comprovadamente
-pré-emissão (`FALHA_AUTENTICACAO`, `FALHA_NAVEGACAO`, `FALHA_TECNICA`).
-`AGUARDANDO_CONFERENCIA`, contrato inválido, emitente divergente e falha de
-preenchimento não possuem retry; exigem conferência ou nova distribuição.
+pré-emissão (`FALHA_AUTENTICACAO`, `FALHA_NAVEGACAO`,
+`FALHA_PREENCHIMENTO`, `FALHA_TECNICA`). `AGUARDANDO_CONFERENCIA`, contrato
+inválido e emitente divergente não possuem retry; exigem conferência ou nova
+distribuição. Falha de preenchimento também recomenda nova distribuição quando
+o cadastro mudou, mas permite retry após uma correção técnica do portal.
+
+A tela separa estados em cinco visões: `PENDENTE`, processamento em andamento,
+atenção (`ERRO`/`AGUARDANDO_CONFERENCIA`), concluídas e canceladas. Somente
+`PENDENTE` e `ERRO` podem ser cancelados pelo usuário; estados de conferência
+fiscal nunca são ocultados por essa ação.
 
 ## Travas fiscais
 

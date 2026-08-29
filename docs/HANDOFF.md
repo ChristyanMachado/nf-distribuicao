@@ -36,22 +36,31 @@
 - Diagnóstico operacional estruturado em `codigo_erro`. A tela de tarefas mostra
   causa e solução em linguagem simples; erros seguros recebem **Tentar
   novamente**, enquanto snapshot divergente aponta para uma nova distribuição
-  e incerteza fiscal permanece bloqueada.
-- O primeiro ciclo conectado abriu apenas o Chromium e parou antes do login por
-  `EMITENTE_DIVERGENTE`. Não houve preenchimento nem emissão. O pré-voo agora
-  detecta essa classe antes de iniciar o navegador.
+  e incerteza fiscal permanece bloqueada. As visões agora são Pendentes, Em
+  andamento, Atenção, Concluídas e Canceladas; erro pré-emissão pode ser movido
+  para Canceladas sem apagar histórico.
+- Ciclos conectados posteriores confirmaram login, identidade, navegação,
+  destinatário e identificação da operação. Nenhuma tentativa chegou a
+  `EMITINDO`. A SPA mantém etapas anteriores no DOM; o Worker agora seleciona o
+  Avançar da operação por contexto, aguarda retirada/entrega renderizar e marca
+  explicitamente os dois rádios “Não”. A âncora final foi corrigida, mas essa
+  última alteração ainda não teve reteste ao vivo.
+- Com `INSPECIONAR=true`, falha pré-emissão salva HTML/PNG privados na pasta
+  ignorada `worker/downloads/`; no fluxo normal a opção permanece desligada e
+  não adiciona captura nem espera.
 
 ### Evidências atuais
 
-- Worker: **153 testes passando**.
-- Web: **80 testes em 14 arquivos passando**.
+- Worker: **157 testes passando**.
+- Web: **81 testes em 14 arquivos passando**.
 - `npx tsc --noEmit`, `npm run build` e `git diff --check` passaram.
 - `npm audit --omit=dev`: 0 vulnerabilidades conhecidas.
 - Banco: migrações sincronizadas, canal TLS/fila OK e papel exclusivo seguro.
-  Após o ensaio inicial, a primeira tarefa conectada ficou em `ERRO` antes do
-  login por snapshot de emitente divergente; existem 0 tarefas pendentes.
-- Cadastros atuais: 1 cliente e 1 emitente completos e 3 produtos completos.
-  O próximo passo é criar uma nova distribuição após a correção do emitente.
+  Existem 0 tarefas pendentes; 000006–000009 ficaram em `ERRO` pré-emissão.
+- O responsável confirmou que os 3 produtos atuais são fictícios, apesar de
+  passarem nas validações estruturais. Não repetir 000009. O próximo passo é
+  cadastrar produtos reais, conferir seus códigos internos NFP-e e criar uma
+  distribuição nova.
 
 ### Continuação autônoma — cadastros e tarefas operacionais
 
@@ -68,9 +77,9 @@
   Produto presente em tarefa aberta não pode ser desativado.
 - Formulários passaram a mostrar validações como “CNPJ inválido” dentro da
   página. Erros inesperados ficam genéricos e detalhes internos não vazam.
-- Tarefas foram separadas em Pendentes, Concluídas e Canceladas, com contadores
-  e agrupamento por lote. Registros antigos sem lote são agrupados por data com
-  rótulo explícito de ausência do número da distribuição.
+- Tarefas foram separadas em Pendentes, Em andamento, Atenção, Concluídas e
+  Canceladas, com contadores e agrupamento por lote. Registros antigos sem lote
+  são agrupados por data com rótulo explícito de ausência do número.
 - Cancelamento concorrente ou inválido também retorna feedback amigável no
   cartão, sem Runtime Error do Next.js.
 - Validação: **71 testes Web em 12 arquivos**, TypeScript e build de produção.
@@ -95,8 +104,8 @@
 
 - Graphify oficial `graphifyy` 0.9.50 foi instalado fora dos ambientes de
   produção, em `.tools/graphify`, com o complemento SQL.
-- O mapa `--code-only` foi atualizado após esta rodada: 114 fontes, 970 nós,
-  2.237 relações e 57 comunidades.
+- O mapa `--code-only` foi atualizado após esta rodada: 121 fontes, 1.030 nós,
+  2.331 relações e 75 comunidades.
 - A auditoria inicial não encontrou `.env`, downloads, logs, tarefa real ou
   caminhos pessoais nos artefatos pesquisados.
 - `.tools/` e `graphify-out/` estão ignorados. Não foram ativados backend

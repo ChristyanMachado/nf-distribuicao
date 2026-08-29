@@ -235,17 +235,107 @@ async def clicar_avancar(page: Page, logger: logging.Logger) -> None:
 
     logger.info("Avançar clicado")
 
+
+async def clicar_avancar_por_contexto(
+    page: Page,
+    termos_contexto: tuple[str, ...],
+    logger: logging.Logger,
+) -> None:
+    """Seleciona o Avançar cujo ancestral mais próximo contém a etapa.
+
+    Só retornamos distâncias na árvore DOM; nenhum texto da página ou dado
+    fiscal é registrado. A seleção falha fechada se dois botões tiverem a mesma
+    proximidade, em vez de clicar por tentativa.
+    """
+    botoes = page.get_by_role("button", name="Avançar")
+    candidatos = []
+    termos = [
+        unicodedata.normalize("NFKD", termo)
+        .encode("ascii", "ignore")
+        .decode("ascii")
+        .lower()
+        for termo in termos_contexto
+    ]
+    for indice in range(await botoes.count()):
+        botao = botoes.nth(indice)
+        if not await botao.is_visible() or not await botao.is_enabled():
+            continue
+        profundidade = await botao.evaluate(
+            """(elemento, termos) => {
+                let atual = elemento.parentElement;
+                for (let nivel = 1; atual && nivel <= 12; nivel += 1) {
+                    const texto = (atual.textContent || "")
+                        .normalize("NFD")
+                        .replace(/[\u0300-\u036f]/g, "")
+                        .toLowerCase();
+                    if (termos.some((termo) => texto.includes(termo))) return nivel;
+                    atual = atual.parentElement;
+                }
+                return null;
+            }""",
+            termos,
+        )
+        if profundidade is not None:
+            candidatos.append((int(profundidade), botao))
+
+    if not candidatos:
+        raise RuntimeError("Nenhum botão Avançar pertence à etapa esperada.")
+    menor_profundidade = min(profundidade for profundidade, _ in candidatos)
+    melhores = [
+        botao
+        for profundidade, botao in candidatos
+        if profundidade == menor_profundidade
+    ]
+    logger.info(
+        "Candidatos Avançar no contexto esperado: %d (melhores: %d)",
+        len(candidatos),
+        len(melhores),
+    )
+    if len(melhores) != 1:
+        raise RuntimeError("A etapa apresentou mais de um botão Avançar equivalente.")
+    await melhores[0].click()
+    logger.info("Avançar identificado pelo contexto da etapa clicado")
+
+
+async def clicar_avancar_apos_texto(
+    page: Page,
+    padrao_texto: re.Pattern[str],
+    logger: logging.Logger,
+) -> None:
+    """Resolve o botão posterior à única âncora visível da etapa."""
+    ancoras = page.get_by_text(padrao_texto)
+    visiveis = []
+    for indice in range(await ancoras.count()):
+        ancora = ancoras.nth(indice)
+        if await ancora.is_visible():
+            visiveis.append(ancora)
+
+    logger.info(
+        "Âncoras visíveis da etapa: %d",
+        len(visiveis),
+    )
+    if len(visiveis) != 1:
+        raise RuntimeError("A etapa não apresentou uma âncora visível única.")
+    botao = visiveis[0].locator(
+        "xpath=following::button[normalize-space()='Avançar'][1]"
+    )
+    if (
+        await botao.count() != 1
+        or not await botao.is_visible()
+        or not await botao.is_enabled()
+    ):
+        raise RuntimeError("A âncora da etapa não identificou um Avançar seguro.")
+    await botao.click()
+    logger.info("Avançar posterior à âncora da etapa clicado")
+
 async def clicar_avancar_produto(
     page: Page,
     logger: logging.Logger
 ) -> None:
-    """
-    Avança dentro da etapa de produtos.
+    """Avança na subetapa de produto mais recente preservada pela SPA.
 
-    A tela de produtos pode manter mais de um botão 'Avançar'
-    visível/habilitado ao mesmo tempo. Nesse caso, usamos o último
-    candidato visível/habilitado, que corresponde ao botão da etapa
-    atualmente ativa.
+    Este é o comportamento preexistente do fluxo: o último candidato visível e
+    habilitado corresponde à subetapa ativa de Produto/ICMS.
     """
 
     botoes = page.get_by_role(
@@ -274,9 +364,7 @@ async def clicar_avancar_produto(
             "encontrado na etapa de produtos."
         )
 
-    # Assim como no transporte, o último botão corresponde à etapa atual.
     await candidatos[-1].click()
-
     logger.info("Avançar da etapa de produtos clicado")
 
 
@@ -521,13 +609,60 @@ async def preencher_identificacao_operacao(page: Page, tarefa: Tarefa, logger: l
         page, _ANCORA_INDICADOR_PRESENCA, INDICADOR_PRESENCA_OPCOES[tarefa.indicador_presenca], logger
     )
 
-    await clicar_avancar(page, logger)
+    await clicar_avancar_por_contexto(
+        page,
+        ("identificação da operação", "natureza da operação"),
+        logger,
+    )
 
 
 async def avancar_local_retirada(page: Page, logger: logging.Logger) -> None:
-    """RECON.md seção 7 — valores padrão observados, sem alteração necessária."""
+    """Avança e confirma que a etapa de produtos realmente foi aberta.
+
+    O portal mantém botões homônimos de etapas anteriores. O botão correto é
+    localizado pelo contexto textual do próprio bloco e a transição só é aceita
+    quando o campo exclusivo de produto fica visível.
+    """
     logger.info("Local de retirada/entrega: mantendo padrão do sistema")
-    await clicar_avancar(page, logger)
+    primeira_pergunta = page.get_by_text(
+        re.compile(r"Local de Retirada diferente do Emitente", re.IGNORECASE)
+    )
+    await primeira_pergunta.first.wait_for(state="visible", timeout=10000)
+
+    for pergunta in (
+        r"Local de Retirada diferente do Emitente",
+        r"Local de Entrega diferente do Destinatário",
+    ):
+        ancoras = page.get_by_text(re.compile(pergunta, re.IGNORECASE))
+        visiveis = []
+        for indice in range(await ancoras.count()):
+            ancora = ancoras.nth(indice)
+            if await ancora.is_visible():
+                visiveis.append(ancora)
+        if len(visiveis) != 1:
+            raise RuntimeError("A pergunta esperada de retirada/entrega não é única.")
+        ancora = visiveis[0]
+        radio = ancora.locator(
+            "xpath=following::input[@type='radio' and @value='false'][1]"
+        )
+        if await radio.count() != 1:
+            raise RuntimeError("A opção padrão da etapa não foi localizada.")
+        await radio.check(force=True)
+        if not await radio.is_checked():
+            raise RuntimeError("O portal não confirmou uma opção padrão da etapa.")
+    logger.info("Retirada e entrega padrão confirmadas explicitamente")
+
+    await clicar_avancar_apos_texto(
+        page,
+        re.compile(r"Local de Entrega diferente do Destinatário", re.IGNORECASE),
+        logger,
+    )
+    campo_produto = _localizador_codigo_produto(page)
+    try:
+        await campo_produto.wait_for(state="visible", timeout=10000)
+    except PlaywrightTimeoutError as exc:
+        raise RuntimeError("O Avançar da retirada não abriu Produtos.") from exc
+    logger.info("Etapa Produtos confirmada após Avançar")
 
 
 # ---------------------------------------------------------------------------
@@ -554,6 +689,16 @@ _BASE_DADOS_PRODUTO = (
 )
 
 
+def _localizador_codigo_produto(page: Page):
+    """Retorna o campo exclusivo que confirma a abertura de Dados do Produto."""
+    return (
+        page.locator("label")
+        .filter(has_text="Código do Produto")
+        .locator("..")
+        .locator('input.default-input.slds-input')
+    )
+
+
 async def buscar_produto(
     page: Page,
     item: ItemTarefa,
@@ -576,12 +721,7 @@ async def buscar_produto(
 
     # Localiza o label pelo texto e sobe para o div que contém
     # tanto o label quanto o input correspondente.
-    campo_codigo = (
-        page.locator("label")
-        .filter(has_text="Código do Produto")
-        .locator("..")
-        .locator('input.default-input.slds-input')
-    )
+    campo_codigo = _localizador_codigo_produto(page)
 
     await campo_codigo.wait_for(
         state="visible",
@@ -769,7 +909,7 @@ async def preencher_item(
     # ================================================================
 
     if not item.possui_beneficio_fiscal:
-        await clicar_avancar(
+        await clicar_avancar_produto(
             page,
             logger
         )
@@ -829,7 +969,7 @@ async def preencher_item(
     # 1º AVANÇAR — DADOS DO PRODUTO → ICMS
     # ================================================================
 
-    await clicar_avancar(
+    await clicar_avancar_produto(
         page,
         logger
     )
@@ -882,7 +1022,7 @@ async def preencher_item(
     # 2º AVANÇAR — FINALIZA ITEM
     # ================================================================
     
-    await clicar_avancar(
+    await clicar_avancar_produto(
         page,
         logger
     )  

@@ -6,18 +6,23 @@ import {
 } from "./tarefas-visao";
 
 describe("visões da lista de tarefas", () => {
-  it("separa concluídas, canceladas e situações que ainda exigem atenção", () => {
+  it("separa fila, andamento, atenção, concluídas e canceladas", () => {
     expect(visaoDaTarefa("EMITIDA")).toBe("concluidas");
     expect(visaoDaTarefa("DOCUMENTOS_ARMAZENADOS")).toBe("concluidas");
     expect(visaoDaTarefa("CANCELADA")).toBe("canceladas");
     expect(visaoDaTarefa("PENDENTE")).toBe("pendentes");
-    expect(visaoDaTarefa("AGUARDANDO_CONFERENCIA")).toBe("pendentes");
-    expect(visaoDaTarefa("ERRO")).toBe("pendentes");
+    expect(visaoDaTarefa("PROCESSANDO")).toBe("andamento");
+    expect(visaoDaTarefa("EMITINDO")).toBe("andamento");
+    expect(visaoDaTarefa("AGUARDANDO_CONFERENCIA")).toBe("atencao");
+    expect(visaoDaTarefa("ERRO")).toBe("atencao");
+    expect(visaoDaTarefa("STATUS_FUTURO")).toBe("atencao");
   });
 
   it("usa pendentes como visão padrão", () => {
     expect(normalizarVisaoTarefas(undefined)).toBe("pendentes");
     expect(normalizarVisaoTarefas("qualquer")).toBe("pendentes");
+    expect(normalizarVisaoTarefas("andamento")).toBe("andamento");
+    expect(normalizarVisaoTarefas("atencao")).toBe("atencao");
     expect(normalizarVisaoTarefas("concluidas")).toBe("concluidas");
   });
 

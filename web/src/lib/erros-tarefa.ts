@@ -1,6 +1,7 @@
 export const CODIGOS_REPROCESSAVEIS = [
   "FALHA_AUTENTICACAO",
   "FALHA_NAVEGACAO",
+  "FALHA_PREENCHIMENTO",
   "FALHA_TECNICA",
 ] as const;
 
@@ -54,7 +55,7 @@ const DIAGNOSTICOS: Record<string, Omit<DiagnosticoTarefa, "podeTentarNovamente"
   FALHA_PREENCHIMENTO: {
     titulo: "Não foi possível preencher a nota",
     descricao: "Um dado da distribuição não foi aceito ou um campo do portal mudou.",
-    orientacao: "Revise cliente e produtos. Se corrigir um cadastro, crie uma nova distribuição; caso contrário, chame o suporte.",
+    orientacao: "Revise cliente e produtos. Se algum cadastro mudou, crie uma nova distribuição. Se os dados estão corretos ou o suporte ajustou o portal, tente novamente.",
     deveCriarNovaDistribuicao: true,
   },
   FALHA_TECNICA: {
