@@ -11,6 +11,10 @@ executa cada tarefa em um `BrowserContext` independente.
 
 ## Estado validado em 29/08/2026
 
+- A marca confirmada do produto é **Graalyst**. O ícone oficial foi aplicado
+  ao login e à navegação do Web; não confundir com nomes de emitentes presentes
+  em dados ou testes históricos.
+
 - Web: cadastros, distribuição por lote, tarefas, notas, roteiro de entrega e
   relatórios operacionais; interface responsiva e fluxo diário reduzido.
 - Worker: Playwright Async, 1 Browser + até 3 contextos isolados. Login,

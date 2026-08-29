@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import Image from "next/image";
 import "./globals.css";
 import {
   IconHome,
@@ -18,8 +19,9 @@ import IdleLock from "@/components/IdleLock";
 import AppNavLink from "@/components/AppNavLink";
 
 export const metadata: Metadata = {
-  title: "Distribuição & Notas",
+  title: "Graalyst | Distribuição & Notas",
   description: "Distribuição de produtos e emissão de notas fiscais",
+  icons: { icon: "/logo-graalyst.jpg" },
 };
 
 export const viewport: Viewport = {
@@ -58,9 +60,12 @@ export default function RootLayout({
         <div className="app-shell flex min-h-dvh flex-col md:flex-row">
           {/* Desktop: rail lateral fixo */}
           <aside className="hidden w-60 shrink-0 border-r border-[var(--line)] px-4 py-6 md:block">
-            <p className="mb-6 px-2 font-mono-tab text-[11px] font-bold uppercase tracking-widest text-[var(--ink-faint)]">
-              Distribuição · NF
-            </p>
+            <div className="mb-6 flex items-center gap-2 px-2">
+              <Image src="/logo-graalyst.jpg" alt="" width={32} height={32} className="h-8 w-8 rounded-lg" priority />
+              <p className="font-mono-tab text-[11px] font-bold uppercase tracking-widest text-[var(--ink-faint)]">
+                Graalyst · NF
+              </p>
+            </div>
             <nav className="flex flex-col gap-1">
               {[...NAV_ITEMS, ...NAV_ITEMS_SECUNDARIOS].map(
                 ({ href, label, Icon }) => (
@@ -84,9 +89,12 @@ export default function RootLayout({
 
           {/* Mobile: header curto só pra orientação, sem custar clique */}
           <header className="flex items-center justify-between border-b border-[var(--line)] px-4 py-3 md:hidden">
-            <p className="font-mono-tab text-[11px] font-bold uppercase tracking-widest text-[var(--ink-faint)]">
-              Distribuição · NF
-            </p>
+            <div className="flex items-center gap-2">
+              <Image src="/logo-graalyst.jpg" alt="" width={28} height={28} className="h-7 w-7 rounded-md" priority />
+              <p className="font-mono-tab text-[11px] font-bold uppercase tracking-widest text-[var(--ink-faint)]">
+                Graalyst · NF
+              </p>
+            </div>
             <div className="flex items-center gap-3">
               {autenticacaoConfigurada && <form action={sair}><button aria-label="Bloquear sessão" className="tap-target text-[var(--ink-soft)]"><IconLock className="h-5 w-5" /></button></form>}
               <a href="/mais" className="tap-target flex items-center gap-1 font-mono-tab text-[11px] uppercase tracking-wide text-[var(--ink-soft)]"><IconMore className="h-4 w-4" /> Mais</a>

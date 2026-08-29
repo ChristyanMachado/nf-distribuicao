@@ -65,7 +65,7 @@ export default function RoteiroEntregaView({
       {loteSelecionado && (
         <section className="print-sheet mt-6">
           <header className="border-b-2 border-[var(--ink)] pb-4">
-            <p className="font-mono-tab text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--ink-faint)]">Graalys · roteiro de entrega</p>
+            <p className="font-mono-tab text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--ink-faint)]">Graalyst · roteiro de entrega</p>
             <h2 className="mt-1 text-3xl font-medium">Distribuição {String(loteSelecionado.numero ?? "—").padStart(6, "0")}</h2>
             <p className="mt-1 text-sm text-[var(--ink-soft)]">
               Entregas de {dataIsoParaBrasil(loteSelecionado.data)} · gerado em {new Date(geradoEm).toLocaleString("pt-BR")} · {roteiro.length} cliente(s)

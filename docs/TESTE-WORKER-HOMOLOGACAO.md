@@ -132,6 +132,7 @@ Depois do ensaio seguro, e somente com autorização explícita, habilite:
 
 ```powershell
 $env:FONTE_TAREFAS="banco"
+$env:SMOKE_TEST="true"
 $env:TESTAR_INTEGRACAO_BANCO="true"
 $env:PROCESSAR_FILA_BANCO="true"
 $env:TESTAR_NAVEGACAO_EMISSAO="true"
@@ -139,13 +140,20 @@ $env:TESTAR_PREENCHIMENTO_COMPLETO="true"
 $env:TESTAR_EMISSAO_HOMOLOGACAO="true"
 $env:AMBIENTE_EMISSAO="teste"
 $env:HEADLESS="false"
+$env:INSPECIONAR="false"
+$env:PAUSAR_ANTES_TRANSPORTE="false"
 $env:MAX_CONCORRENCIA="1"
+$env:ARMAZENAR_DOCUMENTOS="true"
+
+.\.venv\Scripts\python.exe main.py
 ```
 
 Use `WORKER_DATABASE_URL` dedicada e `WORKER_ID`; não use a URL proprietária do
 Web na futura VM. O sucesso conectado deve deixar a tarefa `EMITIDA`, criar
-uma única nota com chave/número/protocolo do XML `cStat=100` e manter XML/DANFE
-locais. Storage ainda não faz parte desse teste.
+uma única nota com chave/número/protocolo do XML `cStat=100`, manter XML/DANFE
+locais e enviar os dois documentos ao bucket privado. Antes de iniciar, deixe
+somente a nova distribuição pretendida em `PENDENTE`: o comando reserva o
+trabalho elegível assim que começa.
 
 Se houver perda de lease ou incerteza depois do clique, não repetir. A tarefa
 deve ir para conferência humana.

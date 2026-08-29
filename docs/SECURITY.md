@@ -67,6 +67,10 @@ substitui identidade multiusuário, papéis, tenant e RLS.
    função legada `is_gerente()` não exige `ativo=true` e a proteção contra
    senhas vazadas está desligada. Corrigir em uma migration própria e testar o
    sistema de ponto antes de aplicar, sem improvisar durante o deploy fiscal.
+   A redefinição de senha administrativa deve migrar para o Supabase Auth
+   Admin API (`updateUserById`) em código exclusivamente servidor. A função
+   legada `atualizar_usuario` altera `auth.users` diretamente e não deve ser
+   copiada para o Web nem chamada pelo navegador.
 
 1. Criar uma identidade PostgreSQL exclusiva para cada implantação do Worker.
    O papel local de teste já foi provisionado e auditado com sucesso; não

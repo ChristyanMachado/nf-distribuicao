@@ -2,6 +2,11 @@
 
 ## Estado autoritativo — 29/08/2026
 
+- Marca confirmada: **Graalyst**. O arquivo fornecido pelo responsável foi
+  incorporado ao Web como `public/logo-graalyst.jpg` e usado no login,
+  navegação responsiva e metadados. Nomes semelhantes em fixtures fiscais não
+  devem ser alterados automaticamente, pois podem representar emitentes.
+
 > Esta seção substitui afirmações de estado das continuações históricas abaixo.
 > O restante do arquivo preserva decisões e reconhecimentos anteriores, mas
 > contagens e “próximos passos” antigos não descrevem mais o código atual.
@@ -97,6 +102,11 @@
   Supabase Auth com autorização por `public.perfis`; o login HMAC anterior fica
   como fallback até a chave publicável e `APP_AUTH_PROVIDER=supabase` serem
   configurados no Vercel. Nenhuma senha foi lida, redefinida ou versionada.
+- O procedimento recomendado para senha esquecida é o fluxo de recuperação
+  por e-mail do Supabase; enquanto o e-mail cadastrado for fictício, um técnico
+  pode redefini-la pela Admin API somente no servidor. Não ampliar a função
+  compartilhada `public.atualizar_usuario`, que escreve diretamente em
+  `auth.users`, sem uma migração e regressão separadas do sistema de ponto.
 
 ### Continuação autônoma — cadastros e tarefas operacionais
 
