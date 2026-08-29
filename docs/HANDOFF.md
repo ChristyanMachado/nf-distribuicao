@@ -61,7 +61,7 @@
 ### Evidências atuais
 
 - Worker: **180 testes passando**.
-- Web: **88 testes em 15 arquivos passando**.
+- Web: **89 testes em 16 arquivos passando**.
 - Preflight Vercel: **2 testes Node passando**.
 - `npx tsc --noEmit`, `npm run build` e `git diff --check` passaram.
 - `npm audit --omit=dev`: 0 vulnerabilidades conhecidas.
@@ -88,6 +88,10 @@
   recusados. `npm audit --omit=dev` encontrou 0 vulnerabilidades.
 - `ACESSO_PORTAL_NEGADO` possui diagnóstico próprio no Web, sem retry e sem
   sugerir nova distribuição.
+- O primeiro deploy Vercel respondeu corretamente, mas a página de login ficou
+  visualmente branca porque `visibility:hidden` atingia `.app-shell`, que também
+  contém o formulário. A correção limita a ocultação à navegação e ganhou teste
+  de regressão; nenhum segredo ou contrato foi alterado.
 
 ### Continuação autônoma — cadastros e tarefas operacionais
 

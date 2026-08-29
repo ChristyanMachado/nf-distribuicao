@@ -50,7 +50,10 @@ body {
   padding-bottom: env(safe-area-inset-bottom);
 }
 
-body:has(.login-screen) .app-shell,
+/* Esconde apenas a navegação: ocultar .app-shell também torna invisível o
+   formulário de login, que é descendente desse contêiner. */
+body:has(.login-screen) .app-shell > aside,
+body:has(.login-screen) .app-shell > header,
 body:has(.login-screen) .app-bottom-nav {
   visibility: hidden;
 }

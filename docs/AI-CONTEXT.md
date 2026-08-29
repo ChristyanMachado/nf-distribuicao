@@ -35,7 +35,7 @@ executa cada tarefa em um `BrowserContext` independente.
   etapa e o Web mostra “o que aconteceu” + “o que fazer”. O botão **Tentar
   novamente** aparece somente para falhas pré-emissão permitidas por lista
   fechada; resultado fiscal incerto nunca volta à fila.
-- Validação local: **180 testes Worker**, **88 testes Web**, 2 testes do
+- Validação local: **180 testes Worker**, **89 testes Web**, 2 testes do
   preflight de deploy, TypeScript e build de produção passaram.
 - O bucket `documentos-fiscais` foi conferido somente por metadados: existe, é
   privado, limita tamanho e aceita PDF/XML. O papel `nf_worker_local` ganhou
@@ -66,6 +66,9 @@ executa cada tarefa em um `BrowserContext` independente.
   390×844; a Home respondeu em ~0,95 s no ensaio local após a otimização.
 - Falhas temporárias do Web exibem recuperação neutra, sem detalhes técnicos e
   sem sugerir o reenvio cego de uma distribuição.
+- O primeiro deploy Vercel revelou uma regressão exclusiva da autenticação
+  ativa: o CSS escondia `.app-shell`, ancestral do próprio formulário. A regra
+  agora oculta somente navegação lateral/cabeçalho/barra inferior e possui teste.
 - O Worker local possui papel PostgreSQL exclusivo de menor privilégio,
   provisionado por comando explícito e salvo somente no `.env` ignorado. A
   auditoria confirmou todos os privilégios obrigatórios e nenhum excessivo.
