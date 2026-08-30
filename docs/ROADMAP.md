@@ -49,8 +49,15 @@ banco de teste e passou no verificador de privilégios.
 
 - bucket privado, upload, referências internas e URL assinada estão validados;
 - recuperação de upload interrompido está implementada por manifesto local
-  persistente e testes; falta validá-la no container/VM, definir retenção e
-  limpeza local.
+  persistente e testes; falta validá-la no container/VM;
+- retenção operacional definida em **30 dias** para novos documentos. Falta
+  implementar e testar a limpeza física idempotente no Storage, seguida da
+  remoção das referências no banco. A exclusão deve usar a API do Storage,
+  nunca SQL direto;
+- recuperação histórica sob demanda será um trabalho separado do Worker:
+  autenticar pelo emitente, consultar o portal NFP-e e baixar XML/DANFE apenas
+  quando o portal autorizar. Primeiro é necessário reconhecer filtros, limites
+  de período, lista de resultados e seletores do portal.
 
 ### Operação persistente
 

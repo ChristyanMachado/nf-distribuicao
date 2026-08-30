@@ -53,6 +53,10 @@ executa cada tarefa em um `BrowserContext` independente.
   XML/DANFE a partir desse manifesto e bloqueia novas emissões até concluir;
   nunca abre a Receita nem reemite a nota. A recuperação passou em testes
   locais, mas ainda aguarda ensaio em container/VM.
+- A retenção padrão dos próximos XML/DANFE é de 30 dias. O banco preserva os
+  metadados da nota; a limpeza física do Storage e a consulta histórica sob
+  demanda pelo portal são próximos trabalhos distintos e ainda não foram
+  implementados.
 - Cadastros de emitente agora aceitam CPF ou CNPJ e IE opcional. A coluna
   física ainda se chama `cnpj` por compatibilidade; não criar migração apenas
   para renomeá-la durante o gate de integração.

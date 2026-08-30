@@ -265,7 +265,9 @@ def _carregar_storage_documentos(
     base_url = (os.getenv("SUPABASE_URL") or "").strip().rstrip("/")
     chave = (os.getenv("SUPABASE_SECRET_KEY") or "").strip()
     bucket = (os.getenv("SUPABASE_STORAGE_BUCKET") or "documentos-fiscais").strip()
-    retencao_raw = (os.getenv("DOCUMENTOS_RETENCAO_DIAS") or "365").strip()
+    # Retenção operacional: depois de 30 dias o binário pode ser removido
+    # pelo trabalho de limpeza. O histórico fiscal (metadados) permanece.
+    retencao_raw = (os.getenv("DOCUMENTOS_RETENCAO_DIAS") or "30").strip()
 
     url = urlsplit(base_url)
     host = (url.hostname or "").lower()

@@ -56,7 +56,7 @@ export default async function NotasPage() {
     <div>
       <h1 className="text-2xl font-medium">Notas</h1>
       <p className="mt-1 text-[15px] text-[var(--ink-soft)]">
-        PDF/XML seguem a retenção de até 1 ano — o histórico da nota
+        PDF/XML ficam disponíveis por até 30 dias — o histórico da nota
         permanece mesmo depois do arquivo expirar.
       </p>
 

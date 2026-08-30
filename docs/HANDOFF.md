@@ -13,6 +13,12 @@
 
 ### Entregue no código
 
+- Retenção padrão para novos XML/DANFE reduzida de 365 para **30 dias**. Esta
+  alteração determina a data de expiração ao registrar documentos novos; ainda
+  não remove fisicamente objetos existentes nem altera datas já gravadas. A
+  próxima implementação deve criar uma limpeza idempotente via API do Storage
+  e somente depois limpar `pdf_path`/`xml_path` no banco.
+
 - Recuperação de upload de XML/DANFE: antes de registrar a autorização, o
   Worker grava um manifesto privado no volume de downloads com UUID, token,
   caminhos e hashes. Em ciclo posterior, esse manifesto é reenviado ao Storage
