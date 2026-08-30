@@ -48,6 +48,11 @@ executa cada tarefa em um `BrowserContext` independente.
 - O Worker envia XML/DANFE em paralelo para caminhos `notas/<tarefa>/<tipo>-<sha256>`.
   Não usa upsert: conflito só é idempotente se o conteúdo remoto for idêntico.
   O Web gera URLs assinadas de 5 minutos exclusivamente no servidor.
+- Antes do upload, o Worker grava um manifesto privado no volume persistente.
+  Se o Storage falhar após a autorização, o ciclo seguinte recupera somente o
+  XML/DANFE a partir desse manifesto e bloqueia novas emissões até concluir;
+  nunca abre a Receita nem reemite a nota. A recuperação passou em testes
+  locais, mas ainda aguarda ensaio em container/VM.
 - Cadastros de emitente agora aceitam CPF ou CNPJ e IE opcional. A coluna
   física ainda se chama `cnpj` por compatibilidade; não criar migração apenas
   para renomeá-la durante o gate de integração.

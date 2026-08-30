@@ -10,7 +10,9 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass, field
 import hashlib
+import json
 import logging
+import os
 from pathlib import Path
 import re
 from typing import Mapping
@@ -32,6 +34,21 @@ class ConfigStorageDocumentos:
     retencao_dias: int
 
 
+@dataclass(frozen=True)
+class ManifestoUploadPendente:
+    """Referência privada para retomar um upload sem reabrir a Receita."""
+
+    tarefa_id: str
+    reserva_token: str
+    documentos: dict[str, str]
+    hashes: dict[str, str]
+    caminho: Path = field(repr=False)
+
+
+_NOME_DIRETORIO_PENDENTES = ".uploads-pendentes"
+_VERSAO_MANIFESTO = 1
+
+
 def _caminho_objeto(tarefa_id: str, tipo: str, caminho_local: str) -> str:
     try:
         tarefa = str(UUID(tarefa_id))
@@ -49,6 +66,151 @@ def _caminho_objeto(tarefa_id: str, tipo: str, caminho_local: str) -> str:
         raise FalhaStorageDocumentos("Documento local não está disponível no formato esperado.")
     digest = hashlib.sha256(arquivo.read_bytes()).hexdigest()
     return f"notas/{tarefa}/{tipo}-{digest}.{extensao}"
+
+
+def _diretorio_pendentes(download_dir: str) -> Path:
+    raiz = Path(download_dir)
+    raiz.mkdir(parents=True, exist_ok=True)
+    if raiz.is_symlink() or not raiz.is_dir():
+        raise FalhaStorageDocumentos("Diretório de documentos locais é inválido.")
+    diretorio = raiz / _NOME_DIRETORIO_PENDENTES
+    diretorio.mkdir(mode=0o700, exist_ok=True)
+    if diretorio.is_symlink() or not diretorio.is_dir():
+        raise FalhaStorageDocumentos("Diretório de recuperação de documentos é inválido.")
+    try:
+        os.chmod(diretorio, 0o700)
+    except OSError:
+        # Windows não possui a mesma semântica de permissões POSIX; o diretório
+        # continua protegido pela pasta local privada do Worker.
+        pass
+    return diretorio
+
+
+def _documentos_para_manifesto(
+    download_dir: str,
+    documentos: Mapping[str, str],
+) -> tuple[dict[str, str], dict[str, str]]:
+    if set(documentos) != {"xml_path", "pdf_path"}:
+        raise FalhaStorageDocumentos("Conjunto de documentos fiscais incompleto.")
+    raiz = Path(download_dir).resolve(strict=True)
+    if raiz.is_symlink() or not raiz.is_dir():
+        raise FalhaStorageDocumentos("Diretório de documentos locais é inválido.")
+
+    caminhos: dict[str, str] = {}
+    hashes: dict[str, str] = {}
+    for chave, extensao in (("xml_path", ".xml"), ("pdf_path", ".pdf")):
+        arquivo_original = Path(documentos[chave])
+        if arquivo_original.is_symlink():
+            raise FalhaStorageDocumentos("Documento local não pode ser link simbólico.")
+        try:
+            arquivo = arquivo_original.resolve(strict=True)
+        except OSError as exc:
+            raise FalhaStorageDocumentos("Documento local não está disponível.") from exc
+        if (
+            not arquivo.is_relative_to(raiz)
+            or not arquivo.is_file()
+            or arquivo.suffix.lower() != extensao
+        ):
+            raise FalhaStorageDocumentos("Documento local não pertence ao diretório seguro.")
+        conteudo = arquivo.read_bytes()
+        caminhos[chave] = str(arquivo)
+        hashes[chave] = hashlib.sha256(conteudo).hexdigest()
+    return caminhos, hashes
+
+
+def criar_manifesto_upload_pendente(
+    download_dir: str,
+    tarefa_id: str,
+    reserva_token: str,
+    documentos: Mapping[str, str],
+) -> ManifestoUploadPendente:
+    """Persiste os documentos baixados antes do upload.
+
+    O manifesto fica no volume privado do Worker e não entra no banco nem em
+    logs. Assim, uma queda entre a autorização e o Storage pode ser retomada
+    posteriormente sem tocar novamente no portal fiscal.
+    """
+
+    try:
+        tarefa = str(UUID(tarefa_id))
+        token = str(UUID(reserva_token))
+    except (TypeError, ValueError) as exc:
+        raise FalhaStorageDocumentos("Identificador de recuperação inválido.") from exc
+    caminhos, hashes = _documentos_para_manifesto(download_dir, documentos)
+    diretorio = _diretorio_pendentes(download_dir)
+    caminho = diretorio / f"{tarefa}.json"
+    corpo = {
+        "versao": _VERSAO_MANIFESTO,
+        "tarefa_id": tarefa,
+        "reserva_token": token,
+        "documentos": caminhos,
+        "hashes": hashes,
+    }
+    serializado = json.dumps(corpo, sort_keys=True, separators=(",", ":"))
+    if caminho.exists():
+        existente = carregar_manifesto_upload_pendente(download_dir, caminho)
+        if (
+            existente.reserva_token == token
+            and existente.documentos == caminhos
+            and existente.hashes == hashes
+        ):
+            return existente
+        raise FalhaStorageDocumentos("Já existe recuperação pendente diferente para a tarefa.")
+
+    temporario = caminho.with_suffix(".json.tmp")
+    try:
+        temporario.write_text(serializado, encoding="utf-8")
+        os.chmod(temporario, 0o600)
+        os.replace(temporario, caminho)
+    finally:
+        if temporario.exists():
+            temporario.unlink(missing_ok=True)
+    return ManifestoUploadPendente(tarefa, token, caminhos, hashes, caminho)
+
+
+def listar_manifestos_upload_pendente(download_dir: str) -> tuple[Path, ...]:
+    """Lista manifestos, sem interpretar nem registrar seu conteúdo."""
+
+    diretorio = _diretorio_pendentes(download_dir)
+    return tuple(sorted(caminho for caminho in diretorio.glob("*.json") if caminho.is_file()))
+
+
+def carregar_manifesto_upload_pendente(
+    download_dir: str,
+    caminho: Path,
+) -> ManifestoUploadPendente:
+    """Lê e valida um manifesto privado e seus hashes originais."""
+
+    diretorio = _diretorio_pendentes(download_dir).resolve(strict=True)
+    if caminho.is_symlink() or caminho.parent.resolve(strict=True) != diretorio:
+        raise FalhaStorageDocumentos("Manifesto de recuperação fora do diretório seguro.")
+    try:
+        dados = json.loads(caminho.read_text(encoding="utf-8"))
+        tarefa = str(UUID(dados["tarefa_id"]))
+        token = str(UUID(dados["reserva_token"]))
+        documentos = dados["documentos"]
+        hashes = dados["hashes"]
+    except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError) as exc:
+        raise FalhaStorageDocumentos("Manifesto de recuperação inválido.") from exc
+    if (
+        dados.get("versao") != _VERSAO_MANIFESTO
+        or not isinstance(documentos, dict)
+        or not isinstance(hashes, dict)
+        or caminho.name != f"{tarefa}.json"
+    ):
+        raise FalhaStorageDocumentos("Manifesto de recuperação inválido.")
+    caminhos, hashes_atuais = _documentos_para_manifesto(download_dir, documentos)
+    if hashes != hashes_atuais or set(hashes) != {"xml_path", "pdf_path"}:
+        raise FalhaStorageDocumentos("Documento pendente foi alterado ou está incompleto.")
+    return ManifestoUploadPendente(tarefa, token, caminhos, dict(hashes), caminho)
+
+
+def remover_manifesto_upload_pendente(manifesto: ManifestoUploadPendente) -> None:
+    """Remove a referência somente após confirmação banco + Storage."""
+
+    if manifesto.caminho.is_symlink() or manifesto.caminho.name != f"{manifesto.tarefa_id}.json":
+        raise FalhaStorageDocumentos("Manifesto de recuperação inválido para remoção.")
+    manifesto.caminho.unlink(missing_ok=True)
 
 
 def _url_objeto(config: ConfigStorageDocumentos, caminho: str, *, autenticado: bool) -> str:

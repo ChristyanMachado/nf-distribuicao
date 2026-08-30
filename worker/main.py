@@ -23,7 +23,13 @@ from src.config import Config, carregar_config, carregar_credencial
 from src.flows import emissao as fluxo_emissao
 from src.flows.emissao import Emitente, Tarefa
 from src.fonte_tarefas import FontePostgresTarefas, FonteTarefasErro
-from src.storage_documentos import armazenar_documentos
+from src.storage_documentos import (
+    armazenar_documentos,
+    carregar_manifesto_upload_pendente,
+    criar_manifesto_upload_pendente,
+    listar_manifestos_upload_pendente,
+    remover_manifesto_upload_pendente,
+)
 from src.orquestrador import (
     processar_tarefas_em_paralelo,
     processar_tarefas_em_paralelo_async,
@@ -381,6 +387,53 @@ async def _manter_reserva_ativa(
             )
 
 
+async def _recuperar_uploads_pendentes(
+    fonte: FontePostgresTarefas,
+    config: Config,
+    logger,
+) -> bool:
+    """Retoma upload confirmado localmente, sem abrir o portal fiscal.
+
+    Qualquer falha mantém o manifesto e impede novas emissões naquele ciclo.
+    Isso preserva o documento original e evita que uma indisponibilidade do
+    Storage seja compensada, por engano, com outra emissão.
+    """
+
+    storage = config.storage_documentos
+    if storage is None:
+        return True
+    manifestos = listar_manifestos_upload_pendente(config.download_dir)
+    if not manifestos:
+        return True
+
+    logger.warning("Recuperando %d upload(s) fiscal(is) pendente(s).", len(manifestos))
+    for caminho in manifestos:
+        try:
+            manifesto = carregar_manifesto_upload_pendente(config.download_dir, caminho)
+            caminhos_remotos = await armazenar_documentos(
+                storage,
+                manifesto.tarefa_id,
+                manifesto.documentos,
+                logger,
+            )
+            await fonte.registrar_documentos_armazenados(
+                manifesto.tarefa_id,
+                manifesto.reserva_token,
+                pdf_path=caminhos_remotos["pdf_path"],
+                xml_path=caminhos_remotos["xml_path"],
+                retencao_dias=storage.retencao_dias,
+            )
+            remover_manifesto_upload_pendente(manifesto)
+            logger.info("[%s] Upload pendente recuperado com sucesso.", manifesto.tarefa_id)
+        except Exception as exc:  # noqa: BLE001 - não expor caminho ou documento
+            logger.error(
+                "Não foi possível recuperar um upload pendente (%s).",
+                type(exc).__name__,
+            )
+            return False
+    return True
+
+
 async def executar_fila_banco_homologacao(
     config: Config,
     logger,
@@ -401,6 +454,9 @@ async def executar_fila_banco_homologacao(
             config.worker_database_url,
             config.worker_id,
         ) as fonte:
+            if not await _recuperar_uploads_pendentes(fonte, config, logger):
+                logger.error("Fila fiscal adiada até recuperar os documentos pendentes.")
+                return 1
             reservas = await fonte.reservar(limite)
             if not reservas:
                 if not silencioso_sem_tarefas:
@@ -488,6 +544,15 @@ async def executar_fila_banco_homologacao(
                     )
                     if not documentos:
                         raise RuntimeError("Documentos fiscais não foram baixados.")
+                    storage = config.storage_documentos
+                    manifesto = None
+                    if storage is not None:
+                        manifesto = criar_manifesto_upload_pendente(
+                            config.download_dir,
+                            tarefa_id,
+                            reserva.reserva_token,
+                            documentos,
+                        )
                     metadados = fluxo_emissao.extrair_metadados_xml(
                         documentos["xml_path"]
                     )
@@ -499,7 +564,6 @@ async def executar_fila_banco_homologacao(
                         protocolo=metadados.protocolo,
                     )
                     autorizacao_registrada = True
-                    storage = getattr(config, "storage_documentos", None)
                     if storage is None:
                         logger.info(
                             "[%s] Autorização registrada no banco; documentos locais protegidos.",
@@ -520,6 +584,8 @@ async def executar_fila_banco_homologacao(
                             xml_path=caminhos_remotos["xml_path"],
                             retencao_dias=storage.retencao_dias,
                         )
+                        assert manifesto is not None
+                        remover_manifesto_upload_pendente(manifesto)
                         logger.info(
                             "[%s] Documentos privados associados à nota autorizada.",
                             tarefa_id,

@@ -13,6 +13,14 @@
 
 ### Entregue no código
 
+- Recuperação de upload de XML/DANFE: antes de registrar a autorização, o
+  Worker grava um manifesto privado no volume de downloads com UUID, token,
+  caminhos e hashes. Em ciclo posterior, esse manifesto é reenviado ao Storage
+  e associado à nota sem navegador; falha bloqueia novas reservas no ciclo e
+  preserva o manifesto. A exclusão ocorre somente depois de Storage + banco
+  confirmados. Validação local: 184 testes Worker e `compileall`; falta ensaio
+  em Docker/VM.
+
 - Implantação preparada sem publicação: `web/vercel.json` executa um preflight
   fail-closed de banco, Supabase e autenticação antes do build; o Worker ganhou
   imagem oficial Playwright fixada, Compose endurecido, polling persistente,

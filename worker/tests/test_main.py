@@ -9,6 +9,7 @@ import pytest
 
 from main import (
     _diagnostico_falha_pre_emissao,
+    _recuperar_uploads_pendentes,
     executar_emissao_homologacao,
     executar_fila_banco_homologacao,
     executar_validacao_fila_banco,
@@ -56,6 +57,7 @@ def _config_banco() -> SimpleNamespace:
         ambiente_emissao="teste",
         sistema_fiscal_url="https://receita.pr.gov.br/login",
         headless=False,
+        download_dir="downloads",
         storage_documentos=None,
     )
 
@@ -125,6 +127,58 @@ def test_fila_persistente_nao_repete_log_quando_esta_ociosa(caplog):
 
     assert resultado == 0
     assert "Nenhuma tarefa elegível" not in caplog.text
+
+
+def test_recuperacao_de_upload_associa_documentos_sem_abrir_portal():
+    fonte = _FonteBancoFake([])
+    tarefa_id = "11111111-1111-4111-8111-111111111111"
+    manifesto = SimpleNamespace(
+        tarefa_id=tarefa_id,
+        reserva_token="22222222-2222-4222-8222-222222222222",
+        documentos={"xml_path": "nota.xml", "pdf_path": "danfe.pdf"},
+    )
+    config = _config_banco()
+    config.storage_documentos = SimpleNamespace(retencao_dias=365)
+
+    with (
+        patch("main.listar_manifestos_upload_pendente", return_value=(object(),)),
+        patch("main.carregar_manifesto_upload_pendente", return_value=manifesto),
+        patch(
+            "main.armazenar_documentos",
+            new_callable=AsyncMock,
+            return_value={
+                "xml_path": f"notas/{tarefa_id}/xml-{'a' * 64}.xml",
+                "pdf_path": f"notas/{tarefa_id}/danfe-{'b' * 64}.pdf",
+            },
+        ),
+        patch("main.remover_manifesto_upload_pendente") as remover_manifesto,
+    ):
+        resultado = asyncio.run(
+            _recuperar_uploads_pendentes(fonte, config, logging.getLogger("teste-recuperacao"))
+        )
+
+    assert resultado is True
+    fonte.registrar_documentos_armazenados.assert_awaited_once()
+    remover_manifesto.assert_called_once_with(manifesto)
+
+
+def test_recuperacao_com_falha_nao_remove_manifesto_nem_processa_novas_notas():
+    fonte = _FonteBancoFake([])
+    config = _config_banco()
+    config.storage_documentos = SimpleNamespace(retencao_dias=365)
+
+    with (
+        patch("main.listar_manifestos_upload_pendente", return_value=(object(),)),
+        patch("main.carregar_manifesto_upload_pendente", side_effect=RuntimeError("arquivo inválido")),
+        patch("main.remover_manifesto_upload_pendente") as remover_manifesto,
+    ):
+        resultado = asyncio.run(
+            _recuperar_uploads_pendentes(fonte, config, logging.getLogger("teste-recuperacao"))
+        )
+
+    assert resultado is False
+    fonte.registrar_documentos_armazenados.assert_not_awaited()
+    remover_manifesto.assert_not_called()
 
 
 def test_preenchimento_completo_exige_emitente():
@@ -428,6 +482,7 @@ def test_fila_banco_com_storage_associa_documentos_sem_reemitir():
         protocolo="456789",
     )
     storage = SimpleNamespace(retencao_dias=365)
+    manifesto = SimpleNamespace()
     config = _config_banco()
     config.storage_documentos = storage
 
@@ -452,6 +507,9 @@ def test_fila_banco_com_storage_associa_documentos_sem_reemitir():
                 "pdf_path": f"notas/{reserva.contratada.tarefa.tarefa_id}/danfe-{'b' * 64}.pdf",
             },
         ),
+        patch("main.listar_manifestos_upload_pendente", return_value=()),
+        patch("main.criar_manifesto_upload_pendente", return_value=manifesto) as criar_manifesto,
+        patch("main.remover_manifesto_upload_pendente") as remover_manifesto,
         patch(
             "main.processar_tarefas_em_paralelo_async",
             side_effect=_orquestrador_sem_browser,
@@ -468,3 +526,5 @@ def test_fila_banco_com_storage_associa_documentos_sem_reemitir():
         xml_path=f"notas/{reserva.contratada.tarefa.tarefa_id}/xml-{'a' * 64}.xml",
         retencao_dias=365,
     )
+    criar_manifesto.assert_called_once()
+    remover_manifesto.assert_called_once_with(manifesto)

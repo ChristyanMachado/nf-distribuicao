@@ -14,10 +14,15 @@ from src.storage_documentos import (
     _headers_autenticacao,
     armazenar_documentos,
     caminho_storage_valido,
+    carregar_manifesto_upload_pendente,
+    criar_manifesto_upload_pendente,
+    listar_manifestos_upload_pendente,
+    remover_manifesto_upload_pendente,
 )
 
 
 TAREFA_ID = "11111111-1111-4111-8111-111111111111"
+RESERVA_TOKEN = "22222222-2222-4222-8222-222222222222"
 
 
 def _config() -> ConfigStorageDocumentos:
@@ -111,3 +116,37 @@ def test_conflito_com_conteudo_divergente_e_recusado(tmp_path: Path) -> None:
                     logging.getLogger("teste-storage"),
                 )
             )
+
+
+def test_manifesto_persiste_upload_para_recuperacao_sem_expor_dados(tmp_path: Path) -> None:
+    manifesto = criar_manifesto_upload_pendente(
+        str(tmp_path),
+        TAREFA_ID,
+        RESERVA_TOKEN,
+        _documentos(tmp_path),
+    )
+
+    assert manifesto.caminho.parent.name == ".uploads-pendentes"
+    assert manifesto.caminho.name == f"{TAREFA_ID}.json"
+    assert listar_manifestos_upload_pendente(str(tmp_path)) == (manifesto.caminho,)
+
+    recarregado = carregar_manifesto_upload_pendente(str(tmp_path), manifesto.caminho)
+
+    assert recarregado.tarefa_id == TAREFA_ID
+    assert recarregado.reserva_token == RESERVA_TOKEN
+    assert set(recarregado.documentos) == {"xml_path", "pdf_path"}
+    assert all(len(digest) == 64 for digest in recarregado.hashes.values())
+
+    remover_manifesto_upload_pendente(recarregado)
+    assert listar_manifestos_upload_pendente(str(tmp_path)) == ()
+
+
+def test_manifesto_recusa_documento_modificado_antes_da_recuperacao(tmp_path: Path) -> None:
+    documentos = _documentos(tmp_path)
+    manifesto = criar_manifesto_upload_pendente(
+        str(tmp_path), TAREFA_ID, RESERVA_TOKEN, documentos
+    )
+    Path(documentos["pdf_path"]).write_bytes(b"%PDF-1.7\nalterado")
+
+    with pytest.raises(FalhaStorageDocumentos, match="alterado"):
+        carregar_manifesto_upload_pendente(str(tmp_path), manifesto.caminho)

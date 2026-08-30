@@ -134,8 +134,11 @@ cliente/emitente, e uma repetição só é aceita após comparar o conteúdo rem
 
 O Web assina esses caminhos no servidor por cinco minutos. A chave secreta não
 entra no bundle do navegador e o bucket permanece privado. Falha de upload não
-reabre a emissão: a tarefa fica `EMITIDA`, com documentos pendentes. Ainda
-faltam validar o upload ao vivo, automatizar recuperação de upload interrompido,
+reabre a emissão: a tarefa fica `EMITIDA`, com documentos pendentes. Antes de
+enviar, o Worker grava em seu volume persistente um manifesto com tarefa,
+token, caminhos locais e hashes. No ciclo seguinte, ele tenta recuperar esses
+documentos antes de reservar qualquer tarefa nova; o manifesto só é removido
+após a confirmação atômica no banco. Ainda faltam validar a recuperação ao vivo,
 autorização por papéis/tenant, scheduler e alertas. Produção permanece bloqueada.
 
 Chaves atuais `sb_secret_` são enviadas ao Storage somente no cabeçalho

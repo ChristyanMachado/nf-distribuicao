@@ -48,7 +48,9 @@ banco de teste e passou no verificador de privilégios.
 ### Storage e retorno ao celular
 
 - bucket privado, upload, referências internas e URL assinada estão validados;
-- falta recuperação de upload interrompido, retenção e limpeza local.
+- recuperação de upload interrompido está implementada por manifesto local
+  persistente e testes; falta validá-la no container/VM, definir retenção e
+  limpeza local.
 
 ### Operação persistente
 
