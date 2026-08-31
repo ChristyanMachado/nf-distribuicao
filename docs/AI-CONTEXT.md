@@ -53,10 +53,14 @@ executa cada tarefa em um `BrowserContext` independente.
   XML/DANFE a partir desse manifesto e bloqueia novas emissões até concluir;
   nunca abre a Receita nem reemite a nota. A recuperação passou em testes
   locais, mas ainda aguarda ensaio em container/VM.
-- A retenção padrão dos próximos XML/DANFE é de 30 dias. O banco preserva os
-  metadados da nota; a limpeza física do Storage e a consulta histórica sob
-  demanda pelo portal são próximos trabalhos distintos e ainda não foram
-  implementados.
+- A retenção padrão dos próximos XML/DANFE é de 30 dias. A limpeza física foi
+  implementada atrás de `LIMPAR_DOCUMENTOS_EXPIRADOS=false`: reserva notas
+  vencidas com token/lease, apaga XML/DANFE pela API do Storage e só então
+  limpa os caminhos no banco. Falha preserva as referências para nova tentativa
+  e não bloqueia emissão fiscal. A migration `0011` ainda precisa ser aplicada
+  e o papel do Worker precisa ser reprovisionado antes de habilitar a flag.
+- Consulta histórica sob demanda pelo portal é trabalho separado; ainda faltam
+  reconhecimento dos filtros, limites e seletores da área de consulta NFP-e.
 - Cadastros de emitente agora aceitam CPF ou CNPJ e IE opcional. A coluna
   física ainda se chama `cnpj` por compatibilidade; não criar migração apenas
   para renomeá-la durante o gate de integração.
@@ -157,9 +161,10 @@ executa cada tarefa em um `BrowserContext` independente.
    serviço somente quando não houver tarefa involuntária elegível.
 4. Repetir o fluxo conectado com até 3 tarefas/contextos simultâneos, medindo
    CPU/RAM, isolamento e tempo, e depois implementar scheduler/alertas.
-5. Implementar recuperação de upload interrompido sem reemissão e manter
-   produção bloqueada até autenticação/autorização definitiva, backup,
-   retenção, recuperação e piloto humano aprovado.
+5. Aplicar a migration `0011`, reprovisionar/auditar o papel e validar a
+   limpeza num documento de teste já vencido. Manter a flag desligada até esse
+   ensaio; produção segue bloqueada até autenticação/autorização definitiva,
+   backup, recuperação e piloto humano aprovado.
 
 ## Índice local de código
 

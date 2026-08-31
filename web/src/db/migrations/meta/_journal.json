@@ -78,6 +78,13 @@
       "when": 1788349482845,
       "tag": "0010_diagnostico_e_reprocessamento_seguro",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1788435882845,
+      "tag": "0011_reserva_limpeza_documentos",
+      "breakpoints": true
     }
   ]
 }

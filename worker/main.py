@@ -28,6 +28,7 @@ from src.storage_documentos import (
     carregar_manifesto_upload_pendente,
     criar_manifesto_upload_pendente,
     listar_manifestos_upload_pendente,
+    remover_documentos_expirados,
     remover_manifesto_upload_pendente,
 )
 from src.orquestrador import (
@@ -434,6 +435,49 @@ async def _recuperar_uploads_pendentes(
     return True
 
 
+async def _limpar_documentos_expirados(
+    fonte: FontePostgresTarefas,
+    config: Config,
+    logger,
+) -> None:
+    """Remove binários vencidos sem afetar emissão, nota ou histórico.
+
+    A rotina é opcional. Falhas são registradas e deixam o banco intacto para
+    nova tentativa posterior; não bloqueiam uma emissão fiscal válida.
+    """
+
+    if not getattr(config, "limpar_documentos_expirados", False):
+        return
+    storage = config.storage_documentos
+    if storage is None:
+        return
+    try:
+        documentos = await fonte.reservar_documentos_expirados()
+    except FonteTarefasErro as exc:
+        logger.error("Não foi possível localizar documentos vencidos (%s).", type(exc).__name__)
+        return
+    for documento in documentos:
+        try:
+            await remover_documentos_expirados(
+                storage,
+                documento.tarefa_id,
+                pdf_path=documento.pdf_path,
+                xml_path=documento.xml_path,
+            )
+            await fonte.concluir_limpeza_documentos(documento)
+            logger.info("[%s] Documentos vencidos removidos do Storage.", documento.tarefa_id)
+        except Exception as exc:  # noqa: BLE001 - erro sanitizado, preserva a referência
+            logger.error(
+                "[%s] Limpeza de documentos adiada (%s).",
+                documento.tarefa_id,
+                type(exc).__name__,
+            )
+            try:
+                await fonte.liberar_limpeza_documentos(documento)
+            except FonteTarefasErro:
+                logger.error("[%s] Reserva de limpeza será liberada pelo lease.", documento.tarefa_id)
+
+
 async def executar_fila_banco_homologacao(
     config: Config,
     logger,
@@ -454,6 +498,7 @@ async def executar_fila_banco_homologacao(
             config.worker_database_url,
             config.worker_id,
         ) as fonte:
+            await _limpar_documentos_expirados(fonte, config, logger)
             if not await _recuperar_uploads_pendentes(fonte, config, logger):
                 logger.error("Fila fiscal adiada até recuperar os documentos pendentes.")
                 return 1

@@ -8,7 +8,7 @@ import hmac
 import json
 import re
 from typing import Any, Mapping
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from .contrato_tarefa import ContratoTarefaInvalido, TarefaContratada, carregar_contrato_tarefa
 from .storage_documentos import caminho_storage_valido
@@ -21,6 +21,17 @@ class FonteTarefasErro(RuntimeError):
 @dataclass(frozen=True)
 class TarefaReservada:
     contratada: TarefaContratada
+    reserva_token: str
+
+
+@dataclass(frozen=True)
+class DocumentoExpiradoReservado:
+    """Documento bloqueado para limpeza física no Storage."""
+
+    nota_id: str
+    tarefa_id: str
+    pdf_path: str
+    xml_path: str
     reserva_token: str
 
 
@@ -488,8 +499,130 @@ class FontePostgresTarefas:
                 "Não foi possível registrar os documentos armazenados."
             ) from exc
 
+    async def reservar_documentos_expirados(
+        self,
+        limite: int = 20,
+        lease_segundos: int = 300,
+    ) -> list[DocumentoExpiradoReservado]:
+        """Reserva documentos vencidos com ``SKIP LOCKED`` para limpeza.
+
+        A reserva fica na própria nota, com token aleatório e lease curto. Ela
+        evita concorrência entre Workers sem travar a operação fiscal.
+        """
+
+        if not 1 <= limite <= 100:
+            raise FonteTarefasErro("Limite de limpeza de documentos é inválido.")
+        if not 30 <= lease_segundos <= 3600:
+            raise FonteTarefasErro("Lease de limpeza de documentos é inválido.")
+        token = str(uuid4())
+        try:
+            async with self._conexao() as conexao:
+                async with conexao.transaction():
+                    linhas = await conexao.fetch(
+                        """WITH candidatas AS (
+                               SELECT id
+                               FROM fiscal.notas
+                               WHERE documento_expira_em <= now()
+                                 AND pdf_path IS NOT NULL AND xml_path IS NOT NULL
+                                 AND (
+                                   limpeza_reserva_expira_em IS NULL
+                                   OR limpeza_reserva_expira_em < now()
+                                 )
+                               ORDER BY documento_expira_em,id
+                               LIMIT $1
+                               FOR UPDATE SKIP LOCKED
+                           )
+                           UPDATE fiscal.notas AS n
+                           SET limpeza_reserva_token=$2::uuid,
+                               limpeza_reserva_expira_em=now()+make_interval(secs=>$3)
+                           FROM candidatas
+                           WHERE n.id=candidatas.id
+                           RETURNING n.id,n.tarefa_id,n.pdf_path,n.xml_path,
+                                     n.limpeza_reserva_token""",
+                        limite,
+                        token,
+                        lease_segundos,
+                    )
+        except Exception as exc:
+            raise FonteTarefasErro("Não foi possível reservar documentos vencidos.") from exc
+
+        reservados: list[DocumentoExpiradoReservado] = []
+        for linha in linhas:
+            try:
+                nota_id = str(_uuid(linha["id"]))
+                tarefa_id = str(_uuid(linha["tarefa_id"]))
+                pdf_path = str(linha["pdf_path"])
+                xml_path = str(linha["xml_path"])
+                reserva_token = str(_uuid(linha["limpeza_reserva_token"]))
+            except (KeyError, TypeError, ValueError) as exc:
+                raise FonteTarefasErro("Reserva de documento vencido é inválida.") from exc
+            if not (
+                caminho_storage_valido(pdf_path, tarefa_id, "danfe")
+                and caminho_storage_valido(xml_path, tarefa_id, "xml")
+            ):
+                raise FonteTarefasErro("Documento vencido possui caminho inválido.")
+            reservados.append(
+                DocumentoExpiradoReservado(
+                    nota_id=nota_id,
+                    tarefa_id=tarefa_id,
+                    pdf_path=pdf_path,
+                    xml_path=xml_path,
+                    reserva_token=reserva_token,
+                )
+            )
+        return reservados
+
+    async def concluir_limpeza_documentos(
+        self,
+        documento: DocumentoExpiradoReservado,
+    ) -> None:
+        """Remove referências somente após o Storage confirmar a exclusão."""
+
+        try:
+            async with self._conexao() as conexao:
+                resultado = await conexao.execute(
+                    """UPDATE fiscal.notas
+                       SET pdf_path=NULL,xml_path=NULL,documento_expira_em=NULL,
+                           limpeza_reserva_token=NULL,limpeza_reserva_expira_em=NULL
+                       WHERE id=$1::uuid AND tarefa_id=$2::uuid
+                         AND limpeza_reserva_token=$3::uuid
+                         AND pdf_path=$4 AND xml_path=$5
+                         AND documento_expira_em <= now()""",
+                    documento.nota_id,
+                    documento.tarefa_id,
+                    documento.reserva_token,
+                    documento.pdf_path,
+                    documento.xml_path,
+                )
+                if resultado != "UPDATE 1":
+                    raise FonteTarefasErro("Documento vencido não pertence à reserva ativa.")
+        except FonteTarefasErro:
+            raise
+        except Exception as exc:
+            raise FonteTarefasErro("Não foi possível concluir a limpeza de documentos.") from exc
+
+    async def liberar_limpeza_documentos(
+        self,
+        documento: DocumentoExpiradoReservado,
+    ) -> None:
+        """Libera a nota após falha, preservando referências para nova tentativa."""
+
+        try:
+            async with self._conexao() as conexao:
+                await conexao.execute(
+                    """UPDATE fiscal.notas
+                       SET limpeza_reserva_token=NULL,limpeza_reserva_expira_em=NULL
+                       WHERE id=$1::uuid AND limpeza_reserva_token=$2::uuid""",
+                    documento.nota_id,
+                    documento.reserva_token,
+                )
+        except Exception as exc:
+            raise FonteTarefasErro("Não foi possível liberar a limpeza de documentos.") from exc
+
 
 def _uuid(valor: str) -> UUID:
+    if isinstance(valor, UUID):
+        return valor
     try:
         return UUID(valor)
     except (ValueError, TypeError) as exc:

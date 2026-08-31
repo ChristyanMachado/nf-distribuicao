@@ -81,6 +81,9 @@ class Config:
     # Ativa o invólucro contínuo para VM/container. Continua restrito à
     # homologação até existir uma decisão separada e auditada para produção.
     worker_persistente: bool
+    # Exclusão física de XML/DANFE vencido. Desligada por padrão e só aceita
+    # fonte banco + Storage privado; nunca apaga o histórico fiscal.
+    limpar_documentos_expirados: bool
     # None mantém o comportamento anterior: documentos validados ficam locais.
     # Quando configurado, a chave permanece apenas no processo do Worker.
     storage_documentos: ConfigStorageDocumentos | None = field(
@@ -207,8 +210,20 @@ def carregar_config() -> Config:
     storage_documentos = _carregar_storage_documentos(
         habilitado=os.getenv("ARMAZENAR_DOCUMENTOS", "false").lower() == "true"
     )
+    limpar_documentos_expirados = (
+        os.getenv("LIMPAR_DOCUMENTOS_EXPIRADOS", "false").lower() == "true"
+    )
     if storage_documentos is not None and fonte_tarefas != "banco":
         raise RuntimeError("ARMAZENAR_DOCUMENTOS=true exige FONTE_TAREFAS=banco.")
+    if limpar_documentos_expirados and (
+        storage_documentos is None
+        or fonte_tarefas != "banco"
+        or not testar_integracao_banco
+    ):
+        raise RuntimeError(
+            "LIMPAR_DOCUMENTOS_EXPIRADOS=true exige fila do banco, integração "
+            "controlada e Storage privado configurado."
+        )
     if worker_persistente:
         if (
             not headless
@@ -251,6 +266,7 @@ def carregar_config() -> Config:
         testar_integracao_banco=testar_integracao_banco,
         processar_fila_banco=processar_fila_banco,
         worker_persistente=worker_persistente,
+        limpar_documentos_expirados=limpar_documentos_expirados,
         storage_documentos=storage_documentos,
     )
 

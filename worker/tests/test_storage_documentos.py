@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import logging
+import json
 from pathlib import Path
 from unittest.mock import patch
 
@@ -18,6 +19,7 @@ from src.storage_documentos import (
     criar_manifesto_upload_pendente,
     listar_manifestos_upload_pendente,
     remover_manifesto_upload_pendente,
+    remover_documentos_expirados,
 )
 
 
@@ -78,6 +80,42 @@ def test_service_role_legada_ainda_e_enviada_como_bearer() -> None:
         "apikey": chave,
         "authorization": f"Bearer {chave}",
     }
+
+
+def test_limpeza_usa_api_do_storage_e_nao_expoe_caminhos_no_banco() -> None:
+    pdf = f"notas/{TAREFA_ID}/danfe-{'a' * 64}.pdf"
+    xml = f"notas/{TAREFA_ID}/xml-{'b' * 64}.xml"
+    chamadas: list[tuple[str, str, dict, bytes | None]] = []
+
+    def requisicao(metodo, url, headers, corpo=None):
+        chamadas.append((metodo, url, headers, corpo))
+        return 200, b"[]"
+
+    with patch("src.storage_documentos._requisicao", side_effect=requisicao):
+        asyncio.run(
+            remover_documentos_expirados(
+                _config(), TAREFA_ID, pdf_path=pdf, xml_path=xml
+            )
+        )
+
+    assert len(chamadas) == 1
+    metodo, url, headers, corpo = chamadas[0]
+    assert metodo == "DELETE"
+    assert url.endswith("/storage/v1/object/documentos-fiscais")
+    assert headers["content-type"] == "application/json"
+    assert json.loads(corpo or b"{}") == {"prefixes": [xml, pdf]}
+
+
+def test_limpeza_recusa_caminho_fora_da_tarefa() -> None:
+    with pytest.raises(FalhaStorageDocumentos, match="inválido"):
+        asyncio.run(
+            remover_documentos_expirados(
+                _config(),
+                TAREFA_ID,
+                pdf_path="notas/fora/danfe-" + "a" * 64 + ".pdf",
+                xml_path=f"notas/{TAREFA_ID}/xml-{'b' * 64}.xml",
+            )
+        )
 
 
 def test_conflito_so_e_idempotente_com_conteudo_identico(tmp_path: Path) -> None:

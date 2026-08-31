@@ -144,6 +144,18 @@ autorização por papéis/tenant, scheduler e alertas. Produção permanece bloq
 Chaves atuais `sb_secret_` são enviadas ao Storage somente no cabeçalho
 `apikey`; a compatibilidade com a `service_role` legada acrescenta o Bearer JWT.
 
+### Retenção e limpeza de documentos
+
+O binário XML/DANFE tem retenção operacional padrão de 30 dias; metadados da
+nota nunca são removidos por essa política. A rotina opcional do Worker reserva
+cada nota vencida usando `limpeza_reserva_token` e lease curto, com
+`FOR UPDATE SKIP LOCKED`. Em seguida, exclui os dois objetos exclusivamente
+pela Storage API e só então zera `pdf_path`, `xml_path` e expiração. Falha no
+Storage ou no banco mantém/relibera a reserva sem apagar referências; uma nova
+execução pode concluir de forma idempotente. A flag
+`LIMPAR_DOCUMENTOS_EXPIRADOS` começa desabilitada e exige migration `0011`,
+Storage privado, fonte banco e integração controlada.
+
 ## Implantação proposta
 
 - Web: Vercel, com raiz do projeto em `web/` e preflight de variáveis antes do

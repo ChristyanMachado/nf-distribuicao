@@ -9,6 +9,7 @@ import pytest
 
 from main import (
     _diagnostico_falha_pre_emissao,
+    _limpar_documentos_expirados,
     _recuperar_uploads_pendentes,
     executar_emissao_homologacao,
     executar_fila_banco_homologacao,
@@ -81,6 +82,9 @@ class _FonteBancoFake:
         self.registrar_emissao_autorizada = AsyncMock()
         self.registrar_documentos_armazenados = AsyncMock()
         self.renovar_reserva = AsyncMock()
+        self.reservar_documentos_expirados = AsyncMock(return_value=[])
+        self.concluir_limpeza_documentos = AsyncMock()
+        self.liberar_limpeza_documentos = AsyncMock()
 
     async def __aenter__(self):
         return self
@@ -179,6 +183,40 @@ def test_recuperacao_com_falha_nao_remove_manifesto_nem_processa_novas_notas():
     assert resultado is False
     fonte.registrar_documentos_armazenados.assert_not_awaited()
     remover_manifesto.assert_not_called()
+
+
+def test_limpeza_remota_so_limpa_referencia_apos_storage_confirmar():
+    fonte = _FonteBancoFake([])
+    documento = SimpleNamespace(
+        tarefa_id="11111111-1111-4111-8111-111111111111",
+        pdf_path="pdf",
+        xml_path="xml",
+    )
+    fonte.reservar_documentos_expirados.return_value = [documento]
+    config = _config_banco()
+    config.limpar_documentos_expirados = True
+    config.storage_documentos = SimpleNamespace()
+
+    with patch("main.remover_documentos_expirados", new_callable=AsyncMock):
+        asyncio.run(_limpar_documentos_expirados(fonte, config, logging.getLogger("teste-limpeza")))
+
+    fonte.concluir_limpeza_documentos.assert_awaited_once_with(documento)
+    fonte.liberar_limpeza_documentos.assert_not_awaited()
+
+
+def test_limpeza_com_falha_libera_reserva_sem_apagar_referencia():
+    fonte = _FonteBancoFake([])
+    documento = SimpleNamespace(tarefa_id="11111111-1111-4111-8111-111111111111")
+    fonte.reservar_documentos_expirados.return_value = [documento]
+    config = _config_banco()
+    config.limpar_documentos_expirados = True
+    config.storage_documentos = SimpleNamespace()
+
+    with patch("main.remover_documentos_expirados", new_callable=AsyncMock, side_effect=RuntimeError):
+        asyncio.run(_limpar_documentos_expirados(fonte, config, logging.getLogger("teste-limpeza")))
+
+    fonte.concluir_limpeza_documentos.assert_not_awaited()
+    fonte.liberar_limpeza_documentos.assert_awaited_once_with(documento)
 
 
 def test_preenchimento_completo_exige_emitente():

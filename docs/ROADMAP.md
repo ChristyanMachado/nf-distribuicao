@@ -50,10 +50,11 @@ banco de teste e passou no verificador de privilégios.
 - bucket privado, upload, referências internas e URL assinada estão validados;
 - recuperação de upload interrompido está implementada por manifesto local
   persistente e testes; falta validá-la no container/VM;
-- retenção operacional definida em **30 dias** para novos documentos. Falta
-  implementar e testar a limpeza física idempotente no Storage, seguida da
-  remoção das referências no banco. A exclusão deve usar a API do Storage,
-  nunca SQL direto;
+- retenção operacional definida em **30 dias** para novos documentos;
+  limpeza física idempotente está implementada e protegida por flag, reserva e
+  lease. Antes de ativá-la: aplicar migration `0011`, reprovisionar o papel
+  mínimo e validar um documento vencido no ambiente de teste. A exclusão usa a
+  API do Storage, nunca SQL direto;
 - recuperação histórica sob demanda será um trabalho separado do Worker:
   autenticar pelo emitente, consultar o portal NFP-e e baixar XML/DANFE apenas
   quando o portal autorizar. Primeiro é necessário reconhecer filtros, limites

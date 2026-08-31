@@ -64,6 +64,11 @@ encerramento gracioso. Consulte `../docs/DEPLOYMENT.md` para as variáveis e a
 sequência completa. A imagem ainda precisa ser construída e testada na VM;
 Docker não está instalado na estação onde esta preparação foi criada.
 
+`LIMPAR_DOCUMENTOS_EXPIRADOS` começa como `false`. Quando habilitada após a
+migration `0011` e a auditoria do papel, remove XML/DANFE vencidos pelo Storage
+e preserva o histórico da nota. Não habilite a flag antes de validar o ciclo em
+homologação com um documento de teste vencido.
+
 ## Limites atuais
 
 - execução persistente continua exclusiva de homologação;

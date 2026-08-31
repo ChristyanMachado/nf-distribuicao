@@ -139,7 +139,8 @@ async function main() {
       status, valor_total, data_emissao
     ) ON TABLE fiscal.notas TO ${roleSql}`);
     await admin.unsafe(`GRANT UPDATE (
-      pdf_path, xml_path, documento_expira_em
+      pdf_path, xml_path, documento_expira_em,
+      limpeza_reserva_token, limpeza_reserva_expira_em
     ) ON TABLE fiscal.notas TO ${roleSql}`);
     await admin.unsafe(`GRANT EXECUTE ON FUNCTION
       fiscal.reservar_tarefas_worker(text, integer, integer) TO ${roleSql}`);

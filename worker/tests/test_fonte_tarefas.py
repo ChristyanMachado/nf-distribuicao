@@ -19,6 +19,7 @@ from uuid import UUID
 import pytest
 
 from src.fonte_tarefas import (
+    DocumentoExpiradoReservado,
     FontePostgresTarefas,
     FonteTarefasErro,
     montar_payload_contrato,
@@ -607,6 +608,57 @@ def test_documentos_armazenados_recusam_caminho_de_outra_tarefa() -> None:
                 retencao_dias=365,
             )
         )
+
+
+def test_reserva_documentos_expirados_usa_skip_locked_e_token() -> None:
+    nota_id = "77777777-7777-4777-8777-777777777777"
+    pdf = f"notas/{TAREFA_ID}/danfe-{'a' * 64}.pdf"
+    xml = f"notas/{TAREFA_ID}/xml-{'b' * 64}.xml"
+    conexao = _ConexaoFake(fetch=[[
+        {
+            "id": UUID(nota_id),
+            "tarefa_id": UUID(TAREFA_ID),
+            "pdf_path": pdf,
+            "xml_path": xml,
+            "limpeza_reserva_token": UUID(RESERVA_TOKEN),
+        }
+    ]])
+    fonte = _fonte_com_conexao(conexao)
+
+    reservados = asyncio.run(fonte.reservar_documentos_expirados())
+
+    assert reservados == [
+        DocumentoExpiradoReservado(nota_id, TAREFA_ID, pdf, xml, RESERVA_TOKEN)
+    ]
+    consulta = conexao.chamadas[0][1]
+    assert "FOR UPDATE SKIP LOCKED" in consulta
+    assert "limpeza_reserva_token" in consulta
+
+
+def test_conclusao_limpeza_exige_token_e_preserva_historico() -> None:
+    documento = DocumentoExpiradoReservado(
+        "77777777-7777-4777-8777-777777777777",
+        TAREFA_ID,
+        f"notas/{TAREFA_ID}/danfe-{'a' * 64}.pdf",
+        f"notas/{TAREFA_ID}/xml-{'b' * 64}.xml",
+        RESERVA_TOKEN,
+    )
+    conexao = _ConexaoFake(execute=["UPDATE 1"])
+    fonte = _fonte_com_conexao(conexao)
+
+    asyncio.run(fonte.concluir_limpeza_documentos(documento))
+
+    consulta = conexao.chamadas[0][1]
+    assert "pdf_path=NULL" in consulta
+    assert "xml_path=NULL" in consulta
+    assert "limpeza_reserva_token=$3::uuid" in consulta
+
+
+def test_limpeza_rejeita_limite_inseguro() -> None:
+    fonte = _fonte_com_conexao(_ConexaoFake())
+
+    with pytest.raises(FonteTarefasErro, match="Limite de limpeza"):
+        asyncio.run(fonte.reservar_documentos_expirados(101))
 
 
 def test_pool_e_criado_com_tls_e_fechado(monkeypatch: pytest.MonkeyPatch) -> None:

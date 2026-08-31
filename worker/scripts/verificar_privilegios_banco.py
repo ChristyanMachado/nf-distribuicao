@@ -82,6 +82,8 @@ async def verificar(database_url: str) -> dict[str, object]:
               has_column_privilege(current_user, 'fiscal.notas', 'pdf_path', 'UPDATE')
                 AND has_column_privilege(current_user, 'fiscal.notas', 'xml_path', 'UPDATE')
                 AND has_column_privilege(current_user, 'fiscal.notas', 'documento_expira_em', 'UPDATE')
+                AND has_column_privilege(current_user, 'fiscal.notas', 'limpeza_reserva_token', 'UPDATE')
+                AND has_column_privilege(current_user, 'fiscal.notas', 'limpeza_reserva_expira_em', 'UPDATE')
                 AS atualizar_documentos_notas,
               has_table_privilege(current_user, 'fiscal.emitentes', 'SELECT') AS ler_emitentes,
               has_column_privilege(current_user, 'fiscal.emitentes', 'login_usuario', 'SELECT')

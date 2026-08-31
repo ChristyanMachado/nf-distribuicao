@@ -269,7 +269,8 @@ export const tarefaItens = fiscalSchema.table("tarefa_itens", {
 
 // ---------------------------------------------------------------------------
 // RF17 — Registro histórico da nota ("pseudo-nota", sempre permanente)
-// RF19 — Documento (PDF/XML) com política de retenção (30 dias mín. / 1 ano)
+// RF19 — Documento (PDF/XML) com política de retenção. O binário expira em
+// 30 dias por padrão; os metadados fiscais permanecem permanentemente.
 // ---------------------------------------------------------------------------
 
 export const notas = fiscalSchema.table("notas", {
@@ -285,6 +286,10 @@ export const notas = fiscalSchema.table("notas", {
   pdfPath: text("pdf_path"), // caminho no Supabase Storage — pode ser nulo após expirar retenção
   xmlPath: text("xml_path"),
   documentoExpiraEm: timestamp("documento_expira_em"), // data em que o binário pode ser removido
+  // Reserva curta para a limpeza assíncrona. Impede dois Workers de apagarem
+  // a mesma nota e só é removida depois do Storage confirmar a exclusão.
+  limpezaReservaToken: uuid("limpeza_reserva_token"),
+  limpezaReservaExpiraEm: timestamp("limpeza_reserva_expira_em"),
   mensagemErro: text("mensagem_erro"),
   criadoEm: timestamp("criado_em").notNull().defaultNow(),
 }, (table) => [uniqueIndex("notas_tarefa_unica_idx").on(table.tarefaId)]);

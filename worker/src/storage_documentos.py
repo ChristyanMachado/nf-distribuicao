@@ -222,6 +222,12 @@ def _url_objeto(config: ConfigStorageDocumentos, caminho: str, *, autenticado: b
     return f"{config.base_url}/{'/'.join(quote(parte, safe='') for parte in partes)}"
 
 
+def _url_remocao(config: ConfigStorageDocumentos) -> str:
+    """Endpoint de remoção em lote do Storage, sem caminho controlável."""
+
+    return f"{config.base_url}/storage/v1/object/{quote(config.bucket, safe='')}"
+
+
 def _requisicao(
     metodo: str,
     url: str,
@@ -328,6 +334,60 @@ async def armazenar_documentos(
     )
     logger.info("[%s] XML e DANFE confirmados no Storage privado", tarefa_id)
     return {"xml_path": xml_remoto, "pdf_path": pdf_remoto}
+
+
+def _remover_documentos(
+    config: ConfigStorageDocumentos,
+    tarefa_id: str,
+    *,
+    pdf_path: str,
+    xml_path: str,
+) -> None:
+    """Remove exatamente o XML/DANFE validado de uma nota vencida.
+
+    A API do Storage é a única autoridade para exclusão física. Uma falha não
+    altera o banco; assim a próxima tentativa continua sabendo quais objetos
+    precisam ser eliminados.
+    """
+
+    if not (
+        caminho_storage_valido(pdf_path, tarefa_id, "danfe")
+        and caminho_storage_valido(xml_path, tarefa_id, "xml")
+    ):
+        raise FalhaStorageDocumentos("Caminho de documento vencido é inválido.")
+    corpo = json.dumps(
+        {"prefixes": [xml_path, pdf_path]},
+        separators=(",", ":"),
+    ).encode("utf-8")
+    status, _ = _requisicao(
+        "DELETE",
+        _url_remocao(config),
+        {
+            **_headers_autenticacao(config.chave_secreta),
+            "content-type": "application/json",
+        },
+        corpo,
+    )
+    if status not in {200, 204}:
+        raise FalhaStorageDocumentos("O Storage não confirmou a remoção dos documentos.")
+
+
+async def remover_documentos_expirados(
+    config: ConfigStorageDocumentos,
+    tarefa_id: str,
+    *,
+    pdf_path: str,
+    xml_path: str,
+) -> None:
+    """Executa a remoção em thread, sem bloquear o laço assíncrono."""
+
+    await asyncio.to_thread(
+        _remover_documentos,
+        config,
+        tarefa_id,
+        pdf_path=pdf_path,
+        xml_path=xml_path,
+    )
 
 
 def caminho_storage_valido(caminho: str, tarefa_id: str, tipo: str) -> bool:
