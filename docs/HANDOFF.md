@@ -24,7 +24,10 @@
   limpa as referências da nota. Falha preserva os caminhos e libera a reserva
   para nova tentativa; não interfere na emissão. Migration `0011` e a nova
   concessão mínima de duas colunas ao papel do Worker ainda devem ser aplicadas
-  antes de ativar a flag em banco/VM.
+  antes de ativar a flag em banco/VM. Em 31/08, a tentativa local de
+  `drizzle-kit migrate` foi interrompida pelo ambiente com `ENOMEM` antes de
+  abrir conexão: não houve alteração no banco. Executar a migration na VM ou
+  pelo fluxo administrativo quando houver memória disponível.
 
 - Recuperação de upload de XML/DANFE: antes de registrar a autorização, o
   Worker grava um manifesto privado no volume de downloads com UUID, token,
