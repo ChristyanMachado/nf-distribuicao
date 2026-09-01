@@ -168,6 +168,14 @@ abre somente a Consulta - TESTE por HTTPS e seleciona o emitente original pelo
 `valor_select_nfpe`. A integração com banco/Storage permanece desligada até o
 restante da tela ser reconhecido e ganhar uma fila/reserva própria.
 
+### Integridade de campos numéricos mascarados
+
+Quantidade e valor unitário não são preenchidos por atribuição textual bruta.
+A máscara da SPA podia interpretar o `.0` de floats inteiros como outro dígito.
+O Worker usa representação decimal brasileira, eventos equivalentes à
+digitação humana e valida o `input_value()` após o blur. A etapa fiscal não
+avança quando o número observado diverge do snapshot da tarefa.
+
 ## Implantação proposta
 
 - Web: Vercel, com raiz do projeto em `web/` e preflight de variáveis antes do

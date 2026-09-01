@@ -65,6 +65,11 @@ executa cada tarefa em um `BrowserContext` independente.
   a confirmação da tela e o emitente exato pelo `valor_select_nfpe`. O smoke
   test para antes da pesquisa. A chave já vem do XML autorizado e permanece em
   `fiscal.notas.chave_acesso`; não criar outra fonte a partir do HTML.
+- Quantidade e preço exigem preenchimento mascarado. Nunca voltar a
+  `fill(str(float))`: `2.0` podia ser interpretado como 20. O Worker formata com
+  vírgula/sem zeros finais, digita como usuário, desfoca e compara o conteúdo
+  final ao contrato. Divergência interrompe antes de avançar. Validado ao vivo
+  com dois produtos até Transporte, sem emissão.
 - Cadastros de emitente agora aceitam CPF ou CNPJ e IE opcional. A coluna
   física ainda se chama `cnpj` por compatibilidade; não criar migração apenas
   para renomeá-la durante o gate de integração.

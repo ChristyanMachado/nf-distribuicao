@@ -21,12 +21,13 @@ import logging
 import os
 import re
 import unicodedata
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from datetime import datetime, timezone
 from dataclasses import dataclass, field
 from urllib.parse import urlsplit
 from xml.etree import ElementTree
 
-from playwright.async_api import Page, TimeoutError as PlaywrightTimeoutError
+from playwright.async_api import Locator, Page, TimeoutError as PlaywrightTimeoutError
 
 class DadosFiscaisIncompletos(Exception):
     """
@@ -47,6 +48,69 @@ class FalhaConfirmacaoEmissao(RuntimeError):
 
 class AcessoPortalNegado(RuntimeError):
     """O portal recusou o módulo seguinte antes de iniciar a emissão."""
+
+
+class ValorFiscalDivergente(RuntimeError):
+    """O campo mascarado exibiu um número diferente do contrato da tarefa."""
+
+
+def _formatar_decimal_portal(valor: float, casas: int) -> str:
+    """Formata sem o ``.0`` que a máscara da NFP-e interpreta como dígito.
+
+    A aplicação fiscal usa vírgula decimal e aplica a máscara a cada tecla.
+    Enviar ``str(2.0)`` podia virar 20; quantidade e preço ampliados juntos
+    multiplicavam o total por 100. O texto abaixo imita a digitação humana.
+    """
+
+    decimal = Decimal(str(valor))
+    escala = Decimal(1).scaleb(-casas)
+    normalizado = decimal.quantize(escala, rounding=ROUND_HALF_UP)
+    texto = format(normalizado, "f").rstrip("0").rstrip(".")
+    return (texto or "0").replace(".", ",")
+
+
+def _ler_decimal_portal(texto: str) -> Decimal:
+    """Interpreta o valor visível sem aceitar conteúdo inesperado da página."""
+
+    limpo = texto.strip().replace("\u00a0", "").replace(" ", "")
+    if not re.fullmatch(r"-?\d+(?:[.,]\d+)?", limpo):
+        raise ValorFiscalDivergente(
+            "A Receita exibiu um formato numérico inesperado no produto."
+        )
+    try:
+        return Decimal(limpo.replace(",", "."))
+    except InvalidOperation as exc:
+        raise ValorFiscalDivergente(
+            "A Receita não confirmou o número preenchido no produto."
+        ) from exc
+
+
+async def _preencher_decimal_portal(
+    campo: Locator,
+    valor: float,
+    *,
+    casas: int,
+    nome_campo: str,
+) -> None:
+    """Digita como usuário e confirma o número após a máscara e o blur."""
+
+    texto = _formatar_decimal_portal(valor, casas)
+    esperado = Decimal(str(valor)).quantize(
+        Decimal(1).scaleb(-casas),
+        rounding=ROUND_HALF_UP,
+    )
+    await campo.click()
+    await campo.press("Control+A")
+    await campo.press_sequentially(texto, delay=35)
+    await campo.press("Tab")
+    observado = _ler_decimal_portal(await campo.input_value()).quantize(
+        Decimal(1).scaleb(-casas),
+        rounding=ROUND_HALF_UP,
+    )
+    if observado != esperado:
+        raise ValorFiscalDivergente(
+            f"A Receita alterou {nome_campo}; o Worker parou antes de avançar."
+        )
 
 
 @dataclass(frozen=True)
@@ -872,8 +936,11 @@ async def preencher_item(
         timeout=10000
     )
 
-    await quantidade.fill(
-        str(item.quantidade)
+    await _preencher_decimal_portal(
+        quantidade,
+        item.quantidade,
+        casas=3,
+        nome_campo="a quantidade comercial",
     )
 
     logger.info(
@@ -900,8 +967,11 @@ async def preencher_item(
         timeout=10000
     )
 
-    await valor_unitario.fill(
-        str(item.preco_unitario)
+    await _preencher_decimal_portal(
+        valor_unitario,
+        item.preco_unitario,
+        casas=2,
+        nome_campo="o valor unitário comercial",
     )
 
     logger.info(

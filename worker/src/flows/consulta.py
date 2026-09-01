@@ -8,14 +8,23 @@ from __future__ import annotations
 import logging
 import re
 
-from playwright.async_api import Page, TimeoutError as PlaywrightTimeoutError
+from playwright.async_api import Locator, Page, TimeoutError as PlaywrightTimeoutError
 
 
 SELETOR_EMITENTE_CONSULTA = "article select.slds-select"
+SELETOR_FILTRO_CHAVE = 'article select.slds-select:has(option[value="1"])'
+SELETOR_CAMPO_CHAVE = "input.slds-input.slds-size_6-of-12:visible"
+SELETOR_CONTAGEM_RESULTADO = "p.VuePagination__count"
+SELETOR_DANFE_RESULTADO = '[title="DANFE"]'
+SELETOR_XML_RESULTADO = '[title="Obter XML da nota"]'
 
 
 class ConsultaFiscalInvalida(ValueError):
     """Dados insuficientes ou incompatíveis para uma consulta segura."""
+
+
+class NotaConsultaNaoEncontrada(RuntimeError):
+    """A consulta não retornou exatamente os documentos esperados."""
 
 
 async def selecionar_emitente_consulta(
@@ -66,3 +75,65 @@ def validar_chave_acesso(chave_acesso: str) -> str:
             "A nota não possui uma chave de acesso válida para consulta."
         )
     return chave
+
+
+async def pesquisar_nota_por_chave(
+    page: Page,
+    chave_acesso: str,
+    logger: logging.Logger,
+) -> None:
+    """Pesquisa uma nota conhecida e confirma um único resultado baixável.
+
+    A chave nunca aparece em logs. O método somente prepara o resultado; os
+    downloads serão ligados à fila/Storage em uma etapa separada.
+    """
+
+    chave = validar_chave_acesso(chave_acesso)
+    campo = await preparar_filtro_chave(page, logger)
+    try:
+        await campo.fill(chave)
+        if await campo.input_value() != chave:
+            raise ConsultaFiscalInvalida(
+                "A chave de acesso foi alterada pela tela antes da consulta."
+            )
+        await page.get_by_role(
+            "button", name="Consultar", exact=True
+        ).click(timeout=15_000)
+        contagem = page.locator(SELETOR_CONTAGEM_RESULTADO).filter(
+            has_text=re.compile(r"^\s*Um registro\s*$", re.IGNORECASE)
+        )
+        await contagem.wait_for(state="visible", timeout=30_000)
+        await page.locator(SELETOR_DANFE_RESULTADO).wait_for(
+            state="visible", timeout=15_000
+        )
+        await page.locator(SELETOR_XML_RESULTADO).wait_for(
+            state="visible", timeout=15_000
+        )
+    except ConsultaFiscalInvalida:
+        raise
+    except PlaywrightTimeoutError as exc:
+        raise NotaConsultaNaoEncontrada(
+            "A Receita não retornou um único resultado com XML e DANFE."
+        ) from exc
+
+    logger.info("Nota localizada por chave; XML e DANFE estão disponíveis")
+
+
+async def preparar_filtro_chave(
+    page: Page,
+    logger: logging.Logger,
+) -> Locator:
+    """Ativa o filtro por chave e devolve o campo ainda vazio."""
+
+    filtro = page.locator(SELETOR_FILTRO_CHAVE)
+    try:
+        await filtro.select_option(value="1", timeout=15_000)
+        campo = page.locator(SELETOR_CAMPO_CHAVE)
+        await campo.wait_for(state="visible", timeout=15_000)
+    except PlaywrightTimeoutError as exc:
+        raise ConsultaFiscalInvalida(
+            "O filtro por chave de acesso não ficou disponível na consulta."
+        ) from exc
+
+    logger.info("Filtro por chave de acesso preparado (campo vazio)")
+    return campo

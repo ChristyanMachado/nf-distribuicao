@@ -671,3 +671,28 @@ O select aparece antes das opções e, depois, a tela contém outros selects.
 O Worker agora aguarda a opção esperada e localiza o select que contém seu
 `value` exato. A execução com um emitente concluiu até esse ponto sem pesquisa,
 download ou emissão.
+
+O filtro por chave também foi validado ao vivo: a opção `value="1"` abriu o
+`input.slds-input.slds-size_6-of-12`, que permaneceu vazio. A pesquisa por uma
+chave real ainda não foi ligada ao smoke test.
+
+16. Máscara numérica de quantidade e preço — correção crítica de 01/09/2026
+
+Foi observado na reunião que inteiros enviados como `2.0`/`10.0` podiam ser
+interpretados pela máscara como 20/100. Se quantidade e preço fossem ampliados
+juntos, o total podia chegar a 100 vezes o esperado.
+
+Correção aplicada
+
+- formatação humana com vírgula decimal e sem `.0`/zeros finais;
+- clique, seleção total e digitação sequencial para disparar os mesmos eventos
+  da interface;
+- Tab para concluir a máscara;
+- leitura obrigatória do valor final e comparação decimal com o contrato;
+- qualquer divergência interrompe o Worker antes do próximo Avançar.
+
+Validação ao vivo
+
+Uma tarefa local de dois produtos atravessou Produtos e Transporte em
+homologação com a conferência dos quatro campos numéricos aprovada. A flag de
+emissão permaneceu desligada; nenhuma nota foi emitida nesse ensaio.

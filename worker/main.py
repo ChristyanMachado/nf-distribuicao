@@ -21,7 +21,7 @@ from playwright.async_api import BrowserContext
 from src.auth import navegar_ate_consulta_teste, navegar_ate_emissao, realizar_login
 from src.config import Config, carregar_config, carregar_credencial
 from src.flows import emissao as fluxo_emissao
-from src.flows.consulta import selecionar_emitente_consulta
+from src.flows.consulta import preparar_filtro_chave, selecionar_emitente_consulta
 from src.flows.emissao import Emitente, Tarefa
 from src.fonte_tarefas import FontePostgresTarefas, FonteTarefasErro
 from src.storage_documentos import (
@@ -237,8 +237,9 @@ async def teste_autenticacao(
             logger.info("[%s] Iniciando teste da consulta histórica", tarefa_id)
             await navegar_ate_consulta_teste(page, logger)
             await selecionar_emitente_consulta(page, credencial.emitente, logger)
+            await preparar_filtro_chave(page, logger)
             logger.info(
-                "[%s] TESTE DE NAVEGAÇÃO ATÉ CONSULTA OK (sem pesquisar nota)",
+                "[%s] TESTE DE CONSULTA OK (campo de chave vazio; sem pesquisar nota)",
                 tarefa_id,
             )
 

@@ -11,9 +11,16 @@
   dígitos e entra em `fiscal.notas.chave_acesso` com índice único parcial. Não
   capturar a chave do resumo como segunda fonte nem escrevê-la em logs.
 - A consulta ainda não participa do serviço/fila. Faltam os seletores do filtro
-  Chave de Acesso, input, botão Consultar, resultado e downloads. Até esse
-  reconhecimento terminar, não criar botão Web que prometa recuperação nem
-  misturar a fila de consulta com a fila de emissão.
+  final/download e a ligação com uma fila própria. Filtro `value=1`, input de
+  chave sem pontuação, “Um registro” e ícones DANFE/XML já estão codificados;
+  filtro e input vazio foram validados ao vivo. Até o download completo ser
+  provado, não criar botão Web que prometa recuperação nem misturar as filas.
+- Correção fiscal prioritária: quantidade/preço não usam mais `str(float)`.
+  Inteiros como `2.0` podiam ganhar um zero na máscara e ampliar cada campo por
+  10. Agora o Worker digita em formato brasileiro, conclui a máscara e compara
+  o valor exibido com o contrato; divergência bloqueia antes de avançar. Um
+  preenchimento real de dois produtos chegou a Transporte com todas as quatro
+  conferências aprovadas e emissão desligada.
 
 - Marca confirmada: **Graalyst**. O arquivo fornecido pelo responsável foi
   incorporado ao Web como `public/logo-graalyst.jpg` e usado no login,
@@ -102,8 +109,8 @@
 
 ### Evidências atuais
 
-- Worker: **206 testes passando**, incluindo navegação/configuração e defesas
-  de origem/seletor da consulta.
+- Worker: **215 testes passando**, incluindo consulta, máscara numérica e
+  bloqueio de divergência antes do avanço fiscal.
 - Smoke test real de 01/09 com `CLIENTE_A`: login e identidade confirmados,
   Consulta - TESTE aberta em HTTPS e emitente original selecionado. A primeira
   tentativa revelou opções carregadas depois do select; a segunda revelou
@@ -195,7 +202,7 @@
 - Graphify oficial `graphifyy` 0.9.50 foi instalado fora dos ambientes de
   produção, em `.tools/graphify`, com o complemento SQL.
 - O mapa `--code-only` foi atualizado após a fundação da consulta histórica:
-  140 fontes, 1.223 nós, 2.814 relações e 94 comunidades.
+  140 fontes, 1.262 nós, 2.890 relações e 90 comunidades.
 - A auditoria inicial não encontrou `.env`, downloads, logs, tarefa real ou
   caminhos pessoais nos artefatos pesquisados.
 - `.tools/` e `graphify-out/` estão ignorados. Não foram ativados backend

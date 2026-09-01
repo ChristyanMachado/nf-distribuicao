@@ -10,6 +10,9 @@ from src.flows.emissao import (
     EmissaoBloqueada,
     FalhaConfirmacaoEmissao,
     Tarefa,
+    ValorFiscalDivergente,
+    _formatar_decimal_portal,
+    _preencher_decimal_portal,
     aguardar_autorizacao,
     clicar_avancar_por_contexto,
     clicar_avancar_produto,
@@ -230,6 +233,58 @@ def test_avancar_por_contexto_escolhe_o_ancestral_mais_proximo():
     assert antigo.clicado is False
     assert atual.clicado is True
 
+
+@pytest.mark.parametrize(
+    ("valor", "casas", "esperado"),
+    [(2.0, 3, "2"), (2.5, 3, "2,5"), (10.25, 2, "10,25"), (0.1, 2, "0,1")],
+)
+def test_formata_decimal_sem_ponto_zero_interpretado_pela_mascara(
+    valor: float,
+    casas: int,
+    esperado: str,
+) -> None:
+    assert _formatar_decimal_portal(valor, casas) == esperado
+
+
+class CampoDecimalFalso:
+    def __init__(self, valor_final: str) -> None:
+        self.valor_final = valor_final
+        self.eventos: list[object] = []
+
+    async def click(self) -> None:
+        self.eventos.append("click")
+
+    async def press(self, tecla: str) -> None:
+        self.eventos.append(tecla)
+
+    async def press_sequentially(self, texto: str, *, delay: int) -> None:
+        self.eventos.append((texto, delay))
+
+    async def input_value(self) -> str:
+        return self.valor_final
+
+
+def test_decimal_e_digitado_como_humano_e_confirmado_apos_blur() -> None:
+    campo = CampoDecimalFalso("10,25")
+
+    asyncio.run(
+        _preencher_decimal_portal(
+            campo, 10.25, casas=2, nome_campo="o valor unitário"
+        )
+    )
+
+    assert campo.eventos == ["click", "Control+A", ("10,25", 35), "Tab"]
+
+
+def test_decimal_divergente_bloqueia_antes_de_avancar() -> None:
+    campo = CampoDecimalFalso("100,00")
+
+    with pytest.raises(ValorFiscalDivergente, match="parou antes de avançar"):
+        asyncio.run(
+            _preencher_decimal_portal(
+                campo, 10.0, casas=2, nome_campo="o valor unitário"
+            )
+        )
 
 def test_avancar_por_contexto_recusa_empate():
     pagina = PaginaSequenciaFalsa([
