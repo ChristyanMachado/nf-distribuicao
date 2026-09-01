@@ -2,6 +2,17 @@
 
 ## Estado autoritativo — 01/09/2026
 
+- A reunião de 29/08 foi triada em `REUNIAO-2026-08-29.md`; conversas paralelas
+  e dados pessoais não viraram requisito. Pontos ativos: responsividade de
+  Adicionar produto, sucesso pós-distribuição visível no celular, confirmação
+  de sobra e critérios consistentes para notas/distribuições nos KPIs.
+- A descrição atual do produto é o nome operacional. Ela deve aparecer junto
+  da unidade para distinguir apresentações do mesmo item; o código fiscal
+  permanece a referência de automação no portal. Não criar outra coluna antes
+  de provar que a descrição existente é insuficiente.
+- A sugestão de retenção de uma semana feita na reunião está superada. A regra
+  autoritativa permanece em 30 dias.
+
 - Iniciada a recuperação histórica de XML/DANFE. A navegação independente
   Login → Produtor Rural → NFP-e → NFP-e TESTES → Consulta - TESTE e a seleção
   exata do emitente já estão implementadas. O Worker ignora o `href` HTTP
@@ -10,11 +21,12 @@
 - A chave necessária já era persistida: ela vem do XML autorizado, exige 44
   dígitos e entra em `fiscal.notas.chave_acesso` com índice único parcial. Não
   capturar a chave do resumo como segunda fonte nem escrevê-la em logs.
-- A consulta ainda não participa do serviço/fila. Faltam os seletores do filtro
-  final/download e a ligação com uma fila própria. Filtro `value=1`, input de
-  chave sem pontuação, “Um registro” e ícones DANFE/XML já estão codificados;
-  filtro e input vazio foram validados ao vivo. Até o download completo ser
-  provado, não criar botão Web que prometa recuperação nem misturar as filas.
+- A consulta ainda não participa do serviço/fila. Falta validar ao vivo a
+  pesquisa e os downloads e depois ligá-los a uma fila própria. Filtro `value=1`, input de
+  chave sem pontuação, botão Consultar, “Um registro” e ícones DANFE/XML já
+  estão codificados; filtro e input vazio foram validados ao vivo. Até uma
+  pesquisa e o download completo serem provados, não criar botão Web que
+  prometa recuperação nem misturar as filas.
 - Correção fiscal prioritária: quantidade/preço não usam mais `str(float)`.
   Inteiros como `2.0` podiam ganhar um zero na máscara e ampliar cada campo por
   10. Agora o Worker digita em formato brasileiro, conclui a máscara e compara
@@ -254,18 +266,20 @@
 
 ### Próximo gate
 
-1. Executar o smoke test `TESTAR_NAVEGACAO_CONSULTA=true` com um único
-   emitente e capturar os controles ainda pendentes na seção 15 de `RECON.md`.
-2. Com a tela completa reconhecida, criar fila exclusiva de recuperação por
+1. Executar o smoke test de consulta com uma chave conhecida já persistida,
+   usando um único emitente, e validar “Um registro” + downloads XML/DANFE sem
+   registrar nova nota nem entrar na emissão.
+2. Depois do download comprovado, criar fila exclusiva de recuperação por
    nota/chave, token próprio e botão Web idempotente. Nunca reutilizar ou
    reabrir a tarefa de emissão.
-3. No Vercel, manter segredos somente no painel; Preview não deve compartilhar
-   credenciais reais.
-4. Construir o container em uma máquina com Docker. Esta estação não possui
-   Docker/Vercel CLI, então nenhum runtime remoto foi validado nem publicado.
-5. Na VM, auditar o papel e canal antes de subir o polling; iniciar com fila
+3. Corrigir e validar em celular real Adicionar produto, confirmação de sobra,
+   resumo de sucesso e linguagem dos KPIs descritos na reunião de 29/08.
+4. Aplicar/ensaiar a migration `0011` com a limpeza ainda desativada.
+5. Construir o container em uma máquina com Docker. O Web já está publicado,
+   mas o runtime do Worker ainda não foi validado em VM.
+6. Na VM, auditar o papel e canal antes de subir o polling; iniciar com fila
    controlada e `MAX_CONCORRENCIA=1`, ainda em homologação.
-6. Medir CPU/RAM, healthcheck e encerramento gracioso; depois testar até 3
+7. Medir CPU/RAM, healthcheck e encerramento gracioso; depois testar até 3
    contextos distintos e implementar scheduler/alertas.
 
 ### Comandos de validação

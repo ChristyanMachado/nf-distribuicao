@@ -32,16 +32,20 @@ O Web já indica quais cadastros impedem o teste e bloqueia o formulário antes
 de o usuário montar um lote inviável. O papel mínimo do Worker foi criado no
 banco de teste e passou no verificador de privilégios.
 
-## Meta imediata — publicar o Web e provar o Worker na VM
+## Meta imediata — recuperação histórica e polimento do fluxo diário
 
-1. Configurar no Vercel a raiz `web/` e todas as variáveis exigidas pelo
-   preflight; usar dados isolados ou nenhum segredo fiscal em Preview.
-2. Construir o container do Worker na VM e validar healthcheck, papel mínimo,
-   Chromium e encerramento gracioso antes de liberar a fila.
-3. Testar até 3 tarefas/contextos simultâneos com emitentes distintos,
-   conferindo isolamento, nomes, estados finais, CPU e memória.
-4. Implementar recuperação de upload interrompido sem reemissão e o scheduler
-   noturno supervisionado.
+1. Provar em homologação uma consulta por chave conhecida e o download de
+   XML/DANFE, sem gravar nova nota e sem reutilizar a fila de emissão.
+2. Modelar uma fila própria, idempotente e auditável para recuperação histórica
+   somente de notas que passaram pelo sistema.
+3. Corrigir no celular o bloco Adicionar produto e manter a confirmação da
+   distribuição criada imediatamente visível.
+4. Pedir confirmação explícita quando houver quantidade não distribuída,
+   preservando o bloqueio de excesso no cliente e no servidor.
+5. Harmonizar os conceitos de nota registrada, nota emitida e distribuição
+   entre Home e Relatórios, usando duração real para o tempo médio.
+6. Aplicar e ensaiar a migration `0011`; depois retomar container/VM e operação
+   persistente. O Web já está publicado e o ciclo conectado foi comprovado.
 
 ## Próximas entregas de código
 
@@ -82,8 +86,13 @@ ocorrer quando a credencial dedicada puder ser guardada fora do repositório.
 ### Polimento do produto
 
 - validar em celulares reais os fluxos Distribuir, Tarefas, Notas e Entregas;
+- adaptar Adicionar produto a descrições longas sem cortar quantidade ou ação;
+- mostrar descrição + unidade sempre que apresentações do mesmo produto possam
+  ser confundidas;
+- confirmar sobras antes do processamento e levar foco ao resumo de sucesso;
 - manter tarefas frequentes em poucos cliques e alvos de toque adequados;
-- consolidar KPIs de notas e tempo economizado por lote concluído;
+- consolidar KPIs de notas e tempo economizado por lote concluído, distinguindo
+  valor comprometido de nota efetivamente emitida;
 - importar produtos por planilha validada;
 - finalizar documentação RF, UML, implantação, operação e manual do usuário.
 

@@ -59,11 +59,12 @@ executa cada tarefa em um `BrowserContext` independente.
   limpa os caminhos no banco. Falha preserva as referências para nova tentativa
   e não bloqueia emissão fiscal. A migration `0011` ainda precisa ser aplicada
   e o papel do Worker precisa ser reprovisionado antes de habilitar a flag.
-- Consulta histórica sob demanda pelo portal é trabalho separado; ainda faltam
-  os seletores de filtro por chave, input, pesquisa, resultado e downloads.
-  Em 01/09, foram implementados a navegação segura HTTPS até Consulta - TESTE,
-  a confirmação da tela e o emitente exato pelo `valor_select_nfpe`. O smoke
-  test para antes da pesquisa. A chave já vem do XML autorizado e permanece em
+- Consulta histórica sob demanda pelo portal é trabalho separado. Em 01/09,
+  foram implementados a navegação segura HTTPS até Consulta - TESTE, a seleção
+  exata do emitente por `valor_select_nfpe`, o filtro `value=1`, o campo da
+  chave, o botão Consultar, “Um registro” e os ícones DANFE/XML. O smoke test
+  validou filtro e campo vazios, mas ainda não pesquisou nem baixou uma nota.
+  A chave já vem do XML autorizado e permanece em
   `fiscal.notas.chave_acesso`; não criar outra fonte a partir do HTML.
 - Quantidade e preço exigem preenchimento mascarado. Nunca voltar a
   `fill(str(float))`: `2.0` podia ser interpretado como 20. O Worker formata com
@@ -156,6 +157,19 @@ executa cada tarefa em um `BrowserContext` independente.
    autorização multiusuário pertencem às próximas fases.
 7. O requisito futuro é processamento automático entre 00:00 e 06:00 em
    `America/Sao_Paulo`; ainda falta scheduler persistente.
+8. A descrição do produto é seu nome operacional e deve diferenciá-lo também
+   pela unidade; o Worker continua localizando o item pelo código fiscal.
+9. Sobra de quantidade é permitida somente após confirmação explícita do
+   usuário. Excesso continua inválido e bloqueado.
+
+## Reunião de 29/08/2026
+
+O registro filtrado está em `REUNIAO-2026-08-29.md`. Os principais pontos ainda
+abertos são responsividade do bloco Adicionar produto, confirmação visível após
+criar o lote, confirmação de sobra e coerência semântica entre os KPIs da Home
+e dos Relatórios. A retenção de uma semana citada na conversa foi substituída
+pela decisão posterior de 30 dias. O erro fiscal de máscara numérica observado
+na reunião já foi corrigido e validado; não o registrar novamente como backlog.
 
 ## Próximo gate seguro
 
