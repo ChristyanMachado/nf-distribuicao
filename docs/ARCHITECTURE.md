@@ -156,6 +156,18 @@ execução pode concluir de forma idempotente. A flag
 `LIMPAR_DOCUMENTOS_EXPIRADOS` começa desabilitada e exige migration `0011`,
 Storage privado, fonte banco e integração controlada.
 
+### Recuperação histórica de documentos
+
+A chave de acesso persistida em `fiscal.notas` é o identificador da consulta;
+ela é extraída do XML autorizado, não do HTML. A recuperação será uma operação
+nova, idempotente e separada da tarefa de emissão: consultar nunca deve alterar
+uma tarefa para `PENDENTE` nem executar `emitir()`.
+
+O primeiro trecho já existe em `worker/src/flows/consulta.py` e `src/auth.py`:
+abre somente a Consulta - TESTE por HTTPS e seleciona o emitente original pelo
+`valor_select_nfpe`. A integração com banco/Storage permanece desligada até o
+restante da tela ser reconhecido e ganhar uma fila/reserva própria.
+
 ## Implantação proposta
 
 - Web: Vercel, com raiz do projeto em `web/` e preflight de variáveis antes do

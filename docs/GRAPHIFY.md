@@ -12,8 +12,8 @@ Estado validado em 31/08/2026:
 - pacote oficial `graphifyy` 0.9.50, instalado isoladamente em `.tools/graphify`;
 - complemento `sql` ativo para incluir as migrações;
 - extração exclusivamente local com `--code-only`;
-- 137 fontes de código, 1.183 nós, 2.741 relações e 92 comunidades após a
-  atualização incremental da limpeza idempotente de documentos vencidos;
+- 140 fontes de código, 1.223 nós, 2.814 relações e 94 comunidades após a
+  atualização incremental do início da consulta histórica de documentos;
 - estimativa interna da ferramenta: cerca de 5,7 vezes menos tokens por consulta;
 - `.env`, artefatos do Worker e caminhos pessoais não apareceram na auditoria
   inicial do grafo;

@@ -612,3 +612,62 @@ CNPJ corrigido para excluir radios;
 identificação da operação confirmada;
 
 estrutura inicial da etapa de Produtos reconhecida.
+
+15. Consulta histórica de documentos — reconhecimento parcial de 01/09/2026
+
+Objetivo
+
+Recuperar XML/DANFE de uma nota já autorizada depois que a cópia privada sair
+da retenção. Este fluxo é separado da emissão e nunca pode clicar em Emitir.
+
+Caminho confirmado em homologação
+
+Login
+→ Produtor Rural
+→ NFP-e
+→ NFP-e TESTES
+→ Consulta - TESTE (`#menuLink1132`)
+→ selecionar o cadastro do produtor
+→ escolher filtro Chave de Acesso
+→ pesquisar a chave persistida da nota
+→ abrir o resultado
+→ baixar XML / DANFE
+
+O link observado para Consulta - TESTE anuncia HTTP. O Worker abre a rota
+equivalente diretamente em HTTPS e confirma host, caminho e o select da tela.
+
+Seletores confirmados
+
+- menu: `#menuLink1132`;
+- tela carregada: `article select.slds-select`;
+- produtor: o mesmo select; escolher pelo `value` salvo em
+  `emitentes.valor_select_nfpe`, nunca pela posição da opção.
+
+Fonte da chave
+
+`fiscal.notas.chave_acesso`, já preenchida pelo XML autorizado e validada como
+44 dígitos. O valor exibido no resumo pós-emissão não será uma segunda fonte de
+verdade. Não registrar a chave em logs ou artefatos de diagnóstico.
+
+Ainda falta reconhecer antes de automatizar a pesquisa
+
+- controle que ativa o filtro “Chave de Acesso”;
+- input da chave;
+- botão Consultar;
+- linha/cartão do resultado e ação de abrir detalhes;
+- botões de XML/DANFE na tela consultada;
+- estado de “nenhum resultado” e mensagens de erro;
+- comportamento quando o documento já não está disponível no portal.
+
+Implementado e testável agora
+
+`TESTAR_NAVEGACAO_CONSULTA=true` faz login, abre exclusivamente a Consulta -
+TESTE e seleciona o emitente exato. Ele para antes de pesquisar qualquer nota.
+Não combinar com `TESTAR_NAVEGACAO_EMISSAO`.
+
+Validação ao vivo de 01/09
+
+O select aparece antes das opções e, depois, a tela contém outros selects.
+O Worker agora aguarda a opção esperada e localiza o select que contém seu
+`value` exato. A execução com um emitente concluiu até esse ponto sem pesquisa,
+download ou emissão.

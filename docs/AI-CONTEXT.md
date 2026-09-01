@@ -60,7 +60,11 @@ executa cada tarefa em um `BrowserContext` independente.
   e não bloqueia emissão fiscal. A migration `0011` ainda precisa ser aplicada
   e o papel do Worker precisa ser reprovisionado antes de habilitar a flag.
 - Consulta histórica sob demanda pelo portal é trabalho separado; ainda faltam
-  reconhecimento dos filtros, limites e seletores da área de consulta NFP-e.
+  os seletores de filtro por chave, input, pesquisa, resultado e downloads.
+  Em 01/09, foram implementados a navegação segura HTTPS até Consulta - TESTE,
+  a confirmação da tela e o emitente exato pelo `valor_select_nfpe`. O smoke
+  test para antes da pesquisa. A chave já vem do XML autorizado e permanece em
+  `fiscal.notas.chave_acesso`; não criar outra fonte a partir do HTML.
 - Cadastros de emitente agora aceitam CPF ou CNPJ e IE opcional. A coluna
   física ainda se chama `cnpj` por compatibilidade; não criar migração apenas
   para renomeá-la durante o gate de integração.
@@ -150,18 +154,23 @@ executa cada tarefa em um `BrowserContext` independente.
 
 ## Próximo gate seguro
 
-1. No Vercel, adicionar `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` e então mudar
+1. Validar ao vivo o novo smoke test da consulta com um emitente. Capturar
+   filtro Chave de Acesso, input, Consultar, resultado, downloads e estados de
+   ausência/erro, sem pesquisar dados sensíveis por tentativa.
+2. Implementar fila própria de recuperação e Storage/Web somente depois desse
+   reconhecimento; consulta não pode reabrir a tarefa de emissão.
+3. No Vercel, adicionar `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` e então mudar
    `APP_AUTH_PROVIDER` para `supabase`; redefinir a senha do usuário gerente no
    painel sem enviá-la ao chat e validar login/logout. O fallback atual continua
    ativo enquanto essa variável não for trocada.
-2. Construir a imagem do Worker em uma máquina com Docker e executar primeiro
+4. Construir a imagem do Worker em uma máquina com Docker e executar primeiro
    as auditorias sem consumir a fila. Docker não está instalado nesta máquina,
    portanto o container ainda não foi validado em runtime.
-3. Criar a VM do piloto, fornecer uma identidade PostgreSQL própria e iniciar o
+5. Criar a VM do piloto, fornecer uma identidade PostgreSQL própria e iniciar o
    serviço somente quando não houver tarefa involuntária elegível.
-4. Repetir o fluxo conectado com até 3 tarefas/contextos simultâneos, medindo
+6. Repetir o fluxo conectado com até 3 tarefas/contextos simultâneos, medindo
    CPU/RAM, isolamento e tempo, e depois implementar scheduler/alertas.
-5. Aplicar a migration `0011`, reprovisionar/auditar o papel e validar a
+7. Aplicar a migration `0011`, reprovisionar/auditar o papel e validar a
    limpeza num documento de teste já vencido. Manter a flag desligada até esse
    ensaio; produção segue bloqueada até autenticação/autorização definitiva,
    backup, recuperação e piloto humano aprovado.

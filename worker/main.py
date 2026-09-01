@@ -18,9 +18,10 @@ from contextlib import suppress
 
 from playwright.async_api import BrowserContext
 
-from src.auth import navegar_ate_emissao, realizar_login
+from src.auth import navegar_ate_consulta_teste, navegar_ate_emissao, realizar_login
 from src.config import Config, carregar_config, carregar_credencial
 from src.flows import emissao as fluxo_emissao
+from src.flows.consulta import selecionar_emitente_consulta
 from src.flows.emissao import Emitente, Tarefa
 from src.fonte_tarefas import FontePostgresTarefas, FonteTarefasErro
 from src.storage_documentos import (
@@ -226,6 +227,20 @@ async def teste_autenticacao(
             logger=logger,
         )
         logger.info("[%s] TESTE DE AUTENTICAÇÃO OK", tarefa_id)
+
+        if config.testar_navegacao_consulta:
+            if not credencial.emitente:
+                raise RuntimeError(
+                    f"[{tarefa_id}] TESTAR_NAVEGACAO_CONSULTA=true exige "
+                    f"{tarefa_id}_EMITENTE no ambiente protegido do Worker."
+                )
+            logger.info("[%s] Iniciando teste da consulta histórica", tarefa_id)
+            await navegar_ate_consulta_teste(page, logger)
+            await selecionar_emitente_consulta(page, credencial.emitente, logger)
+            logger.info(
+                "[%s] TESTE DE NAVEGAÇÃO ATÉ CONSULTA OK (sem pesquisar nota)",
+                tarefa_id,
+            )
 
         if config.testar_navegacao_emissao:
             logger.info("[%s] Iniciando teste de navegação até emissão", tarefa_id)

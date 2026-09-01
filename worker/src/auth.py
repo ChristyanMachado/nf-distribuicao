@@ -65,6 +65,18 @@ URL_EMISSAO_TESTE = re.compile(
     r"^https://homologacao\.nfae\.fazenda\.pr\.gov\.br/nfae/produtor/emitir/"
 )
 
+# Consulta histórica reconhecida em 01/09/2026. O HTML do portal anuncia o
+# link com ``http://``; o Worker não segue esse primeiro salto inseguro. Após
+# abrir os submenus necessários, ele acessa diretamente a mesma rota em HTTPS.
+SELETOR_MENU_CONSULTA_TESTE = "#menuLink1132"
+URL_CONSULTA_TESTE_TEXTO = (
+    "https://homologacao.nfae.fazenda.pr.gov.br/nfae/produtor/consulta"
+)
+URL_CONSULTA_TESTE = re.compile(
+    r"^https://homologacao\.nfae\.fazenda\.pr\.gov\.br/nfae/produtor/consulta/?(?:[?#].*)?$"
+)
+SELETOR_POS_NAVEGACAO_CONSULTA = "article select.slds-select"
+
 
 class FalhaAutenticacao(Exception):
     """Levantada quando o login não é confirmado dentro do timeout."""
@@ -76,6 +88,10 @@ class FalhaIdentidadeAutenticada(Exception):
 
 class FalhaNavegacaoEmissao(Exception):
     """Levantada quando a tela de emissão não é confirmada após a navegação."""
+
+
+class FalhaNavegacaoConsulta(Exception):
+    """Levantada quando a consulta de homologação não é confirmada."""
 
 
 def _pagina_login_permanece_oficial(valor: str) -> bool:
@@ -306,3 +322,55 @@ async def navegar_ate_emissao(
         ) from exc
 
     logger.info("Área de emissão carregada (ambiente=%s)", ambiente)
+
+
+async def navegar_ate_consulta_teste(
+    page: Page,
+    logger: logging.Logger,
+) -> None:
+    """Abre a consulta histórica exclusivamente na homologação NFP-e.
+
+    A consulta de produção ainda não foi reconhecida e, portanto, não existe
+    parâmetro para ativá-la por engano. O acesso final é feito diretamente em
+    HTTPS porque o ``href`` observado no portal usa HTTP.
+    """
+
+    logger.info(
+        "Navegando: Produtor Rural -> NFP-e -> NFP-e TESTES -> Consulta - TESTE"
+    )
+    await page.get_by_role("link", name="Produtor Rural", exact=True).click()
+    await page.get_by_role("link", name="NFP-e", exact=True).click()
+    await page.locator(SELETOR_MENU_NFPE_TESTES).click()
+
+    link_consulta = page.locator(SELETOR_MENU_CONSULTA_TESTE)
+    await link_consulta.wait_for(state="visible", timeout=30_000)
+    href = await link_consulta.get_attribute("href")
+    if href is None or not re.match(
+        r"^https?://homologacao\.nfae\.fazenda\.pr\.gov\.br/nfae/produtor/consulta/?$",
+        href,
+    ):
+        raise FalhaNavegacaoConsulta(
+            "O link de consulta de homologação mudou ou não pertence à Receita PR."
+        )
+
+    try:
+        await page.goto(URL_CONSULTA_TESTE_TEXTO, wait_until="domcontentloaded")
+        await page.wait_for_url(
+            URL_CONSULTA_TESTE,
+            wait_until="domcontentloaded",
+            timeout=30_000,
+        )
+        await page.wait_for_selector(
+            SELETOR_POS_NAVEGACAO_CONSULTA,
+            state="visible",
+            timeout=30_000,
+        )
+    except PlaywrightTimeoutError as exc:
+        raise FalhaNavegacaoConsulta(
+            "A consulta NFP-e TESTE não foi confirmada em 30s. "
+            "O portal pode estar indisponível ou ter mudado a tela."
+        ) from exc
+
+    logger.warning(
+        "CONSULTA EM AMBIENTE DE TESTE confirmada; nenhuma emissão será iniciada."
+    )

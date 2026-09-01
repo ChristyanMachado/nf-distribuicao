@@ -48,6 +48,9 @@ class Config:
     clientes_ativos: tuple[str, ...]
     inspecionar: bool
     testar_navegacao_emissao: bool
+    # Smoke test independente: abre a consulta histórica de homologação e
+    # seleciona o emitente configurado, sem pesquisar ou baixar documentos.
+    testar_navegacao_consulta: bool
     # RF13 passos 4-10 — preenche até Transporte (sem clicar Emitir). Exige
     # testar_navegacao_emissao=true, porque depende de já estar na tela de
     # emissão. Validado em carregar_config() abaixo.
@@ -105,6 +108,9 @@ def carregar_config() -> Config:
         )
 
     testar_navegacao_emissao = os.getenv("TESTAR_NAVEGACAO_EMISSAO", "false").lower() == "true"
+    testar_navegacao_consulta = (
+        os.getenv("TESTAR_NAVEGACAO_CONSULTA", "false").lower() == "true"
+    )
     testar_preenchimento_completo = (
         os.getenv("TESTAR_PREENCHIMENTO_COMPLETO", "false").lower() == "true"
     )
@@ -206,6 +212,15 @@ def carregar_config() -> Config:
             "PROCESSAR_FILA_BANCO=true exige todas as travas de "
             "TESTAR_EMISSAO_HOMOLOGACAO=true."
         )
+    if testar_navegacao_consulta and testar_navegacao_emissao:
+        raise RuntimeError(
+            "TESTAR_NAVEGACAO_CONSULTA e TESTAR_NAVEGACAO_EMISSAO são "
+            "fluxos separados e não podem ser ativados juntos."
+        )
+    if testar_navegacao_consulta and testar_preenchimento_completo:
+        raise RuntimeError(
+            "A consulta histórica não pode executar o preenchimento de emissão."
+        )
 
     storage_documentos = _carregar_storage_documentos(
         habilitado=os.getenv("ARMAZENAR_DOCUMENTOS", "false").lower() == "true"
@@ -256,6 +271,7 @@ def carregar_config() -> Config:
         clientes_ativos=clientes_ativos,
         inspecionar=inspecionar,
         testar_navegacao_emissao=testar_navegacao_emissao,
+        testar_navegacao_consulta=testar_navegacao_consulta,
         testar_preenchimento_completo=testar_preenchimento_completo,
         testar_emissao_homologacao=testar_emissao_homologacao,
         max_concorrencia=max_concorrencia,

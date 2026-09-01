@@ -1,6 +1,19 @@
 # Handoff — Estado Atual
 
-## Estado autoritativo — 29/08/2026
+## Estado autoritativo — 01/09/2026
+
+- Iniciada a recuperação histórica de XML/DANFE. A navegação independente
+  Login → Produtor Rural → NFP-e → NFP-e TESTES → Consulta - TESTE e a seleção
+  exata do emitente já estão implementadas. O Worker ignora o `href` HTTP
+  observado e abre a rota oficial diretamente em HTTPS. O smoke test
+  `TESTAR_NAVEGACAO_CONSULTA=true` para antes de pesquisar a nota.
+- A chave necessária já era persistida: ela vem do XML autorizado, exige 44
+  dígitos e entra em `fiscal.notas.chave_acesso` com índice único parcial. Não
+  capturar a chave do resumo como segunda fonte nem escrevê-la em logs.
+- A consulta ainda não participa do serviço/fila. Faltam os seletores do filtro
+  Chave de Acesso, input, botão Consultar, resultado e downloads. Até esse
+  reconhecimento terminar, não criar botão Web que prometa recuperação nem
+  misturar a fila de consulta com a fila de emissão.
 
 - Marca confirmada: **Graalyst**. O arquivo fornecido pelo responsável foi
   incorporado ao Web como `public/logo-graalyst.jpg` e usado no login,
@@ -89,7 +102,14 @@
 
 ### Evidências atuais
 
-- Worker: **193 testes passando**.
+- Worker: **206 testes passando**, incluindo navegação/configuração e defesas
+  de origem/seletor da consulta.
+- Smoke test real de 01/09 com `CLIENTE_A`: login e identidade confirmados,
+  Consulta - TESTE aberta em HTTPS e emitente original selecionado. A primeira
+  tentativa revelou opções carregadas depois do select; a segunda revelou
+  múltiplos selects. O localizador final espera o estado real e restringe pelo
+  `value` exato, sem posição ou `sleep`. A terceira execução concluiu sem
+  pesquisar nota, baixar documento ou entrar no fluxo de emissão.
 - Web: **93 testes em 17 arquivos passando**.
 - Preflight Vercel: **3 testes Node passando**.
 - `npx tsc --noEmit`, `npm run build` e `git diff --check` passaram.
@@ -174,8 +194,8 @@
 
 - Graphify oficial `graphifyy` 0.9.50 foi instalado fora dos ambientes de
   produção, em `.tools/graphify`, com o complemento SQL.
-- O mapa `--code-only` foi atualizado após Auth/deploy: 137 fontes, 1.137 nós,
-  2.584 relações e 89 comunidades.
+- O mapa `--code-only` foi atualizado após a fundação da consulta histórica:
+  140 fontes, 1.223 nós, 2.814 relações e 94 comunidades.
 - A auditoria inicial não encontrou `.env`, downloads, logs, tarefa real ou
   caminhos pessoais nos artefatos pesquisados.
 - `.tools/` e `graphify-out/` estão ignorados. Não foram ativados backend
@@ -227,15 +247,19 @@
 
 ### Próximo gate
 
-1. No Vercel, definir a raiz `web/` e configurar as variáveis `APP_*`, banco e
-   Supabase somente no painel; Preview não deve compartilhar segredos reais.
-2. Construir o container em uma máquina com Docker. Esta estação não possui
+1. Executar o smoke test `TESTAR_NAVEGACAO_CONSULTA=true` com um único
+   emitente e capturar os controles ainda pendentes na seção 15 de `RECON.md`.
+2. Com a tela completa reconhecida, criar fila exclusiva de recuperação por
+   nota/chave, token próprio e botão Web idempotente. Nunca reutilizar ou
+   reabrir a tarefa de emissão.
+3. No Vercel, manter segredos somente no painel; Preview não deve compartilhar
+   credenciais reais.
+4. Construir o container em uma máquina com Docker. Esta estação não possui
    Docker/Vercel CLI, então nenhum runtime remoto foi validado nem publicado.
-3. Na VM, auditar o papel e canal antes de subir o polling; iniciar com fila
+5. Na VM, auditar o papel e canal antes de subir o polling; iniciar com fila
    controlada e `MAX_CONCORRENCIA=1`, ainda em homologação.
-4. Medir CPU/RAM, healthcheck e encerramento gracioso; depois testar até 3
+6. Medir CPU/RAM, healthcheck e encerramento gracioso; depois testar até 3
    contextos distintos e implementar scheduler/alertas.
-5. Implementar recuperação de Storage sem reemissão antes do piloto externo.
 
 ### Comandos de validação
 

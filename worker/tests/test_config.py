@@ -13,6 +13,7 @@ def _preparar_env_minimo(monkeypatch):
     por outro motivo que não seja o que o teste quer verificar."""
     monkeypatch.setenv("SISTEMA_FISCAL_URL", "https://receita.pr.gov.br/login")
     monkeypatch.delenv("TESTAR_NAVEGACAO_EMISSAO", raising=False)
+    monkeypatch.delenv("TESTAR_NAVEGACAO_CONSULTA", raising=False)
     monkeypatch.delenv("TESTAR_PREENCHIMENTO_COMPLETO", raising=False)
     monkeypatch.delenv("TESTAR_EMISSAO_HOMOLOGACAO", raising=False)
     monkeypatch.delenv("MAX_CONCORRENCIA", raising=False)
@@ -61,6 +62,7 @@ def test_sem_nenhuma_flag_continua_desabilitado_por_padrao(monkeypatch):
     config = carregar_config()
 
     assert config.testar_navegacao_emissao is False
+    assert config.testar_navegacao_consulta is False
     assert config.testar_preenchimento_completo is False
 
 
@@ -294,6 +296,25 @@ def test_emitente_e_carregado_quando_configurado(monkeypatch):
 
     assert credencial.emitente == "opcao-emitente"
     assert credencial.nome_emitente == "Emissor de teste"
+
+
+def test_consulta_e_emissao_nao_podem_rodar_no_mesmo_smoke_test(monkeypatch):
+    _preparar_env_minimo(monkeypatch)
+    monkeypatch.setenv("TESTAR_NAVEGACAO_CONSULTA", "true")
+    monkeypatch.setenv("TESTAR_NAVEGACAO_EMISSAO", "true")
+
+    with pytest.raises(RuntimeError, match="fluxos separados"):
+        carregar_config()
+
+
+def test_smoke_test_de_consulta_e_habilitado_isoladamente(monkeypatch):
+    _preparar_env_minimo(monkeypatch)
+    monkeypatch.setenv("TESTAR_NAVEGACAO_CONSULTA", "true")
+
+    config = carregar_config()
+
+    assert config.testar_navegacao_consulta is True
+    assert config.testar_navegacao_emissao is False
 
 
 def test_fonte_banco_exige_trava_e_configuracao(monkeypatch):
