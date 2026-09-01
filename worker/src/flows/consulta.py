@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import logging
 import re
+from pathlib import Path
 
 from playwright.async_api import Locator, Page, TimeoutError as PlaywrightTimeoutError
 
@@ -25,6 +26,31 @@ class ConsultaFiscalInvalida(ValueError):
 
 class NotaConsultaNaoEncontrada(RuntimeError):
     """A consulta não retornou exatamente os documentos esperados."""
+
+
+def localizar_xml_autorizado_mais_recente(download_dir: str) -> str:
+    """Localiza o XML autorizado mais recente sem expor seu conteúdo.
+
+    Este auxiliar existe para o ensaio humano emissão → consulta. Ele só aceita
+    arquivos regulares criados pelo padrão de nomes do Worker e recusa links.
+    A autorização e a chave ainda são validadas pelo parser fiscal antes do uso.
+    """
+
+    diretorio = Path(download_dir)
+    if not diretorio.is_dir() or diretorio.is_symlink():
+        raise ConsultaFiscalInvalida(
+            "O diretório privado de downloads não está disponível para consulta."
+        )
+    candidatos = [
+        caminho
+        for caminho in diretorio.glob("xml_*.xml")
+        if caminho.is_file() and not caminho.is_symlink()
+    ]
+    if not candidatos:
+        raise ConsultaFiscalInvalida(
+            "Nenhum XML autorizado local foi encontrado para o ensaio de consulta."
+        )
+    return str(max(candidatos, key=lambda caminho: caminho.stat().st_mtime_ns))
 
 
 async def selecionar_emitente_consulta(

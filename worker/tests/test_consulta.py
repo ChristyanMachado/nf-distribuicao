@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
+import time
 
 import pytest
 from playwright.async_api import TimeoutError as PlaywrightTimeoutError
@@ -18,6 +20,7 @@ from src.flows.consulta import (
     SELETOR_XML_RESULTADO,
     pesquisar_nota_por_chave,
     preparar_filtro_chave,
+    localizar_xml_autorizado_mais_recente,
     selecionar_emitente_consulta,
     validar_chave_acesso,
 )
@@ -180,3 +183,21 @@ def test_pesquisa_sem_resultado_falha_sem_expor_chave() -> None:
         )
 
     assert chave not in str(falha.value)
+
+
+def test_localiza_xml_mais_recente_sem_aceitar_outros_arquivos(tmp_path) -> None:
+    antigo = tmp_path / "xml_cliente_antigo.xml"
+    recente = tmp_path / "xml_cliente_recente.xml"
+    (tmp_path / "danfe_cliente.pdf").write_bytes(b"%PDF-")
+    antigo.write_text("antigo", encoding="utf-8")
+    recente.write_text("recente", encoding="utf-8")
+    agora = time.time()
+    os.utime(antigo, (agora - 10, agora - 10))
+    os.utime(recente, (agora, agora))
+
+    assert localizar_xml_autorizado_mais_recente(str(tmp_path)) == str(recente)
+
+
+def test_localizar_xml_falha_quando_diretorio_esta_vazio(tmp_path) -> None:
+    with pytest.raises(ConsultaFiscalInvalida, match="Nenhum XML autorizado"):
+        localizar_xml_autorizado_mais_recente(str(tmp_path))

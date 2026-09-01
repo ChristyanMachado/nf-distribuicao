@@ -21,7 +21,12 @@ from playwright.async_api import BrowserContext
 from src.auth import navegar_ate_consulta_teste, navegar_ate_emissao, realizar_login
 from src.config import Config, carregar_config, carregar_credencial
 from src.flows import emissao as fluxo_emissao
-from src.flows.consulta import preparar_filtro_chave, selecionar_emitente_consulta
+from src.flows.consulta import (
+    localizar_xml_autorizado_mais_recente,
+    pesquisar_nota_por_chave,
+    preparar_filtro_chave,
+    selecionar_emitente_consulta,
+)
 from src.flows.emissao import Emitente, Tarefa
 from src.fonte_tarefas import FontePostgresTarefas, FonteTarefasErro
 from src.storage_documentos import (
@@ -237,11 +242,33 @@ async def teste_autenticacao(
             logger.info("[%s] Iniciando teste da consulta histórica", tarefa_id)
             await navegar_ate_consulta_teste(page, logger)
             await selecionar_emitente_consulta(page, credencial.emitente, logger)
-            await preparar_filtro_chave(page, logger)
-            logger.info(
-                "[%s] TESTE DE CONSULTA OK (campo de chave vazio; sem pesquisar nota)",
-                tarefa_id,
-            )
+            if config.consultar_ultimo_xml:
+                xml_path = localizar_xml_autorizado_mais_recente(
+                    config.download_dir
+                )
+                metadados = fluxo_emissao.extrair_metadados_xml(xml_path)
+                await pesquisar_nota_por_chave(
+                    page,
+                    metadados.chave_acesso,
+                    logger,
+                )
+                logger.info(
+                    "[%s] TESTE DE CONSULTA OK (chave omitida do log)",
+                    tarefa_id,
+                )
+                if config.pausar_apos_consulta:
+                    logger.warning(
+                        "[%s] Consulta localizada. Confira o resultado e clique "
+                        "em Resume no Inspector para encerrar.",
+                        tarefa_id,
+                    )
+                    await page.pause()
+            else:
+                await preparar_filtro_chave(page, logger)
+                logger.info(
+                    "[%s] TESTE DE CONSULTA OK (campo de chave vazio; sem pesquisar nota)",
+                    tarefa_id,
+                )
 
         if config.testar_navegacao_emissao:
             logger.info("[%s] Iniciando teste de navegação até emissão", tarefa_id)
@@ -283,6 +310,13 @@ async def teste_autenticacao(
                         tarefa_id,
                         ", ".join(sorted(documentos)),
                     )
+                    if config.pausar_apos_downloads:
+                        logger.warning(
+                            "[%s] Documentos baixados. Confira o resultado e clique "
+                            "em Resume no Inspector para encerrar.",
+                            tarefa_id,
+                        )
+                        await page.pause()
                     return
 
         # Mantém a página visível brevemente apenas nos testes sem emissão.

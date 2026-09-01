@@ -27,6 +27,13 @@
   estão codificados; filtro e input vazio foram validados ao vivo. Até uma
   pesquisa e o download completo serem provados, não criar botão Web que
   prometa recuperação nem misturar as filas.
+- Foi preparado um ensaio local temporário e fail-closed para esse gate. A
+  emissão pode pausar somente depois de XML/DANFE validados; numa segunda
+  execução isolada, a consulta usa a chave do `xml_*.xml` autorizado mais
+  recente, sem expô-la em log, exige “Um registro” e pausa com o resultado
+  visível. Os comandos completos estão em `TESTE-WORKER-HOMOLOGACAO.md`.
+  A consulta ainda não clica nos ícones: primeiro confirmar ao vivo que o
+  resultado corresponde à nota recém-emitida.
 - Correção fiscal prioritária: quantidade/preço não usam mais `str(float)`.
   Inteiros como `2.0` podiam ganhar um zero na máscara e ampliar cada campo por
   10. Agora o Worker digita em formato brasileiro, conclui a máscara e compara
@@ -121,7 +128,8 @@
 
 ### Evidências atuais
 
-- Worker: **215 testes passando**, incluindo consulta, máscara numérica e
+- Worker: **222 testes passando**, incluindo consulta, máscara numérica,
+  seleção segura do XML mais recente e as novas pausas locais,
   bloqueio de divergência antes do avanço fiscal.
 - Smoke test real de 01/09 com `CLIENTE_A`: login e identidade confirmados,
   Consulta - TESTE aberta em HTTPS e emitente original selecionado. A primeira
@@ -214,7 +222,8 @@
 - Graphify oficial `graphifyy` 0.9.50 foi instalado fora dos ambientes de
   produção, em `.tools/graphify`, com o complemento SQL.
 - O mapa `--code-only` foi atualizado após a fundação da consulta histórica:
-  140 fontes, 1.262 nós, 2.890 relações e 90 comunidades.
+  140 fontes, 1.273 nós, 2.930 relações e 85 comunidades após o ensaio local
+  emissão → consulta.
 - A auditoria inicial não encontrou `.env`, downloads, logs, tarefa real ou
   caminhos pessoais nos artefatos pesquisados.
 - `.tools/` e `graphify-out/` estão ignorados. Não foram ativados backend

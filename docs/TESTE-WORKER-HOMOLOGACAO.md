@@ -157,3 +157,81 @@ trabalho elegível assim que começa.
 
 Se houver perda de lease ou incerteza depois do clique, não repetir. A tarefa
 deve ir para conferência humana.
+
+## Ensaio temporário — emitir e depois consultar a mesma nota
+
+Este roteiro usa `tarefa_real.json`, um único `CLIENTE_A` e duas execuções
+completamente separadas. Não é necessário criar uma distribuição no Web. Antes
+de começar, confira o JSON e mantenha somente dados destinados à homologação.
+
+### Fase 1 — emitir, baixar e inspecionar
+
+No PowerShell, dentro de `worker/`:
+
+```powershell
+$env:FONTE_TAREFAS="arquivo"
+$env:PROCESSAR_FILA_BANCO="false"
+$env:SMOKE_TEST="true"
+$env:TESTAR_NAVEGACAO_EMISSAO="true"
+$env:TESTAR_PREENCHIMENTO_COMPLETO="true"
+$env:TESTAR_EMISSAO_HOMOLOGACAO="true"
+$env:TESTAR_NAVEGACAO_CONSULTA="false"
+$env:CONSULTAR_ULTIMO_XML="false"
+$env:AMBIENTE_EMISSAO="teste"
+$env:CLIENTES_ATIVOS="CLIENTE_A"
+$env:MAX_CONCORRENCIA="1"
+$env:HEADLESS="false"
+$env:INSPECIONAR="true"
+$env:PAUSAR_ANTES_TRANSPORTE="false"
+$env:PAUSAR_APOS_DOWNLOADS="true"
+$env:PAUSAR_APOS_CONSULTA="false"
+$env:ARMAZENAR_DOCUMENTOS="false"
+$env:LIMPAR_DOCUMENTOS_EXPIRADOS="false"
+$env:WORKER_PERSISTENTE="false"
+
+.\.venv\Scripts\python.exe main.py tarefa_real.json
+```
+
+A pausa ocorre somente depois de `AUTORIZADA` e dos dois downloads validados.
+Confira na página quantidade, valor, total, emitente, destinatário, número e
+chave. Confira também os novos arquivos em `worker/downloads/`. Depois clique
+em **Resume** no Inspector; o Chromium será fechado normalmente.
+
+### Fase 2 — consultar automaticamente pela chave do XML recém-baixado
+
+No mesmo PowerShell, depois de encerrar a fase 1:
+
+```powershell
+$env:FONTE_TAREFAS="arquivo"
+$env:PROCESSAR_FILA_BANCO="false"
+$env:SMOKE_TEST="true"
+$env:TESTAR_NAVEGACAO_EMISSAO="false"
+$env:TESTAR_PREENCHIMENTO_COMPLETO="false"
+$env:TESTAR_EMISSAO_HOMOLOGACAO="false"
+$env:TESTAR_NAVEGACAO_CONSULTA="true"
+$env:CONSULTAR_ULTIMO_XML="true"
+$env:AMBIENTE_EMISSAO="teste"
+$env:CLIENTES_ATIVOS="CLIENTE_A"
+$env:MAX_CONCORRENCIA="1"
+$env:HEADLESS="false"
+$env:INSPECIONAR="true"
+$env:PAUSAR_ANTES_TRANSPORTE="false"
+$env:PAUSAR_APOS_DOWNLOADS="false"
+$env:PAUSAR_APOS_CONSULTA="true"
+$env:ARMAZENAR_DOCUMENTOS="false"
+$env:LIMPAR_DOCUMENTOS_EXPIRADOS="false"
+$env:WORKER_PERSISTENTE="false"
+
+.\.venv\Scripts\python.exe main.py
+```
+
+O Worker escolhe o `xml_*.xml` local mais recente, recusa links e XML sem prova
+de autorização, extrai a chave de 44 dígitos sem imprimi-la, seleciona o mesmo
+emitente, pesquisa e exige exatamente **Um registro** com os ícones XML e
+DANFE. A pausa ocorre com o resultado visível. Neste gate os ícones ainda não
+são clicados: primeiro deve-se confirmar ao vivo que a linha localizada é a
+nota recém-emitida. Depois clique em **Resume** para encerrar.
+
+As flags `PAUSAR_APOS_DOWNLOADS`, `CONSULTAR_ULTIMO_XML` e
+`PAUSAR_APOS_CONSULTA` ficam desligadas por padrão e são recusadas em
+headless/serviço persistente quando implicam interação humana.

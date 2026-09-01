@@ -66,6 +66,11 @@ executa cada tarefa em um `BrowserContext` independente.
   validou filtro e campo vazios, mas ainda não pesquisou nem baixou uma nota.
   A chave já vem do XML autorizado e permanece em
   `fiscal.notas.chave_acesso`; não criar outra fonte a partir do HTML.
+- Para o reconhecimento ao vivo existe um ensaio local em duas execuções. A
+  primeira emite e pausa somente depois dos downloads; a segunda escolhe o XML
+  autorizado local mais recente, extrai a chave sem logá-la, pesquisa e pausa
+  após confirmar “Um registro” + ícones. Os downloads da consulta continuam
+  deliberadamente desligados até essa correspondência ser validada ao vivo.
 - Quantidade e preço exigem preenchimento mascarado. Nunca voltar a
   `fill(str(float))`: `2.0` podia ser interpretado como 20. O Worker formata com
   vírgula/sem zeros finais, digita como usuário, desfoca e compara o conteúdo
@@ -173,9 +178,10 @@ na reunião já foi corrigido e validado; não o registrar novamente como backlo
 
 ## Próximo gate seguro
 
-1. Validar ao vivo o novo smoke test da consulta com um emitente. Capturar
-   filtro Chave de Acesso, input, Consultar, resultado, downloads e estados de
-   ausência/erro, sem pesquisar dados sensíveis por tentativa.
+1. Executar o ensaio emissão → consulta descrito em
+   `TESTE-WORKER-HOMOLOGACAO.md` com um emitente e confirmar visualmente que a
+   chave extraída localiza a mesma nota. Depois validar os downloads e estados
+   de ausência/erro, sem pesquisar dados sensíveis por tentativa.
 2. Implementar fila própria de recuperação e Storage/Web somente depois desse
    reconhecimento; consulta não pode reabrir a tarefa de emissão.
 3. No Vercel, adicionar `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` e então mudar

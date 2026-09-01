@@ -15,6 +15,7 @@ from main import (
     executar_fila_banco_homologacao,
     executar_validacao_fila_banco,
     preparar_tarefa_para_cliente,
+    teste_autenticacao as _teste_autenticacao,
 )
 from src.flows.emissao import (
     AcessoPortalNegado,
@@ -113,6 +114,90 @@ async def _orquestrador_sem_browser(
 
 def test_smoke_test_sem_tarefa_nao_exige_emitente():
     assert preparar_tarefa_para_cliente(None, "CLIENTE_A", None) is None
+
+
+def test_consulta_do_ultimo_xml_pesquisa_sem_logar_chave_e_pausa():
+    chave = "1" * 44
+    pagina = SimpleNamespace(pause=AsyncMock(), close=AsyncMock())
+    contexto = SimpleNamespace(new_page=AsyncMock(return_value=pagina))
+    config = SimpleNamespace(
+        sistema_fiscal_url="https://receita.pr.gov.br/login",
+        testar_navegacao_consulta=True,
+        consultar_ultimo_xml=True,
+        pausar_apos_consulta=True,
+        download_dir="downloads",
+        testar_navegacao_emissao=False,
+        headless=False,
+    )
+    credencial = SimpleNamespace(
+        emitente="emitente-original",
+        nome_emitente="Emitente original",
+    )
+    logger = logging.getLogger("teste-consulta-ultimo-xml")
+
+    with (
+        patch("main.carregar_credencial", return_value=credencial),
+        patch("main.realizar_login", new_callable=AsyncMock),
+        patch("main.navegar_ate_consulta_teste", new_callable=AsyncMock),
+        patch("main.selecionar_emitente_consulta", new_callable=AsyncMock),
+        patch(
+            "main.localizar_xml_autorizado_mais_recente",
+            return_value="downloads/nota.xml",
+        ),
+        patch(
+            "main.fluxo_emissao.extrair_metadados_xml",
+            return_value=SimpleNamespace(chave_acesso=chave),
+        ),
+        patch("main.pesquisar_nota_por_chave", new_callable=AsyncMock) as pesquisar,
+    ):
+        asyncio.run(
+            _teste_autenticacao("CLIENTE_A", contexto, config, logger, None)
+        )
+
+    pesquisar.assert_awaited_once_with(pagina, chave, logger)
+    pagina.pause.assert_awaited_once()
+    pagina.close.assert_awaited_once()
+
+
+def test_emissao_local_pausa_somente_depois_dos_downloads():
+    pagina = SimpleNamespace(pause=AsyncMock(), close=AsyncMock())
+    contexto = SimpleNamespace(new_page=AsyncMock(return_value=pagina))
+    config = SimpleNamespace(
+        sistema_fiscal_url="https://receita.pr.gov.br/login",
+        testar_navegacao_consulta=False,
+        testar_navegacao_emissao=True,
+        testar_preenchimento_completo=True,
+        testar_emissao_homologacao=True,
+        pausar_apos_downloads=True,
+        ambiente_emissao="teste",
+        headless=False,
+    )
+    credencial = SimpleNamespace(
+        emitente="emitente-original",
+        nome_emitente="Emitente original",
+    )
+    logger = logging.getLogger("teste-pausa-downloads")
+
+    with (
+        patch("main.carregar_credencial", return_value=credencial),
+        patch("main.realizar_login", new_callable=AsyncMock),
+        patch("main.navegar_ate_emissao", new_callable=AsyncMock),
+        patch("main.preencher_formulario_completo", new_callable=AsyncMock),
+        patch(
+            "main.executar_emissao_homologacao",
+            new_callable=AsyncMock,
+            return_value={"xml_path": "nota.xml", "pdf_path": "danfe.pdf"},
+        ) as emitir,
+    ):
+        asyncio.run(
+            _teste_autenticacao(
+                "CLIENTE_A", contexto, config, logger, _tarefa_de_teste()
+            )
+        )
+
+    emitir.assert_awaited_once()
+    pagina.pause.assert_awaited_once()
+    pagina.close.assert_awaited_once()
 
 
 def test_fila_persistente_nao_repete_log_quando_esta_ociosa(caplog):

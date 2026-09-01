@@ -16,6 +16,9 @@ def _preparar_env_minimo(monkeypatch):
     monkeypatch.delenv("TESTAR_NAVEGACAO_CONSULTA", raising=False)
     monkeypatch.delenv("TESTAR_PREENCHIMENTO_COMPLETO", raising=False)
     monkeypatch.delenv("TESTAR_EMISSAO_HOMOLOGACAO", raising=False)
+    monkeypatch.delenv("CONSULTAR_ULTIMO_XML", raising=False)
+    monkeypatch.delenv("PAUSAR_APOS_DOWNLOADS", raising=False)
+    monkeypatch.delenv("PAUSAR_APOS_CONSULTA", raising=False)
     monkeypatch.delenv("MAX_CONCORRENCIA", raising=False)
     monkeypatch.delenv("AMBIENTE_EMISSAO", raising=False)
     monkeypatch.delenv("PROCESSAR_FILA_BANCO", raising=False)
@@ -315,6 +318,46 @@ def test_smoke_test_de_consulta_e_habilitado_isoladamente(monkeypatch):
 
     assert config.testar_navegacao_consulta is True
     assert config.testar_navegacao_emissao is False
+
+
+def test_consulta_do_ultimo_xml_exige_fluxo_de_consulta(monkeypatch):
+    _preparar_env_minimo(monkeypatch)
+    monkeypatch.setenv("CONSULTAR_ULTIMO_XML", "true")
+
+    with pytest.raises(RuntimeError, match="TESTAR_NAVEGACAO_CONSULTA"):
+        carregar_config()
+
+
+def test_pausa_apos_consulta_exige_inspector_visivel(monkeypatch):
+    _preparar_env_minimo(monkeypatch)
+    monkeypatch.setenv("TESTAR_NAVEGACAO_CONSULTA", "true")
+    monkeypatch.setenv("CONSULTAR_ULTIMO_XML", "true")
+    monkeypatch.setenv("PAUSAR_APOS_CONSULTA", "true")
+
+    with pytest.raises(RuntimeError, match="INSPECIONAR=true"):
+        carregar_config()
+
+    monkeypatch.setenv("INSPECIONAR", "true")
+    config = carregar_config()
+    assert config.consultar_ultimo_xml is True
+    assert config.pausar_apos_consulta is True
+
+
+def test_pausa_apos_downloads_exige_emissao_e_inspector(monkeypatch):
+    _preparar_env_minimo(monkeypatch)
+    monkeypatch.setenv("PAUSAR_APOS_DOWNLOADS", "true")
+
+    with pytest.raises(RuntimeError, match="TESTAR_EMISSAO_HOMOLOGACAO"):
+        carregar_config()
+
+    _habilitar_emissao_homologacao(monkeypatch)
+    monkeypatch.setenv("PAUSAR_APOS_DOWNLOADS", "true")
+    with pytest.raises(RuntimeError, match="INSPECIONAR=true"):
+        carregar_config()
+
+    monkeypatch.setenv("INSPECIONAR", "true")
+    config = carregar_config()
+    assert config.pausar_apos_downloads is True
 
 
 def test_fonte_banco_exige_trava_e_configuracao(monkeypatch):

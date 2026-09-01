@@ -51,6 +51,13 @@ class Config:
     # Smoke test independente: abre a consulta histórica de homologação e
     # seleciona o emitente configurado, sem pesquisar ou baixar documentos.
     testar_navegacao_consulta: bool
+    # Ensaio local explícito: extrai a chave do XML autorizado mais recente no
+    # diretório privado e a pesquisa na consulta. A chave não entra em logs.
+    consultar_ultimo_xml: bool
+    # Pausas humanas temporárias e locais, sempre dependentes de Inspector e
+    # navegador visível. Nunca são aceitas no Worker persistente.
+    pausar_apos_downloads: bool
+    pausar_apos_consulta: bool
     # RF13 passos 4-10 — preenche até Transporte (sem clicar Emitir). Exige
     # testar_navegacao_emissao=true, porque depende de já estar na tela de
     # emissão. Validado em carregar_config() abaixo.
@@ -117,6 +124,15 @@ def carregar_config() -> Config:
     testar_emissao_homologacao = (
         os.getenv("TESTAR_EMISSAO_HOMOLOGACAO", "false").lower() == "true"
     )
+    consultar_ultimo_xml = (
+        os.getenv("CONSULTAR_ULTIMO_XML", "false").lower() == "true"
+    )
+    pausar_apos_downloads = (
+        os.getenv("PAUSAR_APOS_DOWNLOADS", "false").lower() == "true"
+    )
+    pausar_apos_consulta = (
+        os.getenv("PAUSAR_APOS_CONSULTA", "false").lower() == "true"
+    )
 
     if testar_preenchimento_completo and not testar_navegacao_emissao:
         raise RuntimeError(
@@ -150,6 +166,24 @@ def carregar_config() -> Config:
 
     headless = os.getenv("HEADLESS", "false").lower() == "true"
     inspecionar = os.getenv("INSPECIONAR", "false").lower() == "true"
+    if consultar_ultimo_xml and not testar_navegacao_consulta:
+        raise RuntimeError(
+            "CONSULTAR_ULTIMO_XML=true exige TESTAR_NAVEGACAO_CONSULTA=true."
+        )
+    if pausar_apos_downloads and not testar_emissao_homologacao:
+        raise RuntimeError(
+            "PAUSAR_APOS_DOWNLOADS=true exige TESTAR_EMISSAO_HOMOLOGACAO=true."
+        )
+    if pausar_apos_consulta and not consultar_ultimo_xml:
+        raise RuntimeError(
+            "PAUSAR_APOS_CONSULTA=true exige CONSULTAR_ULTIMO_XML=true."
+        )
+    if (pausar_apos_downloads or pausar_apos_consulta) and (
+        not inspecionar or headless
+    ):
+        raise RuntimeError(
+            "Pausas de inspeção exigem INSPECIONAR=true e HEADLESS=false."
+        )
     worker_persistente = (
         os.getenv("WORKER_PERSISTENTE", "false").lower() == "true"
     )
@@ -272,6 +306,9 @@ def carregar_config() -> Config:
         inspecionar=inspecionar,
         testar_navegacao_emissao=testar_navegacao_emissao,
         testar_navegacao_consulta=testar_navegacao_consulta,
+        consultar_ultimo_xml=consultar_ultimo_xml,
+        pausar_apos_downloads=pausar_apos_downloads,
+        pausar_apos_consulta=pausar_apos_consulta,
         testar_preenchimento_completo=testar_preenchimento_completo,
         testar_emissao_homologacao=testar_emissao_homologacao,
         max_concorrencia=max_concorrencia,
