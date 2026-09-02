@@ -62,35 +62,32 @@ executa cada tarefa em um `BrowserContext` independente.
 - Consulta histórica sob demanda pelo portal é trabalho separado. Em 01/09,
   foram implementados a navegação segura HTTPS até Consulta - TESTE, a seleção
   exata do emitente por `valor_select_nfpe`, o filtro `value=1`, o campo da
-  chave, o botão Consultar, “Um registro” e os ícones DANFE/XML. O smoke test
-  validou filtro e campo vazios, mas ainda não pesquisou nem baixou uma nota.
+  chave, o botão Consultar, “Um registro” e os ícones DANFE/XML. Em 01/09, o
+  ensaio ao vivo pesquisou uma chave extraída de XML autorizado e confirmou
+  exatamente um registro com as duas ações disponíveis.
   A chave já vem do XML autorizado e permanece em
   `fiscal.notas.chave_acesso`; não criar outra fonte a partir do HTML.
 - Para o reconhecimento ao vivo existe um ensaio local em duas execuções. A
   primeira pausa no resumo antes de emitir e novamente depois dos downloads;
   a segunda escolhe o XML autorizado local mais recente, extrai a chave sem
   logá-la, pesquisa e pausa imediatamente após clicar em Consultar. Depois do
-  Resume exige “Um registro” + ícones. Os downloads da consulta continuam
-  deliberadamente desligados até essa correspondência ser validada ao vivo.
+  Resume exige “Um registro” + ícones. Essa correspondência foi validada ao
+  vivo; o próximo gate local pode baixar XML primeiro e DANFE depois com
+  `BAIXAR_DOCUMENTOS_CONSULTA=true`.
 - Quantidade e preço exigem preenchimento mascarado. Nunca voltar a
   `fill(str(float))`: `2.0` podia ser interpretado como 20. O primeiro ajuste,
   com digitação sequencial e leitura após blur, foi insuficiente: em 01/09 o
   resumo autorizado ainda exibiu um zero extra. O código agora espera a reação
   inicial da máscara, seleciona todo o zero e usa `insert_text` em um evento,
-  equivalente à colagem manual observada. O próximo ensaio pausa no resumo
-  **antes de Emitir**; esta segunda correção ainda precisa de validação ao vivo.
+  equivalente à colagem manual observada. O operador confirmou visualmente os
+  valores corretos na pausa anterior à emissão; manter essa proteção e os
+  testes de divergência.
   A API correta é `page.keyboard.insert_text()`, nunca `Locator.insert_text()`;
   a tentativa com o objeto errado falhou no primeiro campo e não emitiu nota.
-- O segundo ensaio da consulta comprovou que o XML local foi localizado e
-  validado, pois chegou ao filtro de chave; a falha era no input dinâmico. O
-  fluxo agora fixa o primeiro campo visível, dispensa o `Tab`, registra a
-  subetapa sem mostrar a chave e abre o Inspector inclusive se falhar antes do
-  clique. Esta correção ainda aguarda o próximo ensaio ao vivo.
-- No ensaio seguinte, chave, campo e clique em Consultar foram confirmados e o
-  portal exibiu um registro correto. A falha ocorreu apenas após o Resume, ao
-  validar o resultado, com `Error` imediato compatível com strict mode sobre
-  cópias responsivas da SPA. Contagem e ícones agora usam o primeiro elemento
-  visível e possuem logs separados; falta repetir somente essa validação.
+- A consulta fixa o primeiro campo/resultado visível para lidar com cópias
+  responsivas da SPA, dispensa `Tab`, registra a subetapa sem mostrar a chave e
+  abre o Inspector inclusive se falhar antes do clique. O ensaio de 21:53
+  validou chave, “Um registro” e as duas ações até o fim.
 - Cadastros de emitente agora aceitam CPF ou CNPJ e IE opcional. A coluna
   física ainda se chama `cnpj` por compatibilidade; não criar migração apenas
   para renomeá-la durante o gate de integração.
@@ -194,12 +191,11 @@ Ctrl+V está implementada, mas permanece no gate de validação pré-emissão.
 
 ## Próximo gate seguro
 
-1. Executar o ensaio emissão → consulta descrito em
-   `TESTE-WORKER-HOMOLOGACAO.md` com um emitente e confirmar visualmente que a
-   chave extraída localiza a mesma nota. Depois validar os downloads e estados
-   de ausência/erro, sem pesquisar dados sensíveis por tentativa.
-2. Implementar fila própria de recuperação e Storage/Web somente depois desse
-   reconhecimento; consulta não pode reabrir a tarefa de emissão.
+1. Executar a fase de download da consulta descrita em
+   `TESTE-WORKER-HOMOLOGACAO.md`. O Worker deve baixar XML primeiro, provar que
+   chave e número correspondem ao XML de origem e só então baixar o DANFE.
+2. Depois desse download comprovado ao vivo, implementar fila própria de
+   recuperação e Storage/Web; consulta não pode reabrir a tarefa de emissão.
 3. No Vercel, adicionar `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` e então mudar
    `APP_AUTH_PROVIDER` para `supabase`; redefinir a senha do usuário gerente no
    painel sem enviá-la ao chat e validar login/logout. O fallback atual continua

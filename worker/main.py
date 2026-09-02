@@ -22,6 +22,7 @@ from src.auth import navegar_ate_consulta_teste, navegar_ate_emissao, realizar_l
 from src.config import Config, carregar_config, carregar_credencial
 from src.flows import emissao as fluxo_emissao
 from src.flows.consulta import (
+    baixar_documentos_consulta,
     localizar_xml_autorizado_mais_recente,
     pesquisar_nota_por_chave,
     preparar_filtro_chave,
@@ -253,6 +254,20 @@ async def teste_autenticacao(
                     logger,
                     pausar_apos_clique=config.pausar_apos_consulta,
                 )
+                if config.baixar_documentos_consulta:
+                    recuperados = await baixar_documentos_consulta(
+                        page,
+                        chave_acesso=metadados.chave_acesso,
+                        numero=metadados.numero,
+                        download_dir=config.download_dir,
+                        tarefa_id=tarefa_id,
+                        logger=logger,
+                    )
+                    logger.info(
+                        "[%s] DOCUMENTOS DA CONSULTA RECUPERADOS (%s)",
+                        tarefa_id,
+                        ", ".join(sorted(recuperados)),
+                    )
                 logger.info(
                     "[%s] TESTE DE CONSULTA OK (chave omitida do log)",
                     tarefa_id,

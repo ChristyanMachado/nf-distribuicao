@@ -54,6 +54,7 @@ class Config:
     # Ensaio local explícito: extrai a chave do XML autorizado mais recente no
     # diretório privado e a pesquisa na consulta. A chave não entra em logs.
     consultar_ultimo_xml: bool
+    baixar_documentos_consulta: bool
     # Pausas humanas temporárias e locais, sempre dependentes de Inspector e
     # navegador visível. Nunca são aceitas no Worker persistente.
     pausar_apos_downloads: bool
@@ -128,6 +129,9 @@ def carregar_config() -> Config:
     consultar_ultimo_xml = (
         os.getenv("CONSULTAR_ULTIMO_XML", "false").lower() == "true"
     )
+    baixar_documentos_consulta = (
+        os.getenv("BAIXAR_DOCUMENTOS_CONSULTA", "false").lower() == "true"
+    )
     pausar_apos_downloads = (
         os.getenv("PAUSAR_APOS_DOWNLOADS", "false").lower() == "true"
     )
@@ -173,6 +177,10 @@ def carregar_config() -> Config:
     if consultar_ultimo_xml and not testar_navegacao_consulta:
         raise RuntimeError(
             "CONSULTAR_ULTIMO_XML=true exige TESTAR_NAVEGACAO_CONSULTA=true."
+        )
+    if baixar_documentos_consulta and not consultar_ultimo_xml:
+        raise RuntimeError(
+            "BAIXAR_DOCUMENTOS_CONSULTA=true exige CONSULTAR_ULTIMO_XML=true."
         )
     if pausar_apos_downloads and not testar_emissao_homologacao:
         raise RuntimeError(
@@ -318,6 +326,7 @@ def carregar_config() -> Config:
         testar_navegacao_emissao=testar_navegacao_emissao,
         testar_navegacao_consulta=testar_navegacao_consulta,
         consultar_ultimo_xml=consultar_ultimo_xml,
+        baixar_documentos_consulta=baixar_documentos_consulta,
         pausar_apos_downloads=pausar_apos_downloads,
         pausar_apos_consulta=pausar_apos_consulta,
         pausar_antes_emitir=pausar_antes_emitir,

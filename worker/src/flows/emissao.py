@@ -1549,11 +1549,39 @@ async def _baixar_documento(
     tarefa_id: str,
     logger: logging.Logger,
 ) -> str:
+    acionador = page.get_by_role("button", name=nome_botao, exact=True)
+    return await baixar_documento_por_acao(
+        page=page,
+        acionador=acionador,
+        destino=destino,
+        extensao=extensao,
+        tarefa_id=tarefa_id,
+        rotulo=nome_botao,
+        logger=logger,
+    )
+
+
+async def baixar_documento_por_acao(
+    *,
+    page: Page,
+    acionador: Locator,
+    destino: str,
+    extensao: str,
+    tarefa_id: str,
+    rotulo: str,
+    logger: logging.Logger,
+) -> str:
+    """Baixa e valida um documento disparado por um controle já localizado.
+
+    Emissão e consulta usam botões diferentes, mas compartilham as mesmas
+    garantias locais de tamanho, formato, diretório privado e permissões.
+    """
+
+    diretorio = os.path.dirname(destino) or "."
+    _preparar_diretorio_privado(diretorio)
     try:
         async with page.expect_download(timeout=60_000) as evento_download:
-            await page.get_by_role("button", name=nome_botao, exact=True).click(
-                timeout=60_000
-            )
+            await acionador.click(timeout=60_000)
         download = await evento_download.value
         if await download.failure():
             raise FalhaDownloadDocumento("O navegador informou falha no download.")
@@ -1567,7 +1595,7 @@ async def _baixar_documento(
         ) from exc
 
     _restringir_permissoes(destino)
-    logger.info("[%s] %s salvo", tarefa_id, nome_botao)
+    logger.info("[%s] %s salvo", tarefa_id, rotulo)
     return destino
 
 

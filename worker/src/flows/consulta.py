@@ -7,10 +7,18 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import re
+from datetime import datetime, timezone
 from pathlib import Path
 
 from playwright.async_api import Locator, Page, TimeoutError as PlaywrightTimeoutError
+
+from .emissao import (
+    FalhaDownloadDocumento,
+    baixar_documento_por_acao,
+    extrair_metadados_xml,
+)
 
 
 SELETOR_EMITENTE_CONSULTA = "article select.slds-select"
@@ -27,6 +35,72 @@ class ConsultaFiscalInvalida(ValueError):
 
 class NotaConsultaNaoEncontrada(RuntimeError):
     """A consulta não retornou exatamente os documentos esperados."""
+
+
+async def baixar_documentos_consulta(
+    page: Page,
+    *,
+    chave_acesso: str,
+    numero: str,
+    download_dir: str,
+    tarefa_id: str,
+    logger: logging.Logger,
+) -> dict[str, str]:
+    """Baixa XML/DANFE da única nota localizada e prova sua identidade.
+
+    O XML é baixado primeiro porque contém a chave e o número oficiais. O DANFE
+    só é aceito depois dessa comparação. A operação local é atômica: qualquer
+    falha remove os artefatos recuperados nesta tentativa.
+    """
+
+    chave = validar_chave_acesso(chave_acesso)
+    numero_limpo = numero.strip()
+    if not numero_limpo.isdigit() or len(numero_limpo) > 20:
+        raise ConsultaFiscalInvalida("O número da nota para recuperação é inválido.")
+
+    instante = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+    base = Path(download_dir)
+    xml_path = str(base / f"recuperado_xml_nota-{numero_limpo}_{instante}.xml")
+    pdf_path = str(base / f"recuperado_danfe_nota-{numero_limpo}_{instante}.pdf")
+    criados: list[str] = []
+    try:
+        criados.append(
+            await baixar_documento_por_acao(
+                page=page,
+                acionador=page.locator(SELETOR_XML_RESULTADO).first,
+                destino=xml_path,
+                extensao="xml",
+                tarefa_id=tarefa_id,
+                rotulo="XML recuperado",
+                logger=logger,
+            )
+        )
+        metadados = extrair_metadados_xml(xml_path)
+        if metadados.chave_acesso != chave or metadados.numero != numero_limpo:
+            raise FalhaDownloadDocumento(
+                "O XML recuperado não corresponde à nota pesquisada."
+            )
+        logger.info("XML recuperado corresponde à chave pesquisada")
+
+        criados.append(
+            await baixar_documento_por_acao(
+                page=page,
+                acionador=page.locator(SELETOR_DANFE_RESULTADO).first,
+                destino=pdf_path,
+                extensao="pdf",
+                tarefa_id=tarefa_id,
+                rotulo="DANFE recuperado",
+                logger=logger,
+            )
+        )
+    except Exception:
+        for caminho in criados:
+            try:
+                os.unlink(caminho)
+            except FileNotFoundError:
+                pass
+        raise
+    return {"xml_path": xml_path, "pdf_path": pdf_path}
 
 
 def localizar_xml_autorizado_mais_recente(download_dir: str) -> str:

@@ -165,8 +165,12 @@ uma tarefa para `PENDENTE` nem executar `emitir()`.
 
 O primeiro trecho já existe em `worker/src/flows/consulta.py` e `src/auth.py`:
 abre somente a Consulta - TESTE por HTTPS e seleciona o emitente original pelo
-`valor_select_nfpe`. A integração com banco/Storage permanece desligada até o
-restante da tela ser reconhecido e ganhar uma fila/reserva própria.
+`valor_select_nfpe`. A pesquisa por chave e a presença de um único resultado
+com XML/DANFE foram validadas ao vivo. O gate local baixa primeiro o XML,
+compara chave e número com a nota solicitada e só então permite o DANFE; uma
+falha remove os artefatos daquela tentativa. A integração com banco/Storage
+permanece desligada até o download ser validado ao vivo e ganhar fila/reserva
+própria.
 
 ### Integridade de campos numéricos mascarados
 

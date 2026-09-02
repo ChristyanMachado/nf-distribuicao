@@ -1,6 +1,6 @@
 # Handoff — Estado Atual
 
-## Estado autoritativo — 01/09/2026
+## Estado autoritativo — 02/09/2026
 
 - A reunião de 29/08 foi triada em `REUNIAO-2026-08-29.md`; conversas paralelas
   e dados pessoais não viraram requisito. Pontos ativos: responsividade de
@@ -21,43 +21,40 @@
 - A chave necessária já era persistida: ela vem do XML autorizado, exige 44
   dígitos e entra em `fiscal.notas.chave_acesso` com índice único parcial. Não
   capturar a chave do resumo como segunda fonte nem escrevê-la em logs.
-- A consulta ainda não participa do serviço/fila. Falta validar ao vivo a
-  pesquisa e os downloads e depois ligá-los a uma fila própria. Filtro `value=1`, input de
-  chave sem pontuação, botão Consultar, “Um registro” e ícones DANFE/XML já
-  estão codificados; filtro e input vazio foram validados ao vivo. Até uma
-  pesquisa e o download completo serem provados, não criar botão Web que
-  prometa recuperação nem misturar as filas.
+- A consulta ainda não participa do serviço/fila. A pesquisa por chave foi
+  validada ao vivo: o portal retornou exatamente “Um registro” e disponibilizou
+  as ações DANFE/XML. Falta provar os downloads e depois ligá-los a uma fila
+  própria. Até o download completo ser provado, não criar botão Web que prometa
+  recuperação nem misturar as filas.
 - Foi preparado um ensaio local temporário e fail-closed para esse gate. A
   emissão pausa no resumo antes do clique e pode pausar novamente depois de
   XML/DANFE validados; numa segunda
   execução isolada, a consulta usa a chave do `xml_*.xml` autorizado mais
   recente, sem expô-la em log, exige “Um registro” e pausa com o resultado
   visível. Os comandos completos estão em `TESTE-WORKER-HOMOLOGACAO.md`.
-  A consulta ainda não clica nos ícones: primeiro confirmar ao vivo que o
-  resultado corresponde à nota recém-emitida.
+  Com `BAIXAR_DOCUMENTOS_CONSULTA=true`, o próximo gate baixa XML primeiro,
+  compara chave e número com a nota de origem e somente então baixa o DANFE.
+  Falha remove os artefatos criados nessa tentativa; banco e Storage continuam
+  intocados.
 - O ensaio seguinte chegou novamente ao filtro e falhou no input dinâmico, o
   que confirma que o XML local existia e sua chave autorizada foi extraída. O
   campo agora é fixado no primeiro input visível, não recebe `Tab`, e a pausa
   ocorre imediatamente depois do clique em Consultar. Falha anterior ao clique
   também abre o Inspector e informa somente a subetapa, nunca a chave.
-- O ensaio de 21:47 comprovou visualmente que a chave foi inserida, confirmada,
-  enviada e retornou um registro correto. Depois do Resume, a validação falhou
-  imediatamente antes dos logs de ícone, indicando locator estrito duplicado,
-  não ausência da nota. O código agora usa o primeiro elemento visível para a
-  contagem, DANFE e XML e registra cada confirmação separadamente. Repetir o
-  mesmo comando; ainda não clicar nos downloads neste gate.
-- Correção fiscal prioritária ainda em validação: quantidade/preço não usam
+- O ensaio de 21:53 concluiu a validação da consulta: chave inserida e omitida
+  dos logs, exatamente um registro e as ações DANFE/XML confirmadas. Isso fecha
+  o gate de pesquisa; o próximo ensaio é exclusivamente o download local.
+- Correção fiscal de quantidade/preço: os campos não usam
   mais `str(float)`, mas a digitação sequencial continuou preservando o zero
   inicial no resumo de 01/09 apesar da leitura imediata parecer correta. Agora
   o Worker espera a máscara reposicionar o cursor, seleciona tudo e insere o
   texto em um único evento, equivalente ao Ctrl+V que funciona manualmente.
-  O próximo ensaio pausa no resumo antes de Emitir. Não considerar resolvido
-  até o operador confirmar quantidades, valores e totais nessa pausa.
+  O operador confirmou visualmente os valores corretos na pausa antes de
+  Emitir; manter o fail-closed quando o valor lido divergir do snapshot.
 - O primeiro ensaio da inserção única parou com segurança no primeiro campo de
   quantidade, antes de qualquer avanço ou emissão: `insert_text` foi chamado
   por engano no `Locator`, que não oferece esse método na API Python. A chamada
-  agora usa `page.keyboard.insert_text()` com o campo já focado e selecionado;
-  223 testes passaram novamente. Ainda falta a confirmação visual no portal.
+  agora usa `page.keyboard.insert_text()` com o campo já focado e selecionado.
 
 - Marca confirmada: **Graalyst**. O arquivo fornecido pelo responsável foi
   incorporado ao Web como `public/logo-graalyst.jpg` e usado no login,
@@ -146,7 +143,8 @@
 
 ### Evidências atuais
 
-- Worker: **224 testes passando**, cobrindo consulta, máscara numérica, seleção
+- Worker: **227 testes passando**, cobrindo consulta, downloads fail-closed,
+  máscara numérica, seleção
   segura do XML mais recente, as pausas locais e o bloqueio de divergência
   antes do avanço fiscal.
 - Smoke test real de 01/09 com `CLIENTE_A`: login e identidade confirmados,
@@ -239,9 +237,8 @@
 
 - Graphify oficial `graphifyy` 0.9.50 foi instalado fora dos ambientes de
   produção, em `.tools/graphify`, com o complemento SQL.
-- O mapa `--code-only` foi atualizado após a fundação da consulta histórica:
-  140 fontes, 1.286 nós, 2.942 relações e 99 comunidades após o preenchimento
-  mascarado e o ensaio local emissão → consulta.
+- O mapa `--code-only` foi atualizado após o download seguro da consulta:
+  140 fontes, 1.293 nós, 2.991 relações e 84 comunidades.
 - A auditoria inicial não encontrou `.env`, downloads, logs, tarefa real ou
   caminhos pessoais nos artefatos pesquisados.
 - `.tools/` e `graphify-out/` estão ignorados. Não foram ativados backend
@@ -293,9 +290,9 @@
 
 ### Próximo gate
 
-1. Executar o smoke test de consulta com uma chave conhecida já persistida,
-   usando um único emitente, e validar “Um registro” + downloads XML/DANFE sem
-   registrar nova nota nem entrar na emissão.
+1. Executar o smoke test de download da consulta com uma chave já validada,
+   usando um único emitente. Confirmar XML e DANFE locais sem registrar nova
+   nota, entrar na emissão ou enviar ao Storage.
 2. Depois do download comprovado, criar fila exclusiva de recuperação por
    nota/chave, token próprio e botão Web idempotente. Nunca reutilizar ou
    reabrir a tarefa de emissão.

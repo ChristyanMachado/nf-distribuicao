@@ -124,6 +124,7 @@ def test_consulta_do_ultimo_xml_pesquisa_sem_logar_chave_e_pausa():
         sistema_fiscal_url="https://receita.pr.gov.br/login",
         testar_navegacao_consulta=True,
         consultar_ultimo_xml=True,
+        baixar_documentos_consulta=False,
         pausar_apos_consulta=True,
         download_dir="downloads",
         testar_navegacao_emissao=False,

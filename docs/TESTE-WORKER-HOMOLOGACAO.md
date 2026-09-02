@@ -213,6 +213,7 @@ $env:TESTAR_PREENCHIMENTO_COMPLETO="false"
 $env:TESTAR_EMISSAO_HOMOLOGACAO="false"
 $env:TESTAR_NAVEGACAO_CONSULTA="true"
 $env:CONSULTAR_ULTIMO_XML="true"
+$env:BAIXAR_DOCUMENTOS_CONSULTA="true"
 $env:AMBIENTE_EMISSAO="teste"
 $env:CLIENTES_ATIVOS="CLIENTE_A"
 $env:MAX_CONCORRENCIA="1"
@@ -234,10 +235,16 @@ de autorização, extrai a chave de 44 dígitos sem imprimi-la, seleciona o mesm
 emitente, pesquisa e exige exatamente **Um registro** com os ícones XML e
 DANFE. A pausa ocorre imediatamente depois do clique em **Consultar**, antes da
 validação automática do resultado. Confira a tela e clique em **Resume** para o
-Worker exigir “Um registro” e os dois ícones. Se qualquer operação anterior ao
-clique falhar, o Inspector também abre no ponto exato com a chave omitida. Neste
-gate os ícones ainda não são clicados: primeiro deve-se confirmar ao vivo que a
-linha localizada é a nota recém-emitida.
+Worker exigir “Um registro” e os dois ícones. Em seguida, baixa o XML do
+resultado, confirma que chave e número correspondem à nota pesquisada e só
+então baixa o DANFE. Se qualquer operação anterior ao clique falhar, o Inspector
+também abre no ponto exato com a chave omitida.
+
+O resultado esperado inclui os logs `XML recuperado salvo`, `XML recuperado
+corresponde à chave pesquisada`, `DANFE recuperado salvo` e `DOCUMENTOS DA
+CONSULTA RECUPERADOS`. Os arquivos ficam em `worker/downloads/`, com prefixos
+`recuperado_xml_nota-` e `recuperado_danfe_nota-`. Este ensaio continua local:
+não envia documentos ao banco ou Storage e não altera tarefas.
 
 Como a SPA pode manter cópias ocultas dos controles para layouts diferentes, a
 validação usa somente o primeiro elemento visível. O log confirma separadamente

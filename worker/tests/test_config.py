@@ -17,6 +17,7 @@ def _preparar_env_minimo(monkeypatch):
     monkeypatch.delenv("TESTAR_PREENCHIMENTO_COMPLETO", raising=False)
     monkeypatch.delenv("TESTAR_EMISSAO_HOMOLOGACAO", raising=False)
     monkeypatch.delenv("CONSULTAR_ULTIMO_XML", raising=False)
+    monkeypatch.delenv("BAIXAR_DOCUMENTOS_CONSULTA", raising=False)
     monkeypatch.delenv("PAUSAR_APOS_DOWNLOADS", raising=False)
     monkeypatch.delenv("PAUSAR_APOS_CONSULTA", raising=False)
     monkeypatch.delenv("PAUSAR_ANTES_EMITIR", raising=False)
@@ -326,6 +327,14 @@ def test_consulta_do_ultimo_xml_exige_fluxo_de_consulta(monkeypatch):
     monkeypatch.setenv("CONSULTAR_ULTIMO_XML", "true")
 
     with pytest.raises(RuntimeError, match="TESTAR_NAVEGACAO_CONSULTA"):
+        carregar_config()
+
+
+def test_download_da_consulta_exige_xml_local_validado(monkeypatch):
+    _preparar_env_minimo(monkeypatch)
+    monkeypatch.setenv("BAIXAR_DOCUMENTOS_CONSULTA", "true")
+
+    with pytest.raises(RuntimeError, match="CONSULTAR_ULTIMO_XML"):
         carregar_config()
 
 

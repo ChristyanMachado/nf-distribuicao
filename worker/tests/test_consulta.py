@@ -5,12 +5,15 @@ import asyncio
 import logging
 import os
 import time
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 
 from src.flows.consulta import (
     ConsultaFiscalInvalida,
+    FalhaDownloadDocumento,
     NotaConsultaNaoEncontrada,
     SELETOR_CAMPO_CHAVE,
     SELETOR_CONTAGEM_RESULTADO,
@@ -18,6 +21,7 @@ from src.flows.consulta import (
     SELETOR_EMITENTE_CONSULTA,
     SELETOR_FILTRO_CHAVE,
     SELETOR_XML_RESULTADO,
+    baixar_documentos_consulta,
     pesquisar_nota_por_chave,
     preparar_filtro_chave,
     localizar_xml_autorizado_mais_recente,
@@ -238,3 +242,66 @@ def test_localiza_xml_mais_recente_sem_aceitar_outros_arquivos(tmp_path) -> None
 def test_localizar_xml_falha_quando_diretorio_esta_vazio(tmp_path) -> None:
     with pytest.raises(ConsultaFiscalInvalida, match="Nenhum XML autorizado"):
         localizar_xml_autorizado_mais_recente(str(tmp_path))
+
+
+def test_download_consulta_confere_xml_antes_de_baixar_danfe(tmp_path) -> None:
+    pagina = PaginaPesquisaFalsa()
+    chave = "1" * 44
+    numero = "123"
+    baixar = AsyncMock(
+        side_effect=[
+            str(tmp_path / "recuperado.xml"),
+            str(tmp_path / "recuperado.pdf"),
+        ]
+    )
+
+    with (
+        patch("src.flows.consulta.baixar_documento_por_acao", baixar),
+        patch(
+            "src.flows.consulta.extrair_metadados_xml",
+            return_value=SimpleNamespace(chave_acesso=chave, numero=numero),
+        ),
+    ):
+        resultado = asyncio.run(
+            baixar_documentos_consulta(
+                pagina,
+                chave_acesso=chave,
+                numero=numero,
+                download_dir=str(tmp_path),
+                tarefa_id="CLIENTE_A",
+                logger=_logger(),
+            )
+        )
+
+    assert baixar.await_count == 2
+    assert resultado["xml_path"].endswith(".xml")
+    assert resultado["pdf_path"].endswith(".pdf")
+    assert baixar.await_args_list[0].kwargs["acionador"] is pagina.xml
+    assert baixar.await_args_list[1].kwargs["acionador"] is pagina.danfe
+
+
+def test_download_consulta_recusa_xml_de_outra_nota(tmp_path) -> None:
+    pagina = PaginaPesquisaFalsa()
+    chave = "1" * 44
+    baixar = AsyncMock(return_value=str(tmp_path / "recuperado.xml"))
+
+    with (
+        patch("src.flows.consulta.baixar_documento_por_acao", baixar),
+        patch(
+            "src.flows.consulta.extrair_metadados_xml",
+            return_value=SimpleNamespace(chave_acesso="2" * 44, numero="123"),
+        ),
+    ):
+        with pytest.raises(FalhaDownloadDocumento, match="não corresponde"):
+            asyncio.run(
+                baixar_documentos_consulta(
+                    pagina,
+                    chave_acesso=chave,
+                    numero="123",
+                    download_dir=str(tmp_path),
+                    tarefa_id="CLIENTE_A",
+                    logger=_logger(),
+                )
+            )
+
+    assert baixar.await_count == 1
