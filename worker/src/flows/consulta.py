@@ -5,6 +5,7 @@ existente nunca pode reaproveitar o comando que cria uma nova emissão.
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 import re
 from pathlib import Path
@@ -117,7 +118,15 @@ async def pesquisar_nota_por_chave(
     chave = validar_chave_acesso(chave_acesso)
     campo = await preparar_filtro_chave(page, logger)
     try:
-        await campo.fill(chave)
+        # ``fill`` falhou no input dinâmico do portal durante o primeiro ensaio
+        # ao vivo. Foco + seleção + inserção em um único evento reproduzem a
+        # colagem manual e deixam a SPA aplicar seus próprios handlers.
+        await campo.click()
+        await asyncio.sleep(0.2)
+        await campo.press("Control+A")
+        await campo.insert_text(chave)
+        await campo.press("Tab")
+        await asyncio.sleep(0.1)
         if await campo.input_value() != chave:
             raise ConsultaFiscalInvalida(
                 "A chave de acesso foi alterada pela tela antes da consulta."

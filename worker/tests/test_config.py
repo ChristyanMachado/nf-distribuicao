@@ -19,6 +19,7 @@ def _preparar_env_minimo(monkeypatch):
     monkeypatch.delenv("CONSULTAR_ULTIMO_XML", raising=False)
     monkeypatch.delenv("PAUSAR_APOS_DOWNLOADS", raising=False)
     monkeypatch.delenv("PAUSAR_APOS_CONSULTA", raising=False)
+    monkeypatch.delenv("PAUSAR_ANTES_EMITIR", raising=False)
     monkeypatch.delenv("MAX_CONCORRENCIA", raising=False)
     monkeypatch.delenv("AMBIENTE_EMISSAO", raising=False)
     monkeypatch.delenv("PROCESSAR_FILA_BANCO", raising=False)
@@ -358,6 +359,19 @@ def test_pausa_apos_downloads_exige_emissao_e_inspector(monkeypatch):
     monkeypatch.setenv("INSPECIONAR", "true")
     config = carregar_config()
     assert config.pausar_apos_downloads is True
+
+
+def test_pausa_antes_emitir_exige_emissao_e_inspector(monkeypatch):
+    _preparar_env_minimo(monkeypatch)
+    monkeypatch.setenv("PAUSAR_ANTES_EMITIR", "true")
+
+    with pytest.raises(RuntimeError, match="TESTAR_EMISSAO_HOMOLOGACAO"):
+        carregar_config()
+
+    _habilitar_emissao_homologacao(monkeypatch)
+    monkeypatch.setenv("PAUSAR_ANTES_EMITIR", "true")
+    monkeypatch.setenv("INSPECIONAR", "true")
+    assert carregar_config().pausar_antes_emitir is True
 
 
 def test_fonte_banco_exige_trava_e_configuracao(monkeypatch):

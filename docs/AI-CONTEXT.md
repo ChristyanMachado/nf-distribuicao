@@ -67,15 +67,18 @@ executa cada tarefa em um `BrowserContext` independente.
   A chave já vem do XML autorizado e permanece em
   `fiscal.notas.chave_acesso`; não criar outra fonte a partir do HTML.
 - Para o reconhecimento ao vivo existe um ensaio local em duas execuções. A
-  primeira emite e pausa somente depois dos downloads; a segunda escolhe o XML
+  primeira pausa no resumo antes de emitir e novamente depois dos downloads;
+  a segunda escolhe o XML
   autorizado local mais recente, extrai a chave sem logá-la, pesquisa e pausa
   após confirmar “Um registro” + ícones. Os downloads da consulta continuam
   deliberadamente desligados até essa correspondência ser validada ao vivo.
 - Quantidade e preço exigem preenchimento mascarado. Nunca voltar a
-  `fill(str(float))`: `2.0` podia ser interpretado como 20. O Worker formata com
-  vírgula/sem zeros finais, digita como usuário, desfoca e compara o conteúdo
-  final ao contrato. Divergência interrompe antes de avançar. Validado ao vivo
-  com dois produtos até Transporte, sem emissão.
+  `fill(str(float))`: `2.0` podia ser interpretado como 20. O primeiro ajuste,
+  com digitação sequencial e leitura após blur, foi insuficiente: em 01/09 o
+  resumo autorizado ainda exibiu um zero extra. O código agora espera a reação
+  inicial da máscara, seleciona todo o zero e usa `insert_text` em um evento,
+  equivalente à colagem manual observada. O próximo ensaio pausa no resumo
+  **antes de Emitir**; esta segunda correção ainda precisa de validação ao vivo.
 - Cadastros de emitente agora aceitam CPF ou CNPJ e IE opcional. A coluna
   física ainda se chama `cnpj` por compatibilidade; não criar migração apenas
   para renomeá-la durante o gate de integração.
@@ -174,7 +177,8 @@ abertos são responsividade do bloco Adicionar produto, confirmação visível a
 criar o lote, confirmação de sobra e coerência semântica entre os KPIs da Home
 e dos Relatórios. A retenção de uma semana citada na conversa foi substituída
 pela decisão posterior de 30 dias. O erro fiscal de máscara numérica observado
-na reunião já foi corrigido e validado; não o registrar novamente como backlog.
+na reunião foi reproduzido novamente em 01/09; a nova estratégia equivalente a
+Ctrl+V está implementada, mas permanece no gate de validação pré-emissão.
 
 ## Próximo gate seguro
 

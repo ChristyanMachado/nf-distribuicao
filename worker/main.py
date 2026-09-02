@@ -293,6 +293,13 @@ async def teste_autenticacao(
                 )
 
                 if config.testar_emissao_homologacao:
+                    if config.pausar_antes_emitir:
+                        logger.warning(
+                            "[%s] Resumo pronto. Confira quantidades, valores e "
+                            "totais; clique em Resume somente se estiverem corretos.",
+                            tarefa_id,
+                        )
+                        await page.pause()
                     logger.warning(
                         "[%s] TESTE CONTROLADO DE EMISSÃO EM HOMOLOGAÇÃO habilitado",
                         tarefa_id,

@@ -168,6 +168,7 @@ def test_emissao_local_pausa_somente_depois_dos_downloads():
         testar_navegacao_emissao=True,
         testar_preenchimento_completo=True,
         testar_emissao_homologacao=True,
+        pausar_antes_emitir=False,
         pausar_apos_downloads=True,
         ambiente_emissao="teste",
         headless=False,

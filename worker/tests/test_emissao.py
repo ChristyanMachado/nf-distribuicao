@@ -257,8 +257,8 @@ class CampoDecimalFalso:
     async def press(self, tecla: str) -> None:
         self.eventos.append(tecla)
 
-    async def press_sequentially(self, texto: str, *, delay: int) -> None:
-        self.eventos.append((texto, delay))
+    async def insert_text(self, texto: str) -> None:
+        self.eventos.append(("insert_text", texto))
 
     async def input_value(self) -> str:
         return self.valor_final
@@ -273,7 +273,12 @@ def test_decimal_e_digitado_como_humano_e_confirmado_apos_blur() -> None:
         )
     )
 
-    assert campo.eventos == ["click", "Control+A", ("10,25", 35), "Tab"]
+    assert campo.eventos == [
+        "click",
+        "Control+A",
+        ("insert_text", "10,25"),
+        "Tab",
+    ]
 
 
 def test_decimal_divergente_bloqueia_antes_de_avancar() -> None:

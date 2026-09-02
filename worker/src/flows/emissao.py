@@ -92,7 +92,14 @@ async def _preencher_decimal_portal(
     casas: int,
     nome_campo: str,
 ) -> None:
-    """Digita como usuário e confirma o número após a máscara e o blur."""
+    """Cola como usuário e confirma o número após a máscara e o blur.
+
+    A SPA posiciona inicialmente o cursor antes do zero e, logo depois do
+    clique, move-o para o fim. Digitar antes dessa reação preserva o zero e
+    amplia o valor. Esperamos o campo estabilizar, selecionamos tudo e usamos
+    ``insert_text`` em um único evento, equivalente ao comportamento observado
+    com Ctrl+V, sem acessar o clipboard do sistema operacional.
+    """
 
     texto = _formatar_decimal_portal(valor, casas)
     esperado = Decimal(str(valor)).quantize(
@@ -100,9 +107,14 @@ async def _preencher_decimal_portal(
         rounding=ROUND_HALF_UP,
     )
     await campo.click()
+    # O portal reposiciona o cursor de forma assíncrona depois do foco. Uma
+    # pausa curta e localizada evita disputar essa reação sem desacelerar as
+    # demais etapas do formulário.
+    await asyncio.sleep(0.35)
     await campo.press("Control+A")
-    await campo.press_sequentially(texto, delay=35)
+    await campo.insert_text(texto)
     await campo.press("Tab")
+    await asyncio.sleep(0.15)
     observado = _ler_decimal_portal(await campo.input_value()).quantize(
         Decimal(1).scaleb(-casas),
         rounding=ROUND_HALF_UP,

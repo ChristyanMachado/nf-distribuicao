@@ -114,12 +114,19 @@ class ElementoConsultaFalso:
     async def fill(self, valor: str) -> None:
         self.valor = valor
 
+    async def click(self, *, timeout: int | None = None) -> None:
+        if timeout is not None:
+            assert timeout == 15_000
+            self.clicado = True
+
+    async def press(self, tecla: str) -> None:
+        assert tecla in {"Control+A", "Tab"}
+
+    async def insert_text(self, valor: str) -> None:
+        self.valor = valor
+
     async def input_value(self) -> str:
         return self.valor
-
-    async def click(self, *, timeout: int) -> None:
-        assert timeout == 15_000
-        self.clicado = True
 
     def filter(self, *, has_text):
         self.filtro_texto = has_text

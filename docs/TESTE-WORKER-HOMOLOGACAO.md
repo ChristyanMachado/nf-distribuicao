@@ -183,6 +183,7 @@ $env:MAX_CONCORRENCIA="1"
 $env:HEADLESS="false"
 $env:INSPECIONAR="true"
 $env:PAUSAR_ANTES_TRANSPORTE="false"
+$env:PAUSAR_ANTES_EMITIR="true"
 $env:PAUSAR_APOS_DOWNLOADS="true"
 $env:PAUSAR_APOS_CONSULTA="false"
 $env:ARMAZENAR_DOCUMENTOS="false"
@@ -192,10 +193,12 @@ $env:WORKER_PERSISTENTE="false"
 .\.venv\Scripts\python.exe main.py tarefa_real.json
 ```
 
-A pausa ocorre somente depois de `AUTORIZADA` e dos dois downloads validados.
-Confira na página quantidade, valor, total, emitente, destinatário, número e
-chave. Confira também os novos arquivos em `worker/downloads/`. Depois clique
-em **Resume** no Inspector; o Chromium será fechado normalmente.
+A primeira pausa ocorre no resumo, antes do clique fiscal. Confira quantidades,
+valores e totais. Clique em **Resume** somente se estiverem corretos; se houver
+um zero extra, interrompa o processo sem emitir e envie o resultado. Depois da
+autorização haverá uma segunda pausa, já com os dois downloads validados, para
+conferir emitente, destinatário, número e chave. Confira também os arquivos em
+`worker/downloads/` e clique em **Resume** para fechar normalmente.
 
 ### Fase 2 — consultar automaticamente pela chave do XML recém-baixado
 
@@ -216,6 +219,7 @@ $env:MAX_CONCORRENCIA="1"
 $env:HEADLESS="false"
 $env:INSPECIONAR="true"
 $env:PAUSAR_ANTES_TRANSPORTE="false"
+$env:PAUSAR_ANTES_EMITIR="false"
 $env:PAUSAR_APOS_DOWNLOADS="false"
 $env:PAUSAR_APOS_CONSULTA="true"
 $env:ARMAZENAR_DOCUMENTOS="false"
@@ -232,6 +236,6 @@ DANFE. A pausa ocorre com o resultado visível. Neste gate os ícones ainda não
 são clicados: primeiro deve-se confirmar ao vivo que a linha localizada é a
 nota recém-emitida. Depois clique em **Resume** para encerrar.
 
-As flags `PAUSAR_APOS_DOWNLOADS`, `CONSULTAR_ULTIMO_XML` e
+As flags `PAUSAR_ANTES_EMITIR`, `PAUSAR_APOS_DOWNLOADS`, `CONSULTAR_ULTIMO_XML` e
 `PAUSAR_APOS_CONSULTA` ficam desligadas por padrão e são recusadas em
 headless/serviço persistente quando implicam interação humana.
