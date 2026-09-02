@@ -34,15 +34,13 @@ banco de teste e passou no verificador de privilégios.
 
 ## Meta imediata — recuperação histórica e polimento do fluxo diário
 
-1. Validar ao vivo o circuito conectado de recuperação por chave conhecida:
-   botão Web → fila exclusiva → Worker → Storage → retorno dos botões.
-2. Corrigir no celular o bloco Adicionar produto e manter a confirmação da
+1. Corrigir no celular o bloco Adicionar produto e manter a confirmação da
    distribuição criada imediatamente visível.
-3. Pedir confirmação explícita quando houver quantidade não distribuída,
+2. Pedir confirmação explícita quando houver quantidade não distribuída,
    preservando o bloqueio de excesso no cliente e no servidor.
-4. Harmonizar os conceitos de nota registrada, nota emitida e distribuição
+3. Harmonizar os conceitos de nota registrada, nota emitida e distribuição
    entre Home e Relatórios, usando duração real para o tempo médio.
-5. Ensaiar a limpeza da migration `0011`; depois retomar container/VM e operação
+4. Ensaiar a limpeza da migration `0011`; depois retomar container/VM e operação
    persistente. O Web já está publicado e o ciclo conectado foi comprovado.
 
 ## Próximas entregas de código
@@ -59,7 +57,8 @@ banco de teste e passou no verificador de privilégios.
   API do Storage, nunca SQL direto;
 - recuperação histórica sob demanda usa fila própria por nota e nunca reabre
   a emissão. O XML é validado antes do DANFE; após o reenvio, o par recuperado
-  fica disponível por 7 dias. Migration `0012` aplicada; falta ensaio ao vivo.
+  fica disponível por 7 dias. Migration `0012` aplicada; duas recuperações
+  conectadas foram validadas ao vivo em 02/09.
 
 ### Operação persistente
 

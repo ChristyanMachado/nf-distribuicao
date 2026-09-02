@@ -86,6 +86,11 @@ executa cada tarefa em um `BrowserContext` independente.
   O Worker consulta pela chave permanente, valida primeiro o XML, baixa DANFE,
   envia ambos ao Storage e publica o par por **7 dias**. Falha nunca reabre a
   tarefa de emissão e o Web oferece uma tentativa explícita com mensagem segura.
+- Teste conectado concluído pelo usuário em 02/09: duas notas foram solicitadas
+  pelo Web e recuperadas em duas execuções consecutivas do Worker. Cada ciclo
+  localizou a nota na Receita, validou/baixou XML e DANFE, reenviou o par ao
+  Storage e restaurou os botões no Web. Nenhuma emissão estava pendente e
+  nenhuma tarefa fiscal foi reaberta.
 - Quantidade e preço exigem preenchimento mascarado. Nunca voltar a
   `fill(str(float))`: `2.0` podia ser interpretado como 20. O primeiro ajuste,
   com digitação sequencial e leitura após blur, foi insuficiente: em 01/09 o
@@ -203,20 +208,18 @@ Ctrl+V está implementada, mas permanece no gate de validação pré-emissão.
 
 ## Próximo gate seguro
 
-1. Validar ao vivo o circuito expirado → solicitação → Worker → Storage → Web com uma
-   nota de homologação e estados claros de andamento, sucesso e falha.
-2. No Vercel, adicionar `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` e então mudar
+1. No Vercel, adicionar `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` e então mudar
    `APP_AUTH_PROVIDER` para `supabase`; redefinir a senha do usuário gerente no
    painel sem enviá-la ao chat e validar login/logout. O fallback atual continua
    ativo enquanto essa variável não for trocada.
-3. Construir a imagem do Worker em uma máquina com Docker e executar primeiro
+2. Construir a imagem do Worker em uma máquina com Docker e executar primeiro
    as auditorias sem consumir a fila. Docker não está instalado nesta máquina,
    portanto o container ainda não foi validado em runtime.
-4. Criar a VM do piloto, fornecer uma identidade PostgreSQL própria e iniciar o
+3. Criar a VM do piloto, fornecer uma identidade PostgreSQL própria e iniciar o
    serviço somente quando não houver tarefa involuntária elegível.
-5. Repetir o fluxo conectado com até 3 tarefas/contextos simultâneos, medindo
+4. Repetir o fluxo conectado com até 3 tarefas/contextos simultâneos, medindo
    CPU/RAM, isolamento e tempo, e depois implementar scheduler/alertas.
-6. Validar a limpeza da migration `0011` num documento de teste vencido. Manter a flag desligada até esse
+5. Validar a limpeza isolada da migration `0011` num documento de teste vencido. Manter a flag desligada até esse
    ensaio; produção segue bloqueada até autenticação/autorização definitiva,
    backup, recuperação e piloto humano aprovado.
 

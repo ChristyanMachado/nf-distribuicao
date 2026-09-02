@@ -26,6 +26,11 @@
   por nota. O Worker limpa o par vencido, reserva com lease/token próprios,
   consulta pela chave, valida o XML e número antes do DANFE, envia ambos ao
   Storage e publica os caminhos por 7 dias. A tarefa de emissão não é alterada.
+- O circuito conectado foi validado ao vivo em 02/09 com duas notas: o usuário
+  solicitou ambas pelo Web e executou o Worker duas vezes com concorrência 1.
+  As duas recuperações concluíram e os documentos reapareceram no Web. Antes do
+  teste foi confirmado que havia zero emissões pendentes. Para esse modo, o
+  antigo smoke local deve permanecer com `TESTAR_NAVEGACAO_CONSULTA=false`.
 - Foi preparado um ensaio local temporário e fail-closed para esse gate. A
   emissão pausa no resumo antes do clique e pode pausar novamente depois de
   XML/DANFE validados; numa segunda
@@ -293,16 +298,14 @@
 
 ### Próximo gate
 
-1. Validar o circuito de recuperação até o Storage e o retorno dos botões no
-   Web usando uma nota de homologação.
-2. Corrigir e validar em celular real Adicionar produto, confirmação de sobra,
+1. Corrigir e validar em celular real Adicionar produto, confirmação de sobra,
    resumo de sucesso e linguagem dos KPIs descritos na reunião de 29/08.
-3. Ensaiar a limpeza da migration `0011` com a rotina desativada fora do teste.
-4. Construir o container em uma máquina com Docker. O Web já está publicado,
+2. Ensaiar a limpeza da migration `0011` com a rotina desativada fora do teste.
+3. Construir o container em uma máquina com Docker. O Web já está publicado,
    mas o runtime do Worker ainda não foi validado em VM.
-5. Na VM, auditar o papel e canal antes de subir o polling; iniciar com fila
+4. Na VM, auditar o papel e canal antes de subir o polling; iniciar com fila
    controlada e `MAX_CONCORRENCIA=1`, ainda em homologação.
-6. Medir CPU/RAM, healthcheck e encerramento gracioso; depois testar até 3
+5. Medir CPU/RAM, healthcheck e encerramento gracioso; depois testar até 3
    contextos distintos e implementar scheduler/alertas.
 
 ### Comandos de validação

@@ -46,8 +46,9 @@ originais duram 30 dias; recuperados duram exatamente 7 dias.
 
 As migrations `0011` e `0012` foram aplicadas no banco de teste em 02/09 pelo
 migrator oficial do runtime. O papel `nf_worker_local` foi reprovisionado e a
-auditoria passou sem privilégios ausentes ou excessivos. Ainda falta o teste
-humano de ponta a ponta com um documento de homologação vencido/removido.
+auditoria passou sem privilégios ausentes ou excessivos. O teste humano de
+ponta a ponta também passou com duas notas recuperadas em execuções separadas.
+O próximo trabalho principal é o container/VM e o polimento mobile restante.
 
 Ao orientar o deploy:
 
