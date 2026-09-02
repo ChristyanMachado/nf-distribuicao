@@ -68,9 +68,9 @@ executa cada tarefa em um `BrowserContext` independente.
   `fiscal.notas.chave_acesso`; não criar outra fonte a partir do HTML.
 - Para o reconhecimento ao vivo existe um ensaio local em duas execuções. A
   primeira pausa no resumo antes de emitir e novamente depois dos downloads;
-  a segunda escolhe o XML
-  autorizado local mais recente, extrai a chave sem logá-la, pesquisa e pausa
-  após confirmar “Um registro” + ícones. Os downloads da consulta continuam
+  a segunda escolhe o XML autorizado local mais recente, extrai a chave sem
+  logá-la, pesquisa e pausa imediatamente após clicar em Consultar. Depois do
+  Resume exige “Um registro” + ícones. Os downloads da consulta continuam
   deliberadamente desligados até essa correspondência ser validada ao vivo.
 - Quantidade e preço exigem preenchimento mascarado. Nunca voltar a
   `fill(str(float))`: `2.0` podia ser interpretado como 20. O primeiro ajuste,
@@ -81,6 +81,11 @@ executa cada tarefa em um `BrowserContext` independente.
   **antes de Emitir**; esta segunda correção ainda precisa de validação ao vivo.
   A API correta é `page.keyboard.insert_text()`, nunca `Locator.insert_text()`;
   a tentativa com o objeto errado falhou no primeiro campo e não emitiu nota.
+- O segundo ensaio da consulta comprovou que o XML local foi localizado e
+  validado, pois chegou ao filtro de chave; a falha era no input dinâmico. O
+  fluxo agora fixa o primeiro campo visível, dispensa o `Tab`, registra a
+  subetapa sem mostrar a chave e abre o Inspector inclusive se falhar antes do
+  clique. Esta correção ainda aguarda o próximo ensaio ao vivo.
 - Cadastros de emitente agora aceitam CPF ou CNPJ e IE opcional. A coluna
   física ainda se chama `cnpj` por compatibilidade; não criar migração apenas
   para renomeá-la durante o gate de integração.

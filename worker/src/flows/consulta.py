@@ -108,6 +108,8 @@ async def pesquisar_nota_por_chave(
     page: Page,
     chave_acesso: str,
     logger: logging.Logger,
+    *,
+    pausar_apos_clique: bool = False,
 ) -> None:
     """Pesquisa uma nota conhecida e confirma um único resultado baixável.
 
@@ -116,8 +118,11 @@ async def pesquisar_nota_por_chave(
     """
 
     chave = validar_chave_acesso(chave_acesso)
-    campo = await preparar_filtro_chave(page, logger)
+    etapa = "preparar o filtro"
+    pausa_executada = False
     try:
+        campo = await preparar_filtro_chave(page, logger)
+        etapa = "inserir a chave"
         # ``fill`` falhou no input dinâmico do portal durante o primeiro ensaio
         # ao vivo. Foco + seleção + inserção em um único evento reproduzem a
         # colagem manual e deixam a SPA aplicar seus próprios handlers.
@@ -125,15 +130,26 @@ async def pesquisar_nota_por_chave(
         await asyncio.sleep(0.2)
         await campo.press("Control+A")
         await page.keyboard.insert_text(chave)
-        await campo.press("Tab")
-        await asyncio.sleep(0.1)
+        logger.info("Chave inserida no campo de consulta (conteúdo omitido)")
+        etapa = "confirmar o campo"
         if await campo.input_value() != chave:
             raise ConsultaFiscalInvalida(
                 "A chave de acesso foi alterada pela tela antes da consulta."
             )
+        logger.info("Campo da chave confirmado pela tela")
+        etapa = "clicar em Consultar"
         await page.get_by_role(
             "button", name="Consultar", exact=True
         ).click(timeout=15_000)
+        logger.info("Consulta enviada ao portal")
+        if pausar_apos_clique:
+            logger.warning(
+                "Consultar foi clicado. Confira a tela e clique em Resume para "
+                "o Worker validar o resultado."
+            )
+            pausa_executada = True
+            await page.pause()
+        etapa = "confirmar o resultado"
         contagem = page.locator(SELETOR_CONTAGEM_RESULTADO).filter(
             has_text=re.compile(r"^\s*Um registro\s*$", re.IGNORECASE)
         )
@@ -144,12 +160,20 @@ async def pesquisar_nota_por_chave(
         await page.locator(SELETOR_XML_RESULTADO).wait_for(
             state="visible", timeout=15_000
         )
-    except ConsultaFiscalInvalida:
+    except Exception as exc:
+        logger.error("Consulta interrompida ao %s", etapa)
+        if pausar_apos_clique and not pausa_executada:
+            logger.warning(
+                "Abrindo o Inspector no ponto da falha; a chave permanece omitida."
+            )
+            await page.pause()
+        if isinstance(exc, ConsultaFiscalInvalida):
+            raise
+        if isinstance(exc, PlaywrightTimeoutError):
+            raise NotaConsultaNaoEncontrada(
+                "A Receita não retornou um único resultado com XML e DANFE."
+            ) from exc
         raise
-    except PlaywrightTimeoutError as exc:
-        raise NotaConsultaNaoEncontrada(
-            "A Receita não retornou um único resultado com XML e DANFE."
-        ) from exc
 
     logger.info("Nota localizada por chave; XML e DANFE estão disponíveis")
 
@@ -163,7 +187,7 @@ async def preparar_filtro_chave(
     filtro = page.locator(SELETOR_FILTRO_CHAVE)
     try:
         await filtro.select_option(value="1", timeout=15_000)
-        campo = page.locator(SELETOR_CAMPO_CHAVE)
+        campo = page.locator(SELETOR_CAMPO_CHAVE).first
         await campo.wait_for(state="visible", timeout=15_000)
     except PlaywrightTimeoutError as exc:
         raise ConsultaFiscalInvalida(

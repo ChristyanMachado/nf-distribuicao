@@ -232,9 +232,12 @@ $env:WORKER_PERSISTENTE="false"
 O Worker escolhe o `xml_*.xml` local mais recente, recusa links e XML sem prova
 de autorização, extrai a chave de 44 dígitos sem imprimi-la, seleciona o mesmo
 emitente, pesquisa e exige exatamente **Um registro** com os ícones XML e
-DANFE. A pausa ocorre com o resultado visível. Neste gate os ícones ainda não
-são clicados: primeiro deve-se confirmar ao vivo que a linha localizada é a
-nota recém-emitida. Depois clique em **Resume** para encerrar.
+DANFE. A pausa ocorre imediatamente depois do clique em **Consultar**, antes da
+validação automática do resultado. Confira a tela e clique em **Resume** para o
+Worker exigir “Um registro” e os dois ícones. Se qualquer operação anterior ao
+clique falhar, o Inspector também abre no ponto exato com a chave omitida. Neste
+gate os ícones ainda não são clicados: primeiro deve-se confirmar ao vivo que a
+linha localizada é a nota recém-emitida.
 
 As flags `PAUSAR_ANTES_EMITIR`, `PAUSAR_APOS_DOWNLOADS`, `CONSULTAR_ULTIMO_XML` e
 `PAUSAR_APOS_CONSULTA` ficam desligadas por padrão e são recusadas em

@@ -35,6 +35,11 @@
   visível. Os comandos completos estão em `TESTE-WORKER-HOMOLOGACAO.md`.
   A consulta ainda não clica nos ícones: primeiro confirmar ao vivo que o
   resultado corresponde à nota recém-emitida.
+- O ensaio seguinte chegou novamente ao filtro e falhou no input dinâmico, o
+  que confirma que o XML local existia e sua chave autorizada foi extraída. O
+  campo agora é fixado no primeiro input visível, não recebe `Tab`, e a pausa
+  ocorre imediatamente depois do clique em Consultar. Falha anterior ao clique
+  também abre o Inspector e informa somente a subetapa, nunca a chave.
 - Correção fiscal prioritária ainda em validação: quantidade/preço não usam
   mais `str(float)`, mas a digitação sequencial continuou preservando o zero
   inicial no resumo de 01/09 apesar da leitura imediata parecer correta. Agora
@@ -135,7 +140,7 @@
 
 ### Evidências atuais
 
-- Worker: **223 testes passando**, cobrindo consulta, máscara numérica, seleção
+- Worker: **224 testes passando**, cobrindo consulta, máscara numérica, seleção
   segura do XML mais recente, as pausas locais e o bloqueio de divergência
   antes do avanço fiscal.
 - Smoke test real de 01/09 com `CLIENTE_A`: login e identidade confirmados,
@@ -229,7 +234,7 @@
 - Graphify oficial `graphifyy` 0.9.50 foi instalado fora dos ambientes de
   produção, em `.tools/graphify`, com o complemento SQL.
 - O mapa `--code-only` foi atualizado após a fundação da consulta histórica:
-  140 fontes, 1.282 nós, 2.948 relações e 95 comunidades após o preenchimento
+  140 fontes, 1.286 nós, 2.942 relações e 94 comunidades após o preenchimento
   mascarado e o ensaio local emissão → consulta.
 - A auditoria inicial não encontrou `.env`, downloads, logs, tarefa real ou
   caminhos pessoais nos artefatos pesquisados.

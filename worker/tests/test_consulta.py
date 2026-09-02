@@ -129,6 +129,10 @@ class ElementoConsultaFalso:
         self.filtro_texto = has_text
         return self
 
+    @property
+    def first(self):
+        return self
+
 
 class PaginaPesquisaFalsa:
     def __init__(self, *, sem_resultado: bool = False) -> None:
@@ -139,6 +143,7 @@ class PaginaPesquisaFalsa:
         self.xml = ElementoConsultaFalso()
         self.botao = ElementoConsultaFalso()
         self.keyboard = TecladoConsultaFalso(self.campo)
+        self.pausado = False
 
     def locator(self, seletor: str) -> ElementoConsultaFalso:
         return {
@@ -154,6 +159,9 @@ class PaginaPesquisaFalsa:
     ) -> ElementoConsultaFalso:
         assert (papel, name, exact) == ("button", "Consultar", True)
         return self.botao
+
+    async def pause(self) -> None:
+        self.pausado = True
 
 
 class TecladoConsultaFalso:
@@ -173,6 +181,22 @@ def test_pesquisa_chave_sem_pontos_e_confirma_documentos() -> None:
     assert pagina.campo.valor == chave
     assert pagina.botao.clicado is True
     assert pagina.contagem.filtro_texto.fullmatch("Um registro")
+
+
+def test_pesquisa_pausa_imediatamente_depois_de_consultar() -> None:
+    pagina = PaginaPesquisaFalsa()
+
+    asyncio.run(
+        pesquisar_nota_por_chave(
+            pagina,
+            "1" * 44,
+            _logger(),
+            pausar_apos_clique=True,
+        )
+    )
+
+    assert pagina.botao.clicado is True
+    assert pagina.pausado is True
 
 
 def test_prepara_filtro_sem_preencher_nem_consultar() -> None:

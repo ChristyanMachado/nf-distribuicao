@@ -154,8 +154,12 @@ def test_consulta_do_ultimo_xml_pesquisa_sem_logar_chave_e_pausa():
             _teste_autenticacao("CLIENTE_A", contexto, config, logger, None)
         )
 
-    pesquisar.assert_awaited_once_with(pagina, chave, logger)
-    pagina.pause.assert_awaited_once()
+    pesquisar.assert_awaited_once_with(
+        pagina,
+        chave,
+        logger,
+        pausar_apos_clique=True,
+    )
     pagina.close.assert_awaited_once()
 
 

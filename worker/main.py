@@ -251,18 +251,12 @@ async def teste_autenticacao(
                     page,
                     metadados.chave_acesso,
                     logger,
+                    pausar_apos_clique=config.pausar_apos_consulta,
                 )
                 logger.info(
                     "[%s] TESTE DE CONSULTA OK (chave omitida do log)",
                     tarefa_id,
                 )
-                if config.pausar_apos_consulta:
-                    logger.warning(
-                        "[%s] Consulta localizada. Confira o resultado e clique "
-                        "em Resume no Inspector para encerrar.",
-                        tarefa_id,
-                    )
-                    await page.pause()
             else:
                 await preparar_filtro_chave(page, logger)
                 logger.info(
