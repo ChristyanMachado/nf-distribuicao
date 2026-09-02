@@ -257,19 +257,30 @@ class CampoDecimalFalso:
     async def press(self, tecla: str) -> None:
         self.eventos.append(tecla)
 
-    async def insert_text(self, texto: str) -> None:
-        self.eventos.append(("insert_text", texto))
-
     async def input_value(self) -> str:
         return self.valor_final
 
 
+class TecladoDecimalFalso:
+    def __init__(self, eventos: list[object]) -> None:
+        self.eventos = eventos
+
+    async def insert_text(self, texto: str) -> None:
+        self.eventos.append(("insert_text", texto))
+
+
+class PaginaDecimalFalsa:
+    def __init__(self, eventos: list[object]) -> None:
+        self.keyboard = TecladoDecimalFalso(eventos)
+
+
 def test_decimal_e_digitado_como_humano_e_confirmado_apos_blur() -> None:
     campo = CampoDecimalFalso("10,25")
+    pagina = PaginaDecimalFalsa(campo.eventos)
 
     asyncio.run(
         _preencher_decimal_portal(
-            campo, 10.25, casas=2, nome_campo="o valor unitário"
+            pagina, campo, 10.25, casas=2, nome_campo="o valor unitário"
         )
     )
 
@@ -283,11 +294,12 @@ def test_decimal_e_digitado_como_humano_e_confirmado_apos_blur() -> None:
 
 def test_decimal_divergente_bloqueia_antes_de_avancar() -> None:
     campo = CampoDecimalFalso("100,00")
+    pagina = PaginaDecimalFalsa(campo.eventos)
 
     with pytest.raises(ValorFiscalDivergente, match="parou antes de avançar"):
         asyncio.run(
             _preencher_decimal_portal(
-                campo, 10.0, casas=2, nome_campo="o valor unitário"
+                pagina, campo, 10.0, casas=2, nome_campo="o valor unitário"
             )
         )
 

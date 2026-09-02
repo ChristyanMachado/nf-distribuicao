@@ -124,7 +124,7 @@ async def pesquisar_nota_por_chave(
         await campo.click()
         await asyncio.sleep(0.2)
         await campo.press("Control+A")
-        await campo.insert_text(chave)
+        await page.keyboard.insert_text(chave)
         await campo.press("Tab")
         await asyncio.sleep(0.1)
         if await campo.input_value() != chave:

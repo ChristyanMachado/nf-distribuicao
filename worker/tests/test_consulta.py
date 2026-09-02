@@ -122,9 +122,6 @@ class ElementoConsultaFalso:
     async def press(self, tecla: str) -> None:
         assert tecla in {"Control+A", "Tab"}
 
-    async def insert_text(self, valor: str) -> None:
-        self.valor = valor
-
     async def input_value(self) -> str:
         return self.valor
 
@@ -141,6 +138,7 @@ class PaginaPesquisaFalsa:
         self.danfe = ElementoConsultaFalso()
         self.xml = ElementoConsultaFalso()
         self.botao = ElementoConsultaFalso()
+        self.keyboard = TecladoConsultaFalso(self.campo)
 
     def locator(self, seletor: str) -> ElementoConsultaFalso:
         return {
@@ -156,6 +154,14 @@ class PaginaPesquisaFalsa:
     ) -> ElementoConsultaFalso:
         assert (papel, name, exact) == ("button", "Consultar", True)
         return self.botao
+
+
+class TecladoConsultaFalso:
+    def __init__(self, campo: ElementoConsultaFalso) -> None:
+        self.campo = campo
+
+    async def insert_text(self, valor: str) -> None:
+        self.campo.valor = valor
 
 
 def test_pesquisa_chave_sem_pontos_e_confirma_documentos() -> None:

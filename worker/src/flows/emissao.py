@@ -86,6 +86,7 @@ def _ler_decimal_portal(texto: str) -> Decimal:
 
 
 async def _preencher_decimal_portal(
+    page: Page,
     campo: Locator,
     valor: float,
     *,
@@ -112,7 +113,7 @@ async def _preencher_decimal_portal(
     # demais etapas do formulário.
     await asyncio.sleep(0.35)
     await campo.press("Control+A")
-    await campo.insert_text(texto)
+    await page.keyboard.insert_text(texto)
     await campo.press("Tab")
     await asyncio.sleep(0.15)
     observado = _ler_decimal_portal(await campo.input_value()).quantize(
@@ -949,6 +950,7 @@ async def preencher_item(
     )
 
     await _preencher_decimal_portal(
+        page,
         quantidade,
         item.quantidade,
         casas=3,
@@ -980,6 +982,7 @@ async def preencher_item(
     )
 
     await _preencher_decimal_portal(
+        page,
         valor_unitario,
         item.preco_unitario,
         casas=2,

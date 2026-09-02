@@ -42,6 +42,11 @@
   texto em um único evento, equivalente ao Ctrl+V que funciona manualmente.
   O próximo ensaio pausa no resumo antes de Emitir. Não considerar resolvido
   até o operador confirmar quantidades, valores e totais nessa pausa.
+- O primeiro ensaio da inserção única parou com segurança no primeiro campo de
+  quantidade, antes de qualquer avanço ou emissão: `insert_text` foi chamado
+  por engano no `Locator`, que não oferece esse método na API Python. A chamada
+  agora usa `page.keyboard.insert_text()` com o campo já focado e selecionado;
+  223 testes passaram novamente. Ainda falta a confirmação visual no portal.
 
 - Marca confirmada: **Graalyst**. O arquivo fornecido pelo responsável foi
   incorporado ao Web como `public/logo-graalyst.jpg` e usado no login,
@@ -224,7 +229,7 @@
 - Graphify oficial `graphifyy` 0.9.50 foi instalado fora dos ambientes de
   produção, em `.tools/graphify`, com o complemento SQL.
 - O mapa `--code-only` foi atualizado após a fundação da consulta histórica:
-  140 fontes, 1.276 nós, 2.936 relações e 90 comunidades após o preenchimento
+  140 fontes, 1.282 nós, 2.948 relações e 95 comunidades após o preenchimento
   mascarado e o ensaio local emissão → consulta.
 - A auditoria inicial não encontrou `.env`, downloads, logs, tarefa real ou
   caminhos pessoais nos artefatos pesquisados.

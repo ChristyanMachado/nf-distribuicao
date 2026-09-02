@@ -79,6 +79,8 @@ executa cada tarefa em um `BrowserContext` independente.
   inicial da máscara, seleciona todo o zero e usa `insert_text` em um evento,
   equivalente à colagem manual observada. O próximo ensaio pausa no resumo
   **antes de Emitir**; esta segunda correção ainda precisa de validação ao vivo.
+  A API correta é `page.keyboard.insert_text()`, nunca `Locator.insert_text()`;
+  a tentativa com o objeto errado falhou no primeiro campo e não emitiu nota.
 - Cadastros de emitente agora aceitam CPF ou CNPJ e IE opcional. A coluna
   física ainda se chama `cnpj` por compatibilidade; não criar migração apenas
   para renomeá-la durante o gate de integração.
