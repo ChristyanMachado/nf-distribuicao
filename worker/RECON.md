@@ -680,6 +680,12 @@ timeout antes do clique. Como o fluxo já exige exatamente “Um registro” e a
 ação da linha vem depois de qualquer cabeçalho, XML e DANFE usam a última
 ocorrência visível (`last`).
 
+Validação final do gate local
+
+Em 02/09, a consulta pela chave retornou a nota esperada, baixou o XML da linha,
+confirmou chave e número e depois baixou o DANFE. O fluxo de recuperação local
+foi concluído com sucesso; banco, Storage e fila permanecem fora deste ensaio.
+
 16. Máscara numérica de quantidade e preço — correção crítica de 01/09/2026
 
 Foi observado na reunião que inteiros enviados como `2.0`/`10.0` podiam ser

@@ -40,7 +40,7 @@
   cabeçalho antes da ação da linha. Aplicar a mesma posição fixa ao XML causou
   timeout porque a duplicação não é simétrica. O Worker agora espera/clica a
   última ocorrência visível (`last`) de cada ação, após confirmar exatamente um
-  registro. A correção tem testes locais, mas precisa do novo ensaio na Receita.
+  registro. O ensaio seguinte confirmou XML e DANFE baixados com sucesso.
 - O ensaio seguinte chegou novamente ao filtro e falhou no input dinâmico, o
   que confirma que o XML local existia e sua chave autorizada foi extraída. O
   campo agora é fixado no primeiro input visível, não recebe `Tab`, e a pausa
@@ -295,12 +295,11 @@
 
 ### Próximo gate
 
-1. Executar o smoke test de download da consulta com uma chave já validada,
-   usando um único emitente. Confirmar XML e DANFE locais sem registrar nova
-   nota, entrar na emissão ou enviar ao Storage.
-2. Depois do download comprovado, criar fila exclusiva de recuperação por
+1. Criar fila exclusiva de recuperação por
    nota/chave, token próprio e botão Web idempotente. Nunca reutilizar ou
    reabrir a tarefa de emissão.
+2. Validar o circuito de recuperação até o Storage e o retorno dos botões no
+   Web usando uma nota de homologação.
 3. Corrigir e validar em celular real Adicionar produto, confirmação de sobra,
    resumo de sucesso e linguagem dos KPIs descritos na reunião de 29/08.
 4. Aplicar/ensaiar a migration `0011` com a limpeza ainda desativada.
