@@ -74,10 +74,11 @@ executa cada tarefa em um `BrowserContext` independente.
   Resume exige “Um registro” + ícones. Essa correspondência foi validada ao
   vivo; o próximo gate local pode baixar XML primeiro e DANFE depois com
   `BAIXAR_DOCUMENTOS_CONSULTA=true`.
-- A primeira tentativa de download revelou que o portal repete cada ícone no
-  cabeçalho e na linha. O cabeçalho é visível, mas não dispara download. O
-  Worker agora usa explicitamente a segunda ação visível da consulta, após já
-  exigir exatamente “Um registro”; XML e DANFE aguardam novo ensaio ao vivo.
+- A primeira tentativa de download revelou um DANFE decorativo no cabeçalho
+  antes da ação da linha. Essa duplicação não é simétrica: exigir a segunda
+  ocorrência do XML causou timeout antes do clique. Após exigir exatamente “Um
+  registro”, o Worker usa agora a última ocorrência visível de cada ação, que
+  cobre DANFE duplicado e XML único. Os downloads aguardam novo ensaio ao vivo.
 - Quantidade e preço exigem preenchimento mascarado. Nunca voltar a
   `fill(str(float))`: `2.0` podia ser interpretado como 20. O primeiro ajuste,
   com digitação sequencial e leitura após blur, foi insuficiente: em 01/09 o

@@ -673,10 +673,12 @@ retornou exatamente “Um registro” e as ações DANFE/XML.
 
 Armadilha confirmada nos downloads
 
-Os seletores por `title` encontram dois ícones visíveis na ordem: cabeçalho e
-linha do único resultado. O primeiro é apenas decorativo e não dispara evento
-de download. Como o fluxo já exige exatamente “Um registro”, a ação correta é
-o segundo elemento visível (`nth(1)`) tanto para XML quanto para DANFE.
+O DANFE apresentou duas ocorrências visíveis na ordem: cabeçalho e linha do
+único resultado. O primeiro é decorativo e não dispara download. O XML não
+repetiu necessariamente a mesma quantidade; exigir `nth(1)` nele causou
+timeout antes do clique. Como o fluxo já exige exatamente “Um registro” e a
+ação da linha vem depois de qualquer cabeçalho, XML e DANFE usam a última
+ocorrência visível (`last`).
 
 16. Máscara numérica de quantidade e preço — correção crítica de 01/09/2026
 

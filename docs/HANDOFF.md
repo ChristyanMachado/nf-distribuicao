@@ -36,11 +36,11 @@
   compara chave e número com a nota de origem e somente então baixa o DANFE.
   Falha remove os artefatos criados nessa tentativa; banco e Storage continuam
   intocados.
-- No primeiro ensaio de download, o Inspector mostrou que o primeiro ícone
-  visível era o cabeçalho decorativo, não a ação da linha. O portal ordena
-  cabeçalho e único registro; o Worker agora espera/clica o segundo elemento
-  visível (`nth(1)`) para XML e DANFE. Essa correção tem testes locais, mas ainda
-  precisa do novo ensaio na Receita.
+- No primeiro ensaio de download, o Inspector mostrou um DANFE decorativo no
+  cabeçalho antes da ação da linha. Aplicar a mesma posição fixa ao XML causou
+  timeout porque a duplicação não é simétrica. O Worker agora espera/clica a
+  última ocorrência visível (`last`) de cada ação, após confirmar exatamente um
+  registro. A correção tem testes locais, mas precisa do novo ensaio na Receita.
 - O ensaio seguinte chegou novamente ao filtro e falhou no input dinâmico, o
   que confirma que o XML local existia e sua chave autorizada foi extraída. O
   campo agora é fixado no primeiro input visível, não recebe `Tab`, e a pausa
@@ -243,7 +243,7 @@
 - Graphify oficial `graphifyy` 0.9.50 foi instalado fora dos ambientes de
   produção, em `.tools/graphify`, com o complemento SQL.
 - O mapa `--code-only` foi atualizado após a correção da ação de download:
-  140 fontes, 1.296 nós, 2.993 relações e 96 comunidades.
+  140 fontes, 1.296 nós, 2.993 relações e 97 comunidades.
 - A auditoria inicial não encontrou `.env`, downloads, logs, tarefa real ou
   caminhos pessoais nos artefatos pesquisados.
 - `.tools/` e `graphify-out/` estão ignorados. Não foram ativados backend

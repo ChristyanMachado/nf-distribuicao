@@ -38,14 +38,15 @@ class NotaConsultaNaoEncontrada(RuntimeError):
 
 
 def _acao_da_linha_resultado(page: Page, seletor: str) -> Locator:
-    """Ignora o ícone homônimo do cabeçalho e retorna a ação da única nota.
+    """Retorna a última ação visível, pertencente à única nota consultada.
 
     A consulta já exige exatamente ``Um registro``. Nessa tela, a Receita
-    renderiza primeiro um ícone visível no cabeçalho e depois o controle
-    clicável da linha; clicar no primeiro não dispara download.
+    pode renderizar antes um ícone de cabeçalho, mas essa duplicação não é
+    simétrica entre DANFE e XML. A ação da linha vem por último; com apenas uma
+    ocorrência, ``last`` devolve essa própria ação.
     """
 
-    return page.locator(seletor).nth(1)
+    return page.locator(seletor).last
 
 
 async def baixar_documentos_consulta(

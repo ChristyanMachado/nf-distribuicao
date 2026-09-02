@@ -247,11 +247,10 @@ CONSULTA RECUPERADOS`. Os arquivos ficam em `worker/downloads/`, com prefixos
 não envia documentos ao banco ou Storage e não altera tarefas.
 
 Como a SPA pode manter cópias ocultas dos controles para layouts diferentes, a
-contagem usa o primeiro elemento visível. Os ícones aparecem duas vezes: a
-primeira ocorrência visível é o cabeçalho decorativo e a segunda é a ação da
-linha do único registro. O Worker usa a segunda ocorrência para XML e DANFE;
-se o portal mudar essa ordem, deve falhar fechado em vez de clicar em outro
-resultado.
+contagem usa o primeiro elemento visível. O DANFE pode ter um ícone decorativo
+no cabeçalho antes da ação da linha, enquanto o XML pode ter somente a ação. O
+Worker usa a última ocorrência visível de cada tipo depois de exigir exatamente
+um registro; se a ação não existir, deve falhar fechado.
 
 As flags `PAUSAR_ANTES_EMITIR`, `PAUSAR_APOS_DOWNLOADS`, `CONSULTAR_ULTIMO_XML` e
 `PAUSAR_APOS_CONSULTA` ficam desligadas por padrão e são recusadas em

@@ -106,7 +106,7 @@ class ElementoConsultaFalso:
         self.valor = ""
         self.filtro_texto = None
         self.clicado = False
-        self.indice = None
+        self.ultimo = False
 
     async def select_option(self, *, value: str, timeout: int) -> None:
         assert (value, timeout) == ("1", 15_000)
@@ -138,8 +138,9 @@ class ElementoConsultaFalso:
     def first(self):
         return self
 
-    def nth(self, indice: int):
-        self.indice = indice
+    @property
+    def last(self):
+        self.ultimo = True
         return self
 
 
@@ -283,8 +284,8 @@ def test_download_consulta_confere_xml_antes_de_baixar_danfe(tmp_path) -> None:
     assert resultado["pdf_path"].endswith(".pdf")
     assert baixar.await_args_list[0].kwargs["acionador"] is pagina.xml
     assert baixar.await_args_list[1].kwargs["acionador"] is pagina.danfe
-    assert pagina.xml.indice == 1
-    assert pagina.danfe.indice == 1
+    assert pagina.xml.ultimo is True
+    assert pagina.danfe.ultimo is True
 
 
 def test_download_consulta_recusa_xml_de_outra_nota(tmp_path) -> None:
