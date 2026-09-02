@@ -247,9 +247,11 @@ CONSULTA RECUPERADOS`. Os arquivos ficam em `worker/downloads/`, com prefixos
 não envia documentos ao banco ou Storage e não altera tarefas.
 
 Como a SPA pode manter cópias ocultas dos controles para layouts diferentes, a
-validação usa somente o primeiro elemento visível. O log confirma separadamente
-“um registro”, ação DANFE e ação XML; uma cópia invisível não deve provocar
-strict-mode violation.
+contagem usa o primeiro elemento visível. Os ícones aparecem duas vezes: a
+primeira ocorrência visível é o cabeçalho decorativo e a segunda é a ação da
+linha do único registro. O Worker usa a segunda ocorrência para XML e DANFE;
+se o portal mudar essa ordem, deve falhar fechado em vez de clicar em outro
+resultado.
 
 As flags `PAUSAR_ANTES_EMITIR`, `PAUSAR_APOS_DOWNLOADS`, `CONSULTAR_ULTIMO_XML` e
 `PAUSAR_APOS_CONSULTA` ficam desligadas por padrão e são recusadas em

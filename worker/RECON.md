@@ -613,7 +613,7 @@ identificação da operação confirmada;
 
 estrutura inicial da etapa de Produtos reconhecida.
 
-15. Consulta histórica de documentos — reconhecimento parcial de 01/09/2026
+15. Consulta histórica de documentos — reconhecimento de 01–02/09/2026
 
 Objetivo
 
@@ -649,13 +649,8 @@ Fonte da chave
 44 dígitos. O valor exibido no resumo pós-emissão não será uma segunda fonte de
 verdade. Não registrar a chave em logs ou artefatos de diagnóstico.
 
-Ainda falta reconhecer antes de automatizar a pesquisa
+Ainda falta reconhecer antes da integração definitiva
 
-- controle que ativa o filtro “Chave de Acesso”;
-- input da chave;
-- botão Consultar;
-- linha/cartão do resultado e ação de abrir detalhes;
-- botões de XML/DANFE na tela consultada;
 - estado de “nenhum resultado” e mensagens de erro;
 - comportamento quando o documento já não está disponível no portal.
 
@@ -673,8 +668,15 @@ O Worker agora aguarda a opção esperada e localiza o select que contém seu
 download ou emissão.
 
 O filtro por chave também foi validado ao vivo: a opção `value="1"` abriu o
-`input.slds-input.slds-size_6-of-12`, que permaneceu vazio. A pesquisa por uma
-chave real ainda não foi ligada ao smoke test.
+`input.slds-input.slds-size_6-of-12`. Uma chave real extraída do XML autorizado
+retornou exatamente “Um registro” e as ações DANFE/XML.
+
+Armadilha confirmada nos downloads
+
+Os seletores por `title` encontram dois ícones visíveis na ordem: cabeçalho e
+linha do único resultado. O primeiro é apenas decorativo e não dispara evento
+de download. Como o fluxo já exige exatamente “Um registro”, a ação correta é
+o segundo elemento visível (`nth(1)`) tanto para XML quanto para DANFE.
 
 16. Máscara numérica de quantidade e preço — correção crítica de 01/09/2026
 

@@ -37,6 +37,17 @@ class NotaConsultaNaoEncontrada(RuntimeError):
     """A consulta não retornou exatamente os documentos esperados."""
 
 
+def _acao_da_linha_resultado(page: Page, seletor: str) -> Locator:
+    """Ignora o ícone homônimo do cabeçalho e retorna a ação da única nota.
+
+    A consulta já exige exatamente ``Um registro``. Nessa tela, a Receita
+    renderiza primeiro um ícone visível no cabeçalho e depois o controle
+    clicável da linha; clicar no primeiro não dispara download.
+    """
+
+    return page.locator(seletor).nth(1)
+
+
 async def baixar_documentos_consulta(
     page: Page,
     *,
@@ -67,7 +78,7 @@ async def baixar_documentos_consulta(
         criados.append(
             await baixar_documento_por_acao(
                 page=page,
-                acionador=page.locator(SELETOR_XML_RESULTADO).first,
+                acionador=_acao_da_linha_resultado(page, SELETOR_XML_RESULTADO),
                 destino=xml_path,
                 extensao="xml",
                 tarefa_id=tarefa_id,
@@ -85,7 +96,7 @@ async def baixar_documentos_consulta(
         criados.append(
             await baixar_documento_por_acao(
                 page=page,
-                acionador=page.locator(SELETOR_DANFE_RESULTADO).first,
+                acionador=_acao_da_linha_resultado(page, SELETOR_DANFE_RESULTADO),
                 destino=pdf_path,
                 extensao="pdf",
                 tarefa_id=tarefa_id,
@@ -230,12 +241,12 @@ async def pesquisar_nota_por_chave(
         await contagem.wait_for(state="visible", timeout=30_000)
         logger.info("Contagem da consulta confirmada como um registro")
         etapa = "confirmar o ícone DANFE"
-        await page.locator(SELETOR_DANFE_RESULTADO).first.wait_for(
+        await _acao_da_linha_resultado(page, SELETOR_DANFE_RESULTADO).wait_for(
             state="visible", timeout=15_000
         )
         logger.info("Ação DANFE disponível no resultado")
         etapa = "confirmar o ícone XML"
-        await page.locator(SELETOR_XML_RESULTADO).first.wait_for(
+        await _acao_da_linha_resultado(page, SELETOR_XML_RESULTADO).wait_for(
             state="visible", timeout=15_000
         )
         logger.info("Ação XML disponível no resultado")
