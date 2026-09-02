@@ -40,6 +40,12 @@
   campo agora é fixado no primeiro input visível, não recebe `Tab`, e a pausa
   ocorre imediatamente depois do clique em Consultar. Falha anterior ao clique
   também abre o Inspector e informa somente a subetapa, nunca a chave.
+- O ensaio de 21:47 comprovou visualmente que a chave foi inserida, confirmada,
+  enviada e retornou um registro correto. Depois do Resume, a validação falhou
+  imediatamente antes dos logs de ícone, indicando locator estrito duplicado,
+  não ausência da nota. O código agora usa o primeiro elemento visível para a
+  contagem, DANFE e XML e registra cada confirmação separadamente. Repetir o
+  mesmo comando; ainda não clicar nos downloads neste gate.
 - Correção fiscal prioritária ainda em validação: quantidade/preço não usam
   mais `str(float)`, mas a digitação sequencial continuou preservando o zero
   inicial no resumo de 01/09 apesar da leitura imediata parecer correta. Agora
@@ -234,7 +240,7 @@
 - Graphify oficial `graphifyy` 0.9.50 foi instalado fora dos ambientes de
   produção, em `.tools/graphify`, com o complemento SQL.
 - O mapa `--code-only` foi atualizado após a fundação da consulta histórica:
-  140 fontes, 1.286 nós, 2.942 relações e 94 comunidades após o preenchimento
+  140 fontes, 1.286 nós, 2.942 relações e 99 comunidades após o preenchimento
   mascarado e o ensaio local emissão → consulta.
 - A auditoria inicial não encontrou `.env`, downloads, logs, tarefa real ou
   caminhos pessoais nos artefatos pesquisados.

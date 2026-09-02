@@ -17,8 +17,8 @@ SELETOR_EMITENTE_CONSULTA = "article select.slds-select"
 SELETOR_FILTRO_CHAVE = 'article select.slds-select:has(option[value="1"])'
 SELETOR_CAMPO_CHAVE = "input.slds-input.slds-size_6-of-12:visible"
 SELETOR_CONTAGEM_RESULTADO = "p.VuePagination__count"
-SELETOR_DANFE_RESULTADO = '[title="DANFE"]'
-SELETOR_XML_RESULTADO = '[title="Obter XML da nota"]'
+SELETOR_DANFE_RESULTADO = '[title="DANFE"]:visible'
+SELETOR_XML_RESULTADO = '[title="Obter XML da nota"]:visible'
 
 
 class ConsultaFiscalInvalida(ValueError):
@@ -152,14 +152,19 @@ async def pesquisar_nota_por_chave(
         etapa = "confirmar o resultado"
         contagem = page.locator(SELETOR_CONTAGEM_RESULTADO).filter(
             has_text=re.compile(r"^\s*Um registro\s*$", re.IGNORECASE)
-        )
+        ).first
         await contagem.wait_for(state="visible", timeout=30_000)
-        await page.locator(SELETOR_DANFE_RESULTADO).wait_for(
+        logger.info("Contagem da consulta confirmada como um registro")
+        etapa = "confirmar o ícone DANFE"
+        await page.locator(SELETOR_DANFE_RESULTADO).first.wait_for(
             state="visible", timeout=15_000
         )
-        await page.locator(SELETOR_XML_RESULTADO).wait_for(
+        logger.info("Ação DANFE disponível no resultado")
+        etapa = "confirmar o ícone XML"
+        await page.locator(SELETOR_XML_RESULTADO).first.wait_for(
             state="visible", timeout=15_000
         )
+        logger.info("Ação XML disponível no resultado")
     except Exception as exc:
         logger.error("Consulta interrompida ao %s", etapa)
         if pausar_apos_clique and not pausa_executada:

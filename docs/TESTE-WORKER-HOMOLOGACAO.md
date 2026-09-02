@@ -239,6 +239,11 @@ clique falhar, o Inspector também abre no ponto exato com a chave omitida. Nest
 gate os ícones ainda não são clicados: primeiro deve-se confirmar ao vivo que a
 linha localizada é a nota recém-emitida.
 
+Como a SPA pode manter cópias ocultas dos controles para layouts diferentes, a
+validação usa somente o primeiro elemento visível. O log confirma separadamente
+“um registro”, ação DANFE e ação XML; uma cópia invisível não deve provocar
+strict-mode violation.
+
 As flags `PAUSAR_ANTES_EMITIR`, `PAUSAR_APOS_DOWNLOADS`, `CONSULTAR_ULTIMO_XML` e
 `PAUSAR_APOS_CONSULTA` ficam desligadas por padrão e são recusadas em
 headless/serviço persistente quando implicam interação humana.

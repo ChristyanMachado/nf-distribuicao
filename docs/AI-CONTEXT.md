@@ -86,6 +86,11 @@ executa cada tarefa em um `BrowserContext` independente.
   fluxo agora fixa o primeiro campo visível, dispensa o `Tab`, registra a
   subetapa sem mostrar a chave e abre o Inspector inclusive se falhar antes do
   clique. Esta correção ainda aguarda o próximo ensaio ao vivo.
+- No ensaio seguinte, chave, campo e clique em Consultar foram confirmados e o
+  portal exibiu um registro correto. A falha ocorreu apenas após o Resume, ao
+  validar o resultado, com `Error` imediato compatível com strict mode sobre
+  cópias responsivas da SPA. Contagem e ícones agora usam o primeiro elemento
+  visível e possuem logs separados; falta repetir somente essa validação.
 - Cadastros de emitente agora aceitam CPF ou CNPJ e IE opcional. A coluna
   física ainda se chama `cnpj` por compatibilidade; não criar migração apenas
   para renomeá-la durante o gate de integração.
