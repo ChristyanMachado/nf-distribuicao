@@ -69,6 +69,12 @@ migration `0011` e a auditoria do papel, remove XML/DANFE vencidos pelo Storage
 e preserva o histórico da nota. Não habilite a flag antes de validar o ciclo em
 homologação com um documento de teste vencido.
 
+`PROCESSAR_RECUPERACOES_DOCUMENTOS` também começa como `false`. Com limpeza,
+Storage e fila banco habilitados, processa a fila exclusiva criada pelo botão
+**Recuperar PDF e XML**. A consulta usa a chave permanente, não emite outra nota
+e publica os documentos recuperados por exatamente 7 dias. Ative somente após
+aplicar `0011`/`0012` e reprovisionar/auditar o papel do Worker.
+
 ## Limites atuais
 
 - execução persistente continua exclusiva de homologação;

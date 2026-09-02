@@ -1,8 +1,15 @@
 "use client";
 
 import Stamp from "@/components/Stamp";
+import FormularioComFeedback from "@/components/FormularioComFeedback";
+import PrimaryButton from "@/components/PrimaryButton";
 import { IconShare } from "@/components/icons";
+import {
+  recuperacaoEmAndamento,
+  type StatusRecuperacaoDocumento,
+} from "@/lib/documentos-nota";
 import { urlHttpsSegura } from "@/lib/urls";
+import { solicitarRecuperacaoDocumento } from "./actions";
 
 const moeda = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 
@@ -12,9 +19,12 @@ type Nota = {
   clienteNome: string;
   status: string;
   valorTotal: string;
-  dataEmissao: Date | null;
+  dataEmissao: string | null;
   pdfUrl: string | null;
   xmlUrl: string | null;
+  podeRecuperar: boolean;
+  recuperacaoStatus: StatusRecuperacaoDocumento | null;
+  recuperacaoMensagem: string | null;
 };
 
 /**
@@ -25,6 +35,8 @@ type Nota = {
 export default function NotaCard({ nota }: { nota: Nota }) {
   const pdfUrl = urlHttpsSegura(nota.pdfUrl);
   const xmlUrl = urlHttpsSegura(nota.xmlUrl);
+  const documentosDisponiveis = Boolean(pdfUrl && xmlUrl);
+  const recuperando = recuperacaoEmAndamento(nota.recuperacaoStatus);
 
   async function compartilhar() {
     if (!pdfUrl) return;
@@ -63,7 +75,7 @@ export default function NotaCard({ nota }: { nota: Nota }) {
         <Stamp status={nota.status} />
       </div>
 
-      <div className="mt-3 flex gap-2">
+      {documentosDisponiveis && <div className="mt-3 flex gap-2">
         <a
           href={pdfUrl ?? "#"}
           download
@@ -90,12 +102,52 @@ export default function NotaCard({ nota }: { nota: Nota }) {
         >
           <IconShare className="h-[18px] w-[18px] text-[var(--ink-soft)]" />
         </button>
-      </div>
+      </div>}
 
-      {!pdfUrl && (
-        <p className="mt-2 text-[12px] text-[var(--wheat)]">
-          Documento ainda não disponível — fora da janela de retenção ou
-          aguardando o worker.
+      {!documentosDisponiveis && recuperando && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="mt-3 rounded-[var(--radius-control)] border border-[var(--line)] bg-[var(--field-tint)] px-3 py-2.5"
+        >
+          <p className="text-sm font-medium">
+            {nota.recuperacaoStatus === "PROCESSANDO"
+              ? "Recuperando documentos…"
+              : "Recuperação solicitada"}
+          </p>
+          <p className="mt-0.5 text-[12px] text-[var(--ink-soft)]">
+            Pode sair desta tela. Os botões reaparecerão quando o Worker concluir.
+          </p>
+        </div>
+      )}
+
+      {!documentosDisponiveis && !recuperando && nota.podeRecuperar && (
+        <FormularioComFeedback action={solicitarRecuperacaoDocumento} className="mt-3">
+          <input type="hidden" name="notaId" value={nota.id} />
+          {nota.recuperacaoStatus === "ERRO" && (
+            <p className="mb-2 text-[12px] text-[var(--stamp)]">
+              {nota.recuperacaoMensagem
+                ?? "A tentativa anterior não foi concluída. Você pode tentar novamente."}
+            </p>
+          )}
+          <PrimaryButton
+            type="submit"
+            pendingText="Solicitando recuperação…"
+            className="w-full py-2.5"
+          >
+            {nota.recuperacaoStatus === "ERRO"
+              ? "Tentar recuperar novamente"
+              : "Recuperar PDF e XML"}
+          </PrimaryButton>
+          <p className="mt-1.5 text-center text-[11px] text-[var(--ink-faint)]">
+            Os arquivos recuperados ficam disponíveis por 7 dias.
+          </p>
+        </FormularioComFeedback>
+      )}
+
+      {!documentosDisponiveis && !recuperando && !nota.podeRecuperar && (
+        <p className="mt-2 text-[12px] text-[var(--stamp)]">
+          A chave fiscal desta nota não está disponível. Chame o suporte para conferir.
         </p>
       )}
     </div>

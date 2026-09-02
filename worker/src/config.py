@@ -96,6 +96,9 @@ class Config:
     # Exclusão física de XML/DANFE vencido. Desligada por padrão e só aceita
     # fonte banco + Storage privado; nunca apaga o histórico fiscal.
     limpar_documentos_expirados: bool
+    # Consulta histórica por fila própria. Exige que a limpeza tenha removido
+    # os objetos vencidos antes de reenviar a cópia recuperada por sete dias.
+    processar_recuperacoes_documentos: bool
     # None mantém o comportamento anterior: documentos validados ficam locais.
     # Quando configurado, a chave permanece apenas no processo do Worker.
     storage_documentos: ConfigStorageDocumentos | None = field(
@@ -278,6 +281,9 @@ def carregar_config() -> Config:
     limpar_documentos_expirados = (
         os.getenv("LIMPAR_DOCUMENTOS_EXPIRADOS", "false").lower() == "true"
     )
+    processar_recuperacoes_documentos = (
+        os.getenv("PROCESSAR_RECUPERACOES_DOCUMENTOS", "false").lower() == "true"
+    )
     if storage_documentos is not None and fonte_tarefas != "banco":
         raise RuntimeError("ARMAZENAR_DOCUMENTOS=true exige FONTE_TAREFAS=banco.")
     if limpar_documentos_expirados and (
@@ -288,6 +294,17 @@ def carregar_config() -> Config:
         raise RuntimeError(
             "LIMPAR_DOCUMENTOS_EXPIRADOS=true exige fila do banco, integração "
             "controlada e Storage privado configurado."
+        )
+    if processar_recuperacoes_documentos and (
+        storage_documentos is None
+        or fonte_tarefas != "banco"
+        or not testar_integracao_banco
+        or not limpar_documentos_expirados
+        or ambiente_emissao != "teste"
+    ):
+        raise RuntimeError(
+            "PROCESSAR_RECUPERACOES_DOCUMENTOS=true exige fila do banco, "
+            "homologação, limpeza controlada e Storage privado configurado."
         )
     if worker_persistente:
         if (
@@ -341,6 +358,7 @@ def carregar_config() -> Config:
         processar_fila_banco=processar_fila_banco,
         worker_persistente=worker_persistente,
         limpar_documentos_expirados=limpar_documentos_expirados,
+        processar_recuperacoes_documentos=processar_recuperacoes_documentos,
         storage_documentos=storage_documentos,
     )
 

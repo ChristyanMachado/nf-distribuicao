@@ -18,10 +18,12 @@ from uuid import UUID
 
 import pytest
 
+from src.contrato_tarefa import carregar_contrato_tarefa
 from src.fonte_tarefas import (
     DocumentoExpiradoReservado,
     FontePostgresTarefas,
     FonteTarefasErro,
+    RecuperacaoDocumentoReservada,
     montar_payload_contrato,
 )
 
@@ -32,6 +34,8 @@ EMITENTE_ID = "33333333-3333-4333-8333-333333333333"
 PRODUTO_ID = "44444444-4444-4444-8444-444444444444"
 OUTRO_PRODUTO_ID = "55555555-5555-4555-8555-555555555555"
 RESERVA_TOKEN = "66666666-6666-4666-8666-666666666666"
+RECUPERACAO_ID = "77777777-7777-4777-8777-777777777777"
+NOTA_ID = "88888888-8888-4888-8888-888888888888"
 
 
 def _cabecalho() -> dict[str, Any]:
@@ -659,6 +663,83 @@ def test_limpeza_rejeita_limite_inseguro() -> None:
 
     with pytest.raises(FonteTarefasErro, match="Limite de limpeza"):
         asyncio.run(fonte.reservar_documentos_expirados(101))
+
+
+def test_reserva_recuperacao_usa_snapshot_imutavel_e_skip_locked() -> None:
+    texto = _payload_texto()
+    linha = {
+        "recuperacao_id": RECUPERACAO_ID,
+        "nota_id": NOTA_ID,
+        "reserva_token": RESERVA_TOKEN,
+        "tarefa_id": TAREFA_ID,
+        "chave_acesso": "1" * 44,
+        "numero": "123",
+        "payload_text": texto,
+        "payload_hash": hashlib.sha256(texto.encode("utf-8")).hexdigest(),
+    }
+    conexao = _ConexaoFake(fetch=[[linha]])
+    fonte = _fonte_com_conexao(conexao)
+
+    recuperacoes = asyncio.run(fonte.reservar_recuperacoes_documentos(3))
+
+    assert len(recuperacoes) == 1
+    assert recuperacoes[0].recuperacao_id == RECUPERACAO_ID
+    assert recuperacoes[0].contratada.tarefa.tarefa_id == TAREFA_ID
+    consulta = conexao.chamadas[0][1]
+    assert "FOR UPDATE OF r,n SKIP LOCKED" in consulta
+    assert "n.pdf_path IS NULL AND n.xml_path IS NULL" in consulta
+    assert "payload_worker::text" in consulta
+
+
+def test_conclusao_recuperacao_publica_par_por_exatamente_sete_dias() -> None:
+    texto = _payload_texto()
+    contratada = carregar_contrato_tarefa(json.loads(texto))
+    recuperacao = RecuperacaoDocumentoReservada(
+        RECUPERACAO_ID,
+        NOTA_ID,
+        TAREFA_ID,
+        "1" * 44,
+        "123",
+        contratada,
+        RESERVA_TOKEN,
+    )
+    pdf = f"notas/{TAREFA_ID}/danfe-{'a' * 64}.pdf"
+    xml = f"notas/{TAREFA_ID}/xml-{'b' * 64}.xml"
+    conexao = _ConexaoFake(execute=["UPDATE 1", "UPDATE 1"])
+    fonte = _fonte_com_conexao(conexao)
+
+    asyncio.run(
+        fonte.concluir_recuperacao_documentos(
+            recuperacao,
+            pdf_path=pdf,
+            xml_path=xml,
+            retencao_dias=7,
+        )
+    )
+
+    assert conexao.chamadas[0][2][5] == 7
+    assert "r.reserva_token=$7::uuid" in conexao.chamadas[0][1]
+    assert "status='CONCLUIDA'" in conexao.chamadas[1][1]
+
+    with pytest.raises(FonteTarefasErro, match="7 dias"):
+        asyncio.run(
+            fonte.concluir_recuperacao_documentos(
+                recuperacao,
+                pdf_path=pdf,
+                xml_path=xml,
+                retencao_dias=30,
+            )
+        )
+
+
+def test_limpeza_nao_e_bloqueada_por_pedido_de_recuperacao_pendente() -> None:
+    conexao = _ConexaoFake(fetch=[[]])
+    fonte = _fonte_com_conexao(conexao)
+
+    asyncio.run(fonte.reservar_documentos_expirados())
+
+    consulta = conexao.chamadas[0][1]
+    assert "recuperacoes_documentos" not in consulta
 
 
 def test_pool_e_criado_com_tls_e_fechado(monkeypatch: pytest.MonkeyPatch) -> None:

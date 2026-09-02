@@ -10,8 +10,8 @@
   da unidade para distinguir apresentações do mesmo item; o código fiscal
   permanece a referência de automação no portal. Não criar outra coluna antes
   de provar que a descrição existente é insuficiente.
-- A sugestão de retenção de uma semana feita na reunião está superada. A regra
-  autoritativa permanece em 30 dias.
+- A retenção autoritativa agora tem duas janelas: XML/DANFE da emissão original
+  permanecem 30 dias; um par recuperado sob demanda permanece **7 dias**.
 
 - Iniciada a recuperação histórica de XML/DANFE. A navegação independente
   Login → Produtor Rural → NFP-e → NFP-e TESTES → Consulta - TESTE e a seleção
@@ -21,11 +21,11 @@
 - A chave necessária já era persistida: ela vem do XML autorizado, exige 44
   dígitos e entra em `fiscal.notas.chave_acesso` com índice único parcial. Não
   capturar a chave do resumo como segunda fonte nem escrevê-la em logs.
-- A consulta ainda não participa do serviço/fila. A pesquisa por chave foi
-  validada ao vivo: o portal retornou exatamente “Um registro” e disponibilizou
-  as ações DANFE/XML. Falta provar os downloads e depois ligá-los a uma fila
-  própria. Até o download completo ser provado, não criar botão Web que prometa
-  recuperação nem misturar as filas.
+- A consulta e os dois downloads foram validados ao vivo. O código agora liga
+  o botão Web a `fiscal.recuperacoes_documentos`, fila exclusiva e idempotente
+  por nota. O Worker limpa o par vencido, reserva com lease/token próprios,
+  consulta pela chave, valida o XML e número antes do DANFE, envia ambos ao
+  Storage e publica os caminhos por 7 dias. A tarefa de emissão não é alterada.
 - Foi preparado um ensaio local temporário e fail-closed para esse gate. A
   emissão pausa no resumo antes do clique e pode pausar novamente depois de
   XML/DANFE validados; numa segunda
@@ -81,12 +81,10 @@
   `LIMPAR_DOCUMENTOS_EXPIRADOS=true` reserva no máximo 20 notas por ciclo com
   token/lease, remove os dois objetos pela API oficial do Storage e só depois
   limpa as referências da nota. Falha preserva os caminhos e libera a reserva
-  para nova tentativa; não interfere na emissão. Migration `0011` e a nova
-  concessão mínima de duas colunas ao papel do Worker ainda devem ser aplicadas
-  antes de ativar a flag em banco/VM. Em 31/08, a tentativa local de
-  `drizzle-kit migrate` foi interrompida pelo ambiente com `ENOMEM` antes de
-  abrir conexão: não houve alteração no banco. Executar a migration na VM ou
-  pelo fluxo administrativo quando houver memória disponível.
+  para nova tentativa; não interfere na emissão. As migrations `0011` e `0012`
+  foram aplicadas em 02/09 pelo migrator oficial de runtime, pois o
+  `drizzle-kit` continua falhando no Windows com `ENOMEM`. O papel do Worker foi
+  reprovisionado e a auditoria retornou seguro, sem privilégios excessivos.
 
 - Recuperação de upload de XML/DANFE: antes de registrar a autorização, o
   Worker grava um manifesto privado no volume de downloads com UUID, token,
@@ -108,7 +106,7 @@
   notas, roteiro de motorista e relatórios operacionais.
 - Sessão administrativa HMAC, bloqueio por inatividade, Server Actions
   protegidas, validação de entrada e cabeçalhos de segurança.
-- Migrações `0001`–`0010` aplicadas no banco de teste. `0008` adiciona
+- Migrações `0001`–`0012` aplicadas no banco de teste. `0008` adiciona
   snapshot/hash, idempotência, token, protocolo e unicidades; `0009` corrige o
   retorno ambíguo de `reserva_token`. `EXECUTE` público foi revogado.
 - Snapshot da tarefa gravado atomicamente: versão, payload e SHA-256 entram no
@@ -148,7 +146,7 @@
 
 ### Evidências atuais
 
-- Worker: **227 testes passando**, cobrindo consulta, downloads fail-closed,
+- Worker: **233 testes passando**, cobrindo consulta, downloads fail-closed,
   máscara numérica, seleção
   segura do XML mais recente, as pausas locais e o bloqueio de divergência
   antes do avanço fiscal.
@@ -158,7 +156,7 @@
   múltiplos selects. O localizador final espera o estado real e restringe pelo
   `value` exato, sem posição ou `sleep`. A terceira execução concluiu sem
   pesquisar nota, baixar documento ou entrar no fluxo de emissão.
-- Web: **93 testes em 17 arquivos passando**.
+- Web: **95 testes em 18 arquivos passando**.
 - Preflight Vercel: **3 testes Node passando**.
 - `npx tsc --noEmit`, `npm run build` e `git diff --check` passaram.
 - `npm audit --omit=dev`: 0 vulnerabilidades conhecidas.
@@ -295,19 +293,16 @@
 
 ### Próximo gate
 
-1. Criar fila exclusiva de recuperação por
-   nota/chave, token próprio e botão Web idempotente. Nunca reutilizar ou
-   reabrir a tarefa de emissão.
-2. Validar o circuito de recuperação até o Storage e o retorno dos botões no
+1. Validar o circuito de recuperação até o Storage e o retorno dos botões no
    Web usando uma nota de homologação.
-3. Corrigir e validar em celular real Adicionar produto, confirmação de sobra,
+2. Corrigir e validar em celular real Adicionar produto, confirmação de sobra,
    resumo de sucesso e linguagem dos KPIs descritos na reunião de 29/08.
-4. Aplicar/ensaiar a migration `0011` com a limpeza ainda desativada.
-5. Construir o container em uma máquina com Docker. O Web já está publicado,
+3. Ensaiar a limpeza da migration `0011` com a rotina desativada fora do teste.
+4. Construir o container em uma máquina com Docker. O Web já está publicado,
    mas o runtime do Worker ainda não foi validado em VM.
-6. Na VM, auditar o papel e canal antes de subir o polling; iniciar com fila
+5. Na VM, auditar o papel e canal antes de subir o polling; iniciar com fila
    controlada e `MAX_CONCORRENCIA=1`, ainda em homologação.
-7. Medir CPU/RAM, healthcheck e encerramento gracioso; depois testar até 3
+6. Medir CPU/RAM, healthcheck e encerramento gracioso; depois testar até 3
    contextos distintos e implementar scheduler/alertas.
 
 ### Comandos de validação

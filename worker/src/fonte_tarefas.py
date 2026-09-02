@@ -35,6 +35,19 @@ class DocumentoExpiradoReservado:
     reserva_token: str
 
 
+@dataclass(frozen=True)
+class RecuperacaoDocumentoReservada:
+    """Consulta histórica isolada, vinculada ao snapshot da emissão original."""
+
+    recuperacao_id: str
+    nota_id: str
+    tarefa_id: str
+    chave_acesso: str
+    numero: str
+    contratada: TarefaContratada
+    reserva_token: str
+
+
 def _assinatura_operacao(item: Mapping[str, Any]) -> tuple[Any, ...]:
     return (
         item["natureza_operacao"], item["tipo_operacao"],
@@ -498,6 +511,219 @@ class FontePostgresTarefas:
             raise FonteTarefasErro(
                 "Não foi possível registrar os documentos armazenados."
             ) from exc
+
+    async def reservar_recuperacoes_documentos(
+        self,
+        limite: int = 3,
+        lease_segundos: int = 900,
+    ) -> list[RecuperacaoDocumentoReservada]:
+        """Reserva consultas seguras sem reabrir a tarefa de emissão.
+
+        Somente notas cujos objetos já foram removidos pela limpeza são
+        elegíveis. Isso impede disputa e arquivos órfãos no Storage.
+        """
+
+        if not 1 <= limite <= 20:
+            raise FonteTarefasErro("Limite de recuperação é inválido.")
+        if not 60 <= lease_segundos <= 3600:
+            raise FonteTarefasErro("Lease de recuperação é inválido.")
+        token = str(uuid4())
+        try:
+            async with self._conexao() as conexao:
+                async with conexao.transaction():
+                    linhas = await conexao.fetch(
+                        """WITH candidatas AS (
+                               SELECT r.id
+                               FROM fiscal.recuperacoes_documentos r
+                               JOIN fiscal.notas n ON n.id=r.nota_id
+                               WHERE (
+                                   r.status='PENDENTE'
+                                   OR (r.status='PROCESSANDO' AND r.reserva_expira_em<now())
+                                 )
+                                 AND n.status='AUTORIZADA'
+                                 AND n.pdf_path IS NULL AND n.xml_path IS NULL
+                                 AND n.chave_acesso ~ '^[0-9]{44}$'
+                                 AND n.numero ~ '^[0-9]{1,20}$'
+                                 AND (
+                                   n.limpeza_reserva_expira_em IS NULL
+                                   OR n.limpeza_reserva_expira_em<now()
+                                 )
+                               ORDER BY r.solicitada_em,r.id
+                               LIMIT $1
+                               FOR UPDATE OF r,n SKIP LOCKED
+                           ), reservadas AS (
+                               UPDATE fiscal.recuperacoes_documentos r
+                               SET status='PROCESSANDO',reservada_por=$2,
+                                   reserva_token=$3::uuid,
+                                   reserva_expira_em=now()+make_interval(secs=>$4),
+                                   tentativas=r.tentativas+1,iniciada_em=now(),
+                                   concluida_em=NULL,codigo_erro=NULL,
+                                   mensagem_status='Consultando documentos no portal fiscal.',
+                                   atualizado_em=now()
+                               FROM candidatas c
+                               WHERE r.id=c.id
+                               RETURNING r.id,r.nota_id,r.reserva_token
+                           )
+                           SELECT r.id AS recuperacao_id,r.nota_id,r.reserva_token,
+                                  n.tarefa_id,n.chave_acesso,n.numero,
+                                  t.payload_worker::text AS payload_text,t.payload_hash
+                           FROM reservadas r
+                           JOIN fiscal.notas n ON n.id=r.nota_id
+                           JOIN fiscal.tarefas t ON t.id=n.tarefa_id""",
+                        limite,
+                        self.worker_id,
+                        token,
+                        lease_segundos,
+                    )
+        except Exception as exc:
+            raise FonteTarefasErro("Não foi possível reservar recuperações.") from exc
+
+        resultado: list[RecuperacaoDocumentoReservada] = []
+        for linha in linhas:
+            recuperacao_id = str(_uuid(linha["recuperacao_id"]))
+            reserva_token = str(_uuid(linha["reserva_token"]))
+            try:
+                nota_id = str(_uuid(linha["nota_id"]))
+                tarefa_id = str(_uuid(linha["tarefa_id"]))
+                chave = str(linha["chave_acesso"])
+                numero = str(linha["numero"])
+                texto = linha["payload_text"]
+                hash_esperado = linha["payload_hash"]
+                if not isinstance(texto, str) or not isinstance(hash_esperado, str):
+                    raise ValueError("snapshot ausente")
+                calculado = hashlib.sha256(texto.encode("utf-8")).hexdigest()
+                if not hmac.compare_digest(calculado, hash_esperado):
+                    raise ValueError("snapshot divergente")
+                contratada = carregar_contrato_tarefa(json.loads(texto))
+                if (
+                    contratada.tarefa.tarefa_id != tarefa_id
+                    or not re.fullmatch(r"\d{44}", chave)
+                    or not re.fullmatch(r"\d{1,20}", numero)
+                ):
+                    raise ValueError("identificação divergente")
+            except (
+                ContratoTarefaInvalido,
+                json.JSONDecodeError,
+                KeyError,
+                TypeError,
+                ValueError,
+                UnicodeError,
+            ):
+                await self.registrar_falha_recuperacao(
+                    recuperacao_id,
+                    reserva_token,
+                    codigo_erro="DADOS_RECUPERACAO_INVALIDOS",
+                    mensagem="Os dados permanentes da nota precisam de conferência técnica.",
+                )
+                continue
+            resultado.append(
+                RecuperacaoDocumentoReservada(
+                    recuperacao_id=recuperacao_id,
+                    nota_id=nota_id,
+                    tarefa_id=tarefa_id,
+                    chave_acesso=chave,
+                    numero=numero,
+                    contratada=contratada,
+                    reserva_token=reserva_token,
+                )
+            )
+        return resultado
+
+    async def concluir_recuperacao_documentos(
+        self,
+        recuperacao: RecuperacaoDocumentoReservada,
+        *,
+        pdf_path: str,
+        xml_path: str,
+        retencao_dias: int = 7,
+    ) -> None:
+        """Publica os caminhos recuperados por sete dias com token fencing."""
+
+        if retencao_dias != 7:
+            raise FonteTarefasErro("A retenção de documentos recuperados deve ser de 7 dias.")
+        if not caminho_storage_valido(pdf_path, recuperacao.tarefa_id, "danfe"):
+            raise FonteTarefasErro("Caminho do DANFE recuperado é inválido.")
+        if not caminho_storage_valido(xml_path, recuperacao.tarefa_id, "xml"):
+            raise FonteTarefasErro("Caminho do XML recuperado é inválido.")
+        try:
+            async with self._conexao() as conexao:
+                async with conexao.transaction():
+                    nota = await conexao.execute(
+                        """UPDATE fiscal.notas n
+                           SET pdf_path=$4,xml_path=$5,
+                               documento_expira_em=now()+make_interval(days=>$6),
+                               limpeza_reserva_token=NULL,
+                               limpeza_reserva_expira_em=NULL
+                           FROM fiscal.recuperacoes_documentos r
+                           WHERE n.id=$1::uuid AND n.tarefa_id=$2::uuid
+                             AND n.id=r.nota_id AND r.id=$3::uuid
+                             AND r.status='PROCESSANDO'
+                             AND r.reserva_token=$7::uuid
+                             AND r.reserva_expira_em>now()
+                             AND n.pdf_path IS NULL AND n.xml_path IS NULL""",
+                        recuperacao.nota_id,
+                        recuperacao.tarefa_id,
+                        recuperacao.recuperacao_id,
+                        pdf_path,
+                        xml_path,
+                        retencao_dias,
+                        recuperacao.reserva_token,
+                    )
+                    fila = await conexao.execute(
+                        """UPDATE fiscal.recuperacoes_documentos
+                           SET status='CONCLUIDA',reservada_por=NULL,
+                               reserva_token=NULL,reserva_expira_em=NULL,
+                               concluida_em=now(),codigo_erro=NULL,
+                               mensagem_status='XML e DANFE recuperados por 7 dias.',
+                               atualizado_em=now()
+                           WHERE id=$1::uuid AND nota_id=$2::uuid
+                             AND status='PROCESSANDO' AND reserva_token=$3::uuid
+                             AND reserva_expira_em>now()""",
+                        recuperacao.recuperacao_id,
+                        recuperacao.nota_id,
+                        recuperacao.reserva_token,
+                    )
+                    if nota != "UPDATE 1" or fila != "UPDATE 1":
+                        raise FonteTarefasErro(
+                            "A recuperação não pertence à reserva ativa."
+                        )
+        except FonteTarefasErro:
+            raise
+        except Exception as exc:
+            raise FonteTarefasErro("Não foi possível concluir a recuperação.") from exc
+
+    async def registrar_falha_recuperacao(
+        self,
+        recuperacao_id: str,
+        reserva_token: str,
+        *,
+        codigo_erro: str,
+        mensagem: str,
+    ) -> None:
+        if not re.fullmatch(r"[A-Z][A-Z0-9_]{2,63}", codigo_erro):
+            raise FonteTarefasErro("Código de recuperação inválido.")
+        if not mensagem or len(mensagem) > 300 or "\n" in mensagem or "\r" in mensagem:
+            raise FonteTarefasErro("Mensagem de recuperação inválida.")
+        try:
+            async with self._conexao() as conexao:
+                resultado = await conexao.execute(
+                    """UPDATE fiscal.recuperacoes_documentos
+                       SET status='ERRO',reservada_por=NULL,reserva_token=NULL,
+                           reserva_expira_em=NULL,codigo_erro=$3,
+                           mensagem_status=$4,concluida_em=now(),atualizado_em=now()
+                       WHERE id=$1::uuid AND reserva_token=$2::uuid
+                         AND status='PROCESSANDO' AND reserva_expira_em>now()""",
+                    str(_uuid(recuperacao_id)),
+                    str(_uuid(reserva_token)),
+                    codigo_erro,
+                    mensagem,
+                )
+                if resultado != "UPDATE 1":
+                    raise FonteTarefasErro("A recuperação não pertence à reserva ativa.")
+        except FonteTarefasErro:
+            raise
+        except Exception as exc:
+            raise FonteTarefasErro("Não foi possível registrar a falha da recuperação.") from exc
 
     async def reservar_documentos_expirados(
         self,

@@ -10,6 +10,7 @@ import pytest
 from main import (
     _diagnostico_falha_pre_emissao,
     _limpar_documentos_expirados,
+    _processar_recuperacoes_documentos,
     _recuperar_uploads_pendentes,
     executar_emissao_homologacao,
     executar_fila_banco_homologacao,
@@ -86,6 +87,9 @@ class _FonteBancoFake:
         self.reservar_documentos_expirados = AsyncMock(return_value=[])
         self.concluir_limpeza_documentos = AsyncMock()
         self.liberar_limpeza_documentos = AsyncMock()
+        self.reservar_recuperacoes_documentos = AsyncMock(return_value=[])
+        self.concluir_recuperacao_documentos = AsyncMock()
+        self.registrar_falha_recuperacao = AsyncMock()
 
     async def __aenter__(self):
         return self
@@ -110,6 +114,19 @@ async def _orquestrador_sem_browser(
         except Exception:
             resultados.append(SimpleNamespace(sucesso=False))
     return resultados
+
+
+def _recuperacao_banco() -> SimpleNamespace:
+    reserva = _reserva_banco()
+    return SimpleNamespace(
+        recuperacao_id="77777777-7777-4777-8777-777777777777",
+        nota_id="88888888-8888-4888-8888-888888888888",
+        tarefa_id="11111111-1111-4111-8111-111111111111",
+        chave_acesso="1" * 44,
+        numero="123",
+        reserva_token=reserva.reserva_token,
+        contratada=reserva.contratada,
+    )
 
 
 def test_smoke_test_sem_tarefa_nao_exige_emitente():
@@ -308,6 +325,106 @@ def test_limpeza_com_falha_libera_reserva_sem_apagar_referencia():
 
     fonte.concluir_limpeza_documentos.assert_not_awaited()
     fonte.liberar_limpeza_documentos.assert_awaited_once_with(documento)
+
+
+def test_recuperacao_historica_valida_xml_antes_de_publicar_por_sete_dias():
+    recuperacao = _recuperacao_banco()
+    fonte = _FonteBancoFake([])
+    fonte.reservar_recuperacoes_documentos.return_value = [recuperacao]
+    config = _config_banco()
+    config.processar_recuperacoes_documentos = True
+    config.storage_documentos = SimpleNamespace()
+    credencial = SimpleNamespace(
+        identidade_esperada="Emitente",
+        emitente="emitente-original",
+    )
+    remotos = {
+        "xml_path": f"notas/{recuperacao.tarefa_id}/xml-{'a' * 64}.xml",
+        "pdf_path": f"notas/{recuperacao.tarefa_id}/danfe-{'b' * 64}.pdf",
+    }
+
+    with (
+        patch("main.carregar_credencial", return_value=credencial),
+        patch("main.realizar_login", new_callable=AsyncMock),
+        patch("main.navegar_ate_consulta_teste", new_callable=AsyncMock),
+        patch("main.selecionar_emitente_consulta", new_callable=AsyncMock),
+        patch("main.pesquisar_nota_por_chave", new_callable=AsyncMock),
+        patch(
+            "main.baixar_documentos_consulta",
+            new_callable=AsyncMock,
+            return_value={"xml_path": "nota.xml", "pdf_path": "danfe.pdf"},
+        ),
+        patch(
+            "main.armazenar_documentos",
+            new_callable=AsyncMock,
+            return_value=remotos,
+        ),
+        patch(
+            "main.processar_tarefas_em_paralelo_async",
+            side_effect=_orquestrador_sem_browser,
+        ),
+    ):
+        houve_falha = asyncio.run(
+            _processar_recuperacoes_documentos(
+                fonte,
+                config,
+                logging.getLogger("teste-recuperacao-historica"),
+                1,
+            )
+        )
+
+    assert houve_falha is False
+    fonte.concluir_recuperacao_documentos.assert_awaited_once_with(
+        recuperacao,
+        pdf_path=remotos["pdf_path"],
+        xml_path=remotos["xml_path"],
+        retencao_dias=7,
+    )
+    fonte.registrar_falha_recuperacao.assert_not_awaited()
+
+
+def test_falha_na_consulta_fica_na_fila_de_recuperacao_sem_alterar_emissao():
+    recuperacao = _recuperacao_banco()
+    fonte = _FonteBancoFake([])
+    fonte.reservar_recuperacoes_documentos.return_value = [recuperacao]
+    config = _config_banco()
+    config.processar_recuperacoes_documentos = True
+    config.storage_documentos = SimpleNamespace()
+    credencial = SimpleNamespace(
+        identidade_esperada="Emitente",
+        emitente="emitente-original",
+    )
+
+    with (
+        patch("main.carregar_credencial", return_value=credencial),
+        patch("main.realizar_login", new_callable=AsyncMock),
+        patch("main.navegar_ate_consulta_teste", new_callable=AsyncMock),
+        patch("main.selecionar_emitente_consulta", new_callable=AsyncMock),
+        patch(
+            "main.pesquisar_nota_por_chave",
+            new_callable=AsyncMock,
+            side_effect=RuntimeError("portal indisponível"),
+        ),
+        patch(
+            "main.processar_tarefas_em_paralelo_async",
+            side_effect=_orquestrador_sem_browser,
+        ),
+    ):
+        houve_falha = asyncio.run(
+            _processar_recuperacoes_documentos(
+                fonte,
+                config,
+                logging.getLogger("teste-falha-recuperacao-historica"),
+                1,
+            )
+        )
+
+    assert houve_falha is True
+    fonte.registrar_falha_recuperacao.assert_awaited_once()
+    assert fonte.registrar_falha_recuperacao.await_args.kwargs["codigo_erro"] == (
+        "NOTA_NAO_LOCALIZADA"
+    )
+    fonte.registrar_status.assert_not_awaited()
 
 
 def test_preenchimento_completo_exige_emitente():

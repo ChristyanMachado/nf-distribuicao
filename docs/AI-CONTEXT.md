@@ -31,7 +31,7 @@ executa cada tarefa em um `BrowserContext` independente.
   `cStat=100`. PDF precisa começar com `%PDF-`. O upload privado está
   implementado, configurado e validado ao vivo: o primeiro XML/DANFE chegou ao
   bucket privado, a nota ficou disponível no Web e o PDF foi baixado com sucesso.
-- Migrações `0001` a `0010` estão aplicadas no banco de teste. `0008` adiciona
+- Migrações `0001` a `0012` estão aplicadas no banco de teste. `0008` adiciona
   idempotência do lote, snapshot `payload_worker` + SHA-256, token de reserva,
   protocolo e unicidades. `0009` corrige a ambiguidade do retorno
   `reserva_token`. `EXECUTE` público da função de reserva está revogado.
@@ -39,7 +39,7 @@ executa cada tarefa em um `BrowserContext` independente.
   etapa e o Web mostra “o que aconteceu” + “o que fazer”. O botão **Tentar
   novamente** aparece somente para falhas pré-emissão permitidas por lista
   fechada; resultado fiscal incerto nunca volta à fila.
-- Validação local: **180 testes Worker**, **93 testes Web**, 3 testes do
+- Validação local: **233 testes Worker**, **95 testes Web**, 3 testes do
   preflight de deploy, TypeScript e build de produção passaram.
 - O bucket `documentos-fiscais` foi conferido somente por metadados: existe, é
   privado, limita tamanho e aceita PDF/XML. O papel `nf_worker_local` ganhou
@@ -53,12 +53,12 @@ executa cada tarefa em um `BrowserContext` independente.
   XML/DANFE a partir desse manifesto e bloqueia novas emissões até concluir;
   nunca abre a Receita nem reemite a nota. A recuperação passou em testes
   locais, mas ainda aguarda ensaio em container/VM.
-- A retenção padrão dos próximos XML/DANFE é de 30 dias. A limpeza física foi
+- A retenção padrão dos XML/DANFE emitidos é de 30 dias. A limpeza física foi
   implementada atrás de `LIMPAR_DOCUMENTOS_EXPIRADOS=false`: reserva notas
   vencidas com token/lease, apaga XML/DANFE pela API do Storage e só então
   limpa os caminhos no banco. Falha preserva as referências para nova tentativa
-  e não bloqueia emissão fiscal. A migration `0011` ainda precisa ser aplicada
-  e o papel do Worker precisa ser reprovisionado antes de habilitar a flag.
+  e não bloqueia emissão fiscal. A migration `0011` foi aplicada em 02/09 e o
+  papel mínimo foi reprovisionado/auditado; a flag continua opt-in até o ensaio.
 - Consulta histórica sob demanda pelo portal é trabalho separado. Em 01/09,
   foram implementados a navegação segura HTTPS até Consulta - TESTE, a seleção
   exata do emitente por `valor_select_nfpe`, o filtro `value=1`, o campo da
@@ -80,6 +80,12 @@ executa cada tarefa em um `BrowserContext` independente.
   registro”, o Worker usa agora a última ocorrência visível de cada ação, que
   cobre DANFE duplicado e XML único. O ensaio seguinte confirmou ao vivo os
   dois downloads e a correspondência do XML com a nota pesquisada.
+- A migration `0012` e o código criam `fiscal.recuperacoes_documentos`, fila
+  exclusiva por nota com `SKIP LOCKED`, lease e token próprios. O botão em
+  `/notas` é idempotente e só aparece quando o par PDF/XML não está disponível.
+  O Worker consulta pela chave permanente, valida primeiro o XML, baixa DANFE,
+  envia ambos ao Storage e publica o par por **7 dias**. Falha nunca reabre a
+  tarefa de emissão e o Web oferece uma tentativa explícita com mensagem segura.
 - Quantidade e preço exigem preenchimento mascarado. Nunca voltar a
   `fill(str(float))`: `2.0` podia ser interpretado como 20. O primeiro ajuste,
   com digitação sequencial e leitura após blur, foi insuficiente: em 01/09 o
@@ -133,14 +139,14 @@ executa cada tarefa em um `BrowserContext` independente.
 - O verificador Web de integração agora aplica dígitos verificadores a CPF/CNPJ,
   exige vínculo com emitente ativo e regra fiscal ativa, sem imprimir documentos.
 
-## Estado observado no banco de teste em 28/08/2026
+## Estado observado no banco de teste em 02/09/2026
 
 - 1 cliente ativo e fiscalmente completo, vinculado ao emitente;
 - 1 emitente ativo e completo para a integração;
-- 5 produtos ativos passam nas validações estruturais. As distribuições
+- 4 produtos ativos passam nas validações estruturais. As distribuições
   000010–000012 usaram 3 produtos reais, localizados e preenchidos no portal;
 - 14 tarefas `CANCELADA` e 3 tarefas `EMITIDA` visíveis no Web;
-- 12 lotes numerados e 0 tarefas `PENDENTE` após o ensaio;
+- 17 lotes numerados e 0 tarefas `PENDENTE` após o ensaio;
 - canal TLS, papel restrito e função de reserva confirmados; no ensaio seguro,
   a tarefa voltou a `PENDENTE` sem emissão fiscal.
 - Duas execuções com pausa manual atravessaram Transporte e foram autorizadas.
@@ -197,24 +203,20 @@ Ctrl+V está implementada, mas permanece no gate de validação pré-emissão.
 
 ## Próximo gate seguro
 
-1. Implementar fila própria de recuperação e Storage/Web agora que consulta,
-   XML, conferência de chave/número e DANFE foram comprovados ao vivo. A
-   recuperação não pode reabrir a tarefa de emissão.
-2. Validar o circuito expirado → solicitação → Worker → Storage → Web com uma
+1. Validar ao vivo o circuito expirado → solicitação → Worker → Storage → Web com uma
    nota de homologação e estados claros de andamento, sucesso e falha.
-3. No Vercel, adicionar `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` e então mudar
+2. No Vercel, adicionar `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` e então mudar
    `APP_AUTH_PROVIDER` para `supabase`; redefinir a senha do usuário gerente no
    painel sem enviá-la ao chat e validar login/logout. O fallback atual continua
    ativo enquanto essa variável não for trocada.
-4. Construir a imagem do Worker em uma máquina com Docker e executar primeiro
+3. Construir a imagem do Worker em uma máquina com Docker e executar primeiro
    as auditorias sem consumir a fila. Docker não está instalado nesta máquina,
    portanto o container ainda não foi validado em runtime.
-5. Criar a VM do piloto, fornecer uma identidade PostgreSQL própria e iniciar o
+4. Criar a VM do piloto, fornecer uma identidade PostgreSQL própria e iniciar o
    serviço somente quando não houver tarefa involuntária elegível.
-6. Repetir o fluxo conectado com até 3 tarefas/contextos simultâneos, medindo
+5. Repetir o fluxo conectado com até 3 tarefas/contextos simultâneos, medindo
    CPU/RAM, isolamento e tempo, e depois implementar scheduler/alertas.
-7. Aplicar a migration `0011`, reprovisionar/auditar o papel e validar a
-   limpeza num documento de teste já vencido. Manter a flag desligada até esse
+6. Validar a limpeza da migration `0011` num documento de teste vencido. Manter a flag desligada até esse
    ensaio; produção segue bloqueada até autenticação/autorização definitiva,
    backup, recuperação e piloto humano aprovado.
 

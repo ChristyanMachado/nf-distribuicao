@@ -1,4 +1,4 @@
-# Ordem de continuidade para Claude — 29/08/2026
+# Ordem de continuidade para Claude — 02/09/2026
 
 ## Papel
 
@@ -12,7 +12,7 @@ altere arquitetura ou migrações aplicadas sem registrar e justificar.
    `ARCHITECTURE.md`, `HANDOFF.md`, `COLABORACAO.md`, `SECURITY.md` e
    `CONTRATO-WEB-WORKER.md`.
 2. Confira branch, `git status` e diff. Preserve alterações existentes.
-3. Considere `0001`–`0010` já aplicadas no banco de teste; não reaplique às
+3. Considere `0001`–`0012` já aplicadas no banco de teste; não reaplique às
    cegas. Em outro banco, rode primeiro a verificação pré-0008.
 4. Se `graphify-out/graph.json` existir, use uma consulta focada para trabalho
    transversal ou de impacto incerto. Em correção pequena com arquivos já
@@ -38,11 +38,16 @@ altere arquitetura ou migrações aplicadas sem registrar e justificar.
 
 ## Próxima tarefa prioritária
 
-O Web e o Worker foram preparados para implantação, mas nada foi publicado.
-Revise primeiro `web/vercel.json`, `web/scripts/verificar-env-deploy.mjs`,
-`worker/Dockerfile`, `worker/compose.yaml`, `worker/src/servico.py` e os testes.
-Não relaxe o preflight nem as travas de homologação. Docker não existe nesta
-estação, então não afirme que a imagem roda até haver build/healthcheck na VM.
+Revise e ajude a validar o circuito conectado de recuperação já implementado:
+`/notas` → `fiscal.recuperacoes_documentos` → Worker Consulta - TESTE → XML
+validado → DANFE → Storage → botões Web. A fila tem lease/token próprios, uma
+linha por nota e não pode atualizar nem reabrir a tarefa de emissão. Documentos
+originais duram 30 dias; recuperados duram exatamente 7 dias.
+
+As migrations `0011` e `0012` foram aplicadas no banco de teste em 02/09 pelo
+migrator oficial do runtime. O papel `nf_worker_local` foi reprovisionado e a
+auditoria passou sem privilégios ausentes ou excessivos. Ainda falta o teste
+humano de ponta a ponta com um documento de homologação vencido/removido.
 
 Ao orientar o deploy:
 
@@ -57,11 +62,11 @@ autorizadas com pausa humana; a 000012 foi autorizada automaticamente depois de
 o Worker passar a aguardar a tela-resumo do último produto. Não substitua essa
 espera por `sleep` nem remova a validação do domínio de homologação.
 
-1. revisar a integração de Storage já implementada, especialmente idempotência,
-   separação autorização/upload e assinatura server-only;
-2. não ativar sem chaves locais e teste humano; nunca pedir a chave no chat;
-3. planejar recuperação de upload interrompido sem reemitir nota e o teste de
-   até 3 tarefas simultâneas com isolamento por contexto;
+1. revisar a recuperação, especialmente idempotência, corrida limpeza/fila,
+   validação do XML antes do DANFE e assinatura server-only;
+2. não ativar sem teste humano; nunca pedir chaves ou credenciais no chat;
+3. preservar a recuperação de upload interrompido sem reemitir nota e o teste
+   de até 3 tarefas simultâneas com isolamento por contexto;
 4. confirmar que o checklist Web e os bloqueios antecipados continuam
    coerentes com as validações das Server Actions e preservam a consulta
    agregada de prontidão; não voltar a várias consultas na Home;

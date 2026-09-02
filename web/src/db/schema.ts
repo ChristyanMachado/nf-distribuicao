@@ -8,8 +8,10 @@ import {
   boolean,
   integer,
   jsonb,
+  index,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
 // ---------------------------------------------------------------------------
 // Schema dedicado — mantém este sistema isolado do banco do ponto eletrônico,
@@ -32,6 +34,11 @@ export const statusTarefaEnum = fiscalSchema.enum("status_tarefa", [
   "ERRO",
   "CANCELADA",
 ]);
+
+export const statusRecuperacaoDocumentoEnum = fiscalSchema.enum(
+  "status_recuperacao_documento",
+  ["PENDENTE", "PROCESSANDO", "CONCLUIDA", "ERRO"],
+);
 
 // Indicador da IE do destinatário, conforme observado no sistema fiscal.
 // Hoje só o fluxo "1 — Contribuinte ICMS" foi confirmado (ver worker/RECON.md).
@@ -293,6 +300,37 @@ export const notas = fiscalSchema.table("notas", {
   mensagemErro: text("mensagem_erro"),
   criadoEm: timestamp("criado_em").notNull().defaultNow(),
 }, (table) => [uniqueIndex("notas_tarefa_unica_idx").on(table.tarefaId)]);
+
+// ---------------------------------------------------------------------------
+// RF20 — fila exclusiva para recuperar XML/DANFE já emitidos.
+// Uma solicitação nunca muda o estado da tarefa de emissão. A mesma linha é
+// reutilizada quando os documentos expirarem novamente, mantendo idempotência.
+// ---------------------------------------------------------------------------
+
+export const recuperacoesDocumentos = fiscalSchema.table(
+  "recuperacoes_documentos",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    notaId: uuid("nota_id").notNull().references(() => notas.id),
+    status: statusRecuperacaoDocumentoEnum("status").notNull().default("PENDENTE"),
+    tentativas: integer("tentativas").notNull().default(0),
+    reservadaPor: text("reservada_por"),
+    reservaToken: uuid("reserva_token"),
+    reservaExpiraEm: timestamp("reserva_expira_em", { withTimezone: true }),
+    mensagemStatus: text("mensagem_status"),
+    codigoErro: text("codigo_erro"),
+    solicitadaEm: timestamp("solicitada_em", { withTimezone: true }).notNull().defaultNow(),
+    iniciadaEm: timestamp("iniciada_em", { withTimezone: true }),
+    concluidaEm: timestamp("concluida_em", { withTimezone: true }),
+    atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("recuperacoes_documentos_nota_unica_idx").on(table.notaId),
+    index("recuperacoes_documentos_fila_idx")
+      .on(table.solicitadaEm, table.id)
+      .where(sql`${table.status} in ('PENDENTE', 'PROCESSANDO')`),
+  ],
+);
 
 // ---------------------------------------------------------------------------
 // RF17/RNF03/RNF07 — Logs de execução do worker, vinculados à tarefa/nota

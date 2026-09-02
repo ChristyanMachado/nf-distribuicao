@@ -12,12 +12,16 @@ def _resultado_minimo() -> dict[str, bool]:
         "ler_notas": True,
         "inserir_notas": True,
         "atualizar_documentos_notas": True,
+        "ler_recuperacoes": True,
+        "atualizar_fila_recuperacoes": True,
         "ler_emitentes": False,
         "ler_login_legado": False,
         "ler_senha_legada": False,
         "excluir_tarefas": False,
         "excluir_notas": False,
         "atualizar_notas": False,
+        "excluir_recuperacoes": False,
+        "atualizar_recuperacoes": False,
     }
 
 

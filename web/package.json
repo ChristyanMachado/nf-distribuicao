@@ -12,6 +12,7 @@
     "test": "vitest run",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
+    "db:migrate:runtime": "node --env-file=.env scripts/aplicar-migracoes-direto.mjs",
     "db:provision-worker-local": "node --env-file=.env scripts/provisionar-worker-local.mjs",
     "db:verify-security": "node --env-file=.env scripts/verificar-seguranca-db.mjs",
     "db:verify-integration": "node --env-file=.env scripts/verificar-prontidao-integracao.mjs",

@@ -142,6 +142,11 @@ async function main() {
       pdf_path, xml_path, documento_expira_em,
       limpeza_reserva_token, limpeza_reserva_expira_em
     ) ON TABLE fiscal.notas TO ${roleSql}`);
+    await admin.unsafe(`GRANT SELECT ON TABLE fiscal.recuperacoes_documentos TO ${roleSql}`);
+    await admin.unsafe(`GRANT UPDATE (
+      status, tentativas, reservada_por, reserva_token, reserva_expira_em,
+      mensagem_status, codigo_erro, iniciada_em, concluida_em, atualizado_em
+    ) ON TABLE fiscal.recuperacoes_documentos TO ${roleSql}`);
     await admin.unsafe(`GRANT EXECUTE ON FUNCTION
       fiscal.reservar_tarefas_worker(text, integer, integer) TO ${roleSql}`);
   } finally {

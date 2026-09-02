@@ -544,6 +544,180 @@ async def _limpar_documentos_expirados(
                 logger.error("[%s] Reserva de limpeza será liberada pelo lease.", documento.tarefa_id)
 
 
+def _diagnostico_falha_recuperacao(etapa: str) -> tuple[str, str]:
+    """Traduz falhas técnicas da consulta em orientação segura para o Web."""
+
+    return {
+        "autenticacao": (
+            "FALHA_AUTENTICACAO",
+            "Não foi possível autenticar o emitente. Confira a credencial no Worker e tente novamente.",
+        ),
+        "navegacao": (
+            "FALHA_NAVEGACAO_CONSULTA",
+            "A consulta da Receita não abriu como esperado. Tente novamente mais tarde.",
+        ),
+        "consulta": (
+            "NOTA_NAO_LOCALIZADA",
+            "A Receita não retornou esta nota pela chave de acesso. Confira o ambiente ou chame o suporte.",
+        ),
+        "download": (
+            "FALHA_DOWNLOAD_RECUPERACAO",
+            "A nota foi localizada, mas XML e DANFE não puderam ser validados. Tente novamente.",
+        ),
+        "armazenamento": (
+            "STORAGE_INDISPONIVEL",
+            "Os documentos foram recuperados, mas o armazenamento está indisponível. Tente novamente.",
+        ),
+    }.get(
+        etapa,
+        (
+            "FALHA_TECNICA_RECUPERACAO",
+            "A recuperação foi interrompida com segurança. Tente novamente ou chame o suporte.",
+        ),
+    )
+
+
+async def _processar_recuperacoes_documentos(
+    fonte: FontePostgresTarefas,
+    config: Config,
+    logger,
+    limite: int,
+) -> bool:
+    """Recupera XML/DANFE sem reabrir nem alterar a tarefa de emissão.
+
+    O XML é baixado e validado primeiro pelo fluxo de consulta. Só depois o
+    par de documentos é enviado ao Storage e publicado por sete dias.
+    """
+
+    if not getattr(config, "processar_recuperacoes_documentos", False):
+        return False
+    storage = config.storage_documentos
+    assert storage is not None
+
+    recuperacoes = await fonte.reservar_recuperacoes_documentos(limite)
+    if not recuperacoes:
+        return False
+
+    por_id = {}
+    credenciais = {}
+    houve_falha = False
+    for recuperacao in recuperacoes:
+        try:
+            credenciais[recuperacao.recuperacao_id] = _validar_preparacao_reserva(
+                recuperacao,
+                config,
+            )
+            por_id[recuperacao.recuperacao_id] = recuperacao
+        except FalhaPreparacaoTarefa as exc:
+            houve_falha = True
+            await fonte.registrar_falha_recuperacao(
+                recuperacao.recuperacao_id,
+                recuperacao.reserva_token,
+                codigo_erro=exc.codigo,
+                mensagem=exc.mensagem_usuario,
+            )
+            logger.error(
+                "[%s] Recuperação bloqueada antes do navegador (%s).",
+                recuperacao.tarefa_id,
+                exc.codigo,
+            )
+
+    if not por_id:
+        return houve_falha
+
+    async def processar_recuperacao(
+        recuperacao_id: str,
+        context: BrowserContext,
+    ) -> None:
+        recuperacao = por_id[recuperacao_id]
+        tarefa = recuperacao.contratada.tarefa
+        etapa = "preparacao"
+        page = None
+        try:
+            page = await context.new_page()
+            etapa = "autenticacao"
+            await realizar_login(
+                page,
+                config.sistema_fiscal_url,
+                credenciais[recuperacao_id],
+                logger,
+            )
+            etapa = "navegacao"
+            await navegar_ate_consulta_teste(page, logger)
+            await selecionar_emitente_consulta(
+                page,
+                tarefa.emitente.valor_select,
+                logger,
+            )
+            etapa = "consulta"
+            await pesquisar_nota_por_chave(
+                page,
+                recuperacao.chave_acesso,
+                logger,
+                pausar_apos_clique=False,
+            )
+            etapa = "download"
+            documentos = await baixar_documentos_consulta(
+                page,
+                chave_acesso=recuperacao.chave_acesso,
+                numero=recuperacao.numero,
+                download_dir=config.download_dir,
+                tarefa_id=recuperacao.tarefa_id,
+                logger=logger,
+            )
+            etapa = "armazenamento"
+            caminhos = await armazenar_documentos(
+                storage,
+                recuperacao.tarefa_id,
+                documentos,
+                logger,
+            )
+            await fonte.concluir_recuperacao_documentos(
+                recuperacao,
+                pdf_path=caminhos["pdf_path"],
+                xml_path=caminhos["xml_path"],
+                retencao_dias=7,
+            )
+            logger.info(
+                "[%s] XML e DANFE recuperados e disponíveis por 7 dias.",
+                recuperacao.tarefa_id,
+            )
+        except Exception as exc:
+            codigo, mensagem = _diagnostico_falha_recuperacao(etapa)
+            try:
+                await fonte.registrar_falha_recuperacao(
+                    recuperacao.recuperacao_id,
+                    recuperacao.reserva_token,
+                    codigo_erro=codigo,
+                    mensagem=mensagem,
+                )
+            except FonteTarefasErro:
+                logger.error(
+                    "[%s] Falha também ao registrar o estado da recuperação.",
+                    recuperacao.tarefa_id,
+                )
+            logger.error(
+                "[%s] Recuperação interrompida em %s (%s).",
+                recuperacao.tarefa_id,
+                etapa,
+                type(exc).__name__,
+            )
+            raise RuntimeError("Recuperação fiscal interrompida com segurança.") from None
+        finally:
+            if page is not None:
+                with suppress(Exception):
+                    await page.close()
+
+    resultados = await processar_tarefas_em_paralelo_async(
+        tarefas_ids=list(por_id),
+        processar_tarefa=processar_recuperacao,
+        logger=logger,
+        headless=config.headless,
+        max_concorrencia=limite,
+    )
+    return houve_falha or any(not resultado.sucesso for resultado in resultados)
+
+
 async def executar_fila_banco_homologacao(
     config: Config,
     logger,
@@ -568,11 +742,17 @@ async def executar_fila_banco_homologacao(
             if not await _recuperar_uploads_pendentes(fonte, config, logger):
                 logger.error("Fila fiscal adiada até recuperar os documentos pendentes.")
                 return 1
+            falha_recuperacao = await _processar_recuperacoes_documentos(
+                fonte,
+                config,
+                logger,
+                limite,
+            )
             reservas = await fonte.reservar(limite)
             if not reservas:
                 if not silencioso_sem_tarefas:
                     logger.info("Nenhuma tarefa elegível encontrada na fila do banco.")
-                return 0
+                return int(falha_recuperacao)
 
             por_id = {}
             credenciais = {}
@@ -784,7 +964,8 @@ async def executar_fila_banco_homologacao(
                 max_concorrencia=limite,
             )
             return int(
-                falhas_preparacao > 0
+                falha_recuperacao
+                or falhas_preparacao > 0
                 or any(not resultado.sucesso for resultado in resultados)
             )
     except FonteTarefasErro as exc:

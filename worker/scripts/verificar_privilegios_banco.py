@@ -24,6 +24,8 @@ PRIVILEGIOS_OBRIGATORIOS = (
     "ler_notas",
     "inserir_notas",
     "atualizar_documentos_notas",
+    "ler_recuperacoes",
+    "atualizar_fila_recuperacoes",
 )
 
 PRIVILEGIOS_PROIBIDOS = (
@@ -33,6 +35,8 @@ PRIVILEGIOS_PROIBIDOS = (
     "excluir_tarefas",
     "excluir_notas",
     "atualizar_notas",
+    "excluir_recuperacoes",
+    "atualizar_recuperacoes",
 )
 
 
@@ -86,13 +90,30 @@ async def verificar(database_url: str) -> dict[str, object]:
                 AND has_column_privilege(current_user, 'fiscal.notas', 'limpeza_reserva_expira_em', 'UPDATE')
                 AS atualizar_documentos_notas,
               has_table_privilege(current_user, 'fiscal.emitentes', 'SELECT') AS ler_emitentes,
+              has_table_privilege(current_user, 'fiscal.recuperacoes_documentos', 'SELECT')
+                AS ler_recuperacoes,
+              has_column_privilege(current_user, 'fiscal.recuperacoes_documentos', 'status', 'UPDATE')
+                AND has_column_privilege(current_user, 'fiscal.recuperacoes_documentos', 'tentativas', 'UPDATE')
+                AND has_column_privilege(current_user, 'fiscal.recuperacoes_documentos', 'reservada_por', 'UPDATE')
+                AND has_column_privilege(current_user, 'fiscal.recuperacoes_documentos', 'reserva_token', 'UPDATE')
+                AND has_column_privilege(current_user, 'fiscal.recuperacoes_documentos', 'reserva_expira_em', 'UPDATE')
+                AND has_column_privilege(current_user, 'fiscal.recuperacoes_documentos', 'mensagem_status', 'UPDATE')
+                AND has_column_privilege(current_user, 'fiscal.recuperacoes_documentos', 'codigo_erro', 'UPDATE')
+                AND has_column_privilege(current_user, 'fiscal.recuperacoes_documentos', 'iniciada_em', 'UPDATE')
+                AND has_column_privilege(current_user, 'fiscal.recuperacoes_documentos', 'concluida_em', 'UPDATE')
+                AND has_column_privilege(current_user, 'fiscal.recuperacoes_documentos', 'atualizado_em', 'UPDATE')
+                AS atualizar_fila_recuperacoes,
               has_column_privilege(current_user, 'fiscal.emitentes', 'login_usuario', 'SELECT')
                 AS ler_login_legado,
               has_column_privilege(current_user, 'fiscal.emitentes', 'senha', 'SELECT')
                 AS ler_senha_legada,
               has_table_privilege(current_user, 'fiscal.tarefas', 'DELETE') AS excluir_tarefas,
               has_table_privilege(current_user, 'fiscal.notas', 'DELETE') AS excluir_notas,
-              has_table_privilege(current_user, 'fiscal.notas', 'UPDATE') AS atualizar_notas
+              has_table_privilege(current_user, 'fiscal.notas', 'UPDATE') AS atualizar_notas,
+              has_table_privilege(current_user, 'fiscal.recuperacoes_documentos', 'DELETE')
+                AS excluir_recuperacoes,
+              has_table_privilege(current_user, 'fiscal.recuperacoes_documentos', 'UPDATE')
+                AS atualizar_recuperacoes
             """
         )
         return avaliar_privilegios(dict(resultado))

@@ -105,7 +105,7 @@ fiscal nunca são ocultados por essa ação.
 
 ## Persistência e migrações
 
-As migrações `0001`–`0009` estão ativas no banco de teste. Destaques:
+As migrações `0001`–`0012` estão ativas no banco de teste. Destaques:
 
 - `0001`: relação N:N e emitente por distribuição/tarefa;
 - `0002`–`0006`: regras fiscais, lotes, credencial por referência,
@@ -114,6 +114,9 @@ As migrações `0001`–`0009` estão ativas no banco de teste. Destaques:
 - `0008`: idempotência, snapshot/hash, token de reserva, protocolo,
   unicidades e revogação de `EXECUTE` público;
 - `0009`: correção do retorno `reserva_token` da função.
+- `0010`: códigos de erro estruturados para orientação no Web;
+- `0011`: lease e campos da limpeza física de documentos vencidos;
+- `0012`: fila exclusiva e idempotente de recuperação por nota.
 
 Tarefas antigas sem lote são inelegíveis deliberadamente; as observadas no
 banco de teste já estão canceladas e permanecem apenas como histórico.
@@ -159,8 +162,8 @@ Storage privado, fonte banco e integração controlada.
 ### Recuperação histórica de documentos
 
 A chave de acesso persistida em `fiscal.notas` é o identificador da consulta;
-ela é extraída do XML autorizado, não do HTML. A recuperação será uma operação
-nova, idempotente e separada da tarefa de emissão: consultar nunca deve alterar
+ela é extraída do XML autorizado, não do HTML. A recuperação é uma operação
+idempotente e separada da tarefa de emissão: consultar nunca deve alterar
 uma tarefa para `PENDENTE` nem executar `emitir()`.
 
 O primeiro trecho já existe em `worker/src/flows/consulta.py` e `src/auth.py`:
@@ -168,9 +171,15 @@ abre somente a Consulta - TESTE por HTTPS e seleciona o emitente original pelo
 `valor_select_nfpe`. A pesquisa por chave e a presença de um único resultado
 com XML/DANFE foram validadas ao vivo. O gate local baixa primeiro o XML,
 compara chave e número com a nota solicitada e só então permite o DANFE; uma
-falha remove os artefatos daquela tentativa. A integração com banco/Storage
-permanece desligada até o download ser validado ao vivo e ganhar fila/reserva
-própria.
+falha remove os artefatos daquela tentativa.
+
+`fiscal.recuperacoes_documentos` mantém uma linha reutilizável por nota, com
+estados `PENDENTE`, `PROCESSANDO`, `CONCLUIDA` e `ERRO`, lease e token próprios.
+O Worker limpa primeiro o par vencido, reserva a recuperação com `SKIP LOCKED`,
+usa o snapshot imutável da emissão para resolver emitente/credencial, consulta
+pela chave, valida o XML antes do DANFE e envia o par ao Storage. O Web só volta
+a assinar os dois caminhos após a conclusão atômica. Documentos recuperados
+expiram em 7 dias; documentos da emissão original continuam em 30 dias.
 
 ### Integridade de campos numéricos mascarados
 

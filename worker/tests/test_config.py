@@ -538,3 +538,22 @@ def test_limpeza_de_documentos_configurada_permanece_opt_in(monkeypatch):
     monkeypatch.setenv("LIMPAR_DOCUMENTOS_EXPIRADOS", "true")
 
     assert carregar_config().limpar_documentos_expirados is True
+
+
+def test_recuperacao_historica_exige_limpeza_e_storage(monkeypatch):
+    _habilitar_emissao_homologacao(monkeypatch)
+    monkeypatch.setenv("FONTE_TAREFAS", "banco")
+    monkeypatch.setenv("WORKER_DATABASE_URL", "postgresql://usuario@localhost/teste")
+    monkeypatch.setenv("WORKER_ID", "worker-teste")
+    monkeypatch.setenv("TESTAR_INTEGRACAO_BANCO", "true")
+    monkeypatch.setenv("PROCESSAR_FILA_BANCO", "true")
+    monkeypatch.setenv("ARMAZENAR_DOCUMENTOS", "true")
+    monkeypatch.setenv("SUPABASE_URL", "https://projeto.supabase.co")
+    monkeypatch.setenv("SUPABASE_SECRET_KEY", "s" * 32)
+    monkeypatch.setenv("PROCESSAR_RECUPERACOES_DOCUMENTOS", "true")
+
+    with pytest.raises(RuntimeError, match="limpeza controlada"):
+        carregar_config()
+
+    monkeypatch.setenv("LIMPAR_DOCUMENTOS_EXPIRADOS", "true")
+    assert carregar_config().processar_recuperacoes_documentos is True

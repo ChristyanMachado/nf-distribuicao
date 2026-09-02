@@ -34,17 +34,15 @@ banco de teste e passou no verificador de privilégios.
 
 ## Meta imediata — recuperação histórica e polimento do fluxo diário
 
-1. Provar em homologação uma consulta por chave conhecida e o download de
-   XML/DANFE, sem gravar nova nota e sem reutilizar a fila de emissão.
-2. Modelar uma fila própria, idempotente e auditável para recuperação histórica
-   somente de notas que passaram pelo sistema.
-3. Corrigir no celular o bloco Adicionar produto e manter a confirmação da
+1. Validar ao vivo o circuito conectado de recuperação por chave conhecida:
+   botão Web → fila exclusiva → Worker → Storage → retorno dos botões.
+2. Corrigir no celular o bloco Adicionar produto e manter a confirmação da
    distribuição criada imediatamente visível.
-4. Pedir confirmação explícita quando houver quantidade não distribuída,
+3. Pedir confirmação explícita quando houver quantidade não distribuída,
    preservando o bloqueio de excesso no cliente e no servidor.
-5. Harmonizar os conceitos de nota registrada, nota emitida e distribuição
+4. Harmonizar os conceitos de nota registrada, nota emitida e distribuição
    entre Home e Relatórios, usando duração real para o tempo médio.
-6. Aplicar e ensaiar a migration `0011`; depois retomar container/VM e operação
+5. Ensaiar a limpeza da migration `0011`; depois retomar container/VM e operação
    persistente. O Web já está publicado e o ciclo conectado foi comprovado.
 
 ## Próximas entregas de código
@@ -56,13 +54,12 @@ banco de teste e passou no verificador de privilégios.
   persistente e testes; falta validá-la no container/VM;
 - retenção operacional definida em **30 dias** para novos documentos;
   limpeza física idempotente está implementada e protegida por flag, reserva e
-  lease. Antes de ativá-la: aplicar migration `0011`, reprovisionar o papel
-  mínimo e validar um documento vencido no ambiente de teste. A exclusão usa a
+  lease. A migration `0011` foi aplicada e o papel mínimo auditado; antes de
+  ativá-la na VM, validar um documento vencido no ambiente de teste. A exclusão usa a
   API do Storage, nunca SQL direto;
-- recuperação histórica sob demanda será um trabalho separado do Worker:
-  autenticar pelo emitente, consultar o portal NFP-e e baixar XML/DANFE apenas
-  quando o portal autorizar. Primeiro é necessário reconhecer filtros, limites
-  de período, lista de resultados e seletores do portal.
+- recuperação histórica sob demanda usa fila própria por nota e nunca reabre
+  a emissão. O XML é validado antes do DANFE; após o reenvio, o par recuperado
+  fica disponível por 7 dias. Migration `0012` aplicada; falta ensaio ao vivo.
 
 ### Operação persistente
 
