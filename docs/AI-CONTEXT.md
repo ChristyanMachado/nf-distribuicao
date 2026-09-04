@@ -9,7 +9,7 @@ O produto organiza distribuições diárias e automatiza NFP-e. O Web cadastra e
 gera tarefas; o banco mantém snapshots imutáveis e a fila; o Worker reserva e
 executa cada tarefa em um `BrowserContext` independente.
 
-## Estado validado em 29/08/2026
+## Estado validado em 04/09/2026
 
 - A marca confirmada do produto é **Graalyst**. O ícone oficial foi aplicado
   ao login e à navegação do Web; não confundir com nomes de emitentes presentes
@@ -39,8 +39,14 @@ executa cada tarefa em um `BrowserContext` independente.
   etapa e o Web mostra “o que aconteceu” + “o que fazer”. O botão **Tentar
   novamente** aparece somente para falhas pré-emissão permitidas por lista
   fechada; resultado fiscal incerto nunca volta à fila.
-- Validação local: **233 testes Worker**, **95 testes Web**, 3 testes do
+- Validação local: **236 testes Worker**, **95 testes Web**, 3 testes do
   preflight de deploy, TypeScript e build de produção passaram.
+- O serviço persistente permanece disponível 24 horas para limpeza, retomada de
+  upload e recuperação histórica. Apenas a reserva de novas emissões usa a
+  janela configurável, padrão `00:00–06:00` em `America/Sao_Paulo`; fora dela
+  nenhuma tarefa fiscal é reservada. `tzdata` fixa a base de fuso em todos os
+  ambientes. A lógica e suas fronteiras possuem testes, mas ainda falta a prova
+  do container na VM.
 - O bucket `documentos-fiscais` foi conferido somente por metadados: existe, é
   privado, limita tamanho e aceita PDF/XML. O papel `nf_worker_local` ganhou
   UPDATE apenas de `pdf_path`, `xml_path` e expiração; a auditoria continua sem
@@ -189,8 +195,9 @@ executa cada tarefa em um `BrowserContext` independente.
    motorista, que não contém valores monetários.
 6. Relatórios atuais são operacionais. Financeiro líquido, auditoria, RH e
    autorização multiusuário pertencem às próximas fases.
-7. O requisito futuro é processamento automático entre 00:00 e 06:00 em
-   `America/Sao_Paulo`; ainda falta scheduler persistente.
+7. Novas emissões automáticas são reservadas entre 00:00 e 06:00 em
+   `America/Sao_Paulo`; recuperação e limpeza continuam 24h. A política já está
+   no serviço persistente e ainda precisa ser validada na VM.
 8. A descrição do produto é seu nome operacional e deve diferenciá-lo também
    pela unidade; o Worker continua localizando o item pelo código fiscal.
 9. Sobra de quantidade é permitida somente após confirmação explícita do
@@ -218,7 +225,7 @@ Ctrl+V está implementada, mas permanece no gate de validação pré-emissão.
 3. Criar a VM do piloto, fornecer uma identidade PostgreSQL própria e iniciar o
    serviço somente quando não houver tarefa involuntária elegível.
 4. Repetir o fluxo conectado com até 3 tarefas/contextos simultâneos, medindo
-   CPU/RAM, isolamento e tempo, e depois implementar scheduler/alertas.
+   CPU/RAM, isolamento, tempo e fronteiras da janela; depois adicionar alertas.
 5. Validar a limpeza isolada da migration `0011` num documento de teste vencido. Manter a flag desligada até esse
    ensaio; produção segue bloqueada até autenticação/autorização definitiva,
    backup, recuperação e piloto humano aprovado.

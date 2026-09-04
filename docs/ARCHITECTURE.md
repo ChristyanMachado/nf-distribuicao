@@ -200,15 +200,22 @@ avança quando o número observado diverge do snapshot da tarefa.
 
 O container usa filesystem raiz somente leitura, capabilities removidas,
 `no-new-privileges`, volumes separados para logs/downloads e healthcheck local
-sem dados fiscais. O serviço audita o papel PostgreSQL antes de iniciar e só
+sem dados fiscais. A saída padrão do Docker tem rotação limitada para não
+esgotar o disco da VM. O serviço audita o papel PostgreSQL antes de iniciar e só
 aceita `WORKER_PERSISTENTE=true` quando está headless, sem Inspector ou pausa,
 com fila processada, Storage, concorrência explícita e todas as travas de
 homologação. Ele não amplia a autorização para produção.
 
 O polling persistente reutiliza o mesmo contrato/reserva já testado e omite a
-mensagem repetitiva de fila vazia. Manter uma conexão/fila durável e o
-scheduler noturno continuam melhorias posteriores; o primeiro piloto pode
-operar com polling curto e supervisionado.
+mensagem repetitiva de fila vazia. O processo opera 24 horas, porém separa os
+trabalhos por política: limpeza, recuperação de upload e recuperação histórica
+podem rodar em qualquer ciclo; a reserva de novas emissões só ocorre na janela
+configurável, por padrão `00:00–06:00` em `America/Sao_Paulo`. Fora dela, a
+função retorna antes de reservar `fiscal.tarefas`. A base `tzdata` é fixada para
+que essa decisão seja determinística no Windows, Linux e container. Execuções
+manuais continuam explícitas e não herdam silenciosamente o agendamento do
+serviço. Manter uma conexão/fila durável e alertas externos são melhorias
+posteriores; o primeiro piloto pode operar com polling curto e supervisionado.
 
 Consulte `DEPLOYMENT.md`, `SECURITY.md`, `CONTRATO-WEB-WORKER.md` e
 `ROADMAP.md` para os gates operacionais.

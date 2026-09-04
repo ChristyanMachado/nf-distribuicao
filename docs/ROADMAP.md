@@ -21,10 +21,11 @@ um portal autenticado, sem misturar autorização administrativa nesta entrega.
   incluindo XML/DANFE e retorno `EMITIDA` ao banco.
 - **Fase 5 — operação persistente:** fundação pronta em código: preflight do
   Web, imagem/Compose do Worker, serviço de polling, healthcheck e auditoria de
-  privilégios. Falta validar a imagem numa VM e adicionar scheduler/alertas.
+  privilégios. A janela interna já separa recuperações 24h de novas emissões
+  entre 00:00 e 06:00. Falta validar a imagem numa VM e adicionar alertas.
 - **Fase 6 — produção:** não iniciada e explicitamente bloqueada.
 
-Migrações `0001`–`0010` estão ativas. Cliente, emitente e três produtos reais
+Migrações `0001`–`0012` estão ativas. Cliente, emitente e três produtos reais
 foram aceitos pelo portal. Uma espera por estado da tela-resumo corrigiu a
 corrida entre o Avançar do ICMS e o Avançar para Transporte, sem `sleep` fixo.
 
@@ -64,7 +65,8 @@ banco de teste e passou no verificador de privilégios.
 
 - construir e validar na VM a imagem preparada com Chromium e supervisão;
 - papel PostgreSQL exclusivo do Worker com privilégios mínimos;
-- scheduler entre 00:00 e 06:00 em `America/Sao_Paulo`;
+- validar na VM a janela interna entre 00:00 e 06:00 em
+  `America/Sao_Paulo`, mantendo recuperações disponíveis 24h;
 - healthcheck, métricas, alertas e recuperação segura;
 - nunca repetir automaticamente resultado fiscal incerto.
 

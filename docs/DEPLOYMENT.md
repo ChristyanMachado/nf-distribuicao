@@ -2,9 +2,10 @@
 
 ## Estado desta proposta
 
-Este documento recomenda uma topologia para o piloto. Nenhuma conta, VM ou
-credencial de produção foi criada por esta decisão. A liberação fiscal real
-continua bloqueada pelas fases de homologação do `docs/ROADMAP.md`.
+O Web já está publicado no Vercel e o banco/Storage de homologação estão
+conectados. A VM do Worker ainda não foi criada. Nenhuma credencial de produção
+foi criada por esta decisão e a liberação fiscal real continua bloqueada pelas
+fases de homologação do `docs/ROADMAP.md`.
 
 ## Topologia recomendada
 
@@ -147,7 +148,16 @@ MAX_CONCORRENCIA="1"
 ARMAZENAR_DOCUMENTOS="true"
 LIMPAR_DOCUMENTOS_EXPIRADOS="true"
 PROCESSAR_RECUPERACOES_DOCUMENTOS="true"
+WORKER_EMISSAO_INICIO_HORA="0"
+WORKER_EMISSAO_FIM_HORA="6"
 ```
+
+O serviço fica ativo 24 horas. Limpeza, retomada de upload interrompido e
+recuperações solicitadas no Web são atendidas em qualquer horário. Somente a
+reserva de **novas emissões** obedece a janela acima, avaliada sempre em
+`America/Sao_Paulo`. O início é inclusivo e o fim exclusivo; `0`/`6` significa
+`00:00 <= hora < 06:00`. Horários iguais são rejeitados para evitar uma janela
+ambígua de duração zero.
 
 Primeiro audite a identidade sem iniciar o polling:
 
@@ -168,7 +178,10 @@ docker compose logs --tail=100 worker
 
 Para encerrar, use `docker compose stop`; o Compose concede cinco minutos para
 o ciclo fiscal atual terminar. O container não publica porta. O healthcheck lê
-somente um arquivo local sanitizado e aceita os estados `ok`/`processando`.
+somente um arquivo local sanitizado e aceita os estados `ok`/`processando`. O
+driver local também limita os logs do Docker a cinco arquivos de 10 MB, evitando
+que a saída padrão cresça sem limite; os logs funcionais persistidos em
+`worker-logs` ainda devem receber uma política de retenção após medir o piloto.
 
 ## Oracle Cloud para o piloto
 
@@ -205,9 +218,11 @@ curto ou consome uma fila, reserva a tarefa atomicamente e passa a executar.
 Assim o usuário vê o status quase imediatamente, sem depender de manter a
 tela aberta nem de a requisição HTTP sobreviver por minutos.
 
-Para o requisito noturno, o Worker só inicia emissão fiscal na janela
-`00:00–06:00` (`America/Sao_Paulo`), salvo modos explícitos de homologação
-controlada. O scheduler pertence ao Worker, não ao navegador do usuário.
+Para o requisito noturno, o serviço persistente só reserva nova emissão fiscal
+na janela `00:00–06:00` (`America/Sao_Paulo`). Fora dela, permanece acordado
+para recuperações e limpeza, sem tocar nas emissões pendentes. Execuções manuais
+controladas preservam seu comportamento explícito. O agendamento pertence ao
+Worker, não ao navegador do usuário.
 
 ## Opções de fila
 
@@ -218,10 +233,12 @@ polling, mas está em beta; não será dependência obrigatória do MVP.
 
 ## Estado real da implantação
 
-Web e VM ainda não foram publicados. O bucket privado de teste e o primeiro
-upload/download real foram validados; a chave permanece somente nos ambientes
-locais ignorados pelo Git. O banco contém as migrações `0001`–`0010`, e canal
-TLS e papel mínimo passaram nas verificações. O código agora inclui preflight
-Vercel e serviço/container do Worker, mas esta máquina não possui Docker nem
-Vercel CLI; portanto a próxima prova é construir a imagem na VM, validar o
-healthcheck sem tarefa e somente então liberar uma tarefa de homologação.
+O Web está publicado no Vercel e foi validado por celular. O bucket privado,
+upload/download e recuperação conectada foram comprovados em homologação; os
+segredos permanecem somente nos ambientes protegidos e ignorados pelo Git. O
+banco contém as migrações `0001`–`0012`, e canal TLS e papel mínimo local
+passaram nas verificações. O código inclui preflight Vercel, serviço/container,
+healthcheck e janela operacional do Worker, mas esta máquina não possui Docker.
+A próxima prova é construir a imagem na VM, criar/auditar uma identidade própria
+para ela, validar o healthcheck sem tarefa e somente então liberar uma tarefa de
+homologação.

@@ -1,6 +1,22 @@
 # Handoff — Estado Atual
 
-## Estado autoritativo — 02/09/2026
+## Estado autoritativo — 04/09/2026
+
+- A preparação da VM avançou sem alterar o fluxo fiscal validado: o serviço
+  permanece ativo 24h para limpeza, retomada de upload e recuperação histórica,
+  mas só reserva novas emissões na janela configurável, por padrão
+  `00:00–06:00` em `America/Sao_Paulo`. Fora dela, retorna antes da reserva da
+  fila fiscal. Execuções manuais controladas preservam o comportamento anterior.
+- `tzdata==2026.3` foi fixada para que a janela tenha a mesma base IANA no
+  Windows, Linux e container. Testes cobrem as fronteiras 00/06, janela que
+  atravessa meia-noite e ausência de reserva fora da janela. O runtime Docker
+  ainda não foi executado nesta máquina.
+- O Compose limita a saída padrão do Docker a 5 arquivos de 10 MB para reduzir
+  o risco de esgotamento do disco da VM; a retenção dos logs funcionais no
+  volume ainda será definida a partir das medições do piloto.
+- Validação desta etapa: **236 testes Worker**, `compileall`, **95 testes Web**,
+  TypeScript, build Next.js de produção e `git diff --check` passaram. O índice
+  Graphify foi atualizado incrementalmente para 1.338 nós/3.118 relações.
 
 - A reunião de 29/08 foi triada em `REUNIAO-2026-08-29.md`; conversas paralelas
   e dados pessoais não viraram requisito. Pontos ativos: responsividade de
@@ -106,6 +122,9 @@
 - `WORKER_PERSISTENTE=true` continua exclusivo de homologação e exige headless,
   Inspector/pausa desligados, fila processada, Storage e concorrência explícita.
   Nenhuma porta é publicada e produção fiscal segue bloqueada.
+
+- O Web já está publicado e foi validado por celular. Nesta etapa, “sem
+  publicação” refere-se apenas à VM/container do Worker.
 
 - Web responsivo com cadastros, distribuição idempotente por lote, tarefas,
   notas, roteiro de motorista e relatórios operacionais.
@@ -305,8 +324,8 @@
    mas o runtime do Worker ainda não foi validado em VM.
 4. Na VM, auditar o papel e canal antes de subir o polling; iniciar com fila
    controlada e `MAX_CONCORRENCIA=1`, ainda em homologação.
-5. Medir CPU/RAM, healthcheck e encerramento gracioso; depois testar até 3
-   contextos distintos e implementar scheduler/alertas.
+5. Medir CPU/RAM, healthcheck, encerramento gracioso e a janela interna; depois
+   testar até 3 contextos distintos e adicionar alertas.
 
 ### Comandos de validação
 

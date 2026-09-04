@@ -723,6 +723,7 @@ async def executar_fila_banco_homologacao(
     logger,
     *,
     silencioso_sem_tarefas: bool = False,
+    permitir_emissoes: bool = True,
 ) -> int:
     """Processa até três tarefas do banco, exclusivamente em homologação.
 
@@ -748,6 +749,11 @@ async def executar_fila_banco_homologacao(
                 logger,
                 limite,
             )
+            # O serviço persistente fica disponível 24h para recuperações,
+            # mas não deve sequer reservar uma emissão fora da janela diária.
+            # Execuções manuais controladas preservam o comportamento anterior.
+            if not permitir_emissoes:
+                return int(falha_recuperacao)
             reservas = await fonte.reservar(limite)
             if not reservas:
                 if not silencioso_sem_tarefas:

@@ -241,6 +241,22 @@ def test_fila_persistente_nao_repete_log_quando_esta_ociosa(caplog):
     assert "Nenhuma tarefa elegível" not in caplog.text
 
 
+def test_fora_da_janela_nao_reserva_nova_emissao() -> None:
+    fonte = _FonteBancoFake([_reserva_banco()])
+
+    with patch("main.FontePostgresTarefas", return_value=fonte):
+        resultado = asyncio.run(
+            executar_fila_banco_homologacao(
+                _config_banco(),
+                logging.getLogger("teste-fila-fora-da-janela"),
+                permitir_emissoes=False,
+            )
+        )
+
+    assert resultado == 0
+    fonte.reservar.assert_not_awaited()
+
+
 def test_recuperacao_de_upload_associa_documentos_sem_abrir_portal():
     fonte = _FonteBancoFake([])
     tarefa_id = "11111111-1111-4111-8111-111111111111"

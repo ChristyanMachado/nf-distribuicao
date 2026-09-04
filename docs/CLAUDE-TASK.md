@@ -1,4 +1,4 @@
-# Ordem de continuidade para Claude — 02/09/2026
+# Ordem de continuidade para Claude — 04/09/2026
 
 ## Papel
 
@@ -49,6 +49,10 @@ migrator oficial do runtime. O papel `nf_worker_local` foi reprovisionado e a
 auditoria passou sem privilégios ausentes ou excessivos. O teste humano de
 ponta a ponta também passou com duas notas recuperadas em execuções separadas.
 O próximo trabalho principal é o container/VM e o polimento mobile restante.
+O serviço já separa recuperação/limpeza 24h de novas emissões, que só são
+reservadas na janela configurável padrão `00:00–06:00` em
+`America/Sao_Paulo`. Não substitua essa política por cron que desligue o
+serviço: o botão de recuperação deve continuar atendido fora da madrugada.
 
 Ao orientar o deploy:
 

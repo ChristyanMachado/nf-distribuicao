@@ -38,7 +38,8 @@ arquivo. Os roteiros controlados e todas as travas estão em
 
 O `Dockerfile` usa a imagem oficial Playwright 1.48.0 Noble, fixada na mesma
 versão da biblioteca Python. O `compose.yaml` não publica portas, usa raiz
-somente leitura, volumes para logs/downloads e healthcheck sanitizado.
+somente leitura, volumes para logs/downloads, healthcheck sanitizado e rotação
+dos logs do próprio Docker (5 arquivos de até 10 MB).
 
 O serviço recusa iniciar se `WORKER_PERSISTENTE=true` não estiver acompanhado
 por modo headless, Inspector/pausas desligados, banco, Storage, concorrência
@@ -64,6 +65,14 @@ encerramento gracioso. Consulte `../docs/DEPLOYMENT.md` para as variáveis e a
 sequência completa. A imagem ainda precisa ser construída e testada na VM;
 Docker não está instalado na estação onde esta preparação foi criada.
 
+O processo permanece ativo 24 horas para limpeza, retomada de upload e
+recuperação histórica. Novas emissões só são reservadas entre
+`WORKER_EMISSAO_INICIO_HORA` (padrão `0`) e
+`WORKER_EMISSAO_FIM_HORA` (padrão `6`), sempre em
+`America/Sao_Paulo`. A dependência `tzdata` fixa a mesma base de fuso no
+Windows, Linux e container. Fora da janela, tarefas de emissão ficam pendentes
+e não são reservadas.
+
 `LIMPAR_DOCUMENTOS_EXPIRADOS` começa como `false`. Quando habilitada após a
 migration `0011` e a auditoria do papel, remove XML/DANFE vencidos pelo Storage
 e preserva o histórico da nota. Não habilite a flag antes de validar o ciclo em
@@ -78,7 +87,8 @@ aplicar `0011`/`0012` e reprovisionar/auditar o papel do Worker.
 ## Limites atuais
 
 - execução persistente continua exclusiva de homologação;
-- scheduler noturno, alertas e métricas externas ainda não foram implementados;
+- janela noturna interna está implementada; alertas e métricas externas ainda
+  não foram implementados;
 - recuperação automática de upload interrompido deve ocorrer sem reemitir;
 - primeiro piloto na VM começa com `MAX_CONCORRENCIA=1`; subir para 3 somente
   após medir CPU/RAM e isolamento.
