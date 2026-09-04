@@ -43,6 +43,7 @@ const NAV_ITEMS_SECUNDARIOS = [
   { href: "/clientes", label: "Clientes", Icon: IconUsers },
   { href: "/emitentes", label: "Emitentes", Icon: IconBuilding },
   { href: "/produtos", label: "Produtos", Icon: IconCrate },
+  { href: "/configuracoes", label: "Configurações", Icon: IconMore },
 ];
 
 export default function RootLayout({

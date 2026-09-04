@@ -173,6 +173,27 @@ def test_recusa_tarefa_sem_itens() -> None:
         montar_payload_contrato(_cabecalho(), [])
 
 
+def test_carrega_janela_operacional_somente_por_leitura() -> None:
+    conexao = _ConexaoFake(fetchrow=[{
+        "emissao_inicio_hora": 0,
+        "emissao_fim_hora": 7,
+    }])
+    fonte = _fonte_com_conexao(conexao)
+
+    assert asyncio.run(fonte.obter_janela_emissao()) == (0, 7)
+    metodo, consulta, argumentos = conexao.chamadas[0]
+    assert metodo == "fetchrow"
+    assert "configuracoes_operacionais" in consulta
+    assert argumentos == ()
+
+
+def test_recusa_janela_operacional_ausente_ou_invalida() -> None:
+    for linha in (None, {"emissao_inicio_hora": 6, "emissao_fim_hora": 6}):
+        fonte = _fonte_com_conexao(_ConexaoFake(fetchrow=[linha]))
+        with pytest.raises(FonteTarefasErro, match="janela de emissão"):
+            asyncio.run(fonte.obter_janela_emissao())
+
+
 def test_regras_operacionais_permutadas_nao_sao_consideradas_iguais() -> None:
     primeiro = _item()
     segundo = _item(

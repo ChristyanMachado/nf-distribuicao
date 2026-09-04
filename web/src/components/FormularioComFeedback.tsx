@@ -15,15 +15,25 @@ export default function FormularioComFeedback({
   action,
   children,
   className,
+  confirmMessage,
 }: {
   action: AcaoFormulario;
   children: React.ReactNode;
   className?: string;
+  confirmMessage?: string;
 }) {
   const [estado, acao] = useActionState(action, ESTADO_FORMULARIO_INICIAL);
 
   return (
-    <form action={acao} className={className}>
+    <form
+      action={acao}
+      className={className}
+      onSubmit={(evento) => {
+        if (confirmMessage && !window.confirm(confirmMessage)) {
+          evento.preventDefault();
+        }
+      }}
+    >
       {children}
       {estado.erro && (
         <p

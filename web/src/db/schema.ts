@@ -40,6 +40,19 @@ export const statusRecuperacaoDocumentoEnum = fiscalSchema.enum(
   ["PENDENTE", "PROCESSANDO", "CONCLUIDA", "ERRO"],
 );
 
+// Configuração operacional única, editável pelo Web e somente legível pelo
+// Worker. A janela limita novas reservas; tarefas em andamento não são paradas.
+export const configuracoesOperacionais = fiscalSchema.table(
+  "configuracoes_operacionais",
+  {
+    id: boolean("id").primaryKey().default(true),
+    emissaoInicioHora: integer("emissao_inicio_hora").notNull().default(0),
+    emissaoFimHora: integer("emissao_fim_hora").notNull().default(6),
+    atualizadoPor: text("atualizado_por"),
+    atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
+  },
+);
+
 // Indicador da IE do destinatário, conforme observado no sistema fiscal.
 // Hoje só o fluxo "1 — Contribuinte ICMS" foi confirmado (ver worker/RECON.md).
 export const indicadorIeEnum = fiscalSchema.enum("indicador_ie", [

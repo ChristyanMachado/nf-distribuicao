@@ -13,6 +13,7 @@ def _resultado_minimo() -> dict[str, bool]:
         "inserir_notas": True,
         "atualizar_documentos_notas": True,
         "ler_recuperacoes": True,
+        "ler_configuracao_operacional": True,
         "atualizar_fila_recuperacoes": True,
         "ler_emitentes": False,
         "ler_login_legado": False,

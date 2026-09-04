@@ -208,6 +208,28 @@ class FontePostgresTarefas:
         except Exception as exc:
             raise FonteTarefasErro("Não foi possível reservar tarefas no banco.") from exc
 
+    async def obter_janela_emissao(self) -> tuple[int, int]:
+        """Carrega a preferência operacional sem conceder escrita ao Worker."""
+
+        try:
+            async with self._conexao() as conexao:
+                linha = await conexao.fetchrow(
+                    """SELECT emissao_inicio_hora, emissao_fim_hora
+                       FROM fiscal.configuracoes_operacionais
+                       WHERE id = TRUE"""
+                )
+            if linha is None:
+                raise FonteTarefasErro("A janela de emissão não está configurada.")
+            inicio = int(linha["emissao_inicio_hora"])
+            fim = int(linha["emissao_fim_hora"])
+            if not 0 <= inicio <= 23 or not 0 <= fim <= 23 or inicio == fim:
+                raise FonteTarefasErro("A janela de emissão configurada é inválida.")
+            return inicio, fim
+        except FonteTarefasErro:
+            raise
+        except Exception as exc:
+            raise FonteTarefasErro("Não foi possível carregar a janela de emissão.") from exc
+
     async def registrar_status(
         self,
         tarefa_id: str,

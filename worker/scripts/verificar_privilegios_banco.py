@@ -26,6 +26,7 @@ PRIVILEGIOS_OBRIGATORIOS = (
     "atualizar_documentos_notas",
     "ler_recuperacoes",
     "atualizar_fila_recuperacoes",
+    "ler_configuracao_operacional",
 )
 
 PRIVILEGIOS_PROIBIDOS = (
@@ -92,6 +93,8 @@ async def verificar(database_url: str) -> dict[str, object]:
               has_table_privilege(current_user, 'fiscal.emitentes', 'SELECT') AS ler_emitentes,
               has_table_privilege(current_user, 'fiscal.recuperacoes_documentos', 'SELECT')
                 AS ler_recuperacoes,
+              has_table_privilege(current_user, 'fiscal.configuracoes_operacionais', 'SELECT')
+                AS ler_configuracao_operacional,
               has_column_privilege(current_user, 'fiscal.recuperacoes_documentos', 'status', 'UPDATE')
                 AND has_column_privilege(current_user, 'fiscal.recuperacoes_documentos', 'tentativas', 'UPDATE')
                 AND has_column_privilege(current_user, 'fiscal.recuperacoes_documentos', 'reservada_por', 'UPDATE')

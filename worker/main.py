@@ -30,6 +30,7 @@ from src.flows.consulta import (
 )
 from src.flows.emissao import Emitente, Tarefa
 from src.fonte_tarefas import FontePostgresTarefas, FonteTarefasErro
+from src.janela_emissao import JanelaEmissao
 from src.storage_documentos import (
     armazenar_documentos,
     carregar_manifesto_upload_pendente,
@@ -723,7 +724,7 @@ async def executar_fila_banco_homologacao(
     logger,
     *,
     silencioso_sem_tarefas: bool = False,
-    permitir_emissoes: bool = True,
+    usar_janela_operacional: bool = False,
 ) -> int:
     """Processa até três tarefas do banco, exclusivamente em homologação.
 
@@ -749,11 +750,13 @@ async def executar_fila_banco_homologacao(
                 logger,
                 limite,
             )
-            # O serviço persistente fica disponível 24h para recuperações,
-            # mas não deve sequer reservar uma emissão fora da janela diária.
-            # Execuções manuais controladas preservam o comportamento anterior.
-            if not permitir_emissoes:
-                return int(falha_recuperacao)
+            # O serviço fica disponível 24h para recuperações, mas consulta a
+            # preferência do Web antes de reservar uma nova emissão. A decisão
+            # acontece uma única vez: trabalho reservado continua até terminar.
+            if usar_janela_operacional:
+                inicio, fim = await fonte.obter_janela_emissao()
+                if not JanelaEmissao(inicio, fim).permite_nova_emissao():
+                    return int(falha_recuperacao)
             reservas = await fonte.reservar(limite)
             if not reservas:
                 if not silencioso_sem_tarefas:

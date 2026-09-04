@@ -12,8 +12,10 @@ altere arquitetura ou migrações aplicadas sem registrar e justificar.
    `ARCHITECTURE.md`, `HANDOFF.md`, `COLABORACAO.md`, `SECURITY.md` e
    `CONTRATO-WEB-WORKER.md`.
 2. Confira branch, `git status` e diff. Preserve alterações existentes.
-3. Considere `0001`–`0012` já aplicadas no banco de teste; não reaplique às
-   cegas. Em outro banco, rode primeiro a verificação pré-0008.
+3. Considere `0001`–`0012` já aplicadas no banco de teste. `0013` e `0014`
+   estão apenas preparadas e não devem ser marcadas como aplicadas sem prova.
+   `0014` toca funções do sistema de ponto compartilhado e exige teste desse
+   sistema. Em outro banco, rode primeiro a verificação pré-0008.
 4. Se `graphify-out/graph.json` existir, use uma consulta focada para trabalho
    transversal ou de impacto incerto. Em correção pequena com arquivos já
    conhecidos, vá direto ao código, testes e diff. Siga `GRAPHIFY.md`, limite a
@@ -38,6 +40,12 @@ altere arquitetura ou migrações aplicadas sem registrar e justificar.
 
 ## Próxima tarefa prioritária
 
+Antes de qualquer alteração fiscal, revisar o diff da janela operacional e as
+migrations `0013`/`0014`. Não aplicar `0014` sem autorização humana explícita e
+sem combinar um teste do login/gestão de usuários do sistema de ponto. A
+auditoria ao vivo confirmou que o schema `fiscal` não tem grants de tabela para
+`anon`/`authenticated`; não habilitar RLS ou grants adicionais às cegas.
+
 Revise e ajude a validar o circuito conectado de recuperação já implementado:
 `/notas` → `fiscal.recuperacoes_documentos` → Worker Consulta - TESTE → XML
 validado → DANFE → Storage → botões Web. A fila tem lease/token próprios, uma
@@ -48,11 +56,12 @@ As migrations `0011` e `0012` foram aplicadas no banco de teste em 02/09 pelo
 migrator oficial do runtime. O papel `nf_worker_local` foi reprovisionado e a
 auditoria passou sem privilégios ausentes ou excessivos. O teste humano de
 ponta a ponta também passou com duas notas recuperadas em execuções separadas.
-O próximo trabalho principal é o container/VM e o polimento mobile restante.
-O serviço já separa recuperação/limpeza 24h de novas emissões, que só são
-reservadas na janela configurável padrão `00:00–06:00` em
-`America/Sao_Paulo`. Não substitua essa política por cron que desligue o
-serviço: o botão de recuperação deve continuar atendido fora da madrugada.
+O próximo trabalho principal é aplicar conscientemente as migrations pendentes
+e validar o container/VM. O serviço já separa recuperação/limpeza 24h do início
+de novas emissões. A janela padrão `00:00–06:00` é editável no Web, fica no
+banco e é lida a cada ciclo. Não substitua essa política por cron que desligue
+o serviço: o botão de recuperação deve continuar atendido fora da madrugada e
+uma nota reservada antes do corte deve sempre terminar.
 
 Ao orientar o deploy:
 

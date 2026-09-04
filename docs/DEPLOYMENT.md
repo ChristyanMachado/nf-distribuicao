@@ -148,16 +148,17 @@ MAX_CONCORRENCIA="1"
 ARMAZENAR_DOCUMENTOS="true"
 LIMPAR_DOCUMENTOS_EXPIRADOS="true"
 PROCESSAR_RECUPERACOES_DOCUMENTOS="true"
-WORKER_EMISSAO_INICIO_HORA="0"
-WORKER_EMISSAO_FIM_HORA="6"
 ```
 
 O serviço fica ativo 24 horas. Limpeza, retomada de upload interrompido e
 recuperações solicitadas no Web são atendidas em qualquer horário. Somente a
-reserva de **novas emissões** obedece a janela acima, avaliada sempre em
-`America/Sao_Paulo`. O início é inclusivo e o fim exclusivo; `0`/`6` significa
-`00:00 <= hora < 06:00`. Horários iguais são rejeitados para evitar uma janela
-ambígua de duração zero.
+reserva de **novas emissões** obedece à janela persistida em
+`fiscal.configuracoes_operacionais`, editável na página **Horário de emissão**
+do Web. O padrão é `00:00 <= hora < 06:00`, avaliado em
+`America/Sao_Paulo`; fim `7` aceita novos trabalhos até `06:59`. A alteração é
+lida no ciclo seguinte e não exige reiniciar a VM. Horários iguais são
+rejeitados para evitar duração zero. Uma tarefa reservada antes do corte
+continua até terminar, mesmo que ultrapasse o horário final.
 
 Primeiro audite a identidade sem iniciar o polling:
 
@@ -218,11 +219,12 @@ curto ou consome uma fila, reserva a tarefa atomicamente e passa a executar.
 Assim o usuário vê o status quase imediatamente, sem depender de manter a
 tela aberta nem de a requisição HTTP sobreviver por minutos.
 
-Para o requisito noturno, o serviço persistente só reserva nova emissão fiscal
-na janela `00:00–06:00` (`America/Sao_Paulo`). Fora dela, permanece acordado
-para recuperações e limpeza, sem tocar nas emissões pendentes. Execuções manuais
-controladas preservam seu comportamento explícito. O agendamento pertence ao
-Worker, não ao navegador do usuário.
+Para o requisito noturno, o serviço persistente consulta no banco a janela de
+novas emissões antes de cada reserva. Fora dela, permanece acordado para
+recuperações e limpeza, sem tocar nas emissões pendentes. O corte controla
+somente o início: nunca interrompe tarefa já reservada. Execuções manuais
+controladas preservam seu comportamento explícito. A política pertence ao
+Worker e ao banco, não ao navegador nem a um cron que desligue a VM.
 
 ## Opções de fila
 

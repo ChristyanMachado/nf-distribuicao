@@ -105,7 +105,9 @@ fiscal nunca são ocultados por essa ação.
 
 ## Persistência e migrações
 
-As migrações `0001`–`0012` estão ativas no banco de teste. Destaques:
+As migrações `0001`–`0012` estão ativas no banco de teste. As migrations
+`0013` e `0014` estão preparadas no repositório, mas ainda não foram aplicadas.
+Destaques:
 
 - `0001`: relação N:N e emitente por distribuição/tarefa;
 - `0002`–`0006`: regras fiscais, lotes, credencial por referência,
@@ -117,6 +119,10 @@ As migrações `0001`–`0012` estão ativas no banco de teste. Destaques:
 - `0010`: códigos de erro estruturados para orientação no Web;
 - `0011`: lease e campos da limpeza física de documentos vencidos;
 - `0012`: fila exclusiva e idempotente de recuperação por nota.
+- `0013`: configuração operacional única da janela de novas emissões e
+  `search_path` fixo na função de reserva.
+- `0014`: remove acesso RPC anônimo das funções administrativas legadas do
+  sistema de ponto, preservando usuários autenticados e a service role.
 
 Tarefas antigas sem lote são inelegíveis deliberadamente; as observadas no
 banco de teste já estão canceladas e permanecem apenas como histórico.
@@ -210,11 +216,14 @@ O polling persistente reutiliza o mesmo contrato/reserva já testado e omite a
 mensagem repetitiva de fila vazia. O processo opera 24 horas, porém separa os
 trabalhos por política: limpeza, recuperação de upload e recuperação histórica
 podem rodar em qualquer ciclo; a reserva de novas emissões só ocorre na janela
-configurável, por padrão `00:00–06:00` em `America/Sao_Paulo`. Fora dela, a
+configurável no Web e persistida no banco, por padrão `00:00–06:00` em
+`America/Sao_Paulo`. Fora dela, a
 função retorna antes de reservar `fiscal.tarefas`. A base `tzdata` é fixada para
 que essa decisão seja determinística no Windows, Linux e container. Execuções
 manuais continuam explícitas e não herdam silenciosamente o agendamento do
-serviço. Manter uma conexão/fila durável e alertas externos são melhorias
+serviço. Uma tarefa já reservada continua até o fim, mesmo depois do corte; a
+VM nunca é desligada pela janela e lê alterações no ciclo seguinte. Manter uma
+conexão/fila durável e alertas externos são melhorias
 posteriores; o primeiro piloto pode operar com polling curto e supervisionado.
 
 Consulte `DEPLOYMENT.md`, `SECURITY.md`, `CONTRATO-WEB-WORKER.md` e

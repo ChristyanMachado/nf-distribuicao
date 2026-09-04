@@ -21,11 +21,14 @@ um portal autenticado, sem misturar autorização administrativa nesta entrega.
   incluindo XML/DANFE e retorno `EMITIDA` ao banco.
 - **Fase 5 — operação persistente:** fundação pronta em código: preflight do
   Web, imagem/Compose do Worker, serviço de polling, healthcheck e auditoria de
-  privilégios. A janela interna já separa recuperações 24h de novas emissões
-  entre 00:00 e 06:00. Falta validar a imagem numa VM e adicionar alertas.
+  privilégios. A janela editável no Web já separa recuperações 24h do início
+  de novas emissões; tarefas iniciadas antes do corte sempre terminam. Falta
+  aplicar as migrations pendentes e validar a imagem numa VM.
 - **Fase 6 — produção:** não iniciada e explicitamente bloqueada.
 
-Migrações `0001`–`0012` estão ativas. Cliente, emitente e três produtos reais
+Migrações `0001`–`0012` estão ativas. `0013` (janela operacional) e `0014`
+(restrição de RPC anônimo no sistema de ponto compartilhado) estão preparadas,
+mas aguardam aplicação consciente e validação. Cliente, emitente e três produtos reais
 foram aceitos pelo portal. Uma espera por estado da tela-resumo corrigiu a
 corrida entre o Avançar do ICMS e o Avançar para Transporte, sem `sleep` fixo.
 
@@ -65,8 +68,8 @@ banco de teste e passou no verificador de privilégios.
 
 - construir e validar na VM a imagem preparada com Chromium e supervisão;
 - papel PostgreSQL exclusivo do Worker com privilégios mínimos;
-- validar na VM a janela interna entre 00:00 e 06:00 em
-  `America/Sao_Paulo`, mantendo recuperações disponíveis 24h;
+- validar na VM a janela configurada no Web, mantendo recuperações disponíveis
+  24h e comprovando que o corte não interrompe tarefa já iniciada;
 - healthcheck, métricas, alertas e recuperação segura;
 - nunca repetir automaticamente resultado fiscal incerto.
 

@@ -45,6 +45,7 @@ GRANT UPDATE (
   limpeza_reserva_token, limpeza_reserva_expira_em
 ) ON TABLE fiscal.notas TO :"worker_role";
 GRANT SELECT ON TABLE fiscal.recuperacoes_documentos TO :"worker_role";
+GRANT SELECT ON TABLE fiscal.configuracoes_operacionais TO :"worker_role";
 GRANT UPDATE (
   status, tentativas, reservada_por, reserva_token, reserva_expira_em,
   mensagem_status, codigo_erro, iniciada_em, concluida_em, atualizado_em

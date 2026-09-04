@@ -3,10 +3,22 @@
 ## Estado autoritativo — 04/09/2026
 
 - A preparação da VM avançou sem alterar o fluxo fiscal validado: o serviço
-  permanece ativo 24h para limpeza, retomada de upload e recuperação histórica,
-  mas só reserva novas emissões na janela configurável, por padrão
-  `00:00–06:00` em `America/Sao_Paulo`. Fora dela, retorna antes da reserva da
-  fila fiscal. Execuções manuais controladas preservam o comportamento anterior.
+  permanece ativo 24h para limpeza, retomada de upload e recuperação histórica.
+  A janela de início de novas emissões agora é configurada no Web, persistida
+  no banco e lida antes de cada reserva; o padrão continua `00:00–06:00` em
+  `America/Sao_Paulo`. Uma tarefa reservada antes do corte sempre termina.
+  Alterar o horário não reinicia nem desliga a VM.
+- A nova página **Horário de emissão** exige sessão administrativa, valida
+  horas inteiras, suporta janelas que atravessam meia-noite e pede confirmação
+  explícita antes de salvar. A migration `0013` cria a linha única e concede ao
+  Worker somente leitura. Ela ainda não foi aplicada ao banco remoto.
+- A revisão de segurança confirmou consultas parametrizadas no Web/Worker e
+  nenhum privilégio de tabela do schema `fiscal` para `anon`/`authenticated`.
+  A migration `0014` remove `EXECUTE` anônimo de quatro funções administrativas
+  do sistema de ponto compartilhado, preservando `authenticated` e
+  `service_role`; ainda não foi aplicada porque exige validação consciente do
+  outro sistema. Proteção contra senhas vazadas, CAPTCHA/rate limit distribuído
+  e regra WAF continuam ações de painel pendentes.
 - `tzdata==2026.3` foi fixada para que a janela tenha a mesma base IANA no
   Windows, Linux e container. Testes cobrem as fronteiras 00/06, janela que
   atravessa meia-noite e ausência de reserva fora da janela. O runtime Docker
@@ -14,9 +26,12 @@
 - O Compose limita a saída padrão do Docker a 5 arquivos de 10 MB para reduzir
   o risco de esgotamento do disco da VM; a retenção dos logs funcionais no
   volume ainda será definida a partir das medições do piloto.
-- Validação desta etapa: **236 testes Worker**, `compileall`, **95 testes Web**,
-  TypeScript, build Next.js de produção e `git diff --check` passaram. O índice
-  Graphify foi atualizado incrementalmente para 1.338 nós/3.118 relações.
+- Validação desta etapa: **239 testes Worker**, `compileall`, **101 testes Web**,
+  3 testes do preflight, TypeScript, build Next.js de produção e
+  `git diff --check` passaram. `npm audit --omit=dev` encontrou zero
+  vulnerabilidades conhecidas nas dependências de produção. O runtime Docker
+  ainda não foi executado nesta máquina. O índice Graphify foi atualizado para
+  1.362 nós/3.176 relações.
 
 - A reunião de 29/08 foi triada em `REUNIAO-2026-08-29.md`; conversas paralelas
   e dados pessoais não viraram requisito. Pontos ativos: responsividade de
@@ -170,7 +185,7 @@
 
 ### Evidências atuais
 
-- Worker: **233 testes passando**, cobrindo consulta, downloads fail-closed,
+- Worker: **239 testes passando**, cobrindo consulta, downloads fail-closed,
   máscara numérica, seleção
   segura do XML mais recente, as pausas locais e o bloqueio de divergência
   antes do avanço fiscal.
@@ -180,11 +195,13 @@
   múltiplos selects. O localizador final espera o estado real e restringe pelo
   `value` exato, sem posição ou `sleep`. A terceira execução concluiu sem
   pesquisar nota, baixar documento ou entrar no fluxo de emissão.
-- Web: **95 testes em 18 arquivos passando**.
+- Web: **101 testes em 19 arquivos passando**.
 - Preflight Vercel: **3 testes Node passando**.
 - `npx tsc --noEmit`, `npm run build` e `git diff --check` passaram.
 - `npm audit --omit=dev`: 0 vulnerabilidades conhecidas.
-- Banco: migrações sincronizadas, canal TLS/fila OK e papel exclusivo seguro.
+- Banco: migrations `0001`–`0012` sincronizadas, canal TLS/fila OK e papel
+  exclusivo seguro. `0013`/`0014` continuam pendentes e o papel deverá ser
+  reprovisionado depois de `0013`.
   Após o teste existem 0 tarefas pendentes, 12 lotes numerados, 14 tarefas
   canceladas e 3 concluídas visíveis no Web.
 - As 000010 e 000011 foram autorizadas com pausas manuais. A 000012 foi

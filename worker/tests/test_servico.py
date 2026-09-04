@@ -9,24 +9,26 @@ from types import SimpleNamespace
 
 import pytest
 
-from src.servico import _em_janela_emissao, executar_servico
+from src.janela_emissao import JanelaEmissao
+from src.servico import executar_servico
 
 
-def test_janela_de_emissao_usa_horario_de_sao_paulo(monkeypatch) -> None:
-    monkeypatch.setenv("WORKER_EMISSAO_INICIO_HORA", "0")
-    monkeypatch.setenv("WORKER_EMISSAO_FIM_HORA", "6")
-
-    assert _em_janela_emissao(datetime(2026, 9, 4, 3, 0, tzinfo=timezone.utc))
-    assert _em_janela_emissao(datetime(2026, 9, 4, 8, 59, tzinfo=timezone.utc))
-    assert not _em_janela_emissao(datetime(2026, 9, 4, 9, 0, tzinfo=timezone.utc))
+def test_janela_de_emissao_usa_horario_de_sao_paulo() -> None:
+    janela = JanelaEmissao(0, 6)
+    assert janela.permite_nova_emissao(datetime(2026, 9, 4, 3, 0, tzinfo=timezone.utc))
+    assert janela.permite_nova_emissao(datetime(2026, 9, 4, 8, 59, tzinfo=timezone.utc))
+    assert not janela.permite_nova_emissao(datetime(2026, 9, 4, 9, 0, tzinfo=timezone.utc))
 
 
-def test_janela_de_emissao_pode_atravessar_meia_noite(monkeypatch) -> None:
-    monkeypatch.setenv("WORKER_EMISSAO_INICIO_HORA", "22")
-    monkeypatch.setenv("WORKER_EMISSAO_FIM_HORA", "2")
+def test_janela_de_emissao_pode_atravessar_meia_noite() -> None:
+    janela = JanelaEmissao(22, 2)
+    assert janela.permite_nova_emissao(datetime(2026, 9, 5, 2, 0, tzinfo=timezone.utc))
+    assert not janela.permite_nova_emissao(datetime(2026, 9, 5, 6, 0, tzinfo=timezone.utc))
 
-    assert _em_janela_emissao(datetime(2026, 9, 5, 2, 0, tzinfo=timezone.utc))
-    assert not _em_janela_emissao(datetime(2026, 9, 5, 6, 0, tzinfo=timezone.utc))
+
+def test_janela_rejeita_duracao_zero() -> None:
+    with pytest.raises(ValueError, match="duração zero"):
+        JanelaEmissao(6, 6)
 
 
 def test_servico_exige_flag_persistente() -> None:

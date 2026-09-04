@@ -66,12 +66,13 @@ sequência completa. A imagem ainda precisa ser construída e testada na VM;
 Docker não está instalado na estação onde esta preparação foi criada.
 
 O processo permanece ativo 24 horas para limpeza, retomada de upload e
-recuperação histórica. Novas emissões só são reservadas entre
-`WORKER_EMISSAO_INICIO_HORA` (padrão `0`) e
-`WORKER_EMISSAO_FIM_HORA` (padrão `6`), sempre em
-`America/Sao_Paulo`. A dependência `tzdata` fixa a mesma base de fuso no
-Windows, Linux e container. Fora da janela, tarefas de emissão ficam pendentes
-e não são reservadas.
+recuperação histórica. A janela de novas emissões é configurada no Web,
+persistida em `fiscal.configuracoes_operacionais` e lida a cada ciclo, com
+padrão `00:00–06:00` em `America/Sao_Paulo`. Fora dela, tarefas de emissão
+ficam pendentes e não são reservadas. Uma tarefa reservada antes do limite
+continua normalmente até terminar; o horário nunca encerra Chromium nem o
+serviço. A dependência `tzdata` fixa a mesma base de fuso no Windows, Linux e
+container.
 
 `LIMPAR_DOCUMENTOS_EXPIRADOS` começa como `false`. Quando habilitada após a
 migration `0011` e a auditoria do papel, remove XML/DANFE vencidos pelo Storage

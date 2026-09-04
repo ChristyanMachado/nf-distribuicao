@@ -1,5 +1,5 @@
 import Card from "@/components/Card";
-import { IconBuilding, IconChart, IconCrate, IconReceipt, IconUsers } from "@/components/icons";
+import { IconBuilding, IconChart, IconCrate, IconMore, IconReceipt, IconUsers } from "@/components/icons";
 
 const opcoes = [
   { href: "/relatorios", titulo: "Relatórios operacionais", descricao: "Resultados, volume, clientes e produtos.", Icon: IconChart },
@@ -7,6 +7,7 @@ const opcoes = [
   { href: "/clientes", titulo: "Clientes", descricao: "Mercados e dados fiscais de destinatário.", Icon: IconUsers },
   { href: "/produtos", titulo: "Produtos", descricao: "Catálogo, preços e regra fiscal reutilizável.", Icon: IconCrate },
   { href: "/emitentes", titulo: "Emitentes", descricao: "Empresas emissoras e integração com o Worker.", Icon: IconBuilding },
+  { href: "/configuracoes", titulo: "Horário de emissão", descricao: "Quando o Worker pode começar novas notas.", Icon: IconMore },
 ];
 
 export default function MaisPage() {

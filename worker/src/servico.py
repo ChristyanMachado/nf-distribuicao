@@ -9,7 +9,6 @@ import os
 from pathlib import Path
 import signal
 from typing import Awaitable, Callable
-from zoneinfo import ZoneInfo
 
 from main import executar_fila_banco_homologacao
 from scripts.verificar_privilegios_banco import verificar as verificar_privilegios
@@ -27,7 +26,7 @@ async def _executar_ciclo_persistente(config: Config, logger: logging.Logger) ->
         config,
         logger,
         silencioso_sem_tarefas=True,
-        permitir_emissoes=_em_janela_emissao(),
+        usar_janela_operacional=True,
     )
 
 
@@ -39,34 +38,6 @@ def _inteiro_env(nome: str, padrao: int, minimo: int, maximo: int) -> int:
     if not minimo <= valor <= maximo:
         raise RuntimeError(f"{nome} deve ficar entre {minimo} e {maximo} segundos.")
     return valor
-
-
-def _hora_env(nome: str, padrao: int) -> int:
-    try:
-        valor = int((os.getenv(nome) or str(padrao)).strip())
-    except ValueError as exc:
-        raise RuntimeError(f"{nome} deve ser uma hora inteira.") from exc
-    if not 0 <= valor <= 23:
-        raise RuntimeError(f"{nome} deve ficar entre 0 e 23.")
-    return valor
-
-
-def _em_janela_emissao(agora: datetime | None = None) -> bool:
-    """Decide apenas se novas emissões podem ser reservadas neste ciclo.
-
-    Recuperação, limpeza e retomada de upload não usam esta janela. A função
-    aceita relógio injetado para que as fronteiras sejam testadas sem esperar.
-    """
-
-    inicio = _hora_env("WORKER_EMISSAO_INICIO_HORA", 0)
-    fim = _hora_env("WORKER_EMISSAO_FIM_HORA", 6)
-    if inicio == fim:
-        raise RuntimeError("A janela de emissão não pode ter duração zero.")
-    instante = agora or datetime.now(timezone.utc)
-    local = instante.astimezone(ZoneInfo("America/Sao_Paulo"))
-    if inicio < fim:
-        return inicio <= local.hour < fim
-    return local.hour >= inicio or local.hour < fim
 
 
 def _gravar_saude(caminho: Path, *, estado: str, codigo_saida: int) -> None:
@@ -117,15 +88,9 @@ async def executar_servico(
     _instalar_sinais(parar)
     ciclos = 0
 
-    inicio_emissao = _hora_env("WORKER_EMISSAO_INICIO_HORA", 0)
-    fim_emissao = _hora_env("WORKER_EMISSAO_FIM_HORA", 6)
-    if inicio_emissao == fim_emissao:
-        raise RuntimeError("A janela de emissão não pode ter duração zero.")
     logger.info(
         "Worker persistente iniciado em homologação; recuperações 24h e "
-        "emissões entre %02d:00 e %02d:00 (America/Sao_Paulo).",
-        inicio_emissao,
-        fim_emissao,
+        "janela de novas emissões carregada do banco.",
     )
     while not parar.is_set():
         _gravar_saude(saude, estado="processando", codigo_saida=0)

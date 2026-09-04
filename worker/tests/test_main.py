@@ -243,17 +243,22 @@ def test_fila_persistente_nao_repete_log_quando_esta_ociosa(caplog):
 
 def test_fora_da_janela_nao_reserva_nova_emissao() -> None:
     fonte = _FonteBancoFake([_reserva_banco()])
+    fonte.obter_janela_emissao = AsyncMock(return_value=(0, 1))
 
-    with patch("main.FontePostgresTarefas", return_value=fonte):
+    with (
+        patch("main.FontePostgresTarefas", return_value=fonte),
+        patch("main.JanelaEmissao.permite_nova_emissao", return_value=False),
+    ):
         resultado = asyncio.run(
             executar_fila_banco_homologacao(
                 _config_banco(),
                 logging.getLogger("teste-fila-fora-da-janela"),
-                permitir_emissoes=False,
+                usar_janela_operacional=True,
             )
         )
 
     assert resultado == 0
+    fonte.obter_janela_emissao.assert_awaited_once()
     fonte.reservar.assert_not_awaited()
 
 

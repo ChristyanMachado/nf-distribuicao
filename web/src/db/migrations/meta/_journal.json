@@ -92,6 +92,20 @@
       "when": 1788522282845,
       "tag": "0012_recuperacao_documentos",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1788608682845,
+      "tag": "0013_configuracao_operacional",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1788695082845,
+      "tag": "0014_restringe_funcoes_administrativas",
+      "breakpoints": true
     }
   ]
 }

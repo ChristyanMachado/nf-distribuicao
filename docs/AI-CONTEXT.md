@@ -31,7 +31,8 @@ executa cada tarefa em um `BrowserContext` independente.
   `cStat=100`. PDF precisa começar com `%PDF-`. O upload privado está
   implementado, configurado e validado ao vivo: o primeiro XML/DANFE chegou ao
   bucket privado, a nota ficou disponível no Web e o PDF foi baixado com sucesso.
-- Migrações `0001` a `0012` estão aplicadas no banco de teste. `0008` adiciona
+- Migrações `0001` a `0012` estão aplicadas no banco de teste. `0013` e `0014`
+  estão preparadas, porém ainda não foram aplicadas ao banco remoto. `0008` adiciona
   idempotência do lote, snapshot `payload_worker` + SHA-256, token de reserva,
   protocolo e unicidades. `0009` corrige a ambiguidade do retorno
   `reserva_token`. `EXECUTE` público da função de reserva está revogado.
@@ -39,14 +40,15 @@ executa cada tarefa em um `BrowserContext` independente.
   etapa e o Web mostra “o que aconteceu” + “o que fazer”. O botão **Tentar
   novamente** aparece somente para falhas pré-emissão permitidas por lista
   fechada; resultado fiscal incerto nunca volta à fila.
-- Validação local: **236 testes Worker**, **95 testes Web**, 3 testes do
+- Validação local: **239 testes Worker**, **101 testes Web**, 3 testes do
   preflight de deploy, TypeScript e build de produção passaram.
 - O serviço persistente permanece disponível 24 horas para limpeza, retomada de
   upload e recuperação histórica. Apenas a reserva de novas emissões usa a
-  janela configurável, padrão `00:00–06:00` em `America/Sao_Paulo`; fora dela
-  nenhuma tarefa fiscal é reservada. `tzdata` fixa a base de fuso em todos os
-  ambientes. A lógica e suas fronteiras possuem testes, mas ainda falta a prova
-  do container na VM.
+  janela configurável no Web e persistida no banco, padrão `00:00–06:00` em
+  `America/Sao_Paulo`; fora dela nenhuma tarefa fiscal é reservada. O corte só
+  impede novos inícios: tarefa já reservada continua até terminar. A mudança é
+  lida no ciclo seguinte, sem reiniciar a VM. `tzdata` fixa a base de fuso em
+  todos os ambientes. Ainda falta aplicar `0013` e provar o container na VM.
 - O bucket `documentos-fiscais` foi conferido somente por metadados: existe, é
   privado, limita tamanho e aceita PDF/XML. O papel `nf_worker_local` ganhou
   UPDATE apenas de `pdf_path`, `xml_path` e expiração; a auditoria continua sem
@@ -195,9 +197,10 @@ executa cada tarefa em um `BrowserContext` independente.
    motorista, que não contém valores monetários.
 6. Relatórios atuais são operacionais. Financeiro líquido, auditoria, RH e
    autorização multiusuário pertencem às próximas fases.
-7. Novas emissões automáticas são reservadas entre 00:00 e 06:00 em
-   `America/Sao_Paulo`; recuperação e limpeza continuam 24h. A política já está
-   no serviço persistente e ainda precisa ser validada na VM.
+7. Novas emissões automáticas usam a janela configurada no Web, inicialmente
+   00:00–06:00 em `America/Sao_Paulo`; recuperação e limpeza continuam 24h.
+   O horário final nunca interrompe tarefa iniciada e ainda precisa ser validado
+   no container/VM.
 8. A descrição do produto é seu nome operacional e deve diferenciá-lo também
    pela unidade; o Worker continua localizando o item pelo código fiscal.
 9. Sobra de quantidade é permitida somente após confirmação explícita do
@@ -215,18 +218,21 @@ Ctrl+V está implementada, mas permanece no gate de validação pré-emissão.
 
 ## Próximo gate seguro
 
-1. No Vercel, adicionar `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` e então mudar
-   `APP_AUTH_PROVIDER` para `supabase`; redefinir a senha do usuário gerente no
-   painel sem enviá-la ao chat e validar login/logout. O fallback atual continua
-   ativo enquanto essa variável não for trocada.
-2. Construir a imagem do Worker em uma máquina com Docker e executar primeiro
+1. Revisar e aplicar as migrations `0013` e `0014` no banco de teste. A segunda
+   toca as funções do sistema de ponto compartilhado: testar login e gestão de
+   usuários autenticados depois da aplicação. Reprovisionar/auditar o papel do
+   Worker para conceder somente leitura da nova configuração.
+2. No Supabase Auth, habilitar proteção contra senhas vazadas e configurar
+   CAPTCHA/rate limits; no Vercel, publicar qualquer regra WAF somente depois de
+   observá-la em modo de log para evitar bloquear o cliente legítimo.
+3. Construir a imagem do Worker em uma máquina com Docker e executar primeiro
    as auditorias sem consumir a fila. Docker não está instalado nesta máquina,
    portanto o container ainda não foi validado em runtime.
-3. Criar a VM do piloto, fornecer uma identidade PostgreSQL própria e iniciar o
+4. Criar a VM do piloto, fornecer uma identidade PostgreSQL própria e iniciar o
    serviço somente quando não houver tarefa involuntária elegível.
-4. Repetir o fluxo conectado com até 3 tarefas/contextos simultâneos, medindo
+5. Repetir o fluxo conectado com até 3 tarefas/contextos simultâneos, medindo
    CPU/RAM, isolamento, tempo e fronteiras da janela; depois adicionar alertas.
-5. Validar a limpeza isolada da migration `0011` num documento de teste vencido. Manter a flag desligada até esse
+6. Validar a limpeza isolada da migration `0011` num documento de teste vencido. Manter a flag desligada até esse
    ensaio; produção segue bloqueada até autenticação/autorização definitiva,
    backup, recuperação e piloto humano aprovado.
 
