@@ -12,9 +12,9 @@ altere arquitetura ou migrações aplicadas sem registrar e justificar.
    `ARCHITECTURE.md`, `HANDOFF.md`, `COLABORACAO.md`, `SECURITY.md` e
    `CONTRATO-WEB-WORKER.md`.
 2. Confira branch, `git status` e diff. Preserve alterações existentes.
-3. Considere `0001`–`0012` já aplicadas no banco de teste. `0013` e `0014`
-   estão apenas preparadas e não devem ser marcadas como aplicadas sem prova.
-   `0014` toca funções do sistema de ponto compartilhado e exige teste desse
+3. Considere `0001`–`0013` já aplicadas no banco de teste. `0013` foi validada
+   em 05/09/2026; `0014` continua adiada e não deve ser aplicada. Ela toca
+   funções do sistema de ponto compartilhado e exige teste desse
    sistema. Em outro banco, rode primeiro a verificação pré-0008.
 4. Se `graphify-out/graph.json` existir, use uma consulta focada para trabalho
    transversal ou de impacto incerto. Em correção pequena com arquivos já
@@ -40,8 +40,8 @@ altere arquitetura ou migrações aplicadas sem registrar e justificar.
 
 ## Próxima tarefa prioritária
 
-Antes de qualquer alteração fiscal, revisar o diff da janela operacional e as
-migrations `0013`/`0014`. Não aplicar `0014` sem autorização humana explícita e
+Antes de qualquer alteração fiscal, preserve a janela operacional aplicada pela
+migration `0013`. Não aplicar `0014` sem autorização humana explícita e
 sem combinar um teste do login/gestão de usuários do sistema de ponto. A
 auditoria ao vivo confirmou que o schema `fiscal` não tem grants de tabela para
 `anon`/`authenticated`; não habilitar RLS ou grants adicionais às cegas.
@@ -56,14 +56,16 @@ As migrations `0011` e `0012` foram aplicadas no banco de teste em 02/09 pelo
 migrator oficial do runtime. O papel `nf_worker_local` foi reprovisionado e a
 auditoria passou sem privilégios ausentes ou excessivos. O teste humano de
 ponta a ponta também passou com duas notas recuperadas em execuções separadas.
-O próximo trabalho principal é aplicar conscientemente as migrations pendentes
-e validar o container/VM. A VM Oracle Micro já existe e o bootstrap versionado
+O próximo trabalho principal é instalar a configuração secreta e validar o
+canal do container/VM sem consumir fila involuntária. A VM Oracle Micro já existe e o bootstrap versionado
 foi executado: 1 GB físico, 4 GB de swap, Docker/Compose, firewall, fuso e
 atualizações automáticas. Nenhum Worker foi iniciado. Trate-a como piloto,
 mantenha concorrência 1 e não copie a credencial PostgreSQL local para ela. A
 imagem foi construída e o Chromium abriu dentro do container com rede
-desativada (`runtimePlaywright=true`); ainda faltam identidade da VM,
-auditorias e healthcheck do serviço sem tarefa.
+desativada (`runtimePlaywright=true`). A identidade `nf_worker_vm` já foi criada
+e auditada com privilégios fiscais mínimos; a credencial ainda está somente no
+arquivo local ignorado pelo Git. Faltam transferência segura, auditoria na VM
+e healthcheck do serviço sem tarefa.
 O serviço já separa recuperação/limpeza 24h do início
 de novas emissões. A janela padrão `00:00–06:00` é editável no Web, fica no
 banco e é lida a cada ciclo. Não substitua essa política por cron que desligue

@@ -12,8 +12,10 @@
   recusa senha. O script não contém/copia segredos e não inicia o Worker.
 - Nenhum container fiscal está rodando. A imagem foi construída e a prova
   isolada do Chromium passou: `runtimePlaywright=true`, sem rede, banco ou
-  credenciais. O próximo gate é provar o healthcheck sem reservar fila e criar
-  uma identidade PostgreSQL exclusiva da VM. Nela, manter
+  credenciais. A identidade PostgreSQL exclusiva `nf_worker_vm` foi criada e
+  auditada com privilégios fiscais mínimos; sua credencial permanece apenas em
+  arquivo local ignorado pelo Git e ainda não foi instalada na VM. O próximo
+  gate é provar o healthcheck sem reservar fila. Nela, manter
   `MAX_CONCORRENCIA=1`, `HEADLESS=true` e produção fiscal bloqueada até medir
   um ciclo de login/fila real.
 
@@ -26,14 +28,17 @@
 - A nova página **Horário de emissão** exige sessão administrativa, valida
   horas inteiras, suporta janelas que atravessam meia-noite e pede confirmação
   explícita antes de salvar. A migration `0013` cria a linha única e concede ao
-  Worker somente leitura. Ela ainda não foi aplicada ao banco remoto.
+  Worker somente leitura. Ela foi aplicada e validada no banco remoto em
+  05/09/2026; existe exatamente uma linha com a janela `00:00–06:00`.
 - A revisão de segurança confirmou consultas parametrizadas no Web/Worker e
   nenhum privilégio de tabela do schema `fiscal` para `anon`/`authenticated`.
   A migration `0014` remove `EXECUTE` anônimo de quatro funções administrativas
   do sistema de ponto compartilhado, preservando `authenticated` e
   `service_role`; ainda não foi aplicada porque exige validação consciente do
-  outro sistema. Proteção contra senhas vazadas, CAPTCHA/rate limit distribuído
-  e regra WAF continuam ações de painel pendentes.
+  outro sistema. O Advisor ainda confirma esse risco no schema `public`; ele
+  não foi alterado neste trabalho. Proteção contra senhas vazadas,
+  CAPTCHA/rate limit distribuído e regra WAF continuam ações de painel
+  pendentes.
 - `tzdata==2026.3` foi fixada para que a janela tenha a mesma base IANA no
   Windows, Linux e container. Testes cobrem as fronteiras 00/06, janela que
   atravessa meia-noite e ausência de reserva fora da janela. O runtime Docker
@@ -213,9 +218,9 @@
 - Preflight Vercel: **3 testes Node passando**.
 - `npx tsc --noEmit`, `npm run build` e `git diff --check` passaram.
 - `npm audit --omit=dev`: 0 vulnerabilidades conhecidas.
-- Banco: migrations `0001`–`0012` sincronizadas, canal TLS/fila OK e papel
-  exclusivo seguro. `0013`/`0014` continuam pendentes e o papel deverá ser
-  reprovisionado depois de `0013`.
+- Banco: migrations `0001`–`0013` sincronizadas, canal TLS/fila OK e papéis
+  exclusivos seguros. `nf_worker_vm` passou na auditoria de menor privilégio;
+  `0014` continua explicitamente adiada para não alterar o sistema de ponto.
   Após o teste existem 0 tarefas pendentes, 12 lotes numerados, 14 tarefas
   canceladas e 3 concluídas visíveis no Web.
 - As 000010 e 000011 foram autorizadas com pausas manuais. A 000012 foi
@@ -351,9 +356,9 @@
 1. Corrigir e validar em celular real Adicionar produto, confirmação de sobra,
    resumo de sucesso e linguagem dos KPIs descritos na reunião de 29/08.
 2. Ensaiar a limpeza da migration `0011` com a rotina desativada fora do teste.
-3. Construir o container em uma máquina com Docker. O Web já está publicado,
-   mas o runtime do Worker ainda não foi validado em VM.
-4. Na VM, auditar o papel e canal antes de subir o polling; iniciar com fila
+3. Instalar na VM o `.env` operacional sem expor segredos e provar o canal
+   usando a identidade `nf_worker_vm`, sem consumir uma fila involuntária.
+4. Na VM, auditar o canal antes de subir o polling; iniciar com fila
    controlada e `MAX_CONCORRENCIA=1`, ainda em homologação.
 5. Medir CPU/RAM, healthcheck, encerramento gracioso e a janela interna; depois
    testar até 3 contextos distintos e adicionar alertas.

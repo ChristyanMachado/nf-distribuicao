@@ -45,8 +45,10 @@ executa cada tarefa em um `BrowserContext` independente.
   `cStat=100`. PDF precisa começar com `%PDF-`. O upload privado está
   implementado, configurado e validado ao vivo: o primeiro XML/DANFE chegou ao
   bucket privado, a nota ficou disponível no Web e o PDF foi baixado com sucesso.
-- Migrações `0001` a `0012` estão aplicadas no banco de teste. `0013` e `0014`
-  estão preparadas, porém ainda não foram aplicadas ao banco remoto. `0008` adiciona
+- Migrações `0001` a `0013` estão aplicadas no banco de teste. A `0013` foi
+  aplicada e validada em 05/09/2026: linha única `00:00–06:00`, leitura mínima
+  do Worker e `search_path=pg_catalog` na função de reserva. A `0014` permanece
+  explicitamente adiada porque altera funções do sistema de ponto. `0008` adiciona
   idempotência do lote, snapshot `payload_worker` + SHA-256, token de reserva,
   protocolo e unicidades. `0009` corrige a ambiguidade do retorno
   `reserva_token`. `EXECUTE` público da função de reserva está revogado.
@@ -62,7 +64,8 @@ executa cada tarefa em um `BrowserContext` independente.
   `America/Sao_Paulo`; fora dela nenhuma tarefa fiscal é reservada. O corte só
   impede novos inícios: tarefa já reservada continua até terminar. A mudança é
   lida no ciclo seguinte, sem reiniciar a VM. `tzdata` fixa a base de fuso em
-  todos os ambientes. Ainda falta aplicar `0013` e provar o container na VM.
+  todos os ambientes. O container já abriu o Chromium na VM; falta instalar a
+  configuração operacional e provar o canal sem reservar fila involuntária.
 - O bucket `documentos-fiscais` foi conferido somente por metadados: existe, é
   privado, limita tamanho e aceita PDF/XML. O papel `nf_worker_local` ganhou
   UPDATE apenas de `pdf_path`, `xml_path` e expiração; a auditoria continua sem
@@ -232,18 +235,16 @@ Ctrl+V está implementada, mas permanece no gate de validação pré-emissão.
 
 ## Próximo gate seguro
 
-1. Revisar e aplicar as migrations `0013` e `0014` no banco de teste. A segunda
-   toca as funções do sistema de ponto compartilhado: testar login e gestão de
-   usuários autenticados depois da aplicação. Reprovisionar/auditar o papel do
-   Worker para conceder somente leitura da nova configuração.
+1. Manter a migration `0014` adiada. O Advisor confirma `EXECUTE` público em
+   quatro funções administrativas do sistema de ponto; corrigir somente junto
+   da versão 2.0 e com teste de login/gestão de usuários desse sistema.
 2. No Supabase Auth, habilitar proteção contra senhas vazadas e configurar
    CAPTCHA/rate limits; no Vercel, publicar qualquer regra WAF somente depois de
    observá-la em modo de log para evitar bloquear o cliente legítimo.
-3. Construir a imagem do Worker na VM e executar primeiro as auditorias sem
-   consumir a fila. Docker/Compose já estão instalados, mas a imagem ainda não
-   foi validada em runtime.
-4. Fornecer uma identidade PostgreSQL própria à VM e iniciar o serviço somente
-   quando não houver tarefa involuntária elegível.
+3. Transferir a configuração secreta à VM e executar primeiro as auditorias sem
+   consumir a fila. Docker/Compose, imagem e Chromium já foram validados.
+4. Usar exclusivamente `nf_worker_vm`, já criada e auditada; iniciar o serviço
+   somente quando não houver tarefa involuntária elegível.
 5. Repetir o fluxo conectado com até 3 tarefas/contextos simultâneos, medindo
    CPU/RAM, isolamento, tempo e fronteiras da janela; depois adicionar alertas.
 6. Validar a limpeza isolada da migration `0011` num documento de teste vencido. Manter a flag desligada até esse

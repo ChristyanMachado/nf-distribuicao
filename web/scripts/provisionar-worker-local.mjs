@@ -5,8 +5,27 @@ import { fileURLToPath } from "node:url";
 
 import postgres from "postgres";
 
-const ROLE = "nf_worker_local";
-const WORKER_ID = "worker-local-piloto";
+const PERFIS_PERMITIDOS = new Map([
+  ["local", {
+    role: "nf_worker_local",
+    workerId: "worker-local-piloto",
+    envNome: ".env",
+  }],
+  ["vm", {
+    role: "nf_worker_vm",
+    workerId: "worker-vm-homologacao",
+    envNome: ".env.vm",
+  }],
+]);
+
+const PERFIL = process.env.WORKER_PROVISION_PROFILE?.trim() || "local";
+const configuracao = PERFIS_PERMITIDOS.get(PERFIL);
+if (!configuracao) {
+  throw new Error("WORKER_PROVISION_PROFILE deve ser 'local' ou 'vm'.");
+}
+
+const ROLE = configuracao.role;
+const WORKER_ID = configuracao.workerId;
 let etapaAtual = "inicio";
 
 function exigirUrl(nome) {
@@ -82,7 +101,7 @@ async function lerValorEnv(caminho, chave) {
 async function main() {
   const urlProprietaria = exigirUrl("DATABASE_URL");
   const pastaWeb = dirname(dirname(fileURLToPath(import.meta.url)));
-  const envWorker = resolve(pastaWeb, "..", "worker", ".env");
+  const envWorker = resolve(pastaWeb, "..", "worker", configuracao.envNome);
   let urlWorker;
   const banco = decodeURIComponent(urlProprietaria.pathname.slice(1));
   const roleSql = identificadorSql(ROLE);
@@ -124,6 +143,8 @@ async function main() {
     }
 
     etapaAtual = "conceder_privilegios";
+    await admin.unsafe(`ALTER ROLE ${roleSql} CONNECTION LIMIT 5`);
+    await admin.unsafe(`ALTER ROLE ${roleSql} SET search_path = fiscal, pg_catalog`);
     await admin.unsafe(`GRANT CONNECT ON DATABASE ${bancoSql} TO ${roleSql}`);
     await admin.unsafe(`GRANT USAGE ON SCHEMA fiscal TO ${roleSql}`);
     await admin.unsafe(`GRANT USAGE ON TYPE fiscal.status_tarefa TO ${roleSql}`);
@@ -179,6 +200,7 @@ async function main() {
 
   console.log(JSON.stringify({
     papel: ROLE,
+    perfil: PERFIL,
     conexaoValidada: true,
     envWorkerAtualizado: true,
     segredoExibido: false,

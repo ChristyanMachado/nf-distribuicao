@@ -43,8 +43,9 @@ privilégio. Não copiar a `DATABASE_URL` proprietária usada pelo Web. O papel
 precisa apenas ler snapshots elegíveis, executar a função de reserva, renovar
 lease, atualizar estados protegidos pelo token e inserir a nota autorizada.
 `PUBLIC` já não executa a função de reserva. O papel local foi definido e
-auditado no banco de teste em 28/08/2026, mas a VM deve receber outra identidade
-dedicada; não reutilizar a senha do desenvolvimento.
+auditado no banco de teste em 28/08/2026. A identidade separada `nf_worker_vm`
+foi criada e auditada em 05/09/2026; sua credencial deve ser transferida para a
+VM sem passar por Git, chat ou logs. Não reutilizar a senha do desenvolvimento.
 
 O modelo revisável está em
 `web/scripts/provisionar-worker-role.sql.template`. Ele não contém senha e não
