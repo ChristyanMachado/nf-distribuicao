@@ -95,7 +95,13 @@ export function calcularKpisOperacionais(tarefas: TarefaOperacional[]): KpisOper
   const lotesConcluidos = Array.from(porLote.values()).filter(
     (lote) => lote.length > 0 && lote.every((tarefa) => STATUS_SUCESSO.has(tarefa.status))
   );
-  const duracoesDosLotes = lotesConcluidos
+  // `iniciado_em` preserva deliberadamente a primeira tentativa para auditoria.
+  // Por isso, lotes reprocessados não medem o tempo da execução vencedora e
+  // ficam fora dos KPIs de velocidade até termos telemetria por tentativa.
+  const lotesMensuraveis = lotesConcluidos.filter(
+    (lote) => lote.every((tarefa) => tarefa.tentativas === 1)
+  );
+  const duracoesDosLotes = lotesMensuraveis
     .map((lote) => {
       const inicios = lote.map((t) => t.iniciadoEm?.getTime()).filter((v): v is number => v !== undefined);
       const conclusoes = lote.map((t) => t.concluidoEm?.getTime()).filter((v): v is number => v !== undefined);

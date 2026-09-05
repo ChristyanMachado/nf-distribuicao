@@ -212,6 +212,18 @@ describe("calcularKpisOperacionais", () => {
     expect(resultado.tempoEconomizadoSegundos).toBe((337 - 60) + (337 - 120));
     expect(resultado.distribuicoesMedidas).toBe(2);
   });
+
+  it("exclui reprocessamentos da média porque o início preserva a primeira tentativa", () => {
+    const resultado = calcularKpisOperacionais([
+      { id: "1", loteId: "limpo", status: "EMITIDA", tentativas: 1, iniciadoEm: new Date("2026-09-05T11:00:00Z"), concluidoEm: new Date("2026-09-05T11:01:00Z") },
+      { id: "2", loteId: "reprocessado", status: "EMITIDA", tentativas: 2, iniciadoEm: new Date("2026-09-05T10:00:00Z"), concluidoEm: new Date("2026-09-05T11:00:00Z") },
+    ]);
+
+    expect(resultado.distribuicoesConcluidas).toBe(2);
+    expect(resultado.distribuicoesMedidas).toBe(1);
+    expect(resultado.tempoMedioLoteSegundos).toBe(60);
+    expect(resultado.tempoEconomizadoSegundos).toBe(277);
+  });
 });
 
 describe("validarIntervaloRelatorio", () => {

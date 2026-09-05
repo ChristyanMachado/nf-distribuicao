@@ -19,7 +19,7 @@
   XML validado, DANFE baixado, ambos reenviados ao Storage e disponibilizados
   por 7 dias. O circuito Web → banco → VM → Receita → Storage → Web está
   comprovado com o PC local fora da execução. Polling configurado em 30s,
-  concorrência 1 e healthcheck saudável. A janela observada no banco durante o
+  concorrência 2 em ensaio e healthcheck saudável. A janela observada no banco durante o
   teste era 00–10h. A interface de tarefas/notas ainda atualiza após navegação
   ou recarga, sem atualização automática em tempo real.
 
@@ -990,6 +990,12 @@ Próximo gate humano: no celular, dividir um produto entre Cooperativa — Patri
 e Cooperativa — Wagner, confirmar que o lote cria duas tarefas/notas e conferir
 o relatório único dessa distribuição. Executar somente em homologação.
 
+Em 05/09, a fila foi confirmada sem tarefas PROCESSANDO/EMITINDO e a VM Micro
+foi alterada de `MAX_CONCORRENCIA=1` para `2`. O container foi recriado sem
+reiniciar a VM e voltou `healthy`; ocioso usava cerca de 174 MiB antes da
+mudança. Trata-se de ensaio: acompanhar RAM/swap e logs durante duas tarefas,
+revertendo a 1 se houver OOM, pressão contínua de swap ou instabilidade.
+
 ## Atualização — roteiro operacional do motorista
 
 A impressão de `/entregas` não exibe mais o texto explicativo da página. O
@@ -1014,3 +1020,9 @@ concluída e mensurável, soma-se apenas a diferença positiva contra o benchmar
 manual de 337 s. Distribuições sem timestamps não inflam média nem economia, e
 a interface informa o tamanho da amostra medida. O valor automático fixo de
 42,18 s permanece apenas como registro histórico do benchmark original.
+
+O banco confirmou a distorção: o lote `fada4b5e…`, com 1 nota e 2 tentativas,
+guardava 1.600 s entre a primeira reserva e a conclusão; o lote novo `cfa4df5d…`
+com 3 notas, todas na primeira tentativa, levou 260 s. Como `iniciado_em` usa
+`COALESCE` por auditoria, relatórios agora excluem lotes reprocessados dos KPIs
+de duração/economia, mas continuam contando-os nos totais e resultados.

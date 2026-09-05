@@ -61,7 +61,7 @@ de afirmar causa resolvida. Não instalar VNC nem reemitir automaticamente a
 tarefa anterior; logs agora distinguem clique e confirmação do resumo.
 
 Deploy atualizado em 05/09: Worker já iniciado na VM, com identidade exclusiva,
-auditoria de canal/privilégios e healthcheck aprovados. Concorrência 1, polling
+auditoria de canal/privilégios e healthcheck aprovados. Concorrência 2 em ensaio, polling
 30s, homologação e janela 00–06h. Não repetir provisionamento ou implantação.
 Próximo gate: validar uma operação pelo Web processada na VM e medir memória
 com Chromium. Preservar a 0014 adiada. Os parágrafos de preparação abaixo são

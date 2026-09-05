@@ -21,12 +21,12 @@ executa cada tarefa em um `BrowserContext` independente.
   transição de Transporte: AUTORIZADA, XML/DANFE privados e valores conferidos.
   Uma recuperação histórica também completou pela VM e restaurou o par por 7
   dias. Assim, o circuito remoto completo está comprovado em homologação.
-  Polling atual: 30s; concorrência: 1. A janela foi ajustada pelo Web para
+  Polling atual: 30s; concorrência: 2 em ensaio controlado. A janela foi ajustada pelo Web para
   00–10h durante o ensaio. Listagens ainda exigem navegação/recarga para buscar
   o estado novo; atualização automática é melhoria de UX pendente.
 
 - Atualização autoritativa: Worker agora em execução na VM via Compose,
-  homologação, concorrência 1, polling 30s, recuperação 24h e janela fiscal
+  homologação, concorrência 2 em ensaio, polling 30s, recuperação 24h e janela fiscal
   00–06h. Configuração transferida com autorização explícita e modo 600;
   auditoria de privilégios/canal passou dentro do container, sem reservas.
   Healthcheck passou; faltam ensaio fiscal completo na VM e medição sob carga.
@@ -38,8 +38,8 @@ executa cada tarefa em um `BrowserContext` independente.
   swap, Docker 29.8, Compose 5.5, fuso `America/Sao_Paulo`, atualizações
   automáticas e firewall com somente SSH de entrada. O acesso usa chave,
   `PasswordAuthentication` já está desativado e nenhum Worker foi iniciado.
-  Por causa da memória física limitada, o piloto deve permanecer headless e
-  com `MAX_CONCORRENCIA=1`; medir RAM/swap antes de aceitar mais tarefas. A
+  Por causa da memória física limitada, o piloto permanece headless e está em
+  teste controlado com `MAX_CONCORRENCIA=2`; medir RAM/swap antes de manter a configuração. A
   imagem `graalyst-worker:homologacao` foi construída na VM e a prova isolada
   abriu um Chromium dentro do container com rede desativada, filesystem
   somente leitura e capabilities removidas (`runtimePlaywright=true`). Depois
@@ -257,6 +257,9 @@ executa cada tarefa em um `BrowserContext` independente.
     duração do lote vai do primeiro início à última conclusão. A economia soma,
     por lote medido, a diferença positiva contra o benchmark humano de 337 s;
     o antigo tempo automático fixo de 42,18 s não participa mais do cálculo.
+    Como `iniciado_em` preserva a primeira tentativa, lotes com qualquer tarefa
+    reprocessada ficam fora da média/economia para não contabilizar espera como
+    automação ativa.
 
 ## Reunião de 29/08/2026
 
