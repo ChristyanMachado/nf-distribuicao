@@ -246,7 +246,9 @@ executa cada tarefa em um `BrowserContext` independente.
 10. Uma distribuição aceita vários emitentes para o mesmo cliente. Quantidade,
     troca e preço são informados por par cliente + emitente; cada par gera uma
     nota/tarefa separada dentro do mesmo lote. A interface chama esse par de
-    destino fiscal e só oferece relações ativas já habilitadas no cadastro.
+    destino fiscal e só oferece relações ativas já habilitadas no cadastro. O
+    usuário primeiro seleciona os mercados participantes; cada seleção inclui
+    automaticamente o primeiro emitente e libera os demais daquele mercado.
 11. O roteiro do motorista é agrupado por mercado, independentemente do
     emitente fiscal. Se o mesmo produto vier de vários emitentes, as quantidades
     e trocas são somadas na parada. A impressão permite escolher endereço,

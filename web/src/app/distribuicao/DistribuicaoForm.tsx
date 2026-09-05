@@ -68,13 +68,7 @@ export default function DistribuicaoForm({
   const [data, setData] = useState(() => dataOperacionalBrasil());
   const [chaveIdempotencia, setChaveIdempotencia] = useState(() => crypto.randomUUID());
   const [resultado, setResultado] = useState<{ loteId: string; numero: number | null; tarefas: number } | null>(null);
-  const [destinos, setDestinos] = useState<DestinoFiscal[]>(() =>
-    clientes.flatMap((cliente) =>
-      cliente.prontoParaEmissao && cliente.emitentes[0]
-        ? [{ clienteId: cliente.id, emitenteId: cliente.emitentes[0].id }]
-        : []
-    )
-  );
+  const [destinos, setDestinos] = useState<DestinoFiscal[]>([]);
   const [produtosDistribuicao, setProdutosDistribuicao] = useState<ProdutoNaDistribuicao[]>([]);
   const [produtoParaAdicionar, setProdutoParaAdicionar] = useState("");
   const [quantidadeParaAdicionar, setQuantidadeParaAdicionar] = useState("");
@@ -83,6 +77,10 @@ export default function DistribuicaoForm({
 
   const produtosDisponiveisParaAdicionar = produtos.filter(
     (p) => !produtosDistribuicao.some((pd) => pd.produtoId === p.id)
+  );
+  const mercadosSelecionados = useMemo(
+    () => new Set(destinos.map((destino) => destino.clienteId)),
+    [destinos]
   );
 
   function precoInicial(produtoId: string, clienteId: string, precoPadrao: string): string {
@@ -108,6 +106,20 @@ export default function DistribuicaoForm({
       ...produto,
       linhas: [...produto.linhas, criarLinha(produto.produtoId, destino)],
     })));
+  }
+
+  function alternarMercado(clienteId: string) {
+    const cliente = clientes.find((item) => item.id === clienteId);
+    if (!cliente?.prontoParaEmissao) return;
+    if (mercadosSelecionados.has(clienteId)) {
+      setDestinos((atual) => atual.filter((destino) => destino.clienteId !== clienteId));
+      setProdutosDistribuicao((atual) => atual.map((produto) => ({
+        ...produto,
+        linhas: produto.linhas.filter((linha) => linha.clienteId !== clienteId),
+      })));
+      return;
+    }
+    adicionarDestino(clienteId, cliente.emitentes[0]?.id);
   }
 
   function removerDestino(destino: DestinoFiscal) {
@@ -383,12 +395,44 @@ export default function DistribuicaoForm({
         />
 
         <div className="mt-4">
-          <Label>Mercados e emitentes</Label>
+          <Label>Mercados participantes</Label>
+          <div className="flex flex-wrap gap-2">
+            {clientes.map((cliente) => {
+              const selecionado = mercadosSelecionados.has(cliente.id);
+              return (
+                <button
+                  key={cliente.id}
+                  type="button"
+                  onClick={() => alternarMercado(cliente.id)}
+                  aria-pressed={selecionado}
+                  disabled={!cliente.prontoParaEmissao}
+                  title={cliente.prontoParaEmissao ? undefined : "Complete o cadastro fiscal deste mercado"}
+                  className={`tap-target rounded-full border px-3 py-1.5 text-sm ${
+                    !cliente.prontoParaEmissao
+                      ? "cursor-not-allowed border-[var(--line)] text-[var(--ink-faint)] opacity-50"
+                      : selecionado
+                        ? "border-[var(--field)] bg-[var(--field-tint)] text-[var(--field-strong)]"
+                        : "border-[var(--line-strong)] text-[var(--ink-faint)]"
+                  }`}
+                >
+                  {selecionado ? "✓ " : ""}{cliente.nome}{cliente.prontoParaEmissao ? "" : " · completar"}
+                </button>
+              );
+            })}
+          </div>
+          {destinos.length === 0 && (
+            <p className="mt-2 text-[12px] text-[var(--ink-soft)]">Selecione ao menos um mercado para começar.</p>
+          )}
+        </div>
+
+        {destinos.length > 0 && (
+        <div className="mt-4">
+          <Label>Emitentes por mercado</Label>
           <p className="mb-3 text-[12px] leading-5 text-[var(--ink-soft)]">
             Cada combinação gera uma nota. Um mesmo mercado pode receber notas de vários emitentes.
           </p>
           <div className="space-y-3">
-            {clientes.map((cliente) => {
+            {clientes.filter((cliente) => mercadosSelecionados.has(cliente.id)).map((cliente) => {
               const destinosDoCliente = destinos.filter((destino) => destino.clienteId === cliente.id);
               const emitentesDisponiveis = cliente.emitentes.filter(
                 (emitente) => !destinosDoCliente.some((destino) => destino.emitenteId === emitente.id)
@@ -449,15 +493,17 @@ export default function DistribuicaoForm({
               );
             })}
           </div>
-          {clientes.some((cliente) => !cliente.prontoParaEmissao) && (
-            <p className="mt-2 text-[12px] leading-5 text-[var(--ink-soft)]">
-              Clientes esmaecidos precisam de CNPJ, IE/CEP/endereço e emitente integrado.{" "}
-              <a href="/clientes" className="font-medium text-[var(--field-strong)] underline underline-offset-2">
-                Completar cadastros
-              </a>
-            </p>
-          )}
         </div>
+        )}
+
+        {clientes.some((cliente) => !cliente.prontoParaEmissao) && (
+          <p className="mt-3 text-[12px] leading-5 text-[var(--ink-soft)]">
+            Mercados esmaecidos precisam de CNPJ, IE/CEP/endereço e emitente integrado.{" "}
+            <a href="/clientes" className="font-medium text-[var(--field-strong)] underline underline-offset-2">
+              Completar cadastros
+            </a>
+          </p>
+        )}
 
       </Card>
 
@@ -488,7 +534,7 @@ export default function DistribuicaoForm({
           <button
             type="button"
             onClick={adicionarProduto}
-            disabled={!produtoParaAdicionar || !quantidadeParaAdicionar}
+            disabled={destinos.length === 0 || !produtoParaAdicionar || !quantidadeParaAdicionar}
             className="rounded-[var(--radius-control)] border border-[var(--field)] px-4 text-sm font-medium text-[var(--field-strong)] active:bg-[var(--field-tint)] disabled:opacity-30"
           >
             + Adicionar

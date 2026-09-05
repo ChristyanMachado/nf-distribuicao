@@ -149,6 +149,11 @@ validação server-side que rejeita somente o par duplicado. Próximo teste huma
 um produto dividido entre Cooperativa — Patrick e Cooperativa — Wagner, em
 homologação, conferindo duas tarefas/notas e o relatório do mesmo lote.
 
+O fluxo visual tem duas etapas: selecionar mercados e, apenas nos selecionados,
+gerenciar emitentes. O rascunho começa vazio; selecionar um mercado adiciona o
+primeiro emitente, desmarcá-lo remove todas as suas linhas, e produtos não podem
+ser adicionados sem mercado. Preserve essa prevenção contra notas acidentais.
+
 O roteiro impresso foi convertido em documento operacional: controles e texto
 explicativo não são impressos; há sequência de paradas, identificação da rota,
 campos de motorista/veículo e conferência opcional. Endereço, trocas, valores e

@@ -980,6 +980,12 @@ quando o emitente é diferente, rejeita pares duplicados e preserva uma tarefa
 por par dentro do lote. Não foi necessária migration nem mudança no Worker,
 pois contrato, agrupamento e schema já suportavam essa cardinalidade.
 
+A seleção de mercados foi restaurada como primeira etapa: o rascunho começa
+sem mercados, exibe todos os cadastros prontos como botões e só mostra os
+emitentes dos mercados escolhidos. Selecionar inclui automaticamente o primeiro
+emitente; desmarcar remove todos os destinos e linhas daquele mercado. O botão
+de adicionar produto permanece bloqueado enquanto nenhum mercado participar.
+
 Próximo gate humano: no celular, dividir um produto entre Cooperativa — Patrick
 e Cooperativa — Wagner, confirmar que o lote cria duas tarefas/notas e conferir
 o relatório único dessa distribuição. Executar somente em homologação.
