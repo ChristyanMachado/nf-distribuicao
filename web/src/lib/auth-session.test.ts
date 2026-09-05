@@ -15,5 +15,8 @@ describe("sessão administrativa", () => {
     expect(retornoSeguro("//evil.example")).toBe("/");
     expect(retornoSeguro("https://evil.example")).toBe("/");
     expect(retornoSeguro("/\\evil.example")).toBe("/");
+    expect(retornoSeguro("/\t/evil.example")).toBe("/");
+    expect(retornoSeguro("/\n/evil.example")).toBe("/");
+    expect(retornoSeguro("/\r/evil.example")).toBe("/");
   });
 });

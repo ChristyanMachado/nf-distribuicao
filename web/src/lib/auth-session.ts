@@ -54,5 +54,9 @@ export function validarTokenSessao(token: string | undefined, segredo: string, a
 }
 
 export function retornoSeguro(valor: FormDataEntryValue | string | null): string {
-  return typeof valor === "string" && /^\/(?![\\/])/.test(valor) ? valor : "/";
+  // Browsers remove control characters while parsing URLs. Reject them before
+  // accepting a relative path, including backslashes normalized as slashes.
+  if (typeof valor !== "string" || !/^\/(?![\\/])/.test(valor)
+    || /[\\\u0000-\u0020\u007f]/.test(valor)) return "/";
+  return valor;
 }

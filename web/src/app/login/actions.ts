@@ -23,13 +23,14 @@ function limparTentativasExpiradas(agora: number) {
   }
   // Em uma instância serverless o mapa é apenas uma defesa complementar.
   // Ainda assim, nunca permitimos crescimento ilimitado por IPs forjados.
-  if (tentativas.size > MAX_CHAVES_RATE_LIMIT) tentativas.clear();
+  // Preserve existing blocks: clearing the map would let new IPs reset them.
 }
 
 function registrarTentativa(chave: string): boolean {
   const agora = Date.now();
   if (tentativas.size >= MAX_CHAVES_RATE_LIMIT) limparTentativasExpiradas(agora);
   const atual = tentativas.get(chave);
+  if (!atual && tentativas.size >= MAX_CHAVES_RATE_LIMIT) return false;
   if (!atual || agora - atual.primeira > JANELA_MS) {
     tentativas.set(chave, { quantidade: 1, primeira: agora });
     return true;

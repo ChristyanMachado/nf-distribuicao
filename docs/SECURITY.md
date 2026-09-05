@@ -4,6 +4,10 @@
 
 ### Web
 
+- Revisão local de 05/09: retorno pós-login rejeita caracteres de controle e
+  barras invertidas; lotar o mapa de tentativas não limpa bloqueios existentes.
+  Esses ajustes não modificam Supabase Auth nem funções do sistema de ponto.
+
 - sessão administrativa HMAC com duração curta e cookie seguro;
 - bloqueio por inatividade e logout;
 - produção fecha quando a autenticação não está configurada;

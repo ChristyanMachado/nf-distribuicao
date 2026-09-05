@@ -226,6 +226,13 @@ VM nunca é desligada pela janela e lê alterações no ciclo seguinte. Manter u
 conexão/fila durável e alertas externos são melhorias
 posteriores; o primeiro piloto pode operar com polling curto e supervisionado.
 
+O serviço solicita explicitamente `sinalizar_trabalho_concluido=True`: o retorno
+interno 2 indica emissão concluída e dispara outro ciclo imediatamente, com nova
+verificação da janela e nova reserva. Retorno 0 indica ciclo sem emissão e
+mantém polling; 1 mantém backoff. Execuções avulsas preservam códigos 0/1.
+Cada tarefa continua usando contexto independente e as falhas não são
+reenfileiradas automaticamente por essa otimização.
+
 Consulte `DEPLOYMENT.md`, `SECURITY.md`, `CONTRATO-WEB-WORKER.md` e
 `ROADMAP.md` para os gates operacionais.
 

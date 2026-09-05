@@ -725,6 +725,7 @@ async def executar_fila_banco_homologacao(
     *,
     silencioso_sem_tarefas: bool = False,
     usar_janela_operacional: bool = False,
+    sinalizar_trabalho_concluido: bool = False,
 ) -> int:
     """Processa até três tarefas do banco, exclusivamente em homologação.
 
@@ -972,11 +973,17 @@ async def executar_fila_banco_homologacao(
                 headless=config.headless,
                 max_concorrencia=limite,
             )
-            return int(
+            houve_falha = bool(
                 falha_recuperacao
                 or falhas_preparacao > 0
                 or any(not resultado.sucesso for resultado in resultados)
             )
+            if houve_falha:
+                return 1
+            # No serviço persistente, 2 é um sinal interno de "houve trabalho".
+            # Ele permite drenar a próxima tarefa sem aguardar o polling ocioso.
+            # Na execução avulsa preservamos o código de saída convencional 0.
+            return 2 if sinalizar_trabalho_concluido else 0
     except FonteTarefasErro as exc:
         logger.error("Integração com banco falhou (%s).", type(exc).__name__)
         return 1

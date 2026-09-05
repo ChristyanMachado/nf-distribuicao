@@ -27,6 +27,7 @@ async def _executar_ciclo_persistente(config: Config, logger: logging.Logger) ->
         logger,
         silencioso_sem_tarefas=True,
         usar_janela_operacional=True,
+        sinalizar_trabalho_concluido=True,
     )
 
 
@@ -104,10 +105,20 @@ async def executar_servico(
         except Exception as exc:  # noqa: BLE001 - serviço precisa sobreviver à indisponibilidade
             codigo = 1
             logger.error("Ciclo do Worker falhou (%s).", type(exc).__name__)
-        _gravar_saude(saude, estado="ok" if codigo == 0 else "degradado", codigo_saida=codigo)
+        trabalho_processado = codigo == 2
+        codigo_saude = 0 if trabalho_processado else codigo
+        _gravar_saude(
+            saude,
+            estado="ok" if codigo_saude == 0 else "degradado",
+            codigo_saida=codigo_saude,
+        )
         ciclos += 1
         if max_ciclos is not None and ciclos >= max_ciclos:
             break
+        # Se uma tarefa acabou com sucesso, consulte a fila novamente já no
+        # próximo ciclo. O polling só limita consultas quando não havia trabalho.
+        if trabalho_processado:
+            continue
         espera = intervalo if codigo == 0 else recuo_erro
         try:
             await asyncio.wait_for(parar.wait(), timeout=espera)

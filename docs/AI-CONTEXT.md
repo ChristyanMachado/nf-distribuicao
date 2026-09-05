@@ -17,6 +17,12 @@ executa cada tarefa em um `BrowserContext` independente.
   atual não preserva o JWT Supabase no navegador. Reavaliar Broadcast privado
   somente quando Supabase Auth/RLS estiverem de ponta a ponta.
 
+- O Worker drena tarefas sequenciais sem aguardar o polling entre elas. O
+  intervalo de 5s vale apenas para fila vazia; concorrência permanece 1 e as
+  esperas/validações da Receita permanecem intactas.
+  A drenagem está validada localmente, ainda pendente de implantação na VM.
+  `Recebido por` permanece opcional via filtro de conferência do roteiro.
+
 - O primeiro ciclo fiscal completo na VM foi validado após a correção da
   transição de Transporte: AUTORIZADA, XML/DANFE privados e valores conferidos.
   Uma recuperação histórica também completou pela VM e restaurou o par por 7

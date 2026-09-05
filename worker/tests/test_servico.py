@@ -8,6 +8,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from unittest.mock import AsyncMock
 
 from src.janela_emissao import JanelaEmissao
 from src.servico import executar_servico
@@ -62,6 +63,53 @@ def test_servico_executa_ciclo_e_publica_saude(monkeypatch, tmp_path: Path) -> N
     assert chamadas == 1
     assert dados["estado"] == "ok"
     assert set(dados) == {"estado", "codigo_saida", "atualizado_em"}
+
+
+def test_servico_drena_proxima_tarefa_sem_aguardar_polling(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("WORKER_HEALTHCHECK_PATH", str(tmp_path / "saude.json"))
+    monkeypatch.setenv("WORKER_POLL_SECONDS", "300")
+    config = SimpleNamespace(worker_persistente=True)
+    resultados = iter((2, 0))
+    chamadas = 0
+
+    async def executor(_config, _logger):
+        nonlocal chamadas
+        chamadas += 1
+        return next(resultados)
+
+    asyncio.run(
+        executar_servico(
+            config,
+            logging.getLogger("servico-teste"),
+            executor=executor,
+            max_ciclos=2,
+        )
+    )
+
+    assert chamadas == 2
+    dados = json.loads((tmp_path / "saude.json").read_text(encoding="utf-8"))
+    assert dados["estado"] == "ok"
+    assert dados["codigo_saida"] == 0
+
+
+@pytest.mark.parametrize("codigo, espera", [(0, 15), (1, 30)])
+def test_servico_preserva_espera_ociosa_e_recuo_de_erro(monkeypatch, tmp_path, codigo, espera):
+    monkeypatch.setenv("WORKER_HEALTHCHECK_PATH", str(tmp_path / "saude.json"))
+    monkeypatch.setenv("WORKER_POLL_SECONDS", "15")
+    monkeypatch.setenv("WORKER_ERROR_BACKOFF_SECONDS", "30")
+    chamadas = []
+
+    async def esperar(awaitable, *, timeout):
+        awaitable.close()
+        chamadas.append(timeout)
+        raise TimeoutError
+
+    monkeypatch.setattr("src.servico.asyncio.wait_for", esperar)
+    asyncio.run(executar_servico(
+        SimpleNamespace(worker_persistente=True), logging.getLogger("teste"),
+        executor=AsyncMock(return_value=codigo), max_ciclos=2,
+    ))
+    assert chamadas == [espera]
 
 
 def test_servico_sanitiza_excecao_e_marca_degradado(monkeypatch, tmp_path: Path) -> None:

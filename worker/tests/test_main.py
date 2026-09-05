@@ -684,7 +684,8 @@ def test_fila_banco_bloqueia_emitente_divergente_antes_do_navegador():
     )
 
 
-def test_fila_banco_autorizada_registra_metadados_com_token_da_reserva():
+@pytest.mark.parametrize("sinalizar, esperado", [(False, 0), (True, 2)])
+def test_fila_banco_autorizada_registra_metadados_com_token_da_reserva(sinalizar, esperado):
     reserva = _reserva_banco()
     fonte = _FonteBancoFake([reserva])
     logger = logging.getLogger("teste-fila-autorizada")
@@ -716,9 +717,11 @@ def test_fila_banco_autorizada_registra_metadados_com_token_da_reserva():
             side_effect=_orquestrador_sem_browser,
         ),
     ):
-        resultado = asyncio.run(executar_fila_banco_homologacao(_config_banco(), logger))
+        resultado = asyncio.run(executar_fila_banco_homologacao(
+            _config_banco(), logger, sinalizar_trabalho_concluido=sinalizar,
+        ))
 
-    assert resultado == 0
+    assert resultado == esperado
     fonte.registrar_status.assert_awaited_once_with(
         reserva.contratada.tarefa.tarefa_id,
         reserva.reserva_token,

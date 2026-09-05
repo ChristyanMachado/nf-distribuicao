@@ -2,6 +2,21 @@
 
 ## Estado autoritativo — 05/09/2026
 
+- Polimento local: restaurado `Recebido por` dentro do filtro de conferência,
+  conforme nova orientação. Fila sequencial continua imediatamente após sucesso
+  por sinal explícito `sinalizar_trabalho_concluido`, independente de silenciar
+  logs. Ciclos vazios mantêm polling e falhas mantêm backoff. Homologação e
+  concorrência 1 preservadas. Esta versão ainda precisa ser implantada na VM;
+  não confundir com o ajuste anterior de polling para 5s já aplicado remotamente.
+- Login: retorno rejeita controles e barras invertidas que poderiam ser
+  normalizados pelo navegador para um destino externo. Limitador local não
+  apaga mais bloqueios ao atingir capacidade. Continua complementar, não
+  substitui proteção distribuída. Atualização automática evita sobreposição
+  enquanto há transição pendente e não consulta quando navegador está offline.
+- Validação: 243 testes Worker e 104 testes Web passaram; TypeScript passou.
+  Graphify atualizado incrementalmente em modo code-only. Nenhuma alteração
+  em banco remoto, sistema de ponto, credenciais ou ambiente fiscal real.
+
 - UX operacional atualizada: `/tarefas` atualiza automaticamente a cada 10s
   somente enquanto existe tarefa PENDENTE/PROCESSANDO/EMITINDO; `/notas` faz o
   mesmo somente durante recuperação PENDENTE/PROCESSANDO. O ciclo pausa com a
@@ -1010,6 +1025,13 @@ ciclo. A VM passou de `WORKER_POLL_SECONDS=30` para `5`, mantendo
 `MAX_CONCORRENCIA=1`. A otimização reduz a latência da fila sem acelerar campos,
 cliques ou confirmações da Receita; economia esperada em um lote de três notas:
 cerca de 50s. Container recriado saudável e sem reinícios.
+
+O serviço agora distingue ciclo ocioso de ciclo com trabalho concluído: depois
+de uma nota bem-sucedida, consulta imediatamente a próxima tarefa; os 5s são
+aplicados somente quando a fila está vazia. A concorrência continua 1 e nenhuma
+espera do portal foi reduzida. A remoção de “Recebido por” foi desfeita a pedido
+do usuário; continua sob o filtro de conferência. Validação local anterior: 30 testes
+Worker, 104 testes Web e TypeScript passaram.
 
 ## Atualização — roteiro operacional do motorista
 

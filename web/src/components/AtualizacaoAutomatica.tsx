@@ -19,7 +19,7 @@ export default function AtualizacaoAutomatica({
     if (!ativa) return;
 
     const atualizar = () => {
-      if (document.visibilityState !== "visible") return;
+      if (document.visibilityState !== "visible" || !navigator.onLine || atualizando) return;
       iniciarAtualizacao(() => router.refresh());
     };
     const intervalo = window.setInterval(atualizar, INTERVALO_MS);
@@ -28,7 +28,7 @@ export default function AtualizacaoAutomatica({
       window.clearInterval(intervalo);
       document.removeEventListener("visibilitychange", atualizar);
     };
-  }, [ativa, router]);
+  }, [ativa, router, atualizando]);
 
   if (!ativa) return null;
 
