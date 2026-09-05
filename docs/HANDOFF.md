@@ -998,3 +998,13 @@ uma única parada física. Não há otimização automática por CEP nesta fase.
 Próximo gate humano: usar a pré-visualização de impressão no celular e no PC,
 confirmar que uma distribuição com dois emitentes no mesmo mercado mostra uma
 parada e totais físicos agregados, alternando também o filtro de valores.
+
+## Atualização — indicadores reais de desempenho
+
+`/relatorios` já calculava a média do lote pelos timestamps reais: primeiro
+`iniciado_em` até último `concluido_em` entre as tarefas daquele lote. A economia
+foi corrigida para também usar essa duração real. Para cada distribuição
+concluída e mensurável, soma-se apenas a diferença positiva contra o benchmark
+manual de 337 s. Distribuições sem timestamps não inflam média nem economia, e
+a interface informa o tamanho da amostra medida. O valor automático fixo de
+42,18 s permanece apenas como registro histórico do benchmark original.

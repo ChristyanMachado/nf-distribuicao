@@ -186,6 +186,7 @@ describe("calcularKpisOperacionais", () => {
       emitidas: 3,
       pendentes: 1,
       erros: 1,
+      distribuicoesMedidas: 1,
       tempoEconomizadoSegundos: 295,
       tempoMedioLoteSegundos: 42,
     });
@@ -197,7 +198,19 @@ describe("calcularKpisOperacionais", () => {
       { id: "2", loteId: "l1", status: "ERRO", tentativas: 1, iniciadoEm: null, concluidoEm: null },
     ]);
     expect(resultado.distribuicoesConcluidas).toBe(0);
+    expect(resultado.distribuicoesMedidas).toBe(0);
     expect(resultado.tempoEconomizadoSegundos).toBe(0);
+  });
+
+  it("usa a duração real de cada lote para calcular a economia", () => {
+    const resultado = calcularKpisOperacionais([
+      { id: "1", loteId: "l1", status: "EMITIDA", tentativas: 1, iniciadoEm: new Date("2026-08-26T10:00:00Z"), concluidoEm: new Date("2026-08-26T10:01:00Z") },
+      { id: "2", loteId: "l2", status: "EMITIDA", tentativas: 1, iniciadoEm: new Date("2026-08-26T11:00:00Z"), concluidoEm: new Date("2026-08-26T11:02:00Z") },
+    ]);
+
+    expect(resultado.tempoMedioLoteSegundos).toBe(90);
+    expect(resultado.tempoEconomizadoSegundos).toBe((337 - 60) + (337 - 120));
+    expect(resultado.distribuicoesMedidas).toBe(2);
   });
 });
 

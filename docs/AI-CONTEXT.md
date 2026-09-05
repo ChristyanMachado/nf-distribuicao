@@ -251,6 +251,10 @@ executa cada tarefa em um `BrowserContext` independente.
     emitente fiscal. Se o mesmo produto vier de vários emitentes, as quantidades
     e trocas são somadas na parada. A impressão permite escolher endereço,
     trocas, valores e campos de conferência; valores começam ocultos.
+12. Indicadores de duração usam `tarefas.iniciado_em` e `concluido_em`: a
+    duração do lote vai do primeiro início à última conclusão. A economia soma,
+    por lote medido, a diferença positiva contra o benchmark humano de 337 s;
+    o antigo tempo automático fixo de 42,18 s não participa mais do cálculo.
 
 ## Reunião de 29/08/2026
 

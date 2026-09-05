@@ -61,18 +61,15 @@ export type KpisOperacionais = {
   pendentes: number;
   emAndamento: number;
   erros: number;
+  distribuicoesMedidas: number;
   tempoEconomizadoSegundos: number;
   tempoMedioLoteSegundos: number | null;
 };
 
-// Benchmark de 25/08/2026: uma distribuicao com 3 notas levou 337 s no
-// processo manual e 42,18 s no sistema. A economia pertence ao lote inteiro,
-// independentemente de quantas tarefas foram executadas em paralelo. Ela não
-// deve ser multiplicada pelo número de notas. Recalibrar com uma amostra maior.
+// Benchmark humano de 25/08/2026: uma distribuição com 3 notas levou 337 s.
+// O tempo automático não é constante: vem dos timestamps reais de cada lote.
+// Recalibrar o referencial manual quando houver uma amostra humana maior.
 export const BENCHMARK_MANUAL_SEGUNDOS_POR_LOTE = 337;
-export const BENCHMARK_AUTOMATICO_SEGUNDOS_POR_LOTE = 42.18;
-export const ECONOMIA_ESTIMADA_SEGUNDOS_POR_LOTE =
-  BENCHMARK_MANUAL_SEGUNDOS_POR_LOTE - BENCHMARK_AUTOMATICO_SEGUNDOS_POR_LOTE;
 
 const STATUS_SUCESSO = new Set(["EMITIDA", "DOCUMENTOS_ARMAZENADOS"]);
 
@@ -106,6 +103,10 @@ export function calcularKpisOperacionais(tarefas: TarefaOperacional[]): KpisOper
       return (Math.max(...conclusoes) - Math.min(...inicios)) / 1000;
     })
     .filter((segundos): segundos is number => segundos !== null && segundos >= 0 && segundos <= 24 * 60 * 60);
+  const tempoEconomizadoSegundos = duracoesDosLotes.reduce(
+    (total, duracaoReal) => total + Math.max(0, BENCHMARK_MANUAL_SEGUNDOS_POR_LOTE - duracaoReal),
+    0
+  );
 
   return {
     distribuicoes: porLote.size,
@@ -114,7 +115,8 @@ export function calcularKpisOperacionais(tarefas: TarefaOperacional[]): KpisOper
     pendentes: validas.filter((t) => t.status === "PENDENTE").length,
     emAndamento: validas.filter((t) => ["PROCESSANDO", "AGUARDANDO_CONFERENCIA", "EMITINDO"].includes(t.status)).length,
     erros: validas.filter((t) => t.status === "ERRO").length,
-    tempoEconomizadoSegundos: Math.round(lotesConcluidos.length * ECONOMIA_ESTIMADA_SEGUNDOS_POR_LOTE),
+    distribuicoesMedidas: duracoesDosLotes.length,
+    tempoEconomizadoSegundos: Math.round(tempoEconomizadoSegundos),
     tempoMedioLoteSegundos: duracoesDosLotes.length
       ? Math.round(duracoesDosLotes.reduce((a, b) => a + b, 0) / duracoesDosLotes.length)
       : null,

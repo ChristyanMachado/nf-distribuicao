@@ -155,3 +155,9 @@ campos de motorista/veículo e conferência opcional. Endereço, trocas, valores
 conferência são filtros, com valores ocultos por padrão. Para o motorista, o
 mesmo produto destinado ao mesmo mercado por emitentes distintos é consolidado
 em uma linha. Não implementar rota automática usando somente CEP.
+
+Os KPIs operacionais usam duração real por lote (primeiro início até última
+conclusão). A economia deixou de aplicar o tempo automático fixo de 42,18 s:
+agora compara cada lote mensurável ao benchmark humano de 337 s e mostra a
+quantidade de distribuições medidas. Não contar lotes sem timestamps nem
+economia negativa.

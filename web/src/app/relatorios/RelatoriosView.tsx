@@ -167,7 +167,7 @@ export default function RelatoriosView({
           <KpiOperacional
             titulo="Tempo economizado"
             valor={formatarDuracao(operacao.tempoEconomizadoSegundos)}
-            detalhe={`${formatarQuantidade(operacao.distribuicoesConcluidas, "distribuição completa", "distribuições completas")} × benchmark`}
+            detalhe={`${formatarQuantidade(operacao.distribuicoesMedidas, "distribuição medida", "distribuições medidas")} · comparado ao manual`}
             destaque
           />
           <KpiOperacional
@@ -188,7 +188,7 @@ export default function RelatoriosView({
                 ? "—"
                 : formatarDuracao(operacao.tempoMedioLoteSegundos)
             }
-            detalhe="do início da primeira à última nota"
+            detalhe={`${formatarQuantidade(operacao.distribuicoesMedidas, "distribuição medida", "distribuições medidas")} · da primeira à última nota`}
           />
           <KpiOperacional
             titulo="Taxa concluída"
@@ -201,8 +201,8 @@ export default function RelatoriosView({
           />
         </div>
         <p className="mt-2 text-[11px] leading-relaxed text-[var(--ink-faint)]">
-          Economia estimada pelo teste de 25/08/2026: uma distribuição de 3 notas levou 5min 37s no
-          processo manual e 42,18s no sistema. Cada distribuição completa entra uma única vez.
+          O tempo do sistema vem dos registros reais do Worker. A economia compara cada distribuição
+          medida ao benchmark manual de 5min 37s, obtido no teste de 25/08/2026 com 3 notas.
         </p>
 
       {/* Gráfico do valor bruto por dia */}
