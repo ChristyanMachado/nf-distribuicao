@@ -704,6 +704,27 @@ export default function DistribuicaoForm({
         </p>
       )}
 
+      {podeEnviar && (
+        <Card className="mt-5 border-[var(--field)] p-4">
+          <h2 className="text-sm font-semibold">Confira antes de distribuir</h2>
+          <p className="mt-1 text-[12px] text-[var(--ink-soft)]">Cada mercado e emitente abaixo receberá uma nota separada.</p>
+          <div className="mt-3 divide-y divide-[var(--line)]">
+            {destinos.map((destino) => {
+              const cliente = clientes.find((c) => c.id === destino.clienteId);
+              const linhas = previewPorProduto.flatMap((p) => p.resultados
+                .filter((r) => r.clienteId === destino.clienteId && r.emitenteId === destino.emitenteId && r.quantidadeDistribuida > 0)
+                .map((r) => ({ ...r, produtoId: p.produtoId })));
+              if (!linhas.length) return null;
+              return <div key={chaveDestino(destino)} className="py-3 text-sm">
+                <p className="font-semibold">{cliente?.nome} — {cliente?.emitentes.find((e) => e.id === destino.emitenteId)?.nome}</p>
+                {linhas.map((linha) => <p key={linha.produtoId} className="mt-1 text-[13px] text-[var(--ink-soft)]">{produtos.find((p) => p.id === linha.produtoId)?.descricao}: {linha.quantidadeDistribuida} {produtos.find((p) => p.id === linha.produtoId)?.unidade}{linha.quantidadeTroca > 0 ? ` · troca ${linha.quantidadeTroca}` : ""}</p>)}
+                <p className="mt-1 font-mono-tab font-semibold">{moeda.format(linhas.reduce((s, l) => s + l.subtotal, 0))}</p>
+              </div>;
+            })}
+          </div>
+        </Card>
+      )}
+
       {resultado && (
         <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
           <a href="/tarefas" className="tap-target flex items-center justify-center rounded-[var(--radius-control)] border border-[var(--field)] px-3 text-center font-medium text-[var(--field-strong)]">Acompanhar {resultado.tarefas} tarefa(s)</a>

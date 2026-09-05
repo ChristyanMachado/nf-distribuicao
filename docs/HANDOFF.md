@@ -2,6 +2,19 @@
 
 ## Estado autoritativo — 05/09/2026
 
+- UX para demonstração: distribuição tem conferência compacta por mercado +
+  emitente, produtos, quantidades, trocas e total antes do envio, sem clique
+  adicional obrigatório. Tarefas mostram o resultado da última distribuição
+  fora das abas, com atalhos para atenção, documentos e roteiro. A conclusão
+  não é afirmada quando a listagem atinge o limite de 100 registros.
+- Painel do Worker mostra janela operacional e execução com reserva vigente;
+  não representa heartbeat independente. Fora de execução, comunica que não
+  há confirmação de atividade (não declara offline). Monitoramento real da VM
+  ociosa continua pendente de canal autenticado de heartbeat. Não confundir
+  reserva vigente com garantia de processo saudável.
+- UX guiada por visibilidade de estado (NN/g: visibility-system-status).
+  Nenhuma migration, alteração do Ponto ou mudança para produção fiscal.
+
 - Polimento local: restaurado `Recebido por` dentro do filtro de conferência,
   conforme nova orientação. Fila sequencial continua imediatamente após sucesso
   por sinal explícito `sinalizar_trabalho_concluido`, independente de silenciar

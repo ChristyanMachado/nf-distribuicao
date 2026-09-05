@@ -10,6 +10,8 @@ import {
 } from "@/lib/tarefas-visao";
 import TarefaCard from "./TarefaCard";
 import { listarTarefasComItens } from "./actions";
+import { obterConfiguracaoOperacional } from "../configuracoes/actions";
+import { descreverJanela } from "@/lib/janela-operacional";
 
 const ABAS: { id: VisaoTarefas; label: string }[] = [
   { id: "pendentes", label: "Pendentes" },
@@ -24,9 +26,10 @@ export default async function TarefasPage({
 }: {
   searchParams: Promise<{ visao?: string }>;
 }) {
-  const [lista, parametros] = await Promise.all([
+  const [lista, parametros, janela] = await Promise.all([
     listarTarefasComItens(),
     searchParams,
+    obterConfiguracaoOperacional(),
   ]);
   const visao = normalizarVisaoTarefas(parametros.visao);
   const contagens = Object.fromEntries(
@@ -42,6 +45,14 @@ export default async function TarefasPage({
   const temTarefaAtiva = lista.some((tarefa) =>
     ["PENDENTE", "PROCESSANDO", "EMITINDO"].includes(tarefa.status),
   );
+  const ultima = agruparPorDistribuicao(lista)[0];
+  const emitidas = ultima?.tarefas.filter((t) => visaoDaTarefa(t.status) === "concluidas").length ?? 0;
+  const problemas = ultima?.tarefas.filter((t) => visaoDaTarefa(t.status) === "atencao").length ?? 0;
+  const concluida = !!ultima && lista.length < 100 && emitidas === ultima.tarefas.length;
+  const processando = lista.some((t) =>
+    ["PROCESSANDO", "EMITINDO"].includes(t.status)
+    && t.reservaExpiraEm && t.reservaExpiraEm.getTime() > Date.now(),
+  );
 
   return (
     <div>
@@ -50,6 +61,27 @@ export default async function TarefasPage({
         Acompanhe cada rodada de distribuição e abra apenas a nota que precisa revisar.
       </p>
       <AtualizacaoAutomatica ativa={temTarefaAtiva} />
+      <Card className="mt-4 p-4">
+        <p className="text-sm font-semibold">{processando ? "Worker com tarefa em execução" : "Acompanhamento do Worker"}</p>
+        <p className="mt-1 text-[13px] text-[var(--ink-soft)]">
+          Novas emissões: {descreverJanela(janela)} · São Paulo. Notas já iniciadas continuam até terminar.
+        </p>
+        {!processando && <p className="mt-1 text-[12px] text-[var(--ink-faint)]">Sem execução confirmada agora. Isso não significa que o serviço esteja desconectado.</p>}
+      </Card>
+      {ultima?.numeroDistribuicao && (
+        <Card className={`mt-4 p-4 ${problemas ? "border-[var(--stamp)] bg-[var(--stamp-tint)]" : "border-[var(--field)] bg-[var(--field-tint)]"}`}>
+          <div role="status" aria-live="polite">
+            <p className="text-[12px] font-semibold uppercase tracking-wide">Distribuição {String(ultima.numeroDistribuicao).padStart(6, "0")}</p>
+            <h2 className="mt-1 text-lg font-semibold">{concluida ? "Distribuição concluída" : problemas ? "Uma parte precisa de atenção" : "Acompanhe sua distribuição"}</h2>
+            <p className="mt-1 text-sm">{emitidas} de {ultima.tarefas.length} notas emitidas{problemas ? ` · ${problemas} para conferir` : ""}.</p>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-3 text-sm font-medium">
+            {problemas > 0 && <Link className="tap-target inline-flex items-center underline" href="/tarefas?visao=atencao">Conferir problemas</Link>}
+            {emitidas > 0 && <Link className="tap-target inline-flex items-center underline" href="/notas">Abrir documentos</Link>}
+            <Link className="tap-target inline-flex items-center underline" href={`/entregas?lote=${ultima.loteId}`}>Roteiro de entrega</Link>
+          </div>
+        </Card>
+      )}
 
       <nav
         aria-label="Situação das tarefas"
