@@ -243,6 +243,10 @@ executa cada tarefa em um `BrowserContext` independente.
    pela unidade; o Worker continua localizando o item pelo código fiscal.
 9. Sobra de quantidade é permitida somente após confirmação explícita do
    usuário. Excesso continua inválido e bloqueado.
+10. Uma distribuição aceita vários emitentes para o mesmo cliente. Quantidade,
+    troca e preço são informados por par cliente + emitente; cada par gera uma
+    nota/tarefa separada dentro do mesmo lote. A interface chama esse par de
+    destino fiscal e só oferece relações ativas já habilitadas no cadastro.
 
 ## Reunião de 29/08/2026
 

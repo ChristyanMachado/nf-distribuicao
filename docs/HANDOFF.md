@@ -969,3 +969,17 @@ documentar
 atualizar este arquivo
 
 Ler docs/AI-CONTEXT.md antes de decisões arquiteturais.
+
+## Atualização — múltiplos emitentes por mercado
+
+O formulário `/distribuicao` deixou de limitar cada cliente a um único
+emitente. Ele trabalha com destinos fiscais (par cliente + emitente), permite
+adicionar vários emitentes habilitados ao mesmo mercado e identifica cada
+linha de produto como `Mercado — Emitente`. O servidor aceita cliente repetido
+quando o emitente é diferente, rejeita pares duplicados e preserva uma tarefa
+por par dentro do lote. Não foi necessária migration nem mudança no Worker,
+pois contrato, agrupamento e schema já suportavam essa cardinalidade.
+
+Próximo gate humano: no celular, dividir um produto entre Cooperativa — Patrick
+e Cooperativa — Wagner, confirmar que o lote cria duas tarefas/notas e conferir
+o relatório único dessa distribuição. Executar somente em homologação.

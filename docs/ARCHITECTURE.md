@@ -228,3 +228,12 @@ posteriores; o primeiro piloto pode operar com polling curto e supervisionado.
 
 Consulte `DEPLOYMENT.md`, `SECURITY.md`, `CONTRATO-WEB-WORKER.md` e
 `ROADMAP.md` para os gates operacionais.
+
+### Destino fiscal dentro de uma distribuição
+
+A unidade operacional usada para montar uma nota é o par `cliente + emitente`,
+chamado na interface de destino fiscal. Um lote pode conter mais de um destino
+para o mesmo cliente, desde que os emitentes sejam diferentes. Cada par gera
+uma tarefa fiscal independente; produtos diferentes destinados ao mesmo par no
+mesmo lote são agrupados na mesma tarefa. A relação precisa existir em
+`cliente_emitentes`, e cliente e emitente devem estar ativos e completos.

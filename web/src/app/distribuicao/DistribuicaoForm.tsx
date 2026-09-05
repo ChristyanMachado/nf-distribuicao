@@ -18,6 +18,7 @@ type Produto = { id: string; descricao: string; precoPadrao: string; unidade: st
 
 type Linha = {
   clienteId: string;
+  emitenteId: string;
   quantidadeDistribuida: string;
   quantidadeTroca: string;
   precoUnitario: string;
@@ -27,7 +28,12 @@ type Linha = {
 type ProdutoNaDistribuicao = {
   produtoId: string;
   quantidadeTotal: string;
-  linhas: Linha[]; // uma por cliente cadastrado (só exibida se o cliente estiver selecionado)
+  linhas: Linha[]; // uma por destino fiscal (par cliente + emitente)
+};
+
+type DestinoFiscal = {
+  clienteId: string;
+  emitenteId: string;
 };
 
 type UltimaDistribuicao = {
@@ -62,12 +68,11 @@ export default function DistribuicaoForm({
   const [data, setData] = useState(() => dataOperacionalBrasil());
   const [chaveIdempotencia, setChaveIdempotencia] = useState(() => crypto.randomUUID());
   const [resultado, setResultado] = useState<{ loteId: string; numero: number | null; tarefas: number } | null>(null);
-  const [clientesSelecionados, setClientesSelecionados] = useState<Set<string>>(
-    () => new Set(clientes.filter((c) => c.prontoParaEmissao).map((c) => c.id))
-  );
-  const [emitentePorCliente, setEmitentePorCliente] = useState<Record<string, string>>(() =>
-    Object.fromEntries(
-      clientes.map((cliente) => [cliente.id, cliente.emitentes[0]?.id ?? ""])
+  const [destinos, setDestinos] = useState<DestinoFiscal[]>(() =>
+    clientes.flatMap((cliente) =>
+      cliente.prontoParaEmissao && cliente.emitentes[0]
+        ? [{ clienteId: cliente.id, emitenteId: cliente.emitentes[0].id }]
+        : []
     )
   );
   const [produtosDistribuicao, setProdutosDistribuicao] = useState<ProdutoNaDistribuicao[]>([]);
@@ -84,18 +89,45 @@ export default function DistribuicaoForm({
     return precos[`${produtoId}:${clienteId}`] ?? precoPadrao;
   }
 
-  function alternarCliente(clienteId: string) {
-    if (!clientes.find((cliente) => cliente.id === clienteId)?.prontoParaEmissao) return;
-    setClientesSelecionados((atual) => {
-      const novo = new Set(atual);
-      if (novo.has(clienteId)) novo.delete(clienteId);
-      else novo.add(clienteId);
-      return novo;
-    });
+  function chaveDestino(destino: DestinoFiscal) {
+    return `${destino.clienteId}:${destino.emitenteId}`;
   }
 
-  function selecionarEmitente(clienteId: string, emitenteId: string) {
-    setEmitentePorCliente((atual) => ({ ...atual, [clienteId]: emitenteId }));
+  function adicionarDestino(clienteId: string, emitenteId?: string) {
+    const cliente = clientes.find((item) => item.id === clienteId);
+    const escolhido = emitenteId ?? cliente?.emitentes.find(
+      (emitente) => !destinos.some(
+        (destino) => destino.clienteId === clienteId && destino.emitenteId === emitente.id
+      )
+    )?.id;
+    if (!cliente?.prontoParaEmissao || !escolhido) return;
+    const destino = { clienteId, emitenteId: escolhido };
+    if (destinos.some((item) => chaveDestino(item) === chaveDestino(destino))) return;
+    setDestinos((atual) => [...atual, destino]);
+    setProdutosDistribuicao((atual) => atual.map((produto) => ({
+      ...produto,
+      linhas: [...produto.linhas, criarLinha(produto.produtoId, destino)],
+    })));
+  }
+
+  function removerDestino(destino: DestinoFiscal) {
+    const chave = chaveDestino(destino);
+    setDestinos((atual) => atual.filter((item) => chaveDestino(item) !== chave));
+    setProdutosDistribuicao((atual) => atual.map((produto) => ({
+      ...produto,
+      linhas: produto.linhas.filter((linha) => chaveDestino(linha) !== chave),
+    })));
+  }
+
+  function criarLinha(produtoId: string, destino: DestinoFiscal): Linha {
+    const produto = produtos.find((item) => item.id === produtoId)!;
+    return {
+      ...destino,
+      quantidadeDistribuida: "",
+      quantidadeTroca: "0",
+      precoUnitario: precoInicial(produtoId, destino.clienteId, produto.precoPadrao),
+      trocaAberta: false,
+    };
   }
 
   function adicionarProduto() {
@@ -108,13 +140,7 @@ export default function DistribuicaoForm({
       {
         produtoId: produto.id,
         quantidadeTotal: quantidadeParaAdicionar,
-        linhas: clientes.map((c) => ({
-          clienteId: c.id,
-          quantidadeDistribuida: "",
-          quantidadeTroca: "0",
-          precoUnitario: precoInicial(produto.id, c.id, produto.precoPadrao),
-          trocaAberta: false,
-        })),
+        linhas: destinos.map((destino) => criarLinha(produto.id, destino)),
       },
     ]);
     setProdutoParaAdicionar("");
@@ -131,7 +157,8 @@ export default function DistribuicaoForm({
     );
   }
 
-  function atualizarLinha(produtoId: string, clienteId: string, campo: keyof Linha, valor: string | boolean) {
+  function atualizarLinha(produtoId: string, destino: DestinoFiscal, campo: keyof Linha, valor: string | boolean) {
+    const chave = chaveDestino(destino);
     setProdutosDistribuicao((atual) =>
       atual.map((p) =>
         p.produtoId !== produtoId
@@ -139,14 +166,15 @@ export default function DistribuicaoForm({
           : {
               ...p,
               linhas: p.linhas.map((l) =>
-                l.clienteId === clienteId ? { ...l, [campo]: valor } : l
+                chaveDestino(l) === chave ? { ...l, [campo]: valor } : l
               ),
             }
       )
     );
   }
 
-  function ajustarQuantidade(produtoId: string, clienteId: string, delta: number) {
+  function ajustarQuantidade(produtoId: string, destino: DestinoFiscal, delta: number) {
+    const chave = chaveDestino(destino);
     setProdutosDistribuicao((atual) =>
       atual.map((p) =>
         p.produtoId !== produtoId
@@ -154,7 +182,7 @@ export default function DistribuicaoForm({
           : {
               ...p,
               linhas: p.linhas.map((l) => {
-                if (l.clienteId !== clienteId) return l;
+                if (chaveDestino(l) !== chave) return l;
                 const atual2 = Number(l.quantidadeDistribuida || 0);
                 return { ...l, quantidadeDistribuida: String(Math.max(0, atual2 + delta)) };
               }),
@@ -168,7 +196,7 @@ export default function DistribuicaoForm({
 
     const clientesAtuais = new Map(clientes.map((cliente) => [cliente.id, cliente]));
     const produtosAtuais = new Map(produtos.map((produto) => [produto.id, produto]));
-    const emitentesValidos = new Map<string, string>();
+    const destinosValidos = new Map<string, DestinoFiscal>();
 
     for (const produtoAnterior of ultimaDistribuicao.produtos) {
       for (const linhaAnterior of produtoAnterior.linhas) {
@@ -176,32 +204,33 @@ export default function DistribuicaoForm({
         if (
           cliente?.prontoParaEmissao
           && cliente.emitentes.some((emitente) => emitente.id === linhaAnterior.emitenteId)
-          && !emitentesValidos.has(cliente.id)
         ) {
-          emitentesValidos.set(cliente.id, linhaAnterior.emitenteId);
+          const destino = { clienteId: cliente.id, emitenteId: linhaAnterior.emitenteId };
+          destinosValidos.set(chaveDestino(destino), destino);
         }
       }
     }
 
-    const selecionados = new Set(emitentesValidos.keys());
+    const destinosRepetidos = [...destinosValidos.values()];
     const produtosRepetidos = ultimaDistribuicao.produtos.flatMap((produtoAnterior) => {
       const produtoAtual = produtosAtuais.get(produtoAnterior.produtoId);
       if (!produtoAtual) return [];
 
       const linhasAnteriores = new Map(
         produtoAnterior.linhas
-          .filter((linha) => emitentesValidos.get(linha.clienteId) === linha.emitenteId)
-          .map((linha) => [linha.clienteId, linha]),
+          .filter((linha) => destinosValidos.has(chaveDestino(linha)))
+          .map((linha) => [chaveDestino(linha), linha]),
       );
       if (linhasAnteriores.size === 0) return [];
 
       return [{
         produtoId: produtoAnterior.produtoId,
         quantidadeTotal: produtoAnterior.quantidadeTotal,
-        linhas: clientes.map((cliente) => {
-          const anterior = linhasAnteriores.get(cliente.id);
+        linhas: destinosRepetidos.map((destino) => {
+          const cliente = clientesAtuais.get(destino.clienteId)!;
+          const anterior = linhasAnteriores.get(chaveDestino(destino));
           return {
-            clienteId: cliente.id,
+            ...destino,
             quantidadeDistribuida: anterior?.quantidadeDistribuida ?? "",
             quantidadeTroca: anterior?.quantidadeTroca ?? "0",
             precoUnitario: anterior?.precoUnitario
@@ -212,7 +241,7 @@ export default function DistribuicaoForm({
       }];
     });
 
-    if (produtosRepetidos.length === 0 || selecionados.size === 0) {
+    if (produtosRepetidos.length === 0 || destinosRepetidos.length === 0) {
       setStatus({
         tipo: "erro",
         texto: "A última distribuição não possui mais clientes, produtos e emitentes ativos para repetir.",
@@ -221,8 +250,7 @@ export default function DistribuicaoForm({
     }
 
     setData(dataOperacionalBrasil());
-    setClientesSelecionados(selecionados);
-    setEmitentePorCliente(Object.fromEntries(emitentesValidos));
+    setDestinos(destinosRepetidos);
     setProdutosDistribuicao(produtosRepetidos);
     setProdutoParaAdicionar("");
     setQuantidadeParaAdicionar("");
@@ -234,10 +262,10 @@ export default function DistribuicaoForm({
     });
   }
 
-  // Preview calculado por produto, considerando só os clientes selecionados
+  // Preview por produto, considerando cada par mercado + emitente selecionado.
   const previewPorProduto = useMemo(() => {
     return produtosDistribuicao.map((p) => {
-      const linhasAtivas = p.linhas.filter((l) => clientesSelecionados.has(l.clienteId));
+      const linhasAtivas = p.linhas;
       const resultados = linhasAtivas.map((l) => {
         const distribuida = Number(l.quantidadeDistribuida || 0);
         const troca = Number(l.quantidadeTroca || 0);
@@ -245,6 +273,7 @@ export default function DistribuicaoForm({
         try {
           const r = calcularFaturavel({
             clienteId: l.clienteId,
+            emitenteId: l.emitenteId,
             quantidadeDistribuida: distribuida,
             quantidadeTroca: troca,
             precoUnitario: preco,
@@ -253,6 +282,7 @@ export default function DistribuicaoForm({
         } catch (e) {
           return {
             clienteId: l.clienteId,
+            emitenteId: l.emitenteId,
             quantidadeDistribuida: distribuida,
             quantidadeTroca: troca,
             precoUnitario: preco,
@@ -277,7 +307,7 @@ export default function DistribuicaoForm({
 
       return { produtoId: p.produtoId, resultados, validacao, subtotalProduto };
     });
-  }, [produtosDistribuicao, clientesSelecionados]);
+  }, [produtosDistribuicao]);
 
   const totalGeral = previewPorProduto.reduce((s, p) => s + p.subtotalProduto, 0);
   const temErro = previewPorProduto.some(
@@ -286,13 +316,7 @@ export default function DistribuicaoForm({
   const algumaLinhaPreenchida = previewPorProduto.some((p) =>
     p.resultados.some((r) => r.quantidadeDistribuida > 0)
   );
-  const faltaEmitente = previewPorProduto.some((produto) =>
-    produto.resultados.some(
-      (resultado) =>
-        resultado.quantidadeFaturavel > 0 && !emitentePorCliente[resultado.clienteId]
-    )
-  );
-  const podeEnviar = produtosDistribuicao.length > 0 && algumaLinhaPreenchida && !temErro && !faltaEmitente && !enviando;
+  const podeEnviar = produtosDistribuicao.length > 0 && destinos.length > 0 && algumaLinhaPreenchida && !temErro && !enviando;
 
   async function handleSubmit() {
     setEnviando(true);
@@ -305,11 +329,9 @@ export default function DistribuicaoForm({
         produtos: produtosDistribuicao.map((p) => ({
           produtoId: p.produtoId,
           quantidadeTotal: Number(p.quantidadeTotal || 0),
-          linhas: p.linhas
-            .filter((l) => clientesSelecionados.has(l.clienteId))
-            .map((l) => ({
+          linhas: p.linhas.map((l) => ({
               clienteId: l.clienteId,
-              emitenteId: emitentePorCliente[l.clienteId] ?? "",
+              emitenteId: l.emitenteId,
               quantidadeDistribuida: Number(l.quantidadeDistribuida || 0),
               quantidadeTroca: Number(l.quantidadeTroca || 0),
               precoUnitario: Number(l.precoUnitario || 0),
@@ -350,7 +372,7 @@ export default function DistribuicaoForm({
         </Card>
       )}
 
-      {/* Data + clientes participantes desta distribuição */}
+      {/* Data + destinos fiscais participantes desta distribuição */}
       <Card className={`${ultimaDistribuicao ? "mt-4" : "mt-5"} p-4`}>
         <Label>Data</Label>
         <input
@@ -361,28 +383,69 @@ export default function DistribuicaoForm({
         />
 
         <div className="mt-4">
-          <Label>Clientes participantes</Label>
-          <div className="flex flex-wrap gap-2">
-            {clientes.map((c) => {
-              const ativo = clientesSelecionados.has(c.id);
+          <Label>Mercados e emitentes</Label>
+          <p className="mb-3 text-[12px] leading-5 text-[var(--ink-soft)]">
+            Cada combinação gera uma nota. Um mesmo mercado pode receber notas de vários emitentes.
+          </p>
+          <div className="space-y-3">
+            {clientes.map((cliente) => {
+              const destinosDoCliente = destinos.filter((destino) => destino.clienteId === cliente.id);
+              const emitentesDisponiveis = cliente.emitentes.filter(
+                (emitente) => !destinosDoCliente.some((destino) => destino.emitenteId === emitente.id)
+              );
               return (
-                <button
-                  key={c.id}
-                  type="button"
-                  onClick={() => alternarCliente(c.id)}
-                  aria-pressed={ativo}
-                  disabled={!c.prontoParaEmissao}
-                  title={c.prontoParaEmissao ? undefined : "Complete o cadastro fiscal deste cliente"}
-                  className={`tap-target rounded-full border px-3 py-1.5 text-sm ${
-                    !c.prontoParaEmissao
-                      ? "cursor-not-allowed border-[var(--line)] text-[var(--ink-faint)] opacity-50"
-                      : ativo
-                      ? "border-[var(--field)] bg-[var(--field-tint)] text-[var(--field-strong)]"
-                      : "border-[var(--line-strong)] text-[var(--ink-faint)]"
+                <div
+                  key={cliente.id}
+                  className={`rounded-[var(--radius-control)] border p-3 ${
+                    cliente.prontoParaEmissao ? "border-[var(--line)]" : "border-[var(--line)] opacity-50"
                   }`}
                 >
-                  {c.nome}{c.prontoParaEmissao ? "" : " · completar"}
-                </button>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm font-medium">{cliente.nome}</span>
+                    {!cliente.prontoParaEmissao && (
+                      <span className="text-[11px] text-[var(--stamp)]">Completar cadastro</span>
+                    )}
+                  </div>
+                  {destinosDoCliente.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {destinosDoCliente.map((destino) => {
+                        const emitente = cliente.emitentes.find((item) => item.id === destino.emitenteId);
+                        return (
+                          <span
+                            key={chaveDestino(destino)}
+                            className="inline-flex min-h-9 items-center gap-2 rounded-full border border-[var(--field)] bg-[var(--field-tint)] py-1 pl-3 pr-1 text-[13px] text-[var(--field-strong)]"
+                          >
+                            {emitente?.nome}
+                            <button
+                              type="button"
+                              onClick={() => removerDestino(destino)}
+                              aria-label={`Remover ${emitente?.nome} de ${cliente.nome}`}
+                              className="flex h-7 w-7 items-center justify-center rounded-full text-base active:bg-white/70"
+                            >
+                              ×
+                            </button>
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {cliente.prontoParaEmissao && emitentesDisponiveis.length > 0 && (
+                    <select
+                      value=""
+                      onChange={(event) => {
+                        adicionarDestino(cliente.id, event.target.value);
+                        event.currentTarget.value = "";
+                      }}
+                      className="mt-2 w-full"
+                      aria-label={`Adicionar emitente para ${cliente.nome}`}
+                    >
+                      <option value="">+ Adicionar outro emitente...</option>
+                      {emitentesDisponiveis.map((emitente) => (
+                        <option key={emitente.id} value={emitente.id}>{emitente.nome}</option>
+                      ))}
+                    </select>
+                  )}
+                </div>
               );
             })}
           </div>
@@ -396,33 +459,6 @@ export default function DistribuicaoForm({
           )}
         </div>
 
-        <div className="mt-4 space-y-2">
-          <Label>Emitente para cada cliente</Label>
-          {clientes
-            .filter((cliente) => clientesSelecionados.has(cliente.id))
-            .map((cliente) => (
-              <div key={cliente.id} className="flex items-center justify-between gap-3 text-sm">
-                <span>{cliente.nome}</span>
-                <select
-                  value={emitentePorCliente[cliente.id] ?? ""}
-                  onChange={(event) => selecionarEmitente(cliente.id, event.target.value)}
-                  className="max-w-[60%]"
-                >
-                  <option value="">Selecionar emitente...</option>
-                  {cliente.emitentes.map((emitente) => (
-                    <option key={emitente.id} value={emitente.id}>
-                      {emitente.nome}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            ))}
-          {clientes.some((cliente) => clientesSelecionados.has(cliente.id) && cliente.emitentes.length === 0) && (
-            <p className="text-[12px] text-[var(--stamp)]">
-              Há cliente sem emitente habilitado. Cadastre a relação antes de processar uma quantidade para ele.
-            </p>
-          )}
-        </div>
       </Card>
 
       {/* Adicionar produto */}
@@ -498,22 +534,23 @@ export default function DistribuicaoForm({
               </div>
 
               <div className="mt-3 space-y-2">
-                {p.linhas
-                  .filter((l) => clientesSelecionados.has(l.clienteId))
-                  .map((linha) => {
+                {p.linhas.map((linha) => {
                     const cliente = clientes.find((c) => c.id === linha.clienteId)!;
-                    const resultado = preview.resultados.find((r) => r.clienteId === linha.clienteId)!;
+                    const emitente = cliente.emitentes.find((item) => item.id === linha.emitenteId)!;
+                    const resultado = preview.resultados.find(
+                      (r) => r.clienteId === linha.clienteId && r.emitenteId === linha.emitenteId
+                    )!;
                     const preenchido = Number(linha.quantidadeDistribuida || 0) > 0;
 
                     return (
                       <div
-                        key={linha.clienteId}
+                        key={chaveDestino(linha)}
                         className={`rounded-[var(--radius-control)] border p-2.5 ${
                           preenchido ? "border-[var(--field)]" : "border-[var(--line)]"
                         }`}
                       >
                         <div className="flex items-center justify-between">
-                          <span className="text-sm">{cliente.nome}</span>
+                          <span className="text-sm">{cliente.nome} — {emitente.nome}</span>
                           {preenchido && !resultado.erro && (
                             <span className="font-mono-tab text-[13px] text-[var(--wheat)]">
                               {moeda.format(resultado.subtotal)}
@@ -524,7 +561,7 @@ export default function DistribuicaoForm({
                         <div className="mt-1.5 flex items-center gap-1.5">
                           <button
                             type="button"
-                            onClick={() => ajustarQuantidade(p.produtoId, linha.clienteId, -1)}
+                            onClick={() => ajustarQuantidade(p.produtoId, linha, -1)}
                             aria-label="Diminuir"
                             className="w-9 shrink-0 rounded-[var(--radius-control)] border border-[var(--line-strong)] text-[var(--ink-soft)] active:bg-[var(--field-tint)]"
                           >
@@ -535,14 +572,14 @@ export default function DistribuicaoForm({
                             inputMode="decimal"
                             value={linha.quantidadeDistribuida}
                             onChange={(e) =>
-                              atualizarLinha(p.produtoId, linha.clienteId, "quantidadeDistribuida", e.target.value)
+                              atualizarLinha(p.produtoId, linha, "quantidadeDistribuida", e.target.value)
                             }
                             placeholder="0"
                             className="font-mono-tab h-10! min-h-0! w-full text-center"
                           />
                           <button
                             type="button"
-                            onClick={() => ajustarQuantidade(p.produtoId, linha.clienteId, 1)}
+                            onClick={() => ajustarQuantidade(p.produtoId, linha, 1)}
                             aria-label="Aumentar"
                             className="w-9 shrink-0 rounded-[var(--radius-control)] border border-[var(--line-strong)] text-[var(--ink-soft)] active:bg-[var(--field-tint)]"
                           >
@@ -554,7 +591,7 @@ export default function DistribuicaoForm({
                           {!linha.trocaAberta ? (
                             <button
                               type="button"
-                              onClick={() => atualizarLinha(p.produtoId, linha.clienteId, "trocaAberta", true)}
+                              onClick={() => atualizarLinha(p.produtoId, linha, "trocaAberta", true)}
                               className="text-[var(--ink-faint)] underline decoration-dotted underline-offset-2"
                             >
                               + troca?
@@ -567,7 +604,7 @@ export default function DistribuicaoForm({
                                 inputMode="decimal"
                                 value={linha.quantidadeTroca}
                                 onChange={(e) =>
-                                  atualizarLinha(p.produtoId, linha.clienteId, "quantidadeTroca", e.target.value)
+                                  atualizarLinha(p.produtoId, linha, "quantidadeTroca", e.target.value)
                                 }
                                 className="font-mono-tab h-8! min-h-0! w-16 text-right text-[12px]"
                               />
@@ -581,7 +618,7 @@ export default function DistribuicaoForm({
                               inputMode="decimal"
                               value={linha.precoUnitario}
                               onChange={(e) =>
-                                atualizarLinha(p.produtoId, linha.clienteId, "precoUnitario", e.target.value)
+                                atualizarLinha(p.produtoId, linha, "precoUnitario", e.target.value)
                               }
                               className="font-mono-tab h-8! min-h-0! w-20 text-right text-[12px]"
                             />
@@ -626,12 +663,6 @@ export default function DistribuicaoForm({
           <a href="/tarefas" className="tap-target flex items-center justify-center rounded-[var(--radius-control)] border border-[var(--field)] px-3 text-center font-medium text-[var(--field-strong)]">Acompanhar {resultado.tarefas} tarefa(s)</a>
           <a href={`/entregas?lote=${encodeURIComponent(resultado.loteId)}`} className="tap-target flex items-center justify-center rounded-[var(--radius-control)] border border-[var(--line-strong)] px-3 text-center">Abrir roteiro {resultado.numero ? `000${resultado.numero}`.slice(-6) : ""}</a>
         </div>
-      )}
-
-      {faltaEmitente && (
-        <p className="mt-4 text-sm text-[var(--stamp)]">
-          Selecione um emitente para cada cliente que receberá itens faturáveis.
-        </p>
       )}
 
       {/* Barra de ação fixa */}

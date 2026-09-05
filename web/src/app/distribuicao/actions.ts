@@ -224,8 +224,8 @@ const MAX_LINHAS_POR_DISTRIBUICAO = 2_000;
 /**
  * RF06-RF11 + doc. de atualizações de 14/08 — processa VÁRIOS produtos numa
  * mesma distribuição, cada um com sua própria disponibilidade, distribuição
- * por cliente e contribuição pra tarefa (uma tarefa por cliente/dia,
- * acumulando itens de todos os produtos processados juntos).
+ * por destino fiscal e contribuição pra tarefa (uma tarefa por par cliente +
+ * emitente dentro do lote, acumulando os produtos processados juntos).
  */
 export async function processarDistribuicao(input: {
   chaveIdempotencia: string;
@@ -259,15 +259,18 @@ export async function processarDistribuicao(input: {
     if (totalLinhas > MAX_LINHAS_POR_DISTRIBUICAO) {
       throw new Error("A distribuição excede o limite total de linhas por envio.");
     }
-    const clientesRecebidos = new Set<string>();
+    const destinosRecebidos = new Set<string>();
     for (const linha of produto.linhas) {
       exigirUuid(linha.clienteId, "Cliente");
-      if (clientesRecebidos.has(linha.clienteId)) throw new Error("Cliente repetido no produto.");
-      clientesRecebidos.add(linha.clienteId);
+      if (linha.quantidadeDistribuida > 0) exigirUuid(linha.emitenteId, "Emitente");
+      const destino = `${linha.clienteId}:${linha.emitenteId}`;
+      if (destinosRecebidos.has(destino)) {
+        throw new Error("O mesmo cliente e emitente foi repetido no produto.");
+      }
+      destinosRecebidos.add(destino);
       exigirNumeroFinito(linha.quantidadeDistribuida, "Quantidade distribuída");
       exigirNumeroFinito(linha.quantidadeTroca, "Quantidade de troca");
       exigirNumeroFinito(linha.precoUnitario, "Preço unitário");
-      if (linha.quantidadeDistribuida > 0) exigirUuid(linha.emitenteId, "Emitente");
     }
     const validacao = validarDistribuicaoTotal(produto.quantidadeTotal, produto.linhas);
     if (!validacao.valido) {
@@ -444,8 +447,8 @@ export async function processarDistribuicao(input: {
           throw new Error("Produto sem regra fiscal configurada.");
         }
 
-        // Uma tarefa por cliente/dia — reaproveita se já existir PENDENTE,
-        // acumulando itens de múltiplos produtos na mesma tarefa.
+        // Uma tarefa por par cliente + emitente no lote — reaproveita se já
+        // existir PENDENTE, acumulando itens de vários produtos na mesma nota.
         const existente = await tx
           .select()
           .from(tarefas)

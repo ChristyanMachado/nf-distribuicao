@@ -140,3 +140,11 @@ permanecer sem Inspector e sincronizado por evidências da interface.
 Rode Worker tests, Web tests, TypeScript, build e `git diff --check`. Não afirme
 que o round-trip fiscal funciona sem o teste humano. Entregue um resumo curto
 com: arquivos alterados, motivo, testes, riscos residuais e próximo passo.
+
+O formulário `/distribuicao` agora admite vários destinos fiscais para o mesmo
+mercado: cada destino é o par cliente + emitente e gera sua própria tarefa no
+mesmo lote. Preserve a seleção automática do primeiro emitente (caminho comum
+com poucos cliques), a possibilidade de adicionar/remover outros emitentes e a
+validação server-side que rejeita somente o par duplicado. Próximo teste humano:
+um produto dividido entre Cooperativa — Patrick e Cooperativa — Wagner, em
+homologação, conferindo duas tarefas/notas e o relatório do mesmo lote.
