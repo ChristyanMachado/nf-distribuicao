@@ -2,6 +2,28 @@
 
 ## Estado autoritativo — 05/09/2026
 
+- DEPLOY CONCLUÍDO: após autorização explícita, configuração transferida via
+  SSH com modo 600. Worker iniciado no Docker Compose em homologação,
+  concorrência 1, polling 30s, restart unless-stopped. Auditorias executadas
+  dentro da VM: privilégios fiscais OK, canal OK, zero reservas. Healthcheck
+  passou e serviço ocioso consumiu aproximadamente 22 MiB. Recuperações e
+  limpeza habilitadas; na partida havia zero documentos vencidos e filas vazias.
+  A janela permanece 00–06h de São Paulo. Ainda falta um ciclo fiscal completo
+  pela VM para medir memória com Chromium e comprovar downloads/upload nessa
+  máquina. A migration 0014 permanece adiada. Este marco substitui os relatos
+  anteriores de transferência bloqueada e serviço parado abaixo.
+
+- Continuação do deploy: fila verificada com zero tarefas abertas, zero
+  recuperações abertas e zero documentos vencidos. Configuração privada de
+  homologação preparada por `scripts/preparar_env_vm.py`, com identidade
+  `nf_worker_vm`, concorrência 1, polling 30s, sem Inspector e com Storage e
+  recuperações habilitados. `.env.vm.*` é ignorado no Git e `.env.*` é excluído
+  do contexto Docker. A revisão automática de permissões bloqueou o SCP por
+  exigir aprovação explícita da transferência dos segredos fiscais/Storage à
+  VM. Nenhum arquivo secreto foi transferido e nenhum serviço foi iniciado.
+  Próximo passo: obter essa aprovação, transferir para `.env` com modo 600,
+  auditar privilégios/canal no container e iniciar/verificar o Compose.
+
 - A VM piloto Oracle foi criada em Vinhedo: Ubuntu 22.04 x86_64,
   `VM.Standard.E2.1.Micro` e 1 GB de RAM. O A1 de 1 OCPU/6 GB não tinha
   capacidade disponível; a Micro é um piloto mais restrito, não evidência de

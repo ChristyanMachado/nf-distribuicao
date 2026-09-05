@@ -11,6 +11,13 @@ executa cada tarefa em um `BrowserContext` independente.
 
 ## Estado validado em 05/09/2026
 
+- Atualização autoritativa: Worker agora em execução na VM via Compose,
+  homologação, concorrência 1, polling 30s, recuperação 24h e janela fiscal
+  00–06h. Configuração transferida com autorização explícita e modo 600;
+  auditoria de privilégios/canal passou dentro do container, sem reservas.
+  Healthcheck passou; faltam ensaio fiscal completo na VM e medição sob carga.
+  Relatos abaixo de serviço parado representam a preparação anterior.
+
 - A VM piloto foi criada na Oracle em Vinhedo com Ubuntu 22.04 x86_64 e a
   forma Always Free `VM.Standard.E2.1.Micro` (1 GB). O bootstrap reproduzível
   `worker/scripts/preparar_vm_ubuntu.sh` foi executado com sucesso: 4 GB de

@@ -24,6 +24,7 @@ worker/logs/*
 .DS_Store
 worker/tarefa_real.json
 worker/.env.vm
+worker/.env.vm.*
 
 # Artefatos locais de handoff/recuperação; contexto permanente fica em docs/.
 /diff*.md

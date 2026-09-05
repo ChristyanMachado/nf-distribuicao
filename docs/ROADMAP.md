@@ -22,10 +22,10 @@ um portal autenticado, sem misturar autorização administrativa nesta entrega.
 - **Fase 5 — operação persistente:** a VM piloto Oracle está criada e recebeu
   swap, Docker/Compose, firewall, fuso e atualizações automáticas por bootstrap
   reproduzível. A janela editável no Web já separa recuperações 24h do início
-  de novas emissões; tarefas iniciadas antes do corte sempre terminam. Falta
-  aplicar conscientemente a migration `0013`, criar a identidade exclusiva da
-  VM e validar healthcheck/auditorias antes de ligar o polling. A imagem já foi
-  construída e o Chromium abriu isoladamente no container, sem rede.
+  de novas emissões; tarefas iniciadas antes do corte sempre terminam. A 0013
+  foi aplicada, identidade exclusiva instalada e polling iniciado na VM;
+  auditorias e healthcheck passaram. Falta ensaio fiscal de ponta a ponta
+  nessa máquina e medição de recursos sob carga, com concorrência 1.
 - **Fase 6 — produção:** não iniciada e explicitamente bloqueada.
 
 Migrações `0001`–`0012` estão ativas. `0013` (janela operacional) e `0014`

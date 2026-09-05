@@ -105,8 +105,8 @@ fiscal nunca são ocultados por essa ação.
 
 ## Persistência e migrações
 
-As migrações `0001`–`0012` estão ativas no banco de teste. As migrations
-`0013` e `0014` estão preparadas no repositório, mas ainda não foram aplicadas.
+As migrações `0001`–`0013` estão ativas no banco de teste.
+A `0014` permanece adiada por decisão explícita do responsável.
 Destaques:
 
 - `0001`: relação N:N e emitente por distribuição/tarefa;

@@ -40,6 +40,13 @@ altere arquitetura ou migrações aplicadas sem registrar e justificar.
 
 ## Próxima tarefa prioritária
 
+Deploy atualizado em 05/09: Worker já iniciado na VM, com identidade exclusiva,
+auditoria de canal/privilégios e healthcheck aprovados. Concorrência 1, polling
+30s, homologação e janela 00–06h. Não repetir provisionamento ou implantação.
+Próximo gate: validar uma operação pelo Web processada na VM e medir memória
+com Chromium. Preservar a 0014 adiada. Os parágrafos de preparação abaixo são
+históricos e não significam que o serviço ainda está parado.
+
 Antes de qualquer alteração fiscal, preserve a janela operacional aplicada pela
 migration `0013`. Não aplicar `0014` sem autorização humana explícita e
 sem combinar um teste do login/gestão de usuários do sistema de ponto. A

@@ -4,7 +4,8 @@
 
 O Web já está publicado no Vercel e o banco/Storage de homologação estão
 conectados. A VM piloto Oracle foi criada em 05/09/2026 com Ubuntu 22.04 x86_64
-e `VM.Standard.E2.1.Micro`; ela ainda não executa o Worker. Nenhuma credencial
+e `VM.Standard.E2.1.Micro`; ela executa o Worker em homologação desde 05/09,
+com concorrência 1, polling 30s e healthcheck validado. Nenhuma credencial
 de produção foi criada por esta decisão e a liberação fiscal real continua
 bloqueada pelas fases de homologação do `docs/ROADMAP.md`.
 
