@@ -11,6 +11,14 @@ executa cada tarefa em um `BrowserContext` independente.
 
 ## Estado validado em 05/09/2026
 
+- O primeiro ciclo fiscal completo na VM foi validado após a correção da
+  transição de Transporte: AUTORIZADA, XML/DANFE privados e valores conferidos.
+  Uma recuperação histórica também completou pela VM e restaurou o par por 7
+  dias. Assim, o circuito remoto completo está comprovado em homologação.
+  Polling atual: 30s; concorrência: 1. A janela foi ajustada pelo Web para
+  00–10h durante o ensaio. Listagens ainda exigem navegação/recarga para buscar
+  o estado novo; atualização automática é melhoria de UX pendente.
+
 - Atualização autoritativa: Worker agora em execução na VM via Compose,
   homologação, concorrência 1, polling 30s, recuperação 24h e janela fiscal
   00–06h. Configuração transferida com autorização explícita e modo 600;

@@ -26,6 +26,9 @@ um portal autenticado, sem misturar autorização administrativa nesta entrega.
   foi aplicada, identidade exclusiva instalada e polling iniciado na VM;
   auditorias e healthcheck passaram. Falta ensaio fiscal de ponta a ponta
   nessa máquina e medição de recursos sob carga, com concorrência 1.
+  **Atualização:** emissão autorizada e recuperação histórica já foram
+  concluídas pela VM com retorno ao Web. Resta ampliar o piloto para outros
+  emitentes/clientes, medir recursos sob carga e melhorar atualização da UI.
 - **Fase 6 — produção:** não iniciada e explicitamente bloqueada.
 
 Migrações `0001`–`0012` estão ativas. `0013` (janela operacional) e `0014`

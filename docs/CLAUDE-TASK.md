@@ -40,6 +40,13 @@ altere arquitetura ou migrações aplicadas sem registrar e justificar.
 
 ## Próxima tarefa prioritária
 
+O reteste posterior aprovou a correção de Transporte no portal: 2,40s,
+autorização, XML/DANFE e Storage concluídos pela VM. Recuperação histórica
+também aprovada. Não reabrir esse diagnóstico sem nova evidência. Prioridades:
+atualização automática moderada nas telas operacionais, piloto com outros
+emitentes/clientes e medição de RAM/CPU durante Chromium. A janela observada no
+banco no ensaio foi 00–10h e o polling da VM é 30s.
+
 Atualização do ensaio na VM: falha pré-emissão após selecionar frete. Corrigida
 a enumeração instável de botões em preencher_transporte, usando locator
 dinâmico e confirmação de resumo. 239 testes e dois cenários Chromium reais

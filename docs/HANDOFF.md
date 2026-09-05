@@ -2,6 +2,18 @@
 
 ## Estado autoritativo — 05/09/2026
 
+- RETESTE NA VM APROVADO: a correção de Transporte foi confirmada no portal.
+  A etapa caiu de 30,89s com falha para 2,40s, chegou ao resumo, emitiu em
+  homologação, confirmou AUTORIZADA e enviou XML/DANFE ao Storage. Quantidade
+  e total de R$ 166,70 foram conferidos pelo operador. Em seguida, uma
+  recuperação solicitada no Web foi processada pela mesma VM: chave localizada,
+  XML validado, DANFE baixado, ambos reenviados ao Storage e disponibilizados
+  por 7 dias. O circuito Web → banco → VM → Receita → Storage → Web está
+  comprovado com o PC local fora da execução. Polling configurado em 30s,
+  concorrência 1 e healthcheck saudável. A janela observada no banco durante o
+  teste era 00–10h. A interface de tarefas/notas ainda atualiza após navegação
+  ou recarga, sem atualização automática em tempo real.
+
 - Primeiro ensaio fiscal na VM chegou a Transporte, selecionou o frete e
   falhou após ~30s antes do log de candidatos Avançar; não chegou à emissão.
   Não havia artefatos porque Inspector estava desligado. Hipótese compatível:
