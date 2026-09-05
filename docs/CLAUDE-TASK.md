@@ -1,4 +1,4 @@
-# Ordem de continuidade para Claude — 04/09/2026
+# Ordem de continuidade para Claude — 05/09/2026
 
 ## Papel
 
@@ -57,7 +57,14 @@ migrator oficial do runtime. O papel `nf_worker_local` foi reprovisionado e a
 auditoria passou sem privilégios ausentes ou excessivos. O teste humano de
 ponta a ponta também passou com duas notas recuperadas em execuções separadas.
 O próximo trabalho principal é aplicar conscientemente as migrations pendentes
-e validar o container/VM. O serviço já separa recuperação/limpeza 24h do início
+e validar o container/VM. A VM Oracle Micro já existe e o bootstrap versionado
+foi executado: 1 GB físico, 4 GB de swap, Docker/Compose, firewall, fuso e
+atualizações automáticas. Nenhum Worker foi iniciado. Trate-a como piloto,
+mantenha concorrência 1 e não copie a credencial PostgreSQL local para ela. A
+imagem foi construída e o Chromium abriu dentro do container com rede
+desativada (`runtimePlaywright=true`); ainda faltam identidade da VM,
+auditorias e healthcheck do serviço sem tarefa.
+O serviço já separa recuperação/limpeza 24h do início
 de novas emissões. A janela padrão `00:00–06:00` é editável no Web, fica no
 banco e é lida a cada ciclo. Não substitua essa política por cron que desligue
 o serviço: o botão de recuperação deve continuar atendido fora da madrugada e

@@ -1,6 +1,21 @@
 # Handoff — Estado Atual
 
-## Estado autoritativo — 04/09/2026
+## Estado autoritativo — 05/09/2026
+
+- A VM piloto Oracle foi criada em Vinhedo: Ubuntu 22.04 x86_64,
+  `VM.Standard.E2.1.Micro` e 1 GB de RAM. O A1 de 1 OCPU/6 GB não tinha
+  capacidade disponível; a Micro é um piloto mais restrito, não evidência de
+  dimensionamento para produção.
+- `worker/scripts/preparar_vm_ubuntu.sh` foi validado na própria VM e deixou 4
+  GB de swap, Docker 29.8, Compose 5.5, fuso de São Paulo, atualizações
+  automáticas e firewall ativo com somente SSH de entrada. SSH aceita chave e
+  recusa senha. O script não contém/copia segredos e não inicia o Worker.
+- Nenhum container fiscal está rodando. A imagem foi construída e a prova
+  isolada do Chromium passou: `runtimePlaywright=true`, sem rede, banco ou
+  credenciais. O próximo gate é provar o healthcheck sem reservar fila e criar
+  uma identidade PostgreSQL exclusiva da VM. Nela, manter
+  `MAX_CONCORRENCIA=1`, `HEADLESS=true` e produção fiscal bloqueada até medir
+  um ciclo de login/fila real.
 
 - A preparação da VM avançou sem alterar o fluxo fiscal validado: o serviço
   permanece ativo 24h para limpeza, retomada de upload e recuperação histórica.
@@ -22,7 +37,7 @@
 - `tzdata==2026.3` foi fixada para que a janela tenha a mesma base IANA no
   Windows, Linux e container. Testes cobrem as fronteiras 00/06, janela que
   atravessa meia-noite e ausência de reserva fora da janela. O runtime Docker
-  ainda não foi executado nesta máquina.
+  foi executado com sucesso na VM.
 - O Compose limita a saída padrão do Docker a 5 arquivos de 10 MB para reduzir
   o risco de esgotamento do disco da VM; a retenção dos logs funcionais no
   volume ainda será definida a partir das medições do piloto.
@@ -30,8 +45,7 @@
   3 testes do preflight, TypeScript, build Next.js de produção e
   `git diff --check` passaram. `npm audit --omit=dev` encontrou zero
   vulnerabilidades conhecidas nas dependências de produção. O runtime Docker
-  ainda não foi executado nesta máquina. O índice Graphify foi atualizado para
-  1.362 nós/3.176 relações.
+  passou na VM. O índice Graphify foi atualizado para 1.369 nós/3.182 relações.
 
 - A reunião de 29/08 foi triada em `REUNIAO-2026-08-29.md`; conversas paralelas
   e dados pessoais não viraram requisito. Pontos ativos: responsividade de

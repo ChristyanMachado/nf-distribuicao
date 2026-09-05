@@ -3,9 +3,10 @@
 ## Estado desta proposta
 
 O Web já está publicado no Vercel e o banco/Storage de homologação estão
-conectados. A VM do Worker ainda não foi criada. Nenhuma credencial de produção
-foi criada por esta decisão e a liberação fiscal real continua bloqueada pelas
-fases de homologação do `docs/ROADMAP.md`.
+conectados. A VM piloto Oracle foi criada em 05/09/2026 com Ubuntu 22.04 x86_64
+e `VM.Standard.E2.1.Micro`; ela ainda não executa o Worker. Nenhuma credencial
+de produção foi criada por esta decisão e a liberação fiscal real continua
+bloqueada pelas fases de homologação do `docs/ROADMAP.md`.
 
 ## Topologia recomendada
 
@@ -129,6 +130,28 @@ dependências de runtime fixadas. A imagem oficial Playwright 1.48.0 Noble é a
 mesma versão do pacote Python já testado e existe para `linux/amd64` e
 `linux/arm64`, incluindo a opção Oracle Ampere A1.
 
+Numa VM Ubuntu nova, o bootstrap versionado instala a base sem copiar segredo
+ou iniciar o serviço:
+
+```bash
+sudo bash worker/scripts/preparar_vm_ubuntu.sh
+```
+
+Ele cria 4 GB de swap por padrão (`SWAP_GB=2..8` permite ajustar), instala
+Docker/Compose pelo repositório oficial, ativa atualizações automáticas, fixa o
+fuso de São Paulo e fecha a entrada no UFW, preservando somente SSH. O Compose
+não publica portas; se isso mudar no futuro, revisar também a cadeia
+`DOCKER-USER`, pois portas publicadas pelo Docker podem contornar regras UFW.
+
+Depois de construir a imagem, prove navegador e isolamento local sem tocar em
+rede, banco, credenciais ou Receita:
+
+```bash
+docker run --rm --shm-size=512m \
+  --entrypoint python graalyst-worker:homologacao \
+  -m scripts.verificar_runtime_playwright
+```
+
 Antes de iniciar o serviço na VM, crie `worker/.env` fora do Git e configure,
 além das credenciais por referência e do banco/Storage:
 
@@ -239,8 +262,9 @@ O Web está publicado no Vercel e foi validado por celular. O bucket privado,
 upload/download e recuperação conectada foram comprovados em homologação; os
 segredos permanecem somente nos ambientes protegidos e ignorados pelo Git. O
 banco contém as migrações `0001`–`0012`, e canal TLS e papel mínimo local
-passaram nas verificações. O código inclui preflight Vercel, serviço/container,
-healthcheck e janela operacional do Worker, mas esta máquina não possui Docker.
-A próxima prova é construir a imagem na VM, criar/auditar uma identidade própria
-para ela, validar o healthcheck sem tarefa e somente então liberar uma tarefa de
-homologação.
+passaram nas verificações. A VM piloto possui Docker/Compose, swap e firewall;
+a imagem foi construída e abriu um Chromium isolado com rede desativada. Nenhum
+container fiscal está ativo. A próxima prova é criar/auditar uma identidade
+própria para a VM, validar o healthcheck sem tarefa e somente então liberar uma
+tarefa de homologação. Por ser uma Micro de 1 GB, começar obrigatoriamente com
+concorrência 1 e medir memória/swap.

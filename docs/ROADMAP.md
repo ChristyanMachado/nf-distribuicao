@@ -19,11 +19,13 @@ um portal autenticado, sem misturar autorização administrativa nesta entrega.
 - **Fase 4 — homologação conectada:** concluída com as distribuições
   000010–000012 autorizadas. A 000012 comprovou o ciclo automático completo,
   incluindo XML/DANFE e retorno `EMITIDA` ao banco.
-- **Fase 5 — operação persistente:** fundação pronta em código: preflight do
-  Web, imagem/Compose do Worker, serviço de polling, healthcheck e auditoria de
-  privilégios. A janela editável no Web já separa recuperações 24h do início
+- **Fase 5 — operação persistente:** a VM piloto Oracle está criada e recebeu
+  swap, Docker/Compose, firewall, fuso e atualizações automáticas por bootstrap
+  reproduzível. A janela editável no Web já separa recuperações 24h do início
   de novas emissões; tarefas iniciadas antes do corte sempre terminam. Falta
-  aplicar as migrations pendentes e validar a imagem numa VM.
+  aplicar conscientemente a migration `0013`, criar a identidade exclusiva da
+  VM e validar healthcheck/auditorias antes de ligar o polling. A imagem já foi
+  construída e o Chromium abriu isoladamente no container, sem rede.
 - **Fase 6 — produção:** não iniciada e explicitamente bloqueada.
 
 Migrações `0001`–`0012` estão ativas. `0013` (janela operacional) e `0014`
@@ -67,6 +69,8 @@ banco de teste e passou no verificador de privilégios.
 ### Operação persistente
 
 - construir e validar na VM a imagem preparada com Chromium e supervisão;
+- medir o piloto Micro com 1 GB físico + 4 GB de swap e concorrência 1; não
+  promover esse dimensionamento para produção sem prova de estabilidade;
 - papel PostgreSQL exclusivo do Worker com privilégios mínimos;
 - validar na VM a janela configurada no Web, mantendo recuperações disponíveis
   24h e comprovando que o corte não interrompe tarefa já iniciada;

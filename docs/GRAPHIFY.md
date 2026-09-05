@@ -7,13 +7,14 @@ Web, migrações e Worker sem reler o repositório inteiro. Ele não substitui
 `AI-CONTEXT.md`, `ARCHITECTURE.md`, `HANDOFF.md`, o código real, o diff ou os
 testes.
 
-Estado validado em 04/09/2026:
+Estado validado em 05/09/2026:
 
 - pacote oficial `graphifyy` 0.9.50, instalado isoladamente em `.tools/graphify`;
 - complemento `sql` ativo para incluir as migrações;
 - extração exclusivamente local com `--code-only`;
-- 151 fontes de código, 1.362 nós, 3.176 relações e 104 comunidades após a
-  fila exclusiva de recuperação e a janela operacional editável no Web;
+- 150 fontes de código com nós, 1.369 nós, 3.182 relações e 107 comunidades após a
+  fila exclusiva de recuperação, a janela operacional editável no Web e os
+  verificadores de implantação da VM;
 - estimativa interna da ferramenta: cerca de 5,7 vezes menos tokens por consulta;
 - `.env`, artefatos do Worker e caminhos pessoais não apareceram na auditoria
   inicial do grafo;

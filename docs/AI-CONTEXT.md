@@ -9,7 +9,21 @@ O produto organiza distribuições diárias e automatiza NFP-e. O Web cadastra e
 gera tarefas; o banco mantém snapshots imutáveis e a fila; o Worker reserva e
 executa cada tarefa em um `BrowserContext` independente.
 
-## Estado validado em 04/09/2026
+## Estado validado em 05/09/2026
+
+- A VM piloto foi criada na Oracle em Vinhedo com Ubuntu 22.04 x86_64 e a
+  forma Always Free `VM.Standard.E2.1.Micro` (1 GB). O bootstrap reproduzível
+  `worker/scripts/preparar_vm_ubuntu.sh` foi executado com sucesso: 4 GB de
+  swap, Docker 29.8, Compose 5.5, fuso `America/Sao_Paulo`, atualizações
+  automáticas e firewall com somente SSH de entrada. O acesso usa chave,
+  `PasswordAuthentication` já está desativado e nenhum Worker foi iniciado.
+  Por causa da memória física limitada, o piloto deve permanecer headless e
+  com `MAX_CONCORRENCIA=1`; medir RAM/swap antes de aceitar mais tarefas. A
+  imagem `graalyst-worker:homologacao` foi construída na VM e a prova isolada
+  abriu um Chromium dentro do container com rede desativada, filesystem
+  somente leitura e capabilities removidas (`runtimePlaywright=true`). Depois
+  do teste, havia cerca de 568 MiB disponíveis e 81 MiB usados na swap. Nenhum
+  `.env`, login ou dado fiscal foi enviado e nenhum serviço ficou em execução.
 
 - A marca confirmada do produto é **Graalyst**. O ícone oficial foi aplicado
   ao login e à navegação do Web; não confundir com nomes de emitentes presentes
@@ -225,11 +239,11 @@ Ctrl+V está implementada, mas permanece no gate de validação pré-emissão.
 2. No Supabase Auth, habilitar proteção contra senhas vazadas e configurar
    CAPTCHA/rate limits; no Vercel, publicar qualquer regra WAF somente depois de
    observá-la em modo de log para evitar bloquear o cliente legítimo.
-3. Construir a imagem do Worker em uma máquina com Docker e executar primeiro
-   as auditorias sem consumir a fila. Docker não está instalado nesta máquina,
-   portanto o container ainda não foi validado em runtime.
-4. Criar a VM do piloto, fornecer uma identidade PostgreSQL própria e iniciar o
-   serviço somente quando não houver tarefa involuntária elegível.
+3. Construir a imagem do Worker na VM e executar primeiro as auditorias sem
+   consumir a fila. Docker/Compose já estão instalados, mas a imagem ainda não
+   foi validada em runtime.
+4. Fornecer uma identidade PostgreSQL própria à VM e iniciar o serviço somente
+   quando não houver tarefa involuntária elegível.
 5. Repetir o fluxo conectado com até 3 tarefas/contextos simultâneos, medindo
    CPU/RAM, isolamento, tempo e fronteiras da janela; depois adicionar alertas.
 6. Validar a limpeza isolada da migration `0011` num documento de teste vencido. Manter a flag desligada até esse
