@@ -5,7 +5,9 @@
 O Web já está publicado no Vercel e o banco/Storage de homologação estão
 conectados. A VM piloto Oracle foi criada em 05/09/2026 com Ubuntu 22.04 x86_64
 e `VM.Standard.E2.1.Micro`; ela executa o Worker em homologação desde 05/09,
-com concorrência 1, polling 30s e healthcheck validado. O ensaio com concorrência
+com concorrência 1, polling 5s e healthcheck validado. O intervalo menor elimina
+até 25s ociosos entre tarefas sem alterar o ritmo de interação com a Receita.
+O ensaio com concorrência
 2 falhou nos menus da Receita antes da emissão e foi revertido. Nenhuma credencial
 de produção foi criada por esta decisão e a liberação fiscal real continua
 bloqueada pelas fases de homologação do `docs/ROADMAP.md`.

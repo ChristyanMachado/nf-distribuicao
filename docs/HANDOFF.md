@@ -18,7 +18,7 @@
   recuperação solicitada no Web foi processada pela mesma VM: chave localizada,
   XML validado, DANFE baixado, ambos reenviados ao Storage e disponibilizados
   por 7 dias. O circuito Web → banco → VM → Receita → Storage → Web está
-  comprovado com o PC local fora da execução. Polling configurado em 30s,
+  comprovado com o PC local fora da execução. Polling configurado em 5s,
   concorrência 1 e healthcheck saudável. Um ensaio posterior com concorrência 2
   autenticou dois contextos, mas ambos expiraram ao abrir os menus da Receita;
   uma terceira tarefa, executada sozinha no ciclo seguinte, concluiu normalmente.
@@ -1003,6 +1003,13 @@ e não queda total do serviço. Após confirmar a ausência de tarefas
 PROCESSANDO/EMITINDO, a VM voltou para `MAX_CONCORRENCIA=1` e ficou saudável.
 Não elevar novamente nesta Micro sem um novo plano de carga, instrumentação e
 estratégia de escalonamento; priorizar confiabilidade fiscal.
+
+O log sequencial posterior mediu aproximadamente 62–68s de execução por nota,
+mas revelou 31s ociosos entre a conclusão de uma tarefa e o início do próximo
+ciclo. A VM passou de `WORKER_POLL_SECONDS=30` para `5`, mantendo
+`MAX_CONCORRENCIA=1`. A otimização reduz a latência da fila sem acelerar campos,
+cliques ou confirmações da Receita; economia esperada em um lote de três notas:
+cerca de 50s. Container recriado saudável e sem reinícios.
 
 ## Atualização — roteiro operacional do motorista
 

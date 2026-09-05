@@ -21,7 +21,9 @@ executa cada tarefa em um `BrowserContext` independente.
   transição de Transporte: AUTORIZADA, XML/DANFE privados e valores conferidos.
   Uma recuperação histórica também completou pela VM e restaurou o par por 7
   dias. Assim, o circuito remoto completo está comprovado em homologação.
-  Polling atual: 30s; concorrência: 1. O ensaio com concorrência 2 foi revertido: duas
+  Polling atual: 5s; concorrência: 1. O intervalo caiu de 30s após o log mostrar
+  cerca de 31s ociosos entre notas sequenciais; nenhum clique fiscal foi acelerado.
+  O ensaio com concorrência 2 foi revertido: duas
   tarefas autenticaram, mas ambas expiraram durante a abertura dos menus da Receita;
   a terceira, executada sozinha logo depois, foi autorizada e armazenada normalmente.
   A janela foi ajustada pelo Web para
@@ -29,7 +31,7 @@ executa cada tarefa em um `BrowserContext` independente.
   o estado novo; atualização automática é melhoria de UX pendente.
 
 - Atualização autoritativa: Worker agora em execução na VM via Compose,
-  homologação, concorrência 1, polling 30s, recuperação 24h e janela fiscal
+  homologação, concorrência 1, polling 5s, recuperação 24h e janela fiscal
   00–06h. Configuração transferida com autorização explícita e modo 600;
   auditoria de privilégios/canal passou dentro do container, sem reservas.
   Healthcheck passou; faltam ensaio fiscal completo na VM e medição sob carga.
