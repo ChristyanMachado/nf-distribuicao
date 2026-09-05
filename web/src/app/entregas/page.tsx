@@ -15,10 +15,7 @@ export default async function EntregasPage({
 
   return (
     <div>
-      <h1 className="text-2xl font-medium">Roteiro de entrega</h1>
-      <p className="mt-1 text-[15px] text-[var(--ink-soft)]">
-        Uma folha prática para o motorista: clientes, endereços, produtos e trocas — sem valores.
-      </p>
+      <h1 className="no-print text-2xl font-medium">Roteiro de entrega</h1>
       {loteSelecionado ? (
         <RoteiroEntregaView lotes={lotes} loteSelecionado={loteSelecionado} roteiro={roteiro} geradoEm={new Date().toISOString()} />
       ) : (

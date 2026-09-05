@@ -148,3 +148,10 @@ com poucos cliques), a possibilidade de adicionar/remover outros emitentes e a
 validação server-side que rejeita somente o par duplicado. Próximo teste humano:
 um produto dividido entre Cooperativa — Patrick e Cooperativa — Wagner, em
 homologação, conferindo duas tarefas/notas e o relatório do mesmo lote.
+
+O roteiro impresso foi convertido em documento operacional: controles e texto
+explicativo não são impressos; há sequência de paradas, identificação da rota,
+campos de motorista/veículo e conferência opcional. Endereço, trocas, valores e
+conferência são filtros, com valores ocultos por padrão. Para o motorista, o
+mesmo produto destinado ao mesmo mercado por emitentes distintos é consolidado
+em uma linha. Não implementar rota automática usando somente CEP.

@@ -247,6 +247,10 @@ executa cada tarefa em um `BrowserContext` independente.
     troca e preço são informados por par cliente + emitente; cada par gera uma
     nota/tarefa separada dentro do mesmo lote. A interface chama esse par de
     destino fiscal e só oferece relações ativas já habilitadas no cadastro.
+11. O roteiro do motorista é agrupado por mercado, independentemente do
+    emitente fiscal. Se o mesmo produto vier de vários emitentes, as quantidades
+    e trocas são somadas na parada. A impressão permite escolher endereço,
+    trocas, valores e campos de conferência; valores começam ocultos.
 
 ## Reunião de 29/08/2026
 

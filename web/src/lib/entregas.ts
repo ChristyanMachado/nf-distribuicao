@@ -8,6 +8,8 @@ export type LinhaEntrega = {
   unidade: string;
   quantidadeDistribuida: number;
   quantidadeTroca: number;
+  quantidadeFaturavel: number;
+  precoUnitario: number;
 };
 
 export type ParadaEntrega = {
@@ -21,10 +23,11 @@ export type ParadaEntrega = {
     unidade: string;
     quantidadeDistribuida: number;
     quantidadeTroca: number;
+    subtotal: number;
   }>;
 };
 
-/** Agrupa o roteiro por cliente sem trazer nenhum dado monetário. */
+/** Agrupa o roteiro por parada e soma o mesmo produto vindo de emitentes diferentes. */
 export function agruparRoteiroEntrega(linhas: LinhaEntrega[]): ParadaEntrega[] {
   const porCliente = new Map<string, ParadaEntrega>();
   for (const linha of linhas) {
@@ -35,13 +38,22 @@ export function agruparRoteiroEntrega(linhas: LinhaEntrega[]): ParadaEntrega[] {
       cep: linha.cep,
       itens: [],
     };
-    parada.itens.push({
-      produtoId: linha.produtoId,
-      produtoDescricao: linha.produtoDescricao,
-      unidade: linha.unidade,
-      quantidadeDistribuida: linha.quantidadeDistribuida,
-      quantidadeTroca: linha.quantidadeTroca,
-    });
+    const itemExistente = parada.itens.find((item) => item.produtoId === linha.produtoId);
+    const subtotal = linha.quantidadeFaturavel * linha.precoUnitario;
+    if (itemExistente) {
+      itemExistente.quantidadeDistribuida += linha.quantidadeDistribuida;
+      itemExistente.quantidadeTroca += linha.quantidadeTroca;
+      itemExistente.subtotal += subtotal;
+    } else {
+      parada.itens.push({
+        produtoId: linha.produtoId,
+        produtoDescricao: linha.produtoDescricao,
+        unidade: linha.unidade,
+        quantidadeDistribuida: linha.quantidadeDistribuida,
+        quantidadeTroca: linha.quantidadeTroca,
+        subtotal,
+      });
+    }
     porCliente.set(linha.clienteId, parada);
   }
   return [...porCliente.values()];

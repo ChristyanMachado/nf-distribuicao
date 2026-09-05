@@ -30,6 +30,8 @@ export async function carregarRoteiroEntrega(loteId: string) {
       unidade: produtos.unidade,
       quantidadeDistribuida: distribuicoes.quantidadeDistribuida,
       quantidadeTroca: distribuicoes.quantidadeTroca,
+      quantidadeFaturavel: distribuicoes.quantidadeFaturavel,
+      precoUnitario: distribuicoes.precoUnitario,
     })
     .from(distribuicoes)
     .innerJoin(disponibilidades, eq(distribuicoes.disponibilidadeId, disponibilidades.id))
@@ -43,6 +45,8 @@ export async function carregarRoteiroEntrega(loteId: string) {
       ...linha,
       quantidadeDistribuida: Number(linha.quantidadeDistribuida),
       quantidadeTroca: Number(linha.quantidadeTroca),
+      quantidadeFaturavel: Number(linha.quantidadeFaturavel),
+      precoUnitario: Number(linha.precoUnitario),
     }))
   );
 }

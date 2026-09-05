@@ -983,3 +983,18 @@ pois contrato, agrupamento e schema já suportavam essa cardinalidade.
 Próximo gate humano: no celular, dividir um produto entre Cooperativa — Patrick
 e Cooperativa — Wagner, confirmar que o lote cria duas tarefas/notas e conferir
 o relatório único dessa distribuição. Executar somente em homologação.
+
+## Atualização — roteiro operacional do motorista
+
+A impressão de `/entregas` não exibe mais o texto explicativo da página. O
+documento mantém identidade Graalyst, número/data/geração e sequência numerada,
+ganhou campos de motorista e veículo e pode incluir conferência por parada
+(`Entregue`, `Parcial`, `Não entregue`, recebedor e observação). Os filtros de
+impressão são endereço, trocas, valores e conferência; valores ficam desligados
+por padrão. O roteiro agrupa pelo mercado e consolida o mesmo produto quando
+ele foi faturado por emitentes diferentes, pois para o motorista continua sendo
+uma única parada física. Não há otimização automática por CEP nesta fase.
+
+Próximo gate humano: usar a pré-visualização de impressão no celular e no PC,
+confirmar que uma distribuição com dois emitentes no mesmo mercado mostra uma
+parada e totais físicos agregados, alternando também o filtro de valores.
