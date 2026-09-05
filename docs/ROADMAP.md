@@ -25,7 +25,9 @@ um portal autenticado, sem misturar autorização administrativa nesta entrega.
   de novas emissões; tarefas iniciadas antes do corte sempre terminam. A 0013
   foi aplicada, identidade exclusiva instalada e polling iniciado na VM;
   auditorias e healthcheck passaram. Falta ensaio fiscal de ponta a ponta
-  nessa máquina e medição de recursos sob carga, agora em ensaio com concorrência 2.
+  nessa máquina e medição de recursos sob carga. O ensaio com concorrência 2
+  falhou nos menus da Receita antes da emissão; a terceira tarefa sequencial
+  concluiu. A VM voltou para concorrência 1, configuração aprovada para o piloto.
   **Atualização:** emissão autorizada e recuperação histórica já foram
   concluídas pela VM com retorno ao Web. Resta ampliar o piloto para outros
   emitentes/clientes, medir recursos sob carga e melhorar atualização da UI.

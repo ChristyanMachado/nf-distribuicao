@@ -21,12 +21,15 @@ executa cada tarefa em um `BrowserContext` independente.
   transição de Transporte: AUTORIZADA, XML/DANFE privados e valores conferidos.
   Uma recuperação histórica também completou pela VM e restaurou o par por 7
   dias. Assim, o circuito remoto completo está comprovado em homologação.
-  Polling atual: 30s; concorrência: 2 em ensaio controlado. A janela foi ajustada pelo Web para
+  Polling atual: 30s; concorrência: 1. O ensaio com concorrência 2 foi revertido: duas
+  tarefas autenticaram, mas ambas expiraram durante a abertura dos menus da Receita;
+  a terceira, executada sozinha logo depois, foi autorizada e armazenada normalmente.
+  A janela foi ajustada pelo Web para
   00–10h durante o ensaio. Listagens ainda exigem navegação/recarga para buscar
   o estado novo; atualização automática é melhoria de UX pendente.
 
 - Atualização autoritativa: Worker agora em execução na VM via Compose,
-  homologação, concorrência 2 em ensaio, polling 30s, recuperação 24h e janela fiscal
+  homologação, concorrência 1, polling 30s, recuperação 24h e janela fiscal
   00–06h. Configuração transferida com autorização explícita e modo 600;
   auditoria de privilégios/canal passou dentro do container, sem reservas.
   Healthcheck passou; faltam ensaio fiscal completo na VM e medição sob carga.
@@ -39,7 +42,8 @@ executa cada tarefa em um `BrowserContext` independente.
   automáticas e firewall com somente SSH de entrada. O acesso usa chave,
   `PasswordAuthentication` já está desativado e nenhum Worker foi iniciado.
   Por causa da memória física limitada, o piloto permanece headless e está em
-  teste controlado com `MAX_CONCORRENCIA=2`; medir RAM/swap antes de manter a configuração. A
+  configuração conservadora com `MAX_CONCORRENCIA=1`. O teste com valor 2 causou
+  timeouts simultâneos nos menus da Receita, sem queda ou reinício do container. A
   imagem `graalyst-worker:homologacao` foi construída na VM e a prova isolada
   abriu um Chromium dentro do container com rede desativada, filesystem
   somente leitura e capabilities removidas (`runtimePlaywright=true`). Depois

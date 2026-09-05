@@ -19,7 +19,11 @@
   XML validado, DANFE baixado, ambos reenviados ao Storage e disponibilizados
   por 7 dias. O circuito Web → banco → VM → Receita → Storage → Web está
   comprovado com o PC local fora da execução. Polling configurado em 30s,
-  concorrência 2 em ensaio e healthcheck saudável. A janela observada no banco durante o
+  concorrência 1 e healthcheck saudável. Um ensaio posterior com concorrência 2
+  autenticou dois contextos, mas ambos expiraram ao abrir os menus da Receita;
+  uma terceira tarefa, executada sozinha no ciclo seguinte, concluiu normalmente.
+  Não houve emissão nas duas falhas nem reinício do container. A configuração foi
+  restaurada para 1 após confirmar zero tarefas PROCESSANDO/EMITINDO. A janela observada no banco durante o
   teste era 00–10h. A interface de tarefas/notas ainda atualiza após navegação
   ou recarga, sem atualização automática em tempo real.
 
@@ -990,11 +994,15 @@ Próximo gate humano: no celular, dividir um produto entre Cooperativa — Patri
 e Cooperativa — Wagner, confirmar que o lote cria duas tarefas/notas e conferir
 o relatório único dessa distribuição. Executar somente em homologação.
 
-Em 05/09, a fila foi confirmada sem tarefas PROCESSANDO/EMITINDO e a VM Micro
-foi alterada de `MAX_CONCORRENCIA=1` para `2`. O container foi recriado sem
-reiniciar a VM e voltou `healthy`; ocioso usava cerca de 174 MiB antes da
-mudança. Trata-se de ensaio: acompanhar RAM/swap e logs durante duas tarefas,
-revertendo a 1 se houver OOM, pressão contínua de swap ou instabilidade.
+Em 05/09, o ensaio da VM Micro com `MAX_CONCORRENCIA=2` não passou no gate de
+confiabilidade. Duas tarefas simultâneas autenticaram, mas expiraram na abertura
+dos menus da Receita antes de entrar na emissão. A terceira tarefa, processada
+sozinha logo depois, foi AUTORIZADA e armazenada. O container permaneceu ativo,
+sem reinícios, indicando instabilidade do fluxo concorrente/portal nesta forma,
+e não queda total do serviço. Após confirmar a ausência de tarefas
+PROCESSANDO/EMITINDO, a VM voltou para `MAX_CONCORRENCIA=1` e ficou saudável.
+Não elevar novamente nesta Micro sem um novo plano de carga, instrumentação e
+estratégia de escalonamento; priorizar confiabilidade fiscal.
 
 ## Atualização — roteiro operacional do motorista
 
