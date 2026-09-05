@@ -11,6 +11,7 @@ import {
 } from "@/db/schema";
 import { desc, eq } from "drizzle-orm";
 import Card from "@/components/Card";
+import AtualizacaoAutomatica from "@/components/AtualizacaoAutomatica";
 import NotaCard from "./NotaCard";
 import { assinarDocumentosPrivados } from "@/lib/storage.server";
 import { nomeDownloadDocumento } from "@/lib/storage-caminhos";
@@ -43,6 +44,9 @@ export default async function NotasPage() {
     .leftJoin(recuperacoesDocumentos, eq(recuperacoesDocumentos.notaId, notas.id))
     .orderBy(desc(notas.criadoEm));
   const agora = new Date();
+  const temRecuperacaoAtiva = lista.some((nota) =>
+    nota.recuperacaoStatus === "PENDENTE" || nota.recuperacaoStatus === "PROCESSANDO"
+  );
   const disponibilidade = new Map(
     lista.map((nota) => [
       nota.id,
@@ -85,6 +89,10 @@ export default async function NotasPage() {
         PDF/XML originais ficam disponíveis por 30 dias. Quando recuperados,
         ficam disponíveis por 7 dias; o histórico da nota permanece.
       </p>
+      <AtualizacaoAutomatica
+        ativa={temRecuperacaoAtiva}
+        descricao="Acompanhando a recuperação automaticamente"
+      />
 
       <Card className="mt-5 divide-y divide-[var(--line)]">
         {lista.map((n) => (

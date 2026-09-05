@@ -40,6 +40,12 @@ altere arquitetura ou migrações aplicadas sem registrar e justificar.
 
 ## Próxima tarefa prioritária
 
+As telas `/tarefas` e `/notas` já possuem atualização automática adaptativa de
+10s durante estados ativos, com pausa em aba oculta. Não substitua por Supabase
+Realtime direto enquanto o navegador não possuir uma sessão Supabase autorizada
+e o schema fiscal permanecer privado. A solução atual passou em testes, tipos e
+build. Próxima validação humana: observar transições sem F5 no celular.
+
 O reteste posterior aprovou a correção de Transporte no portal: 2,40s,
 autorização, XML/DANFE e Storage concluídos pela VM. Recuperação histórica
 também aprovada. Não reabrir esse diagnóstico sem nova evidência. Prioridades:

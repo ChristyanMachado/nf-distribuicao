@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Card from "@/components/Card";
+import AtualizacaoAutomatica from "@/components/AtualizacaoAutomatica";
 import { dataIsoParaBrasil } from "@/lib/datas";
 import {
   agruparPorDistribuicao,
@@ -38,6 +39,9 @@ export default async function TarefasPage({
     (tarefa) => visaoDaTarefa(tarefa.status) === visao,
   );
   const grupos = agruparPorDistribuicao(tarefasVisiveis);
+  const temTarefaAtiva = lista.some((tarefa) =>
+    ["PENDENTE", "PROCESSANDO", "EMITINDO"].includes(tarefa.status),
+  );
 
   return (
     <div>
@@ -45,6 +49,7 @@ export default async function TarefasPage({
       <p className="mt-1 text-[15px] text-[var(--ink-soft)]">
         Acompanhe cada rodada de distribuição e abra apenas a nota que precisa revisar.
       </p>
+      <AtualizacaoAutomatica ativa={temTarefaAtiva} />
 
       <nav
         aria-label="Situação das tarefas"

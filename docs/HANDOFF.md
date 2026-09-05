@@ -2,6 +2,15 @@
 
 ## Estado autoritativo — 05/09/2026
 
+- UX operacional atualizada: `/tarefas` atualiza automaticamente a cada 10s
+  somente enquanto existe tarefa PENDENTE/PROCESSANDO/EMITINDO; `/notas` faz o
+  mesmo somente durante recuperação PENDENTE/PROCESSANDO. O ciclo pausa com a
+  aba oculta, atualiza ao retornar e encerra ao concluir. Foi escolhido polling
+  adaptativo porque a autenticação atual valida Supabase no servidor e cria
+  sessão própria do Graalyst; o navegador não retém JWT Supabase. Realtime
+  direto exigiria expor `fiscal` ou ampliar a autenticação/RLS, fora do gate.
+  Validação: 101 testes Web, TypeScript e build Next.js passaram.
+
 - RETESTE NA VM APROVADO: a correção de Transporte foi confirmada no portal.
   A etapa caiu de 30,89s com falha para 2,40s, chegou ao resumo, emitiu em
   homologação, confirmou AUTORIZADA e enviou XML/DANFE ao Storage. Quantidade

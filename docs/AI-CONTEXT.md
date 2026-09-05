@@ -11,6 +11,12 @@ executa cada tarefa em um `BrowserContext` independente.
 
 ## Estado validado em 05/09/2026
 
+- Tarefas e recuperações agora atualizam automaticamente enquanto houver
+  trabalho ativo, em ciclos de 10s, pausados em aba oculta e encerrados ao
+  concluir. Não foi concedido acesso Realtime ao schema fiscal: a sessão Web
+  atual não preserva o JWT Supabase no navegador. Reavaliar Broadcast privado
+  somente quando Supabase Auth/RLS estiverem de ponta a ponta.
+
 - O primeiro ciclo fiscal completo na VM foi validado após a correção da
   transição de Transporte: AUTORIZADA, XML/DANFE privados e valores conferidos.
   Uma recuperação histórica também completou pela VM e restaurou o par por 7
