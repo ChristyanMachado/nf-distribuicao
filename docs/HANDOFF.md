@@ -2,6 +2,18 @@
 
 ## Estado autoritativo — 05/09/2026
 
+- Primeiro ensaio fiscal na VM chegou a Transporte, selecionou o frete e
+  falhou após ~30s antes do log de candidatos Avançar; não chegou à emissão.
+  Não havia artefatos porque Inspector estava desligado. Hipótese compatível:
+  re-renderização entre count/nth/is_visible/is_enabled, invalidando posição.
+  Correção implantada: Avançar exato/visível com locator dinâmico e autoespera,
+  seguido de confirmação do botão Emitir no resumo. Log sanitizado distingue
+  clicar_avancar de confirmar_resumo. Não atribuir causa comprovada ao portal
+  antes do reteste ao vivo. 239 testes passaram; dois cenários HTML sintéticos
+  passaram em Chromium local e na VM via verificar_transporte_dinamico.py.
+  Serviço atualizado e saúde aprovada; tarefa com erro não foi reenfileirada.
+  Próximo gate: tentativa explícita pelo Web e validação do resultado na VM.
+
 - DEPLOY CONCLUÍDO: após autorização explícita, configuração transferida via
   SSH com modo 600. Worker iniciado no Docker Compose em homologação,
   concorrência 1, polling 30s, restart unless-stopped. Auditorias executadas

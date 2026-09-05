@@ -1319,33 +1319,34 @@ async def preencher_transporte(
 
     logger.info("Modalidade do frete selecionada")
 
-    # Avançar específico da tela de Transporte.
-    botoes = page.get_by_role(
-        "button",
-        name="Avançar"
-    )
+    await avancar_transporte(page, logger)
 
-    candidatos = []
 
-    for i in range(await botoes.count()):
-        botao = botoes.nth(i)
+async def avancar_transporte(page: Page, logger: logging.Logger) -> None:
+    """Reavalia o botão após re-renderização sem guardar índices antigos.
 
-        if await botao.is_visible() and await botao.is_enabled():
-            candidatos.append(botao)
-
-    logger.info(
-        f"Botões 'Avançar' visíveis e habilitados no transporte: "
-        f"{len(candidatos)}"
-    )
-
-    if not candidatos:
-        raise RuntimeError(
-            "Nenhum botão 'Avançar' visível e habilitado no transporte."
+    O portal pode remover a cópia da etapa anterior entre count/is_visible/
+    is_enabled. A posição antiga então aguarda um elemento inexistente. O
+    locator dinâmico mantém a escolha do último Avançar visível e deixa o
+    click aguardar habilitação/estabilidade sem contornar essas proteções.
+    """
+    operacao = "clicar_avancar"
+    try:
+        logger.info("Transporte: aguardando Avançar visível e estável")
+        botao = page.get_by_role("button", name="Avançar", exact=True).and_(
+            page.locator("button:visible")
+        ).last
+        await botao.click(timeout=15000)
+        logger.info("Avançar do transporte clicado")
+        operacao = "confirmar_resumo"
+        await page.get_by_role("button", name="Emitir", exact=True).wait_for(
+            state="visible", timeout=15000
         )
-
-    await candidatos[-1].click()
-
-    logger.info("Avançar do transporte clicado")
+        logger.info("Transporte: resumo com botão Emitir confirmado")
+    except Exception as exc:
+        # Não registrar str(exc): erros do portal podem conter dados fiscais.
+        logger.error("Transporte falhou: operacao=%s tipo=%s", operacao, type(exc).__name__)
+        raise
 
 async def emitir(
     page: Page,

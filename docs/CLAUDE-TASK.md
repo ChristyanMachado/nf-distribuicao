@@ -40,6 +40,13 @@ altere arquitetura ou migrações aplicadas sem registrar e justificar.
 
 ## Próxima tarefa prioritária
 
+Atualização do ensaio na VM: falha pré-emissão após selecionar frete. Corrigida
+a enumeração instável de botões em preencher_transporte, usando locator
+dinâmico e confirmação de resumo. 239 testes e dois cenários Chromium reais
+(local e VM) passaram; correção já implantada. Aguardar reteste no portal antes
+de afirmar causa resolvida. Não instalar VNC nem reemitir automaticamente a
+tarefa anterior; logs agora distinguem clique e confirmação do resumo.
+
 Deploy atualizado em 05/09: Worker já iniciado na VM, com identidade exclusiva,
 auditoria de canal/privilégios e healthcheck aprovados. Concorrência 1, polling
 30s, homologação e janela 00–06h. Não repetir provisionamento ou implantação.
