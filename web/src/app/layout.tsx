@@ -22,7 +22,22 @@ import { validarAmbienteFiscal } from "@/lib/contrato-tarefa";
 export const metadata: Metadata = {
   title: "Graalyst | Distribuição & Notas",
   description: "Distribuição de produtos e emissão de notas fiscais",
-  icons: { icon: "/logo-graalyst.jpg" },
+  manifest: "/manifest.webmanifest?v=20260906",
+  icons: {
+    icon: [
+      { url: "/brand/graalyst-favicon-v1.png", sizes: "64x64", type: "image/png" },
+      { url: "/brand/graalyst-icon-192-v1.png", sizes: "192x192", type: "image/png" },
+      { url: "/brand/graalyst-icon-512-v1.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [
+      { url: "/brand/graalyst-apple-icon-v1.png", sizes: "180x180", type: "image/png" },
+    ],
+  },
+  appleWebApp: {
+    capable: true,
+    title: "Graalyst NF",
+    statusBarStyle: "default",
+  },
 };
 
 export const viewport: Viewport = {
@@ -65,7 +80,7 @@ export default function RootLayout({
           {/* Desktop: rail lateral fixo */}
           <aside className="hidden w-60 shrink-0 border-r border-[var(--line)] px-4 py-6 md:block">
             <div className="mb-6 flex items-center gap-2 px-2">
-              <Image src="/logo-graalyst.jpg" alt="" width={32} height={32} className="h-8 w-8 rounded-lg" priority />
+              <Image src="/brand/graalyst-mark-v1.png" alt="" width={32} height={32} className="h-8 w-8 rounded-lg" priority />
               <p className="font-mono-tab text-[11px] font-bold uppercase tracking-widest text-[var(--ink-faint)]">
                 Graalyst · NF
               </p>
@@ -104,7 +119,7 @@ export default function RootLayout({
           {/* Mobile: header curto só pra orientação, sem custar clique */}
           <header className="flex items-center justify-between border-b border-[var(--line)] px-4 py-3 md:hidden">
             <div className="flex items-center gap-2">
-              <Image src="/logo-graalyst.jpg" alt="" width={28} height={28} className="h-7 w-7 rounded-md" priority />
+              <Image src="/brand/graalyst-mark-v1.png" alt="" width={28} height={28} className="h-7 w-7 rounded-md" priority />
               <p className="font-mono-tab text-[11px] font-bold uppercase tracking-widest text-[var(--ink-faint)]">
                 Graalyst · NF
               </p>

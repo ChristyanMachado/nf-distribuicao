@@ -14,7 +14,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
     <main className="login-screen fixed inset-0 z-50 grid min-h-dvh place-items-center overflow-auto bg-[var(--paper)] px-4 py-10">
       <div className="w-full max-w-sm">
         <div className="flex items-center gap-3">
-          <Image src="/logo-graalyst.jpg" alt="Marca Graalyst" width={48} height={48} className="h-12 w-12 rounded-xl" priority />
+          <Image src="/brand/graalyst-mark-v1.png" alt="Marca Graalyst" width={48} height={48} className="h-12 w-12 rounded-xl" priority />
           <p className="font-mono-tab text-[11px] font-bold uppercase tracking-[0.2em] text-[var(--field)]">Graalyst · Operação</p>
         </div>
         <h1 className="mt-3 text-3xl font-medium">Área administrativa</h1>

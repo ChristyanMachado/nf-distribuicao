@@ -312,10 +312,12 @@
   por engano no `Locator`, que não oferece esse método na API Python. A chamada
   agora usa `page.keyboard.insert_text()` com o campo já focado e selecionado.
 
-- Marca confirmada: **Graalyst**. O arquivo fornecido pelo responsável foi
-  incorporado ao Web como `public/logo-graalyst.jpg` e usado no login,
-  navegação responsiva e metadados. Nomes semelhantes em fixtures fiscais não
-  devem ser alterados automaticamente, pois podem representar emitentes.
+- Marca confirmada: **Graalyst**. A versão limpa do símbolo, transparente e
+  sem sombra, está em `web/public/brand/` e é usada no login, navegação,
+  favicon, manifest e instalação móvel. O JPG original permanece apenas como
+  fonte histórica e não deve voltar a ser referenciado. Ver
+  `IDENTIDADE-PWA.md`. Nomes semelhantes em fixtures fiscais não devem ser
+  alterados automaticamente, pois podem representar emitentes.
 
 > Esta seção substitui afirmações de estado das continuações históricas abaixo.
 > O restante do arquivo preserva decisões e reconhecimentos anteriores, mas

@@ -140,9 +140,12 @@ executa cada tarefa em um `BrowserContext` independente.
   do teste, havia cerca de 568 MiB disponíveis e 81 MiB usados na swap. Nenhum
   `.env`, login ou dado fiscal foi enviado e nenhum serviço ficou em execução.
 
-- A marca confirmada do produto é **Graalyst**. O ícone oficial foi aplicado
-  ao login e à navegação do Web; não confundir com nomes de emitentes presentes
-  em dados ou testes históricos.
+- A marca confirmada do produto é **Graalyst**. Em 06/09/2026, a marca recebeu
+  ativos próprios para favicon e instalação móvel: PNG transparente sem sombra,
+  ICO compatível e manifest explícito. Não há service worker nem cache próprio;
+  os nomes versionados de ativos e do manifest evitam reaproveitar o JPG/ícone
+  antigo. Ver `IDENTIDADE-PWA.md`. Não confundir a marca com nomes de emitentes
+  presentes em dados ou testes históricos.
 
 - Web: cadastros, distribuição por lote, tarefas, notas, roteiro de entrega e
   relatórios operacionais; interface responsiva e fluxo diário reduzido.
