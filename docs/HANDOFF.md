@@ -1,5 +1,33 @@
 # Handoff — Estado Atual
 
+## Primeiro lote legítimo em produção — diagnóstico de 06/09/2026
+
+- A primeira tentativa legítima em produção falhou com segurança antes do
+  preenchimento do destinatário; nenhuma emissão fiscal ocorreu. Duas
+  tentativas apresentaram cerca de 30 s entre `Preenchendo destinatário da
+  tarefa` e o erro genérico de `main.py:1119`.
+- A VM continua executando a revisão `d8bb52f`, confirmada por hashes dos
+  arquivos dentro do container. As revisões locais posteriores não estavam na
+  VM e, portanto, não causaram o incidente. `main.py:1119` apenas ocultava a
+  exceção original; a operação que expirou foi o primeiro clique no texto
+  `CNPJ` em `preencher_destinatario`, com `playwright TimeoutError`.
+- Diagnósticos controlados na VM não reservaram tarefas, não preencheram dados
+  fiscais e não clicaram em Emitir. Eles provaram que o portal permanecia em
+  `/emitir/emitente` quando o Worker clicava em Avançar imediatamente após
+  selecionar o emitente. Com 3 s de estabilização, o mesmo fluxo abriu
+  `/emitir/destinatario`, exibiu `CNPJ` e ocultou a etapa anterior. Não houve
+  mensagem de validação do portal. A causa é uma corrida da SPA em produção,
+  não CNPJ, IE ou CEP do destinatário.
+- Correção local mínima: estabilizar somente essa fronteira por 3 s e, depois
+  do clique, exigir que a âncora `CNPJ` da etapa Destinatário fique visível em
+  até 10 s. Se a transição não ocorrer, o Worker encerra antes de preencher o
+  destinatário e registra uma mensagem específica. Não há repetição cega do
+  clique nem mudança nas demais esperas fiscais.
+- Validação local após a correção: 19 testes focados e **263 testes Worker**
+  passaram. A VM permanece intocada nesta etapa. Próximo gate: publicar a
+  correção na VM apenas com autorização, depois fazer uma nova tentativa
+  controlada da distribuição legítima e acompanhar os logs.
+
 ## Análise de reestruturação Fiscal/Financeiro — 06/09/2026
 
 - Foi lido o Auditor legado em repositório separado (`F:\.Faculdade\Projetos Pessoais\Auditor`) sem sobrescrever as alterações locais dele. O resultado está em `docs/AUDITORIA-FISCAL-REESTRUTURACAO.md`.

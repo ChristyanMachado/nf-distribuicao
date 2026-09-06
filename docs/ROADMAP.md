@@ -37,9 +37,13 @@ um portal autenticado, sem misturar autorização administrativa nesta entrega.
   `normal`, com concorrência 1. Após zerar as filas, cancelamentos foram
   habilitados somente sob pedido explícito no Web. A
   consulta normal já foi validada em modo somente leitura no host real. Falta
-  a primeira emissão real legítima, criada e conferida pelo operador. Não será
-  criada uma operação fiscal artificial para teste. O estado correto até essa
-  prova é **preparada, ainda não validada ponta a ponta**.
+  concluir a primeira emissão real legítima. A primeira distribuição legítima
+  já foi criada, mas duas tentativas falharam com segurança antes do
+  destinatário e sem emissão. O diagnóstico comprovou uma corrida na
+  estabilização do emitente em produção; a correção mínima está validada
+  localmente e aguarda implantação controlada na VM. Não será criada uma
+  operação fiscal artificial para teste. O estado correto até a prova final é
+  **preparada, ainda não validada ponta a ponta**.
 
 Migrações `0001`–`0013` e `0015` estão ativas. A `0014` (restrição de RPC anônimo no
 sistema de ponto compartilhado) permanece preparada, fora do journal e
@@ -60,22 +64,24 @@ banco de teste e passou no verificador de privilégios.
 1. Rota normal de Consulta validada sem pesquisar nem alterar nota. **Concluído.**
 2. Fazer a virada coordenada Web/Worker e confirmar visualmente o selo
    Produção após login. **Concluído.**
-3. Quando surgir a primeira distribuição legítima, acompanhar sua emissão e
-   conferir banco, XML, DANFE, portal e logs.
-4. Só depois ensaiar cancelamento real separado, iniciado e confirmado pelo
+3. Implantar na VM a correção local da transição Emitente → Destinatário, com
+   autorização e conferência prévia de que não existe outra tarefa em execução.
+4. Reprocessar de forma controlada a primeira distribuição legítima e conferir
+   banco, XML, DANFE, portal e logs.
+5. Só depois ensaiar cancelamento real separado, iniciado e confirmado pelo
    operador; nunca repetir resultado incerto.
 
-5. Validar no celular a confirmação persistente da distribuição, com número,
+6. Validar no celular a confirmação persistente da distribuição, com número,
    quantidade de notas e atalhos para acompanhamento e roteiro.
-6. Pedir confirmação explícita quando houver quantidade não distribuída,
+7. Pedir confirmação explícita quando houver quantidade não distribuída,
    preservando o bloqueio de excesso no cliente e no servidor.
-7. Validar Notas agrupadas por distribuição, rótulos explícitos dos relatórios
+8. Validar Notas agrupadas por distribuição, rótulos explícitos dos relatórios
    e a densidade da nova impressão compacta em PC e celular.
-8. Ensaiar a limpeza da migration `0011`; depois retomar container/VM e operação
+9. Ensaiar a limpeza da migration `0011`; depois retomar container/VM e operação
    persistente. O Web já está publicado e o ciclo conectado foi comprovado.
-9. Limpeza controlada do histórico de homologação concluída com autorização;
+10. Limpeza controlada do histórico de homologação concluída com autorização;
    `precos_cliente` e todos os cadastros foram preservados. **Concluído.**
-10. Excluir manualmente os dois produtos e o cliente fictício usando a ação
+11. Excluir manualmente os dois produtos e o cliente fictício usando a ação
     temporária; depois desligar a flag e remover definitivamente essa exceção.
     **Concluído:** o responsável removeu manualmente os cadastros fictícios e
     a exceção temporária foi retirada do Web. O comportamento definitivo é

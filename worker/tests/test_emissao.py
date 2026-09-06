@@ -17,6 +17,7 @@ from src.flows.emissao import (
     clicar_avancar_por_contexto,
     clicar_avancar_produto,
     emitir,
+    selecionar_emitente,
 )
 
 
@@ -241,6 +242,68 @@ class PaginaSequenciaFalsa:
         assert papel == "button"
         assert name == "Avançar"
         return self.colecao
+
+
+class SelectEmitenteFalso:
+    def __init__(self, eventos: list[object]) -> None:
+        self.eventos = eventos
+
+    async def select_option(self, *, value: str) -> None:
+        self.eventos.append(("selecionar", value))
+
+
+class AncoraDestinatarioFalsa:
+    first: "AncoraDestinatarioFalsa"
+
+    def __init__(self, eventos: list[object]) -> None:
+        self.first = self
+        self.eventos = eventos
+
+    async def wait_for(self, *, state: str, timeout: int) -> None:
+        self.eventos.append(("aguardar_destinatario", state, timeout))
+
+
+class PaginaSelecaoEmitenteFalsa(PaginaSequenciaFalsa):
+    def __init__(self) -> None:
+        self.eventos: list[object] = []
+        super().__init__([BotaoAvancarFalso()])
+        self.select = SelectEmitenteFalso(self.eventos)
+        self.ancora_destinatario = AncoraDestinatarioFalsa(self.eventos)
+
+    def locator(self, seletor: str):
+        assert seletor == "#div-identificacao select"
+        return self.select
+
+    async def wait_for_load_state(self, estado: str, *, timeout: int) -> None:
+        self.eventos.append(("rede", estado, timeout))
+
+    async def wait_for_timeout(self, timeout: int) -> None:
+        self.eventos.append(("estabilizar", timeout))
+
+    def get_by_text(self, texto: str, *, exact: bool):
+        assert texto == "CNPJ"
+        assert exact is True
+        return self.ancora_destinatario
+
+
+def test_selecionar_emitente_estabiliza_spa_e_confirma_destinatario() -> None:
+    pagina = PaginaSelecaoEmitenteFalsa()
+
+    asyncio.run(
+        selecionar_emitente(
+            pagina,
+            Emitente(valor_select="emitente-1"),
+            _logger_silencioso(),
+        )
+    )
+
+    assert pagina.eventos == [
+        ("selecionar", "emitente-1"),
+        ("rede", "networkidle", 5000),
+        ("estabilizar", 3000),
+        ("aguardar_destinatario", "visible", 10000),
+    ]
+    assert pagina.colecao.botoes[0].clicado is True
 
 
 def test_avancar_por_contexto_escolhe_o_ancestral_mais_proximo():

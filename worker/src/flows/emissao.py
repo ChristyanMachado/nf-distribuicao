@@ -466,7 +466,35 @@ async def selecionar_emitente(page: Page, emitente: Emitente, logger: logging.Lo
     # que um tempo fixo.
     await page.wait_for_load_state("networkidle", timeout=5000)
 
+    # No portal de produção, o <select> confirma o valor antes de a SPA terminar
+    # de sincronizar internamente o emitente escolhido. O ensaio controlado de
+    # 06/09/2026 demonstrou que clicar imediatamente mantém a tela em
+    # /emitir/emitente sem apresentar erro; após esta curta estabilização, a
+    # mesma seleção abre Destinatário. Este atraso fica restrito à fronteira
+    # instável e evita os 30 s do timeout genérico no passo seguinte.
+    await page.wait_for_timeout(3000)
+
     await clicar_avancar(page, logger)
+
+    try:
+        await page.get_by_text("CNPJ", exact=True).first.wait_for(
+            state="visible",
+            timeout=10000,
+        )
+    except PlaywrightTimeoutError as exc:
+        ainda_no_emitente = await page.locator(
+            "#div-identificacao select:visible"
+        ).count()
+        logger.error(
+            "O portal não confirmou a etapa Destinatário após Avançar "
+            "(tela_emitente_visivel=%d).",
+            ainda_no_emitente,
+        )
+        raise RuntimeError(
+            "O portal não abriu a etapa Destinatário após selecionar o emitente."
+        ) from exc
+
+    logger.info("Etapa Destinatário confirmada após seleção do emitente")
 
 
 

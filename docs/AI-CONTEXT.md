@@ -16,6 +16,17 @@ executa cada tarefa em um `BrowserContext` independente.
 
 ## Estado validado em 06/09/2026
 
+- A primeira distribuição legítima de produção foi criada, mas suas duas
+  tentativas falharam com segurança antes do destinatário e sem emissão. A VM
+  ainda usa `d8bb52f`. Diagnóstico controlado comprovou uma corrida da SPA:
+  clicar em Avançar imediatamente após selecionar o emitente deixava o portal
+  em `/emitir/emitente`; após 3 s, a mesma ação abriu
+  `/emitir/destinatario`. O erro original era o timeout do primeiro locator
+  `CNPJ`, ocultado pelo wrapper de `main.py:1119`; os dados do destinatário
+  ainda não haviam sido lidos. A correção local estabiliza apenas essa
+  fronteira e confirma a âncora de Destinatário antes de prosseguir. VM ainda
+  não atualizada; produção permanece preparada, mas não validada ponta a ponta.
+
 - A transição fiscal para produção está implementada localmente e protegida
   por ambiente no snapshot, correspondência obrigatória Web/Worker, validação
   do host imediatamente antes dos efeitos fiscais e flags mutuamente
