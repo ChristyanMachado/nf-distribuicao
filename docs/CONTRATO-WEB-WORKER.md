@@ -101,6 +101,12 @@ fila mudam atomicamente para `CANCELADA`/`CONCLUIDO`. Interrupção a partir do
 clique produz `AGUARDANDO_CONFERENCIA`; ela não é reenfileirada. Uma recusa
 explícita do portal vira `ERRO` orientado, sem prazo legal fixo codificado.
 
+A conclusão não modifica `fiscal.tarefas`: a tarefa continua registrando que a
+emissão foi concluída, enquanto `fiscal.notas.status = CANCELADA` representa o
+evento fiscal posterior. Número, chave, protocolo, lote e caminhos dos
+documentos não são apagados. Essa independência evita falsificar o histórico
+operacional e permite consultar a nota cancelada posteriormente.
+
 ## Estado de integração
 
 O pipeline já está ligado ao `main.py` atrás de flags explícitas. Canal TLS e

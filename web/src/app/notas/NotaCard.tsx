@@ -23,6 +23,7 @@ type Nota = {
   dataEmissao: string | null;
   pdfUrl: string | null;
   xmlUrl: string | null;
+  temChaveFiscal: boolean;
   podeRecuperar: boolean;
   recuperacaoStatus: StatusRecuperacaoDocumento | null;
   recuperacaoMensagem: string | null;
@@ -161,9 +162,13 @@ export default function NotaCard({ nota }: { nota: Nota }) {
       )}
 
       {nota.cancelamentoStatus === "CONCLUIDO" && (
-        <p role="status" className="mt-3 rounded-[var(--radius-control)] border border-[var(--line)] bg-[var(--field-tint)] px-3 py-2 text-sm">
-          Cancelamento confirmado pela Receita.
-        </p>
+        <div role="status" className="mt-3 rounded-[var(--radius-control)] border border-[var(--stamp)]/35 bg-[var(--stamp-tint)] px-3 py-2 text-sm">
+          <p className="font-medium text-[var(--stamp)]">Nota fiscal cancelada</p>
+          <p className="mt-0.5 text-[12px] text-[var(--ink-soft)]">
+            Cancelamento confirmado pela Receita
+            {nota.cancelamentoMotivo ? ` · Motivo: ${nota.cancelamentoMotivo}` : "."}
+          </p>
+        </div>
       )}
 
       {cancelando && (
@@ -215,6 +220,15 @@ export default function NotaCard({ nota }: { nota: Nota }) {
             <p className="text-[11px] text-[var(--ink-faint)]">A Receita confirmará se a nota ainda pode ser cancelada. Nenhum prazo é presumido pelo sistema.</p>
           </FormularioComFeedback>
         </details>
+      )}
+
+      {nota.status === "CANCELADA" && !documentosDisponiveis && (
+        <p className="mt-3 text-[12px] text-[var(--ink-soft)]">
+          Os arquivos não estão armazenados no momento.
+          {nota.temChaveFiscal
+            ? " A chave fiscal permanece preservada no histórico."
+            : " A identificação fiscal precisa de conferência técnica."}
+        </p>
       )}
     </div>
   );

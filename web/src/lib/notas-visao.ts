@@ -13,6 +13,20 @@ export type GrupoNotas<T extends NotaAgrupavel> = {
   notas: T[];
 };
 
+export type VisaoNotas = "ativas" | "canceladas";
+
+/**
+ * O estado fiscal da nota não altera a tarefa que a originou. Esta função
+ * existe apenas para separar a visualização do histórico de documentos.
+ */
+export function visaoDaNota(status: string): VisaoNotas {
+  return status === "CANCELADA" ? "canceladas" : "ativas";
+}
+
+export function normalizarVisaoNotas(valor: string | undefined): VisaoNotas {
+  return valor === "canceladas" ? "canceladas" : "ativas";
+}
+
 /**
  * Mantém uma distribuição como unidade visual. Notas legadas, sem lote,
  * permanecem isoladas porque não é seguro reconstruir seu agrupamento.

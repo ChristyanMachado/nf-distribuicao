@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { agruparNotasPorDistribuicao } from "./notas-visao";
+import {
+  agruparNotasPorDistribuicao,
+  normalizarVisaoNotas,
+  visaoDaNota,
+} from "./notas-visao";
 
 describe("agruparNotasPorDistribuicao", () => {
   it("agrupa notas do mesmo lote e preserva a ordem recebida", () => {
@@ -26,5 +30,19 @@ describe("agruparNotasPorDistribuicao", () => {
     expect(grupos).toHaveLength(2);
     expect(grupos.every((grupo) => grupo.notas.length === 1)).toBe(true);
     expect(grupos[0].data).toBe("2026-09-01");
+  });
+});
+
+describe("visão fiscal das notas", () => {
+  it("separa somente o estado fiscal CANCELADA da listagem normal", () => {
+    expect(visaoDaNota("AUTORIZADA")).toBe("ativas");
+    expect(visaoDaNota("REJEITADA")).toBe("ativas");
+    expect(visaoDaNota("CANCELADA")).toBe("canceladas");
+  });
+
+  it("normaliza parâmetros desconhecidos para a visão principal", () => {
+    expect(normalizarVisaoNotas(undefined)).toBe("ativas");
+    expect(normalizarVisaoNotas("qualquer")).toBe("ativas");
+    expect(normalizarVisaoNotas("canceladas")).toBe("canceladas");
   });
 });

@@ -210,6 +210,21 @@ pela chave, valida o XML antes do DANFE e envia o par ao Storage. O Web só volt
 a assinar os dois caminhos após a conclusão atômica. Documentos recuperados
 expiram em 7 dias; documentos da emissão original continuam em 30 dias.
 
+### Estado da tarefa versus estado fiscal da nota
+
+`fiscal.tarefas.status` descreve a execução da emissão e permanece como
+histórico operacional. `fiscal.notas.status` descreve a situação fiscal do
+documento depois de emitido. Portanto, cancelar uma nota não desfaz a tarefa:
+o Worker atualiza somente `notas.status = CANCELADA` e conclui a linha de
+`cancelamentos_fiscais`, atomicamente e apenas após a prova oficial no portal.
+
+O Web usa essa separação em `/notas`: a visão principal contém estados fiscais
+não cancelados e a aba `Canceladas` contém somente `notas.status = CANCELADA`,
+preservando lote, tarefa original, chave, protocolo, número e referências dos
+documentos. Os relatórios atuais continuam operacionais e medem o trabalho da
+tarefa/distribuição; o futuro módulo financeiro deverá consultar também o
+estado da nota para excluir efeitos fiscais cancelados de cálculos financeiros.
+
 ### Integridade de campos numéricos mascarados
 
 Quantidade e valor unitário não são preenchidos por atribuição textual bruta.

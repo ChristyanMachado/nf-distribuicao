@@ -1,15 +1,12 @@
 # Handoff — Estado Atual
 
-## Estado autoritativo — 05/09/2026
+## Estado autoritativo — 06/09/2026
 
 - Checkpoint visual `d22be68` enviado à `main`; deploy Vercel de produção
-  `dpl_H9RZo2biVh7AQhncCmaUx78mjfGB` ficou `READY`. O cancelamento fiscal foi
-  implementado **localmente**, mas ainda não foi publicado: a nova migration
-  `0015_cancelamento_fiscal.sql` precisa de autorização explícita para criar a
-  fila e conceder ao papel `nf_worker_vm` atualização limitada do estado da
-  nota. A tentativa automatizada foi bloqueada antes de qualquer DDL; o banco
-  remoto não mudou. A migration `0014` do Ponto permanece adiada e foi retirada
-  do journal ativo, mas seu arquivo foi preservado.
+  `dpl_H9RZo2biVh7AQhncCmaUx78mjfGB` ficou `READY`. O cancelamento fiscal está
+  implementado localmente e a migration `0015_cancelamento_fiscal.sql` foi
+  aplicada e auditada no Supabase. A migration `0014` do Ponto permanece
+  adiada e fora do journal ativo; seu arquivo foi preservado.
 - RF23 local: `/notas` oferece cancelamento por nota autorizada, motivo editável
   iniciado em “Dados incorretos” e confirmação humana. Web e Worker usam fila
   exclusiva com lease/token, uma linha por nota e exclusão mútua com recuperação.
@@ -18,9 +15,9 @@
   ao encontrar `Evento registrado e vinculado a NF-e`. Recusa do portal vira
   erro orientado sem prazo legal fixo. Falha após o clique sem a mensagem vira
   `AGUARDANDO_CONFERENCIA` e não permite retry automático.
-- Validação local desta etapa: **251 testes Worker**, **106 testes Web**, build
-  Next.js, `compileall` e `git diff --check` passaram. Ainda faltam aplicar e
-  verificar a migration fiscal, publicar o novo commit, atualizar a VM com
+- Validação local desta etapa: **251 testes Worker**, **108 testes Web**, build
+  Next.js, `compileall` e `git diff --check` passaram. Ainda faltam publicar o
+  novo commit, atualizar a VM com
   `PROCESSAR_CANCELAMENTOS_FISCAIS=true` e fazer um ensaio humano em homologação.
 
 - Prioridades da reunião implementadas localmente: confirmação após distribuir
@@ -1126,3 +1123,24 @@ guardava 1.600 s entre a primeira reserva e a conclusão; o lote novo `cfa4df5d�
 com 3 notas, todas na primeira tentativa, levou 260 s. Como `iniciado_em` usa
 `COALESCE` por auditoria, relatórios agora excluem lotes reprocessados dos KPIs
 de duração/economia, mas continuam contando-os nos totais e resultados.
+
+## Atualização — cancelamento fiscal e separação de estados
+
+A migration fiscal `0015_cancelamento_fiscal.sql` foi aplicada no projeto de
+teste em 05/09/2026. Ela criou somente `fiscal.cancelamentos_fiscais`, sem
+executar a `0014` nem alterar o schema do sistema de ponto. A auditoria confirmou
+ausência de grants da nova tabela para `anon`/`authenticated` e acesso mínimo do
+papel `nf_worker_vm`.
+
+O contrato distingue a tarefa concluída da situação posterior da nota. Depois
+de `Confirmar`, o Worker recarrega a página e exige o texto `Evento registrado
+e vinculado a NF-e`; somente então, na mesma transação, altera
+`fiscal.notas.status` para `CANCELADA` e a fila para `CONCLUIDO`. Nenhum comando
+atualiza `fiscal.tarefas`, coberto também por teste. Ausência de prova fica em
+conferência e resposta de prazo vem do portal, sem número de dias presumido.
+
+Em `/notas`, as abas `Ativas` e `Canceladas` usam exclusivamente o estado da
+nota e mantêm agrupamento por distribuição. A nota cancelada conserva PDF/XML
+enquanto disponíveis, chave, número, protocolo e vínculo histórico. A tarefa
+original continua na aba `Concluídas` de `/tarefas`. Relatórios atuais continuam
+operacionais; o futuro financeiro deve consultar também o estado fiscal da nota.

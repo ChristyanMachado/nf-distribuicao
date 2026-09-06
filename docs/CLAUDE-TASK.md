@@ -40,12 +40,11 @@ altere arquitetura ou migrações aplicadas sem registrar e justificar.
 
 ## Próxima tarefa prioritária
 
-RF23 está implementado localmente e ainda não está publicado. Não aplique a
-migration nem faça push sem autorização explícita: `0015_cancelamento_fiscal`
-cria apenas objetos no schema fiscal e privilégios mínimos da VM; `0014` do
-Ponto continua adiada e fora do journal. Revise principalmente a fronteira
+RF23 está implementado localmente e a migration `0015_cancelamento_fiscal` já
+foi aplicada e auditada. `0014` do Ponto continua adiada e fora do journal.
+Revise principalmente a fronteira
 pós-Confirmar: sucesso exige a mensagem oficial após reload; estado incerto é
-terminal para automação e não admite retry. Testes atuais: 251 Worker e 106 Web.
+terminal para automação e não admite retry. Testes atuais: 251 Worker e 108 Web.
 
 As telas `/tarefas` e `/notas` já possuem atualização automática adaptativa de
 10s durante estados ativos, com pausa em aba oculta. Não substitua por Supabase
@@ -173,3 +172,10 @@ conclusão). A economia deixou de aplicar o tempo automático fixo de 42,18 s:
 agora compara cada lote mensurável ao benchmark humano de 337 s e mostra a
 quantidade de distribuições medidas. Não contar lotes sem timestamps nem
 economia negativa.
+
+O cancelamento fiscal possui fila própria e a migration `0015` já foi aplicada.
+Preserve a separação: cancelar uma nota nunca altera o estado da tarefa
+concluída. `/notas` tem visões `Ativas` e `Canceladas`, calculadas por
+`fiscal.notas.status`, e ambas continuam agrupadas por distribuição. O próximo
+gate é publicar a implementação e ensaiar uma nota recente de homologação;
+sucesso exige a frase oficial depois do reload.

@@ -107,8 +107,9 @@ substitui identidade multiusuário, papéis, tenant e RLS.
    manual de lease vencido e resultado fiscal incerto.
 7. Validar backup/restauração e políticas de retenção.
 8. Executar o primeiro ciclo conectado apenas em homologação e com uma tarefa.
-9. Aplicar e revisar a migration fiscal `0015` antes de publicar o RF23; ela
-   concede ao Worker somente as colunas necessárias da fila e o estado da nota.
+9. A migration fiscal `0015` foi aplicada e revisada; ela concede ao Worker
+   somente as colunas necessárias da fila e o estado da nota. Não ampliar esses
+   privilégios ao publicar o RF23.
 
 ## Checklist antes de qualquer piloto externo
 

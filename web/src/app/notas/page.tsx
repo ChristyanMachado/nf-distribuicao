@@ -11,18 +11,34 @@ import {
   cancelamentosFiscais,
 } from "@/db/schema";
 import { desc, eq } from "drizzle-orm";
+import Link from "next/link";
 import Card from "@/components/Card";
 import AtualizacaoAutomatica from "@/components/AtualizacaoAutomatica";
 import NotaCard from "./NotaCard";
 import { assinarDocumentosPrivados } from "@/lib/storage.server";
 import { nomeDownloadDocumento } from "@/lib/storage-caminhos";
 import { documentosDaNotaDisponiveis } from "@/lib/documentos-nota";
-import { agruparNotasPorDistribuicao } from "@/lib/notas-visao";
+import {
+  agruparNotasPorDistribuicao,
+  normalizarVisaoNotas,
+  visaoDaNota,
+  type VisaoNotas,
+} from "@/lib/notas-visao";
 import { dataIsoParaBrasil } from "@/lib/datas";
 
-export default async function NotasPage() {
-  const lista = await db
-    .select({
+const ABAS: { id: VisaoNotas; label: string }[] = [
+  { id: "ativas", label: "Ativas" },
+  { id: "canceladas", label: "Canceladas" },
+];
+
+export default async function NotasPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ visao?: string }>;
+}) {
+  const [parametros, lista] = await Promise.all([
+    searchParams,
+    db.select({
       id: notas.id,
       numero: notas.numero,
       status: notas.status,
@@ -42,22 +58,31 @@ export default async function NotasPage() {
       loteId: tarefas.loteId,
       numeroDistribuicao: lotesDistribuicao.numero,
       dataDistribuicao: lotesDistribuicao.data,
-    })
-    .from(notas)
-    .innerJoin(clientes, eq(notas.clienteId, clientes.id))
-    .innerJoin(tarefas, eq(notas.tarefaId, tarefas.id))
-    .innerJoin(emitentes, eq(tarefas.emitenteId, emitentes.id))
-    .leftJoin(lotesDistribuicao, eq(tarefas.loteId, lotesDistribuicao.id))
-    .leftJoin(recuperacoesDocumentos, eq(recuperacoesDocumentos.notaId, notas.id))
-    .leftJoin(cancelamentosFiscais, eq(cancelamentosFiscais.notaId, notas.id))
-    .orderBy(desc(notas.criadoEm));
+      })
+      .from(notas)
+      .innerJoin(clientes, eq(notas.clienteId, clientes.id))
+      .innerJoin(tarefas, eq(notas.tarefaId, tarefas.id))
+      .innerJoin(emitentes, eq(tarefas.emitenteId, emitentes.id))
+      .leftJoin(lotesDistribuicao, eq(tarefas.loteId, lotesDistribuicao.id))
+      .leftJoin(recuperacoesDocumentos, eq(recuperacoesDocumentos.notaId, notas.id))
+      .leftJoin(cancelamentosFiscais, eq(cancelamentosFiscais.notaId, notas.id))
+      .orderBy(desc(notas.criadoEm)),
+  ]);
+  const visao = normalizarVisaoNotas(parametros.visao);
+  const contagens = Object.fromEntries(
+    ABAS.map((aba) => [
+      aba.id,
+      lista.filter((nota) => visaoDaNota(nota.status) === aba.id).length,
+    ]),
+  ) as Record<VisaoNotas, number>;
+  const notasVisiveis = lista.filter((nota) => visaoDaNota(nota.status) === visao);
   const agora = new Date();
   const temOperacaoAtiva = lista.some((nota) =>
     nota.recuperacaoStatus === "PENDENTE" || nota.recuperacaoStatus === "PROCESSANDO"
     || nota.cancelamentoStatus === "PENDENTE" || nota.cancelamentoStatus === "PROCESSANDO"
   );
   const disponibilidade = new Map(
-    lista.map((nota) => [
+    notasVisiveis.map((nota) => [
       nota.id,
       documentosDaNotaDisponiveis(
         nota.pdfPath,
@@ -68,7 +93,7 @@ export default async function NotasPage() {
     ]),
   );
   const urls = await assinarDocumentosPrivados(
-    lista.flatMap((nota) => {
+    notasVisiveis.flatMap((nota) => {
       if (!disponibilidade.get(nota.id)) return [];
       const dados = {
         cliente: nota.clienteNome,
@@ -90,7 +115,7 @@ export default async function NotasPage() {
       ];
     }),
   );
-  const grupos = agruparNotasPorDistribuicao(lista);
+  const grupos = agruparNotasPorDistribuicao(notasVisiveis);
 
   return (
     <div>
@@ -103,6 +128,30 @@ export default async function NotasPage() {
         ativa={temOperacaoAtiva}
         descricao="Acompanhando as operações fiscais automaticamente"
       />
+
+      <nav
+        aria-label="Situação fiscal das notas"
+        className="mt-5 grid grid-cols-2 gap-1 rounded-[var(--radius-control)] bg-[var(--surface-raised)] p-1"
+      >
+        {ABAS.map((aba) => {
+          const ativa = aba.id === visao;
+          return (
+            <Link
+              key={aba.id}
+              href={aba.id === "ativas" ? "/notas" : "/notas?visao=canceladas"}
+              aria-current={ativa ? "page" : undefined}
+              className={`tap-target flex min-h-11 items-center justify-center gap-2 rounded-[calc(var(--radius-control)-3px)] px-3 text-sm font-medium ${
+                ativa
+                  ? "bg-[var(--field)] text-white"
+                  : "text-[var(--ink-soft)] hover:bg-[var(--field-tint)]"
+              }`}
+            >
+              <span>{aba.label}</span>
+              <span className="font-mono-tab text-[11px] opacity-75">{contagens[aba.id]}</span>
+            </Link>
+          );
+        })}
+      </nav>
 
       <div className="mt-5 space-y-4">
         {grupos.map((grupo) => (
@@ -127,6 +176,7 @@ export default async function NotasPage() {
                     dataEmissao: n.dataEmissao?.toISOString() ?? null,
                     pdfUrl: disponibilidade.get(n.id) && n.pdfPath ? urls.get(n.pdfPath) ?? null : null,
                     xmlUrl: disponibilidade.get(n.id) && n.xmlPath ? urls.get(n.xmlPath) ?? null : null,
+                    temChaveFiscal: /^\d{44}$/.test(n.chaveAcesso ?? ""),
                     podeRecuperar: n.status === "AUTORIZADA" && /^\d{44}$/.test(n.chaveAcesso ?? ""),
                     podeCancelar: n.status === "AUTORIZADA" && /^\d{44}$/.test(n.chaveAcesso ?? ""),
                   }}
@@ -135,9 +185,13 @@ export default async function NotasPage() {
             </Card>
           </section>
         ))}
-        {lista.length === 0 && (
+        {notasVisiveis.length === 0 && (
           <Card className="px-4 py-10 text-center text-sm text-[var(--ink-faint)]">
-            Nenhuma nota emitida ainda.
+            {lista.length === 0
+              ? "Nenhuma nota emitida ainda."
+              : visao === "canceladas"
+                ? "Nenhuma nota cancelada."
+                : "Nenhuma nota ativa."}
           </Card>
         )}
       </div>

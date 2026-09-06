@@ -825,6 +825,7 @@ def test_conclusao_cancelamento_atualiza_nota_e_fila_atomicamente() -> None:
 
     assert conexao.transacao_fake.tipo_excecao is None
     assert "status='CANCELADA'" in conexao.chamadas[0][1]
+    assert all("UPDATE fiscal.tarefas" not in chamada[1] for chamada in conexao.chamadas)
     assert "status='CONCLUIDO'" in conexao.chamadas[1][1]
 
 
