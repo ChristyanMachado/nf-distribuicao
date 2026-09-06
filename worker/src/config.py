@@ -99,6 +99,9 @@ class Config:
     # Consulta histórica por fila própria. Exige que a limpeza tenha removido
     # os objetos vencidos antes de reenviar a cópia recuperada por sete dias.
     processar_recuperacoes_documentos: bool
+    # Cancelamento fiscal usa a consulta por chave e permanece restrito ao
+    # ambiente de homologação até uma autorização separada para produção.
+    processar_cancelamentos_fiscais: bool
     # None mantém o comportamento anterior: documentos validados ficam locais.
     # Quando configurado, a chave permanece apenas no processo do Worker.
     storage_documentos: ConfigStorageDocumentos | None = field(
@@ -284,6 +287,9 @@ def carregar_config() -> Config:
     processar_recuperacoes_documentos = (
         os.getenv("PROCESSAR_RECUPERACOES_DOCUMENTOS", "false").lower() == "true"
     )
+    processar_cancelamentos_fiscais = (
+        os.getenv("PROCESSAR_CANCELAMENTOS_FISCAIS", "false").lower() == "true"
+    )
     if storage_documentos is not None and fonte_tarefas != "banco":
         raise RuntimeError("ARMAZENAR_DOCUMENTOS=true exige FONTE_TAREFAS=banco.")
     if limpar_documentos_expirados and (
@@ -305,6 +311,15 @@ def carregar_config() -> Config:
         raise RuntimeError(
             "PROCESSAR_RECUPERACOES_DOCUMENTOS=true exige fila do banco, "
             "homologação, limpeza controlada e Storage privado configurado."
+        )
+    if processar_cancelamentos_fiscais and (
+        fonte_tarefas != "banco"
+        or not testar_integracao_banco
+        or ambiente_emissao != "teste"
+    ):
+        raise RuntimeError(
+            "PROCESSAR_CANCELAMENTOS_FISCAIS=true exige fila do banco, "
+            "integração controlada e ambiente de homologação."
         )
     if worker_persistente:
         if (
@@ -359,6 +374,7 @@ def carregar_config() -> Config:
         worker_persistente=worker_persistente,
         limpar_documentos_expirados=limpar_documentos_expirados,
         processar_recuperacoes_documentos=processar_recuperacoes_documentos,
+        processar_cancelamentos_fiscais=processar_cancelamentos_fiscais,
         storage_documentos=storage_documentos,
     )
 

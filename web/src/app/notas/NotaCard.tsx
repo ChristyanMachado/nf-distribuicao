@@ -9,7 +9,7 @@ import {
   type StatusRecuperacaoDocumento,
 } from "@/lib/documentos-nota";
 import { urlHttpsSegura } from "@/lib/urls";
-import { solicitarRecuperacaoDocumento } from "./actions";
+import { solicitarCancelamentoFiscal, solicitarRecuperacaoDocumento } from "./actions";
 
 const moeda = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 
@@ -26,6 +26,10 @@ type Nota = {
   podeRecuperar: boolean;
   recuperacaoStatus: StatusRecuperacaoDocumento | null;
   recuperacaoMensagem: string | null;
+  podeCancelar: boolean;
+  cancelamentoStatus: "PENDENTE" | "PROCESSANDO" | "CONCLUIDO" | "ERRO" | "AGUARDANDO_CONFERENCIA" | null;
+  cancelamentoMensagem: string | null;
+  cancelamentoMotivo: string | null;
 };
 
 /**
@@ -38,6 +42,7 @@ export default function NotaCard({ nota }: { nota: Nota }) {
   const xmlUrl = urlHttpsSegura(nota.xmlUrl);
   const documentosDisponiveis = Boolean(pdfUrl && xmlUrl);
   const recuperando = recuperacaoEmAndamento(nota.recuperacaoStatus);
+  const cancelando = nota.cancelamentoStatus === "PENDENTE" || nota.cancelamentoStatus === "PROCESSANDO";
 
   async function compartilhar() {
     if (!pdfUrl) return;
@@ -153,6 +158,63 @@ export default function NotaCard({ nota }: { nota: Nota }) {
         <p className="mt-2 text-[12px] text-[var(--stamp)]">
           A chave fiscal desta nota não está disponível. Chame o suporte para conferir.
         </p>
+      )}
+
+      {nota.cancelamentoStatus === "CONCLUIDO" && (
+        <p role="status" className="mt-3 rounded-[var(--radius-control)] border border-[var(--line)] bg-[var(--field-tint)] px-3 py-2 text-sm">
+          Cancelamento confirmado pela Receita.
+        </p>
+      )}
+
+      {cancelando && (
+        <div role="status" aria-live="polite" className="mt-3 rounded-[var(--radius-control)] border border-[var(--line)] bg-[var(--field-tint)] px-3 py-2.5">
+          <p className="text-sm font-medium">
+            {nota.cancelamentoStatus === "PROCESSANDO" ? "Cancelando nota…" : "Cancelamento solicitado"}
+          </p>
+          <p className="mt-0.5 text-[12px] text-[var(--ink-soft)]">Pode sair desta tela. O status será atualizado pelo Worker.</p>
+        </div>
+      )}
+
+      {nota.cancelamentoStatus === "AGUARDANDO_CONFERENCIA" && (
+        <p role="alert" className="mt-3 rounded-[var(--radius-control)] border border-[var(--stamp)] bg-[var(--stamp-tint)] px-3 py-2 text-sm text-[var(--stamp)]">
+          {nota.cancelamentoMensagem ?? "O resultado do cancelamento precisa ser conferido na Receita. Chame o suporte."}
+        </p>
+      )}
+
+      {nota.podeCancelar && !cancelando && nota.cancelamentoStatus !== "CONCLUIDO" && nota.cancelamentoStatus !== "AGUARDANDO_CONFERENCIA" && (
+        <details className="mt-3 rounded-[var(--radius-control)] border border-[var(--line)] px-3 py-2">
+          <summary className="tap-target flex cursor-pointer list-none items-center text-sm font-medium text-[var(--stamp)]">
+            Cancelar esta nota
+          </summary>
+          <FormularioComFeedback
+            action={solicitarCancelamentoFiscal}
+            className="mt-2 space-y-2"
+            confirmMessage="Confirmar o pedido de cancelamento desta nota? O Worker executará a operação no portal fiscal."
+          >
+            <input type="hidden" name="notaId" value={nota.id} />
+            {nota.cancelamentoStatus === "ERRO" && (
+              <p className="text-[12px] text-[var(--stamp)]">
+                {nota.cancelamentoMensagem ?? "A tentativa anterior não foi concluída. Revise o motivo antes de tentar novamente."}
+              </p>
+            )}
+            <label className="block text-[12px] font-medium text-[var(--ink-soft)]" htmlFor={`motivo-${nota.id}`}>
+              Motivo do cancelamento
+            </label>
+            <textarea
+              id={`motivo-${nota.id}`}
+              name="motivo"
+              defaultValue={nota.cancelamentoMotivo ?? "Dados incorretos"}
+              maxLength={255}
+              required
+              rows={3}
+              className="w-full resize-y rounded-[var(--radius-control)] border border-[var(--line-strong)] bg-white px-3 py-2 text-sm outline-none focus:border-[var(--ink)]"
+            />
+            <PrimaryButton type="submit" pendingText="Solicitando cancelamento…" className="w-full py-2.5">
+              Confirmar cancelamento
+            </PrimaryButton>
+            <p className="text-[11px] text-[var(--ink-faint)]">A Receita confirmará se a nota ainda pode ser cancelada. Nenhum prazo é presumido pelo sistema.</p>
+          </FormularioComFeedback>
+        </details>
       )}
     </div>
   );

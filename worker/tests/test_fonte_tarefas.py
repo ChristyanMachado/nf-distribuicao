@@ -20,6 +20,7 @@ import pytest
 
 from src.contrato_tarefa import carregar_contrato_tarefa
 from src.fonte_tarefas import (
+    CancelamentoFiscalReservado,
     DocumentoExpiradoReservado,
     FontePostgresTarefas,
     FonteTarefasErro,
@@ -781,6 +782,50 @@ def test_conclusao_recuperacao_publica_par_por_exatamente_sete_dias() -> None:
                 retencao_dias=30,
             )
         )
+
+
+def test_reserva_cancelamento_usa_snapshot_e_skip_locked() -> None:
+    texto = _payload_texto()
+    linha = {
+        "cancelamento_id": RECUPERACAO_ID,
+        "nota_id": NOTA_ID,
+        "reserva_token": RESERVA_TOKEN,
+        "tarefa_id": TAREFA_ID,
+        "chave_acesso": "1" * 44,
+        "motivo": "Dados incorretos",
+        "payload_text": texto,
+        "payload_hash": hashlib.sha256(texto.encode("utf-8")).hexdigest(),
+    }
+    conexao = _ConexaoFake(fetch=[[linha]])
+    fonte = _fonte_com_conexao(conexao)
+
+    cancelamentos = asyncio.run(fonte.reservar_cancelamentos_fiscais(1))
+
+    assert len(cancelamentos) == 1
+    assert cancelamentos[0].motivo == "Dados incorretos"
+    consulta = conexao.chamadas[0][1]
+    assert "FOR UPDATE OF c,n SKIP LOCKED" in consulta
+    assert "n.status='AUTORIZADA'" in consulta
+
+
+def test_conclusao_cancelamento_atualiza_nota_e_fila_atomicamente() -> None:
+    cancelamento = CancelamentoFiscalReservado(
+        RECUPERACAO_ID,
+        NOTA_ID,
+        TAREFA_ID,
+        "1" * 44,
+        "Dados incorretos",
+        carregar_contrato_tarefa(json.loads(_payload_texto())),
+        RESERVA_TOKEN,
+    )
+    conexao = _ConexaoFake(execute=["UPDATE 1", "UPDATE 1"])
+    fonte = _fonte_com_conexao(conexao)
+
+    asyncio.run(fonte.concluir_cancelamento_fiscal(cancelamento))
+
+    assert conexao.transacao_fake.tipo_excecao is None
+    assert "status='CANCELADA'" in conexao.chamadas[0][1]
+    assert "status='CONCLUIDO'" in conexao.chamadas[1][1]
 
 
 def test_limpeza_nao_e_bloqueada_por_pedido_de_recuperacao_pendente() -> None:

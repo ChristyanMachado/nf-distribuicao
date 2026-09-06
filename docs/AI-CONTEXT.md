@@ -16,6 +16,17 @@ executa cada tarefa em um `BrowserContext` independente.
 
 ## Estado validado em 05/09/2026
 
+- Cancelamento fiscal RF23 está implementado e testado apenas localmente. Há
+  fila própria `fiscal.cancelamentos_fiscais`, motivo editável, idempotência,
+  lease/token e prova obrigatória após reload pelo texto oficial. Resultado
+  pós-clique sem prova fica para conferência e nunca é repetido automaticamente.
+  `0015_cancelamento_fiscal.sql` ainda não foi aplicada; Web/Worker dessa etapa
+  não devem ser publicados antes dela. `0014` continua adiada, fora do journal,
+  e nenhum objeto do sistema de ponto foi modificado.
+- O checkpoint anterior `d22be68` está publicado em produção na Vercel e foi
+  confirmado como `READY`. A nova etapa local passou em 251 testes Worker,
+  106 testes Web e build Next.js, mas ainda exige migration + piloto controlado.
+
 - Reunião posterior: ver `REUNIAO-2026-09-05-RELATO.md` (relato reconciliado
   com transcrição parcial 000–005; parte perdida não inferida). Próximos pedidos: notas agrupadas por lote,
   cancelamento fiscal separado, recuperação de senha e novo benchmark realista.
@@ -94,7 +105,8 @@ executa cada tarefa em um `BrowserContext` independente.
   `cStat=100`. PDF precisa começar com `%PDF-`. O upload privado está
   implementado, configurado e validado ao vivo: o primeiro XML/DANFE chegou ao
   bucket privado, a nota ficou disponível no Web e o PDF foi baixado com sucesso.
-- Migrações `0001` a `0013` estão aplicadas no banco de teste. A `0013` foi
+- Migrações `0001` a `0013` estão aplicadas no banco de teste. A `0015` está
+  preparada localmente e ainda não foi aplicada. A `0013` foi
   aplicada e validada em 05/09/2026: linha única `00:00–06:00`, leitura mínima
   do Worker e `search_path=pg_catalog` na função de reserva. A `0014` permanece
   explicitamente adiada porque altera funções do sistema de ponto. `0008` adiciona

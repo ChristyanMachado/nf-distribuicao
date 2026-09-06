@@ -27,6 +27,9 @@ SELETOR_CAMPO_CHAVE = "input.slds-input.slds-size_6-of-12:visible"
 SELETOR_CONTAGEM_RESULTADO = "p.VuePagination__count"
 SELETOR_DANFE_RESULTADO = '[title="DANFE"]:visible'
 SELETOR_XML_RESULTADO = '[title="Obter XML da nota"]:visible'
+SELETOR_CANCELAR_RESULTADO = 'table tbody tr:visible button:has(i[title="Cancelar"]):visible'
+SELETOR_MOTIVO_CANCELAMENTO = "article textarea.slds-input.slds-size_12-of-12:visible"
+TEXTO_SUCESSO_CANCELAMENTO = "Evento registrado e vinculado a NF-e"
 
 
 class ConsultaFiscalInvalida(ValueError):
@@ -35,6 +38,18 @@ class ConsultaFiscalInvalida(ValueError):
 
 class NotaConsultaNaoEncontrada(RuntimeError):
     """A consulta não retornou exatamente os documentos esperados."""
+
+
+class CancelamentoFiscalRecusado(RuntimeError):
+    """O portal respondeu que o cancelamento não foi realizado."""
+
+    def __init__(self, mensagem_usuario: str) -> None:
+        super().__init__(mensagem_usuario)
+        self.mensagem_usuario = mensagem_usuario
+
+
+class CancelamentoResultadoIncerto(RuntimeError):
+    """A confirmação foi enviada, mas o resultado oficial não foi provado."""
 
 
 def _acao_da_linha_resultado(page: Page, seletor: str) -> Locator:
@@ -113,6 +128,86 @@ async def baixar_documentos_consulta(
                 pass
         raise
     return {"xml_path": xml_path, "pdf_path": pdf_path}
+
+
+def _normalizar_motivo_cancelamento(motivo: str) -> str:
+    normalizado = re.sub(r"\s+", " ", motivo).strip()
+    if not normalizado:
+        raise ConsultaFiscalInvalida("O motivo do cancelamento não foi informado.")
+    if len(normalizado) > 255 or any(ord(c) < 32 or ord(c) == 127 for c in normalizado):
+        raise ConsultaFiscalInvalida("O motivo do cancelamento possui formato inválido.")
+    return normalizado
+
+
+async def cancelar_nota_consultada(
+    page: Page,
+    *,
+    motivo: str,
+    logger: logging.Logger,
+) -> None:
+    """Cancela a única nota consultada e exige a prova textual após o reload.
+
+    O clique em ``Confirmar`` não é tratado como sucesso. Se a resposta oficial
+    não puder ser provada após a atualização, o chamador deve encaminhar a
+    operação para conferência humana e nunca repeti-la automaticamente.
+    """
+
+    motivo_limpo = _normalizar_motivo_cancelamento(motivo)
+    acao = page.locator(SELETOR_CANCELAR_RESULTADO).last
+    try:
+        await acao.wait_for(state="visible", timeout=15_000)
+        await acao.click(timeout=15_000)
+        campo = page.locator(SELETOR_MOTIVO_CANCELAMENTO).last
+        await campo.wait_for(state="visible", timeout=15_000)
+        await campo.fill(motivo_limpo)
+        if (await campo.input_value()).strip() != motivo_limpo:
+            raise ConsultaFiscalInvalida(
+                "O portal alterou o motivo antes da confirmação do cancelamento."
+            )
+        logger.info("Motivo do cancelamento preenchido (conteúdo omitido)")
+    except PlaywrightTimeoutError as exc:
+        raise CancelamentoFiscalRecusado(
+            "A ação de cancelamento não ficou disponível no portal fiscal. A nota pode não permitir mais essa operação."
+        ) from exc
+
+    # A partir do início deste clique, qualquer interrupção é ambígua: o portal
+    # pode ter recebido a confirmação mesmo sem responder ao navegador.
+    try:
+        await page.get_by_role("button", name="Confirmar", exact=True).click(
+            timeout=15_000
+        )
+    except Exception as exc:
+        raise CancelamentoResultadoIncerto(
+            "A confirmação pode ter sido enviada, mas o resultado não foi recebido. Confira a nota diretamente na Receita antes de tentar novamente."
+        ) from exc
+    logger.info("Confirmação de cancelamento enviada; atualizando a página")
+
+    try:
+        await page.reload(wait_until="domcontentloaded", timeout=30_000)
+        sucesso = page.get_by_text(TEXTO_SUCESSO_CANCELAMENTO, exact=False).first
+        await sucesso.wait_for(state="visible", timeout=20_000)
+    except Exception as exc:
+        # Não há prazo legal codificado. A mensagem do portal é apenas usada
+        # para orientar o usuário; ausência de prova permanece resultado incerto.
+        texto = ""
+        try:
+            texto = await page.locator("body").inner_text(timeout=5_000)
+        except Exception:
+            pass
+        texto_normalizado = re.sub(r"\s+", " ", texto).strip().lower()
+        if "prazo de cancelamento" in texto_normalizado:
+            raise CancelamentoFiscalRecusado(
+                "O portal recusou o cancelamento. A nota pode ser antiga demais para cancelamento conforme as regras aplicáveis."
+            ) from exc
+        if any(sinal in texto_normalizado for sinal in ("cancelamento não", "erro ao cancelar", "rejeição")):
+            raise CancelamentoFiscalRecusado(
+                "O portal informou que o cancelamento não foi realizado. Revise a nota ou chame o suporte."
+            ) from exc
+        raise CancelamentoResultadoIncerto(
+            "A confirmação foi enviada, mas o resultado não apareceu após atualizar. Confira a nota diretamente na Receita antes de tentar novamente."
+        ) from exc
+
+    logger.info("Cancelamento confirmado pela mensagem oficial do portal")
 
 
 def localizar_xml_autorizado_mais_recente(download_dir: str) -> str:

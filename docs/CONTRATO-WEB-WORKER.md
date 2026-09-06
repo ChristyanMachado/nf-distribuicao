@@ -86,6 +86,21 @@ bem-formada e conter chave de 44 dígitos, número, protocolo e `cStat=100`.
 Esses metadados são persistidos sem expor o conteúdo em log. O PDF deve ter
 assinatura `%PDF-`.
 
+## Cancelamento de nota autorizada
+
+`fiscal.cancelamentos_fiscais` é uma fila separada e mantém uma linha por nota.
+A Web valida sessão, UUID, estado `AUTORIZADA`, chave com 44 dígitos e motivo de
+1–255 caracteres antes de inserir. Recuperação e cancelamento ativos para a
+mesma nota são mutuamente exclusivos.
+
+O Worker reserva com `FOR UPDATE ... SKIP LOCKED`, token e lease; verifica o
+mesmo snapshot/hash da emissão e reutiliza somente autenticação, navegação de
+consulta, emitente e pesquisa por chave. Depois do clique em Confirmar, sucesso
+exige reload e o texto `Evento registrado e vinculado a NF-e`. Só então nota e
+fila mudam atomicamente para `CANCELADA`/`CONCLUIDO`. Interrupção a partir do
+clique produz `AGUARDANDO_CONFERENCIA`; ela não é reenfileirada. Uma recusa
+explícita do portal vira `ERRO` orientado, sem prazo legal fixo codificado.
+
 ## Estado de integração
 
 O pipeline já está ligado ao `main.py` atrás de flags explícitas. Canal TLS e

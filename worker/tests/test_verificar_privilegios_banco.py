@@ -15,6 +15,9 @@ def _resultado_minimo() -> dict[str, bool]:
         "ler_recuperacoes": True,
         "ler_configuracao_operacional": True,
         "atualizar_fila_recuperacoes": True,
+        "ler_cancelamentos": True,
+        "atualizar_fila_cancelamentos": True,
+        "atualizar_status_cancelamento_nota": True,
         "ler_emitentes": False,
         "ler_login_legado": False,
         "ler_senha_legada": False,
@@ -23,6 +26,8 @@ def _resultado_minimo() -> dict[str, bool]:
         "atualizar_notas": False,
         "excluir_recuperacoes": False,
         "atualizar_recuperacoes": False,
+        "excluir_cancelamentos": False,
+        "atualizar_cancelamentos": False,
     }
 
 

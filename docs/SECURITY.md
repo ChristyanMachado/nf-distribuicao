@@ -43,6 +43,10 @@ substitui identidade multiusuário, papéis, tenant e RLS.
 - unicidade de nota/tarefa e chave de acesso;
 - protocolo e prova fiscal persistidos;
 - incerteza pós-clique nunca retorna automaticamente à fila.
+- cancelamento usa fila distinta com linha única por nota, exclusão mútua com
+  recuperação, lease/token e atualização atômica; somente a mensagem oficial
+  após reload permite marcar `CANCELADA`. Interrupção depois de iniciar o clique
+  fica `AGUARDANDO_CONFERENCIA` e não recebe retry automático;
 - `anon` e `authenticated` não possuem `USAGE` nem grants de tabela no schema
   `fiscal`; o Web continua acessando-o somente pelo servidor. O aviso genérico
   de RLS desligado deve ser acompanhado, mas não autoriza habilitar políticas
@@ -103,6 +107,8 @@ substitui identidade multiusuário, papéis, tenant e RLS.
    manual de lease vencido e resultado fiscal incerto.
 7. Validar backup/restauração e políticas de retenção.
 8. Executar o primeiro ciclo conectado apenas em homologação e com uma tarefa.
+9. Aplicar e revisar a migration fiscal `0015` antes de publicar o RF23; ela
+   concede ao Worker somente as colunas necessárias da fila e o estado da nota.
 
 ## Checklist antes de qualquer piloto externo
 

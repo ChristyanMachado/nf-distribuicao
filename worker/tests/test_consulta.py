@@ -12,6 +12,8 @@ import pytest
 from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 
 from src.flows.consulta import (
+    CancelamentoFiscalRecusado,
+    CancelamentoResultadoIncerto,
     ConsultaFiscalInvalida,
     FalhaDownloadDocumento,
     NotaConsultaNaoEncontrada,
@@ -21,7 +23,11 @@ from src.flows.consulta import (
     SELETOR_EMITENTE_CONSULTA,
     SELETOR_FILTRO_CHAVE,
     SELETOR_XML_RESULTADO,
+    SELETOR_CANCELAR_RESULTADO,
+    SELETOR_MOTIVO_CANCELAMENTO,
+    TEXTO_SUCESSO_CANCELAMENTO,
     baixar_documentos_consulta,
+    cancelar_nota_consultada,
     pesquisar_nota_por_chave,
     preparar_filtro_chave,
     localizar_xml_autorizado_mais_recente,
@@ -313,3 +319,100 @@ def test_download_consulta_recusa_xml_de_outra_nota(tmp_path) -> None:
             )
 
     assert baixar.await_count == 1
+
+
+class ElementoCancelamentoFalso:
+    def __init__(self, *, expirar: bool = False, texto: str = "") -> None:
+        self.expirar = expirar
+        self.texto = texto
+        self.valor = ""
+        self.clicado = False
+
+    @property
+    def first(self):
+        return self
+
+    @property
+    def last(self):
+        return self
+
+    async def wait_for(self, *, state: str, timeout: int) -> None:
+        assert state == "visible"
+        if self.expirar:
+            raise PlaywrightTimeoutError("ausente")
+
+    async def click(self, *, timeout: int) -> None:
+        self.clicado = True
+
+    async def fill(self, valor: str) -> None:
+        self.valor = valor
+
+    async def input_value(self) -> str:
+        return self.valor
+
+    async def inner_text(self, *, timeout: int) -> str:
+        return self.texto
+
+
+class PaginaCancelamentoFalsa:
+    def __init__(self, *, sucesso: bool = True, texto_erro: str = "") -> None:
+        self.acao = ElementoCancelamentoFalso()
+        self.campo = ElementoCancelamentoFalso()
+        self.confirmar = ElementoCancelamentoFalso()
+        self.sucesso = ElementoCancelamentoFalso(expirar=not sucesso)
+        self.body = ElementoCancelamentoFalso(texto=texto_erro)
+        self.recarregada = False
+
+    def locator(self, seletor: str):
+        return {
+            SELETOR_CANCELAR_RESULTADO: self.acao,
+            SELETOR_MOTIVO_CANCELAMENTO: self.campo,
+            "body": self.body,
+        }[seletor]
+
+    def get_by_role(self, papel: str, *, name: str, exact: bool):
+        assert (papel, name, exact) == ("button", "Confirmar", True)
+        return self.confirmar
+
+    def get_by_text(self, texto: str, *, exact: bool):
+        assert texto == TEXTO_SUCESSO_CANCELAMENTO
+        assert exact is False
+        return self.sucesso
+
+    async def reload(self, *, wait_until: str, timeout: int) -> None:
+        assert (wait_until, timeout) == ("domcontentloaded", 30_000)
+        self.recarregada = True
+
+
+def test_cancelamento_so_conclui_apos_reload_e_mensagem_oficial() -> None:
+    pagina = PaginaCancelamentoFalsa()
+
+    asyncio.run(cancelar_nota_consultada(
+        pagina, motivo="Dados incorretos", logger=_logger()
+    ))
+
+    assert pagina.acao.clicado is True
+    assert pagina.campo.valor == "Dados incorretos"
+    assert pagina.confirmar.clicado is True
+    assert pagina.recarregada is True
+
+
+def test_cancelamento_antigo_usa_retorno_do_portal_sem_inventar_prazo() -> None:
+    pagina = PaginaCancelamentoFalsa(
+        sucesso=False,
+        texto_erro="Prazo de cancelamento superior ao previsto na legislação",
+    )
+
+    with pytest.raises(CancelamentoFiscalRecusado, match="pode ser antiga demais"):
+        asyncio.run(cancelar_nota_consultada(
+            pagina, motivo="Dados incorretos", logger=_logger()
+        ))
+
+
+def test_cancelamento_sem_confirmacao_fica_incerto_e_nao_presume_sucesso() -> None:
+    pagina = PaginaCancelamentoFalsa(sucesso=False)
+
+    with pytest.raises(CancelamentoResultadoIncerto, match="Confira a nota"):
+        asyncio.run(cancelar_nota_consultada(
+            pagina, motivo="Dados incorretos", logger=_logger()
+        ))

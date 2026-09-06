@@ -8,6 +8,7 @@ import {
   tarefas,
   lotesDistribuicao,
   recuperacoesDocumentos,
+  cancelamentosFiscais,
 } from "@/db/schema";
 import { desc, eq } from "drizzle-orm";
 import Card from "@/components/Card";
@@ -33,6 +34,9 @@ export default async function NotasPage() {
       chaveAcesso: notas.chaveAcesso,
       recuperacaoStatus: recuperacoesDocumentos.status,
       recuperacaoMensagem: recuperacoesDocumentos.mensagemStatus,
+      cancelamentoStatus: cancelamentosFiscais.status,
+      cancelamentoMensagem: cancelamentosFiscais.mensagemStatus,
+      cancelamentoMotivo: cancelamentosFiscais.motivo,
       clienteNome: clientes.nome,
       emitenteNome: emitentes.nome,
       loteId: tarefas.loteId,
@@ -45,10 +49,12 @@ export default async function NotasPage() {
     .innerJoin(emitentes, eq(tarefas.emitenteId, emitentes.id))
     .leftJoin(lotesDistribuicao, eq(tarefas.loteId, lotesDistribuicao.id))
     .leftJoin(recuperacoesDocumentos, eq(recuperacoesDocumentos.notaId, notas.id))
+    .leftJoin(cancelamentosFiscais, eq(cancelamentosFiscais.notaId, notas.id))
     .orderBy(desc(notas.criadoEm));
   const agora = new Date();
-  const temRecuperacaoAtiva = lista.some((nota) =>
+  const temOperacaoAtiva = lista.some((nota) =>
     nota.recuperacaoStatus === "PENDENTE" || nota.recuperacaoStatus === "PROCESSANDO"
+    || nota.cancelamentoStatus === "PENDENTE" || nota.cancelamentoStatus === "PROCESSANDO"
   );
   const disponibilidade = new Map(
     lista.map((nota) => [
@@ -94,8 +100,8 @@ export default async function NotasPage() {
         ficam disponíveis por 7 dias; o histórico da nota permanece.
       </p>
       <AtualizacaoAutomatica
-        ativa={temRecuperacaoAtiva}
-        descricao="Acompanhando a recuperação automaticamente"
+        ativa={temOperacaoAtiva}
+        descricao="Acompanhando as operações fiscais automaticamente"
       />
 
       <div className="mt-5 space-y-4">
@@ -121,7 +127,8 @@ export default async function NotasPage() {
                     dataEmissao: n.dataEmissao?.toISOString() ?? null,
                     pdfUrl: disponibilidade.get(n.id) && n.pdfPath ? urls.get(n.pdfPath) ?? null : null,
                     xmlUrl: disponibilidade.get(n.id) && n.xmlPath ? urls.get(n.xmlPath) ?? null : null,
-                    podeRecuperar: /^\d{44}$/.test(n.chaveAcesso ?? ""),
+                    podeRecuperar: n.status === "AUTORIZADA" && /^\d{44}$/.test(n.chaveAcesso ?? ""),
+                    podeCancelar: n.status === "AUTORIZADA" && /^\d{44}$/.test(n.chaveAcesso ?? ""),
                   }}
                 />
               ))}

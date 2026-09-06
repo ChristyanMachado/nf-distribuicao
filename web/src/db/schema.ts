@@ -40,6 +40,11 @@ export const statusRecuperacaoDocumentoEnum = fiscalSchema.enum(
   ["PENDENTE", "PROCESSANDO", "CONCLUIDA", "ERRO"],
 );
 
+export const statusCancelamentoFiscalEnum = fiscalSchema.enum(
+  "status_cancelamento_fiscal",
+  ["PENDENTE", "PROCESSANDO", "CONCLUIDO", "ERRO", "AGUARDANDO_CONFERENCIA"],
+);
+
 // Configuração operacional única, editável pelo Web e somente legível pelo
 // Worker. A janela limita novas reservas; tarefas em andamento não são paradas.
 export const configuracoesOperacionais = fiscalSchema.table(
@@ -340,6 +345,35 @@ export const recuperacoesDocumentos = fiscalSchema.table(
   (table) => [
     uniqueIndex("recuperacoes_documentos_nota_unica_idx").on(table.notaId),
     index("recuperacoes_documentos_fila_idx")
+      .on(table.solicitadaEm, table.id)
+      .where(sql`${table.status} in ('PENDENTE', 'PROCESSANDO')`),
+  ],
+);
+
+// RF23 — pedido auditável de cancelamento de uma nota já autorizada. A Web
+// apenas enfileira; somente o Worker, usando a sessão fiscal do emitente
+// original, interage com a Receita. Uma linha por nota evita cliques duplicados.
+export const cancelamentosFiscais = fiscalSchema.table(
+  "cancelamentos_fiscais",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    notaId: uuid("nota_id").notNull().references(() => notas.id),
+    motivo: text("motivo").notNull(),
+    status: statusCancelamentoFiscalEnum("status").notNull().default("PENDENTE"),
+    tentativas: integer("tentativas").notNull().default(0),
+    reservadaPor: text("reservada_por"),
+    reservaToken: uuid("reserva_token"),
+    reservaExpiraEm: timestamp("reserva_expira_em", { withTimezone: true }),
+    mensagemStatus: text("mensagem_status"),
+    codigoErro: text("codigo_erro"),
+    solicitadaEm: timestamp("solicitada_em", { withTimezone: true }).notNull().defaultNow(),
+    iniciadaEm: timestamp("iniciada_em", { withTimezone: true }),
+    concluidaEm: timestamp("concluida_em", { withTimezone: true }),
+    atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("cancelamentos_fiscais_nota_unica_idx").on(table.notaId),
+    index("cancelamentos_fiscais_fila_idx")
       .on(table.solicitadaEm, table.id)
       .where(sql`${table.status} in ('PENDENTE', 'PROCESSANDO')`),
   ],

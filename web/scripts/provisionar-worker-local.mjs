@@ -169,6 +169,19 @@ async function main() {
       status, tentativas, reservada_por, reserva_token, reserva_expira_em,
       mensagem_status, codigo_erro, iniciada_em, concluida_em, atualizado_em
     ) ON TABLE fiscal.recuperacoes_documentos TO ${roleSql}`);
+    // A migration fiscal de cancelamento pode ainda não existir em instalações
+    // antigas. O provisionamento principal continua independente dela; após a
+    // migration 0015, execute novamente este script para reaplicar o menor privilégio.
+    const [cancelamentos] = await admin.unsafe(`SELECT to_regclass('fiscal.cancelamentos_fiscais') AS tabela`);
+    if (cancelamentos.tabela) {
+      await admin.unsafe(`GRANT USAGE ON TYPE fiscal.status_cancelamento_fiscal TO ${roleSql}`);
+      await admin.unsafe(`GRANT SELECT ON TABLE fiscal.cancelamentos_fiscais TO ${roleSql}`);
+      await admin.unsafe(`GRANT UPDATE (
+        status, tentativas, reservada_por, reserva_token, reserva_expira_em,
+        mensagem_status, codigo_erro, iniciada_em, concluida_em, atualizado_em
+      ) ON TABLE fiscal.cancelamentos_fiscais TO ${roleSql}`);
+      await admin.unsafe(`GRANT UPDATE (status, mensagem_erro) ON TABLE fiscal.notas TO ${roleSql}`);
+    }
     await admin.unsafe(`GRANT EXECUTE ON FUNCTION
       fiscal.reservar_tarefas_worker(text, integer, integer) TO ${roleSql}`);
   } finally {

@@ -40,6 +40,13 @@ altere arquitetura ou migrações aplicadas sem registrar e justificar.
 
 ## Próxima tarefa prioritária
 
+RF23 está implementado localmente e ainda não está publicado. Não aplique a
+migration nem faça push sem autorização explícita: `0015_cancelamento_fiscal`
+cria apenas objetos no schema fiscal e privilégios mínimos da VM; `0014` do
+Ponto continua adiada e fora do journal. Revise principalmente a fronteira
+pós-Confirmar: sucesso exige a mensagem oficial após reload; estado incerto é
+terminal para automação e não admite retry. Testes atuais: 251 Worker e 106 Web.
+
 As telas `/tarefas` e `/notas` já possuem atualização automática adaptativa de
 10s durante estados ativos, com pausa em aba oculta. Não substitua por Supabase
 Realtime direto enquanto o navegador não possuir uma sessão Supabase autorizada

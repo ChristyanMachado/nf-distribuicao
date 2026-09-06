@@ -48,6 +48,19 @@ class RecuperacaoDocumentoReservada:
     reserva_token: str
 
 
+@dataclass(frozen=True)
+class CancelamentoFiscalReservado:
+    """Cancelamento vinculado à nota e ao snapshot do emitente original."""
+
+    cancelamento_id: str
+    nota_id: str
+    tarefa_id: str
+    chave_acesso: str
+    motivo: str
+    contratada: TarefaContratada
+    reserva_token: str
+
+
 def _assinatura_operacao(item: Mapping[str, Any]) -> tuple[Any, ...]:
     return (
         item["natureza_operacao"], item["tipo_operacao"],
@@ -643,6 +656,11 @@ class FontePostgresTarefas:
                                  AND n.pdf_path IS NULL AND n.xml_path IS NULL
                                  AND n.chave_acesso ~ '^[0-9]{44}$'
                                  AND n.numero ~ '^[0-9]{1,20}$'
+                                 AND NOT EXISTS (
+                                   SELECT 1 FROM fiscal.cancelamentos_fiscais c
+                                   WHERE c.nota_id=n.id
+                                     AND c.status IN ('PENDENTE','PROCESSANDO','AGUARDANDO_CONFERENCIA')
+                                 )
                                  AND (
                                    n.limpeza_reserva_expira_em IS NULL
                                    OR n.limpeza_reserva_expira_em<now()
@@ -823,6 +841,186 @@ class FontePostgresTarefas:
             raise
         except Exception as exc:
             raise FonteTarefasErro("Não foi possível registrar a falha da recuperação.") from exc
+
+    async def reservar_cancelamentos_fiscais(
+        self,
+        limite: int = 3,
+        lease_segundos: int = 900,
+    ) -> list[CancelamentoFiscalReservado]:
+        """Reserva cancelamentos pendentes sem permitir duas VMs na mesma nota."""
+
+        if not 1 <= limite <= 20:
+            raise FonteTarefasErro("Limite de cancelamentos é inválido.")
+        if not 60 <= lease_segundos <= 3600:
+            raise FonteTarefasErro("Lease de cancelamento é inválido.")
+        token = str(uuid4())
+        try:
+            async with self._conexao() as conexao:
+                async with conexao.transaction():
+                    linhas = await conexao.fetch(
+                        """WITH candidatas AS (
+                               SELECT c.id
+                               FROM fiscal.cancelamentos_fiscais c
+                               JOIN fiscal.notas n ON n.id=c.nota_id
+                               WHERE (
+                                   c.status='PENDENTE'
+                                   OR (c.status='PROCESSANDO' AND c.reserva_expira_em<now())
+                                 )
+                                 AND n.status='AUTORIZADA'
+                                 AND n.chave_acesso ~ '^[0-9]{44}$'
+                                 AND NOT EXISTS (
+                                   SELECT 1 FROM fiscal.recuperacoes_documentos r
+                                   WHERE r.nota_id=n.id AND r.status IN ('PENDENTE','PROCESSANDO')
+                                 )
+                               ORDER BY c.solicitada_em,c.id
+                               LIMIT $1
+                               FOR UPDATE OF c,n SKIP LOCKED
+                           ), reservadas AS (
+                               UPDATE fiscal.cancelamentos_fiscais c
+                               SET status='PROCESSANDO',reservada_por=$2,
+                                   reserva_token=$3::uuid,
+                                   reserva_expira_em=now()+make_interval(secs=>$4),
+                                   tentativas=c.tentativas+1,iniciada_em=now(),
+                                   concluida_em=NULL,codigo_erro=NULL,
+                                   mensagem_status='Localizando a nota no portal fiscal.',
+                                   atualizado_em=now()
+                               FROM candidatas x WHERE c.id=x.id
+                               RETURNING c.id,c.nota_id,c.motivo,c.reserva_token
+                           )
+                           SELECT c.id AS cancelamento_id,c.nota_id,c.motivo,c.reserva_token,
+                                  n.tarefa_id,n.chave_acesso,
+                                  t.payload_worker::text AS payload_text,t.payload_hash
+                           FROM reservadas c
+                           JOIN fiscal.notas n ON n.id=c.nota_id
+                           JOIN fiscal.tarefas t ON t.id=n.tarefa_id""",
+                        limite,
+                        self.worker_id,
+                        token,
+                        lease_segundos,
+                    )
+        except Exception as exc:
+            raise FonteTarefasErro("Não foi possível reservar cancelamentos.") from exc
+
+        resultado: list[CancelamentoFiscalReservado] = []
+        for linha in linhas:
+            cancelamento_id = str(_uuid(linha["cancelamento_id"]))
+            reserva_token = str(_uuid(linha["reserva_token"]))
+            try:
+                nota_id = str(_uuid(linha["nota_id"]))
+                tarefa_id = str(_uuid(linha["tarefa_id"]))
+                chave = str(linha["chave_acesso"])
+                motivo = re.sub(r"\s+", " ", str(linha["motivo"])).strip()
+                texto = linha["payload_text"]
+                hash_esperado = linha["payload_hash"]
+                if not isinstance(texto, str) or not isinstance(hash_esperado, str):
+                    raise ValueError("snapshot ausente")
+                if not hmac.compare_digest(
+                    hashlib.sha256(texto.encode("utf-8")).hexdigest(), hash_esperado
+                ):
+                    raise ValueError("snapshot divergente")
+                contratada = carregar_contrato_tarefa(json.loads(texto))
+                if (
+                    contratada.tarefa.tarefa_id != tarefa_id
+                    or not re.fullmatch(r"\d{44}", chave)
+                    or not 1 <= len(motivo) <= 255
+                ):
+                    raise ValueError("identificação divergente")
+            except (ContratoTarefaInvalido, json.JSONDecodeError, KeyError, TypeError, ValueError, UnicodeError):
+                await self.registrar_falha_cancelamento(
+                    cancelamento_id,
+                    reserva_token,
+                    codigo_erro="DADOS_CANCELAMENTO_INVALIDOS",
+                    mensagem="Os dados permanentes da nota precisam de conferência técnica.",
+                )
+                continue
+            resultado.append(CancelamentoFiscalReservado(
+                cancelamento_id=cancelamento_id,
+                nota_id=nota_id,
+                tarefa_id=tarefa_id,
+                chave_acesso=chave,
+                motivo=motivo,
+                contratada=contratada,
+                reserva_token=reserva_token,
+            ))
+        return resultado
+
+    async def concluir_cancelamento_fiscal(
+        self,
+        cancelamento: CancelamentoFiscalReservado,
+    ) -> None:
+        """Marca nota e pedido como cancelados na mesma transação e com fencing."""
+
+        try:
+            async with self._conexao() as conexao:
+                async with conexao.transaction():
+                    nota = await conexao.execute(
+                        """UPDATE fiscal.notas n
+                           SET status='CANCELADA',mensagem_erro=NULL
+                           FROM fiscal.cancelamentos_fiscais c
+                           WHERE n.id=$1::uuid AND n.tarefa_id=$2::uuid
+                             AND c.id=$3::uuid AND c.nota_id=n.id
+                             AND c.status='PROCESSANDO' AND c.reserva_token=$4::uuid
+                             AND c.reserva_expira_em>now() AND n.status='AUTORIZADA'""",
+                        cancelamento.nota_id,
+                        cancelamento.tarefa_id,
+                        cancelamento.cancelamento_id,
+                        cancelamento.reserva_token,
+                    )
+                    fila = await conexao.execute(
+                        """UPDATE fiscal.cancelamentos_fiscais
+                           SET status='CONCLUIDO',reservada_por=NULL,reserva_token=NULL,
+                               reserva_expira_em=NULL,concluida_em=now(),codigo_erro=NULL,
+                               mensagem_status='Cancelamento confirmado pela Receita.',
+                               atualizado_em=now()
+                           WHERE id=$1::uuid AND nota_id=$2::uuid
+                             AND status='PROCESSANDO' AND reserva_token=$3::uuid
+                             AND reserva_expira_em>now()""",
+                        cancelamento.cancelamento_id,
+                        cancelamento.nota_id,
+                        cancelamento.reserva_token,
+                    )
+                    if nota != "UPDATE 1" or fila != "UPDATE 1":
+                        raise FonteTarefasErro("O cancelamento não pertence à reserva ativa.")
+        except FonteTarefasErro:
+            raise
+        except Exception as exc:
+            raise FonteTarefasErro("Não foi possível concluir o cancelamento.") from exc
+
+    async def registrar_falha_cancelamento(
+        self,
+        cancelamento_id: str,
+        reserva_token: str,
+        *,
+        codigo_erro: str,
+        mensagem: str,
+        exige_conferencia: bool = False,
+    ) -> None:
+        if not re.fullmatch(r"[A-Z][A-Z0-9_]{2,63}", codigo_erro):
+            raise FonteTarefasErro("Código de cancelamento inválido.")
+        if not mensagem or len(mensagem) > 300 or "\n" in mensagem or "\r" in mensagem:
+            raise FonteTarefasErro("Mensagem de cancelamento inválida.")
+        status = "AGUARDANDO_CONFERENCIA" if exige_conferencia else "ERRO"
+        try:
+            async with self._conexao() as conexao:
+                resultado = await conexao.execute(
+                    """UPDATE fiscal.cancelamentos_fiscais
+                       SET status=$3,reservada_por=NULL,reserva_token=NULL,
+                           reserva_expira_em=NULL,codigo_erro=$4,mensagem_status=$5,
+                           concluida_em=now(),atualizado_em=now()
+                       WHERE id=$1::uuid AND reserva_token=$2::uuid
+                         AND status='PROCESSANDO' AND reserva_expira_em>now()""",
+                    str(_uuid(cancelamento_id)),
+                    str(_uuid(reserva_token)),
+                    status,
+                    codigo_erro,
+                    mensagem,
+                )
+                if resultado != "UPDATE 1":
+                    raise FonteTarefasErro("O cancelamento não pertence à reserva ativa.")
+        except FonteTarefasErro:
+            raise
+        except Exception as exc:
+            raise FonteTarefasErro("Não foi possível registrar a falha do cancelamento.") from exc
 
     async def reservar_documentos_expirados(
         self,

@@ -2,6 +2,27 @@
 
 ## Estado autoritativo — 05/09/2026
 
+- Checkpoint visual `d22be68` enviado à `main`; deploy Vercel de produção
+  `dpl_H9RZo2biVh7AQhncCmaUx78mjfGB` ficou `READY`. O cancelamento fiscal foi
+  implementado **localmente**, mas ainda não foi publicado: a nova migration
+  `0015_cancelamento_fiscal.sql` precisa de autorização explícita para criar a
+  fila e conceder ao papel `nf_worker_vm` atualização limitada do estado da
+  nota. A tentativa automatizada foi bloqueada antes de qualquer DDL; o banco
+  remoto não mudou. A migration `0014` do Ponto permanece adiada e foi retirada
+  do journal ativo, mas seu arquivo foi preservado.
+- RF23 local: `/notas` oferece cancelamento por nota autorizada, motivo editável
+  iniciado em “Dados incorretos” e confirmação humana. Web e Worker usam fila
+  exclusiva com lease/token, uma linha por nota e exclusão mútua com recuperação.
+  O Worker reutiliza login → Consulta - TESTE → emitente → chave; clica apenas
+  na ação dentro de `tbody`, preenche o motivo, confirma, recarrega e só conclui
+  ao encontrar `Evento registrado e vinculado a NF-e`. Recusa do portal vira
+  erro orientado sem prazo legal fixo. Falha após o clique sem a mensagem vira
+  `AGUARDANDO_CONFERENCIA` e não permite retry automático.
+- Validação local desta etapa: **251 testes Worker**, **106 testes Web**, build
+  Next.js, `compileall` e `git diff --check` passaram. Ainda faltam aplicar e
+  verificar a migration fiscal, publicar o novo commit, atualizar a VM com
+  `PROCESSAR_CANCELAMENTOS_FISCAIS=true` e fazer um ensaio humano em homologação.
+
 - Prioridades da reunião implementadas localmente: confirmação após distribuir
   agora permanece em card destacado com número, quantidade de notas e atalhos;
   `/notas` agrupa pelo lote real e mantém PDF, XML, compartilhamento e
@@ -19,8 +40,7 @@
   segundo build concluiu. A inspeção pelo navegador confirmou o shell e a tela
   segura de indisponibilidade, mas a rede desta sessão bloqueou o banco remoto;
   agrupamento e impressão ainda exigem conferência visual com dados reais.
-  Cancelamento fiscal não foi
-  iniciado porque seletores e confirmação do resultado ainda não são seguros.
+  Esse checkpoint antecede a implementação local do RF23 descrita acima.
 
 - Novo relato de reunião registrado em `REUNIAO-2026-09-05-RELATO.md`.
   Transcrição parcial 000–005 reconciliada; este turno autorizou apenas documentação.

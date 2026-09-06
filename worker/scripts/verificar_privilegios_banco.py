@@ -27,6 +27,9 @@ PRIVILEGIOS_OBRIGATORIOS = (
     "ler_recuperacoes",
     "atualizar_fila_recuperacoes",
     "ler_configuracao_operacional",
+    "ler_cancelamentos",
+    "atualizar_fila_cancelamentos",
+    "atualizar_status_cancelamento_nota",
 )
 
 PRIVILEGIOS_PROIBIDOS = (
@@ -38,6 +41,8 @@ PRIVILEGIOS_PROIBIDOS = (
     "atualizar_notas",
     "excluir_recuperacoes",
     "atualizar_recuperacoes",
+    "excluir_cancelamentos",
+    "atualizar_cancelamentos",
 )
 
 
@@ -106,6 +111,22 @@ async def verificar(database_url: str) -> dict[str, object]:
                 AND has_column_privilege(current_user, 'fiscal.recuperacoes_documentos', 'concluida_em', 'UPDATE')
                 AND has_column_privilege(current_user, 'fiscal.recuperacoes_documentos', 'atualizado_em', 'UPDATE')
                 AS atualizar_fila_recuperacoes,
+              has_table_privilege(current_user, 'fiscal.cancelamentos_fiscais', 'SELECT')
+                AS ler_cancelamentos,
+              has_column_privilege(current_user, 'fiscal.cancelamentos_fiscais', 'status', 'UPDATE')
+                AND has_column_privilege(current_user, 'fiscal.cancelamentos_fiscais', 'tentativas', 'UPDATE')
+                AND has_column_privilege(current_user, 'fiscal.cancelamentos_fiscais', 'reservada_por', 'UPDATE')
+                AND has_column_privilege(current_user, 'fiscal.cancelamentos_fiscais', 'reserva_token', 'UPDATE')
+                AND has_column_privilege(current_user, 'fiscal.cancelamentos_fiscais', 'reserva_expira_em', 'UPDATE')
+                AND has_column_privilege(current_user, 'fiscal.cancelamentos_fiscais', 'mensagem_status', 'UPDATE')
+                AND has_column_privilege(current_user, 'fiscal.cancelamentos_fiscais', 'codigo_erro', 'UPDATE')
+                AND has_column_privilege(current_user, 'fiscal.cancelamentos_fiscais', 'iniciada_em', 'UPDATE')
+                AND has_column_privilege(current_user, 'fiscal.cancelamentos_fiscais', 'concluida_em', 'UPDATE')
+                AND has_column_privilege(current_user, 'fiscal.cancelamentos_fiscais', 'atualizado_em', 'UPDATE')
+                AS atualizar_fila_cancelamentos,
+              has_column_privilege(current_user, 'fiscal.notas', 'status', 'UPDATE')
+                AND has_column_privilege(current_user, 'fiscal.notas', 'mensagem_erro', 'UPDATE')
+                AS atualizar_status_cancelamento_nota,
               has_column_privilege(current_user, 'fiscal.emitentes', 'login_usuario', 'SELECT')
                 AS ler_login_legado,
               has_column_privilege(current_user, 'fiscal.emitentes', 'senha', 'SELECT')
@@ -116,7 +137,11 @@ async def verificar(database_url: str) -> dict[str, object]:
               has_table_privilege(current_user, 'fiscal.recuperacoes_documentos', 'DELETE')
                 AS excluir_recuperacoes,
               has_table_privilege(current_user, 'fiscal.recuperacoes_documentos', 'UPDATE')
-                AS atualizar_recuperacoes
+                AS atualizar_recuperacoes,
+              has_table_privilege(current_user, 'fiscal.cancelamentos_fiscais', 'DELETE')
+                AS excluir_cancelamentos,
+              has_table_privilege(current_user, 'fiscal.cancelamentos_fiscais', 'UPDATE')
+                AS atualizar_cancelamentos
             """
         )
         return avaliar_privilegios(dict(resultado))

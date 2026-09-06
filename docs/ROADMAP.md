@@ -35,7 +35,9 @@ um portal autenticado, sem misturar autorização administrativa nesta entrega.
 - **Fase 6 — produção:** não iniciada e explicitamente bloqueada.
 
 Migrações `0001`–`0013` estão ativas. A `0014` (restrição de RPC anônimo no
-sistema de ponto compartilhado) permanece preparada e explicitamente adiada.
+sistema de ponto compartilhado) permanece preparada, fora do journal e
+explicitamente adiada. A `0015` fiscal está pronta localmente, aguardando
+autorização para aplicação antes do deploy do cancelamento.
 Cliente, emitente e três produtos reais
 foram aceitos pelo portal. Uma espera por estado da tela-resumo corrigiu a
 corrida entre o Avançar do ICMS e o Avançar para Transporte, sem `sleep` fixo.
@@ -45,6 +47,10 @@ de o usuário montar um lote inviável. O papel mínimo do Worker foi criado no
 banco de teste e passou no verificador de privilégios.
 
 ## Meta imediata — recuperação histórica e polimento do fluxo diário
+
+0. Aplicar e validar a migration fiscal 0015, publicar Web/Worker e ensaiar um
+   cancelamento recente em homologação. Confirmar sucesso somente pelo texto
+   oficial após reload; conferir manualmente qualquer resultado incerto.
 
 1. Validar no celular a confirmação persistente da distribuição, com número,
    quantidade de notas e atalhos para acompanhamento e roteiro.

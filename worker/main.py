@@ -22,7 +22,10 @@ from src.auth import navegar_ate_consulta_teste, navegar_ate_emissao, realizar_l
 from src.config import Config, carregar_config, carregar_credencial
 from src.flows import emissao as fluxo_emissao
 from src.flows.consulta import (
+    CancelamentoFiscalRecusado,
+    CancelamentoResultadoIncerto,
     baixar_documentos_consulta,
+    cancelar_nota_consultada,
     localizar_xml_autorizado_mais_recente,
     pesquisar_nota_por_chave,
     preparar_filtro_chave,
@@ -578,6 +581,129 @@ def _diagnostico_falha_recuperacao(etapa: str) -> tuple[str, str]:
     )
 
 
+def _diagnostico_falha_cancelamento(etapa: str, exc: Exception) -> tuple[str, str, bool]:
+    """Traduz o fluxo sem inventar prazo legal nem presumir sucesso do clique."""
+
+    if isinstance(exc, CancelamentoFiscalRecusado):
+        return "CANCELAMENTO_RECUSADO_PORTAL", exc.mensagem_usuario, False
+    if isinstance(exc, CancelamentoResultadoIncerto):
+        return "RESULTADO_CANCELAMENTO_INCERTO", str(exc), True
+    return {
+        "autenticacao": (
+            "FALHA_AUTENTICACAO",
+            "Não foi possível autenticar o emitente. Confira a credencial no Worker e tente novamente.",
+            False,
+        ),
+        "navegacao": (
+            "FALHA_NAVEGACAO_CONSULTA",
+            "A consulta da Receita não abriu como esperado. Tente novamente mais tarde.",
+            False,
+        ),
+        "consulta": (
+            "NOTA_NAO_LOCALIZADA",
+            "A Receita não retornou esta nota pela chave de acesso. Confira o ambiente ou chame o suporte.",
+            False,
+        ),
+        "cancelamento": (
+            "FALHA_CANCELAMENTO_PORTAL",
+            "O cancelamento não foi confirmado pela Receita. Revise a nota ou chame o suporte.",
+            False,
+        ),
+    }.get(etapa, (
+        "FALHA_TECNICA_CANCELAMENTO",
+        "O cancelamento foi interrompido com segurança. Tente novamente ou chame o suporte.",
+        False,
+    ))
+
+
+async def _processar_cancelamentos_fiscais(
+    fonte: FontePostgresTarefas,
+    config: Config,
+    logger,
+    limite: int,
+) -> tuple[bool, bool]:
+    """Processa cancelamentos em homologação; retorna (trabalho, falha)."""
+
+    if not getattr(config, "processar_cancelamentos_fiscais", False):
+        return False, False
+    cancelamentos = await fonte.reservar_cancelamentos_fiscais(limite)
+    if not cancelamentos:
+        return False, False
+
+    por_id = {}
+    credenciais = {}
+    houve_falha = False
+    for cancelamento in cancelamentos:
+        try:
+            credenciais[cancelamento.cancelamento_id] = _validar_preparacao_reserva(
+                cancelamento, config
+            )
+            por_id[cancelamento.cancelamento_id] = cancelamento
+        except FalhaPreparacaoTarefa as exc:
+            houve_falha = True
+            await fonte.registrar_falha_cancelamento(
+                cancelamento.cancelamento_id,
+                cancelamento.reserva_token,
+                codigo_erro=exc.codigo,
+                mensagem=exc.mensagem_usuario,
+            )
+
+    async def processar_cancelamento(cancelamento_id: str, context: BrowserContext) -> None:
+        cancelamento = por_id[cancelamento_id]
+        tarefa = cancelamento.contratada.tarefa
+        etapa = "preparacao"
+        page = None
+        try:
+            page = await context.new_page()
+            etapa = "autenticacao"
+            await realizar_login(page, config.sistema_fiscal_url, credenciais[cancelamento_id], logger)
+            etapa = "navegacao"
+            await navegar_ate_consulta_teste(page, logger)
+            await selecionar_emitente_consulta(page, tarefa.emitente.valor_select, logger)
+            etapa = "consulta"
+            await pesquisar_nota_por_chave(
+                page, cancelamento.chave_acesso, logger, pausar_apos_clique=False
+            )
+            etapa = "cancelamento"
+            await cancelar_nota_consultada(page, motivo=cancelamento.motivo, logger=logger)
+            await fonte.concluir_cancelamento_fiscal(cancelamento)
+            logger.info("[%s] Cancelamento confirmado e registrado.", cancelamento.tarefa_id)
+        except Exception as exc:
+            codigo, mensagem, exige_conferencia = _diagnostico_falha_cancelamento(etapa, exc)
+            try:
+                await fonte.registrar_falha_cancelamento(
+                    cancelamento.cancelamento_id,
+                    cancelamento.reserva_token,
+                    codigo_erro=codigo,
+                    mensagem=mensagem,
+                    exige_conferencia=exige_conferencia,
+                )
+            except FonteTarefasErro:
+                logger.error("[%s] Falha também ao registrar o cancelamento.", cancelamento.tarefa_id)
+            logger.error(
+                "[%s] Cancelamento interrompido em %s (%s).",
+                cancelamento.tarefa_id,
+                etapa,
+                type(exc).__name__,
+            )
+            raise RuntimeError("Cancelamento fiscal interrompido com segurança.") from None
+        finally:
+            if page is not None:
+                with suppress(Exception):
+                    await page.close()
+
+    if not por_id:
+        return True, True
+    resultados = await processar_tarefas_em_paralelo_async(
+        tarefas_ids=list(por_id),
+        processar_tarefa=processar_cancelamento,
+        logger=logger,
+        headless=config.headless,
+        max_concorrencia=limite,
+    )
+    return True, houve_falha or any(not resultado.sucesso for resultado in resultados)
+
+
 async def _processar_recuperacoes_documentos(
     fonte: FontePostgresTarefas,
     config: Config,
@@ -745,6 +871,12 @@ async def executar_fila_banco_homologacao(
             if not await _recuperar_uploads_pendentes(fonte, config, logger):
                 logger.error("Fila fiscal adiada até recuperar os documentos pendentes.")
                 return 1
+            trabalho_cancelamento, falha_cancelamento = await _processar_cancelamentos_fiscais(
+                fonte,
+                config,
+                logger,
+                limite,
+            )
             falha_recuperacao = await _processar_recuperacoes_documentos(
                 fonte,
                 config,
@@ -769,7 +901,9 @@ async def executar_fila_banco_homologacao(
             if not reservas:
                 if not silencioso_sem_tarefas:
                     logger.info("Nenhuma tarefa elegível encontrada na fila do banco.")
-                return int(falha_recuperacao)
+                if falha_cancelamento or falha_recuperacao:
+                    return 1
+                return 2 if trabalho_cancelamento and sinalizar_trabalho_concluido else 0
 
             por_id = {}
             credenciais = {}
@@ -982,6 +1116,7 @@ async def executar_fila_banco_homologacao(
             )
             houve_falha = bool(
                 falha_recuperacao
+                or falha_cancelamento
                 or falhas_preparacao > 0
                 or any(not resultado.sucesso for resultado in resultados)
             )
