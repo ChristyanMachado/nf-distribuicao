@@ -125,11 +125,13 @@ a chave já persistida e executa a ação no resultado da consulta. Recuperaçã
 cancelamento ativos para a mesma nota são mutuamente exclusivos.
 
 O clique em Confirmar é uma fronteira irreversível. Somente a mensagem
-`Evento registrado e vinculado a NF-e`, encontrada após reload, permite a
+`Evento registrado e vinculado a NF-e`, encontrada na resposta já exibida pela
+SPA, permite a
 transição atômica da fila para `CONCLUIDO` e da nota para `CANCELADA`. Ausência
 de prova após o clique produz `AGUARDANDO_CONFERENCIA`, sem retry automático.
 Erros explícitos do portal são exibidos de forma sanitizada; nenhum prazo legal
-é codificado localmente.
+é codificado localmente. Antes do clique, o Worker lê a situação da única linha;
+se já estiver `Cancelada`, reconcilia o resultado sem reenviar a operação.
 Destaques:
 
 - `0001`: relação N:N e emitente por distribuição/tarefa;

@@ -96,7 +96,9 @@ mesma nota são mutuamente exclusivos.
 O Worker reserva com `FOR UPDATE ... SKIP LOCKED`, token e lease; verifica o
 mesmo snapshot/hash da emissão e reutiliza somente autenticação, navegação de
 consulta, emitente e pesquisa por chave. Depois do clique em Confirmar, sucesso
-exige reload e o texto `Evento registrado e vinculado a NF-e`. Só então nota e
+exige o texto `Evento registrado e vinculado a NF-e` na tela atual, sem reload.
+Antes do clique, `Cancelada` na situação da linha prova o estado desejado e
+impede um segundo envio. Só então nota e
 fila mudam atomicamente para `CANCELADA`/`CONCLUIDO`. Interrupção a partir do
 clique produz `AGUARDANDO_CONFERENCIA`; ela não é reenfileirada. Uma recusa
 explícita do portal vira `ERRO` orientado, sem prazo legal fixo codificado.

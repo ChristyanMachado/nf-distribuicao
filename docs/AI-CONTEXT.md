@@ -18,7 +18,10 @@ executa cada tarefa em um `BrowserContext` independente.
 
 - Cancelamento fiscal RF23 está implementado e testado localmente. Há
   fila própria `fiscal.cancelamentos_fiscais`, motivo editável, idempotência,
-  lease/token e prova obrigatória após reload pelo texto oficial. Resultado
+  lease/token e prova obrigatória na resposta atual pelo texto oficial. O
+  Worker não recarrega a SPA depois de Confirmar, pois isso descarta o resultado
+  transitório observado. Antes do clique, a situação da linha é consultada e
+  `Cancelada` encerra o fluxo sem reenviar o comando. Resultado
   pós-clique sem prova fica para conferência e nunca é repetido automaticamente.
   `0015_cancelamento_fiscal.sql` foi aplicada e auditada em 05/09/2026;
   `0014` continua adiada, fora do journal, e nenhum objeto do sistema de ponto

@@ -43,7 +43,8 @@ altere arquitetura ou migrações aplicadas sem registrar e justificar.
 RF23 está implementado localmente e a migration `0015_cancelamento_fiscal` já
 foi aplicada e auditada. `0014` do Ponto continua adiada e fora do journal.
 Revise principalmente a fronteira
-pós-Confirmar: sucesso exige a mensagem oficial após reload; estado incerto é
+pós-Confirmar: sucesso exige a mensagem oficial na tela atual, sem reload;
+antes do clique, `Cancelada` na linha impede um segundo envio. Estado incerto é
 terminal para automação e não admite retry. Testes atuais: 251 Worker e 108 Web.
 
 Atualização de publicação em 06/09: `59625c8` e `2d41b80` estão na `main`, o
@@ -186,4 +187,4 @@ Preserve a separação: cancelar uma nota nunca altera o estado da tarefa
 concluída. `/notas` tem visões `Ativas` e `Canceladas`, calculadas por
 `fiscal.notas.status`, e ambas continuam agrupadas por distribuição. O próximo
 gate é publicar a implementação e ensaiar uma nota recente de homologação;
-sucesso exige a frase oficial depois do reload.
+sucesso exige a frase oficial na resposta atual, sem recarregar a SPA.

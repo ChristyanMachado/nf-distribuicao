@@ -28,6 +28,7 @@ SELETOR_CONTAGEM_RESULTADO = "p.VuePagination__count"
 SELETOR_DANFE_RESULTADO = '[title="DANFE"]:visible'
 SELETOR_XML_RESULTADO = '[title="Obter XML da nota"]:visible'
 SELETOR_CANCELAR_RESULTADO = 'table tbody tr:visible button:has(i[title="Cancelar"]):visible'
+SELETOR_STATUS_RESULTADO = "table tbody tr:visible td:nth-child(2):visible"
 SELETOR_MOTIVO_CANCELAMENTO = "article textarea.slds-input.slds-size_12-of-12:visible"
 TEXTO_SUCESSO_CANCELAMENTO = "Evento registrado e vinculado a NF-e"
 
@@ -145,14 +146,35 @@ async def cancelar_nota_consultada(
     motivo: str,
     logger: logging.Logger,
 ) -> None:
-    """Cancela a única nota consultada e exige a prova textual após o reload.
+    """Cancela a única nota consultada e exige a prova na resposta atual.
 
     O clique em ``Confirmar`` não é tratado como sucesso. Se a resposta oficial
-    não puder ser provada após a atualização, o chamador deve encaminhar a
+    não puder ser provada na tela resultante, o chamador deve encaminhar a
     operação para conferência humana e nunca repeti-la automaticamente.
+
+    A situação da linha é lida antes de qualquer ação. Se o portal já informar
+    ``Cancelada``, o estado desejado está provado e o comando não é reenviado.
     """
 
     motivo_limpo = _normalizar_motivo_cancelamento(motivo)
+
+    try:
+        status = page.locator(SELETOR_STATUS_RESULTADO).last
+        await status.wait_for(state="visible", timeout=15_000)
+        texto_status = re.sub(
+            r"\s+", " ", await status.inner_text(timeout=5_000)
+        ).strip()
+    except PlaywrightTimeoutError as exc:
+        raise CancelamentoFiscalRecusado(
+            "Não foi possível confirmar a situação atual da nota no portal fiscal. Tente novamente ou chame o suporte."
+        ) from exc
+
+    if texto_status.casefold() == "cancelada":
+        logger.info(
+            "Nota já aparece como Cancelada no portal; cancelamento não será reenviado"
+        )
+        return
+
     acao = page.locator(SELETOR_CANCELAR_RESULTADO).last
     try:
         await acao.wait_for(state="visible", timeout=15_000)
@@ -180,10 +202,11 @@ async def cancelar_nota_consultada(
         raise CancelamentoResultadoIncerto(
             "A confirmação pode ter sido enviada, mas o resultado não foi recebido. Confira a nota diretamente na Receita antes de tentar novamente."
         ) from exc
-    logger.info("Confirmação de cancelamento enviada; atualizando a página")
+    logger.info(
+        "Confirmação de cancelamento enviada; aguardando o resultado na tela atual"
+    )
 
     try:
-        await page.reload(wait_until="domcontentloaded", timeout=30_000)
         sucesso = page.get_by_text(TEXTO_SUCESSO_CANCELAMENTO, exact=False).first
         await sucesso.wait_for(state="visible", timeout=20_000)
     except Exception as exc:
@@ -204,7 +227,7 @@ async def cancelar_nota_consultada(
                 "O portal informou que o cancelamento não foi realizado. Revise a nota ou chame o suporte."
             ) from exc
         raise CancelamentoResultadoIncerto(
-            "A confirmação foi enviada, mas o resultado não apareceu após atualizar. Confira a nota diretamente na Receita antes de tentar novamente."
+            "A confirmação foi enviada, mas o resultado não apareceu na tela. Confira a nota diretamente na Receita antes de tentar novamente."
         ) from exc
 
     logger.info("Cancelamento confirmado pela mensagem oficial do portal")

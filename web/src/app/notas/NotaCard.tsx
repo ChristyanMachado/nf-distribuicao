@@ -1,9 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import Stamp from "@/components/Stamp";
 import FormularioComFeedback from "@/components/FormularioComFeedback";
 import PrimaryButton from "@/components/PrimaryButton";
-import { IconShare } from "@/components/icons";
+import { IconLock, IconShare } from "@/components/icons";
 import {
   recuperacaoEmAndamento,
   type StatusRecuperacaoDocumento,
@@ -44,6 +45,11 @@ export default function NotaCard({ nota }: { nota: Nota }) {
   const documentosDisponiveis = Boolean(pdfUrl && xmlUrl);
   const recuperando = recuperacaoEmAndamento(nota.recuperacaoStatus);
   const cancelando = nota.cancelamentoStatus === "PENDENTE" || nota.cancelamentoStatus === "PROCESSANDO";
+  const podeAbrirCancelamento = nota.podeCancelar
+    && !cancelando
+    && nota.cancelamentoStatus !== "CONCLUIDO"
+    && nota.cancelamentoStatus !== "AGUARDANDO_CONFERENCIA";
+  const [cancelamentoAberto, setCancelamentoAberto] = useState(false);
 
   async function compartilhar() {
     if (!pdfUrl) return;
@@ -85,26 +91,35 @@ export default function NotaCard({ nota }: { nota: Nota }) {
         <Stamp status={nota.status} />
       </div>
 
-      {documentosDisponiveis && <div className="mt-3 flex gap-2">
-        <a
-          href={pdfUrl ?? "#"}
-          download
-          className={`tap-target flex flex-1 items-center justify-center rounded-[var(--radius-control)] border border-[var(--line-strong)] text-sm font-medium ${
-            pdfUrl ? "active:bg-[var(--field-tint)]" : "pointer-events-none opacity-30"
-          }`}
-        >
-          PDF
-        </a>
-        <a
-          href={xmlUrl ?? "#"}
-          download
-          className={`tap-target flex flex-1 items-center justify-center rounded-[var(--radius-control)] border border-[var(--line-strong)] text-sm font-medium ${
-            xmlUrl ? "active:bg-[var(--field-tint)]" : "pointer-events-none opacity-30"
-          }`}
-        >
-          XML
-        </a>
+      {(documentosDisponiveis || podeAbrirCancelamento) && <div className="mt-3 flex gap-2">
+        {pdfUrl ? (
+          <a
+            href={pdfUrl}
+            download
+            className="tap-target flex flex-1 items-center justify-center rounded-[var(--radius-control)] border border-[var(--line-strong)] text-sm font-medium active:bg-[var(--field-tint)]"
+          >
+            PDF
+          </a>
+        ) : (
+          <span aria-disabled="true" className="tap-target flex flex-1 items-center justify-center rounded-[var(--radius-control)] border border-[var(--line-strong)] text-sm font-medium opacity-30">
+            PDF
+          </span>
+        )}
+        {xmlUrl ? (
+          <a
+            href={xmlUrl}
+            download
+            className="tap-target flex flex-1 items-center justify-center rounded-[var(--radius-control)] border border-[var(--line-strong)] text-sm font-medium active:bg-[var(--field-tint)]"
+          >
+            XML
+          </a>
+        ) : (
+          <span aria-disabled="true" className="tap-target flex flex-1 items-center justify-center rounded-[var(--radius-control)] border border-[var(--line-strong)] text-sm font-medium opacity-30">
+            XML
+          </span>
+        )}
         <button
+          type="button"
           onClick={compartilhar}
           disabled={!pdfUrl}
           aria-label="Compartilhar"
@@ -112,6 +127,19 @@ export default function NotaCard({ nota }: { nota: Nota }) {
         >
           <IconShare className="h-[18px] w-[18px] text-[var(--ink-soft)]" />
         </button>
+        {podeAbrirCancelamento && (
+          <button
+            type="button"
+            onClick={() => setCancelamentoAberto((aberto) => !aberto)}
+            aria-label="Cancelar nota"
+            aria-expanded={cancelamentoAberto}
+            aria-controls={`cancelamento-${nota.id}`}
+            title="Cancelar nota"
+            className="tap-target flex w-12 shrink-0 items-center justify-center rounded-[var(--radius-control)] border border-[var(--stamp)]/50 text-[var(--stamp)] active:bg-[var(--stamp-tint)]"
+          >
+            <IconLock className="h-[18px] w-[18px]" />
+          </button>
+        )}
       </div>}
 
       {!documentosDisponiveis && recuperando && (
@@ -186,14 +214,14 @@ export default function NotaCard({ nota }: { nota: Nota }) {
         </p>
       )}
 
-      {nota.podeCancelar && !cancelando && nota.cancelamentoStatus !== "CONCLUIDO" && nota.cancelamentoStatus !== "AGUARDANDO_CONFERENCIA" && (
-        <details className="mt-3 rounded-[var(--radius-control)] border border-[var(--line)] px-3 py-2">
-          <summary className="tap-target flex cursor-pointer list-none items-center text-sm font-medium text-[var(--stamp)]">
-            Cancelar esta nota
-          </summary>
+      {podeAbrirCancelamento && cancelamentoAberto && (
+        <div
+          id={`cancelamento-${nota.id}`}
+          className="mt-3 rounded-[var(--radius-control)] border border-[var(--line)] px-3 py-3"
+        >
           <FormularioComFeedback
             action={solicitarCancelamentoFiscal}
-            className="mt-2 space-y-2"
+            className="space-y-2"
             confirmMessage="Confirmar o pedido de cancelamento desta nota? O Worker executará a operação no portal fiscal."
           >
             <input type="hidden" name="notaId" value={nota.id} />
@@ -219,7 +247,7 @@ export default function NotaCard({ nota }: { nota: Nota }) {
             </PrimaryButton>
             <p className="text-[11px] text-[var(--ink-faint)]">A Receita confirmará se a nota ainda pode ser cancelada. Nenhum prazo é presumido pelo sistema.</p>
           </FormularioComFeedback>
-        </details>
+        </div>
       )}
 
       {nota.status === "CANCELADA" && !documentosDisponiveis && (

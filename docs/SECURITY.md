@@ -45,8 +45,10 @@ substitui identidade multiusuário, papéis, tenant e RLS.
 - incerteza pós-clique nunca retorna automaticamente à fila.
 - cancelamento usa fila distinta com linha única por nota, exclusão mútua com
   recuperação, lease/token e atualização atômica; somente a mensagem oficial
-  após reload permite marcar `CANCELADA`. Interrupção depois de iniciar o clique
-  fica `AGUARDANDO_CONFERENCIA` e não recebe retry automático;
+  na resposta atual permite marcar `CANCELADA`. A situação da linha é lida
+  antes do clique e evita reenviar o comando quando já aparece `Cancelada`.
+  Interrupção depois de iniciar o clique fica `AGUARDANDO_CONFERENCIA` e não
+  recebe retry automático;
 - `anon` e `authenticated` não possuem `USAGE` nem grants de tabela no schema
   `fiscal`; o Web continua acessando-o somente pelo servidor. O aviso genérico
   de RLS desligado deve ser acompanhado, mas não autoriza habilitar políticas

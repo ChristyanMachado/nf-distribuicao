@@ -49,8 +49,9 @@ banco de teste e passou no verificador de privilégios.
 
 ## Meta imediata — recuperação histórica e polimento do fluxo diário
 
-0. Ensaiar um cancelamento recente em homologação. Confirmar sucesso somente pelo texto
-   oficial após reload; conferir manualmente qualquer resultado incerto.
+0. Ensaiar um cancelamento recente em homologação. Confirmar sucesso somente
+   pelo texto oficial na resposta atual, sem recarregar a SPA; conferir
+   manualmente qualquer resultado incerto.
 
 1. Validar no celular a confirmação persistente da distribuição, com número,
    quantidade de notas e atalhos para acompanhamento e roteiro.

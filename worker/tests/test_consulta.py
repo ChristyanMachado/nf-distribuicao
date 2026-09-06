@@ -25,6 +25,7 @@ from src.flows.consulta import (
     SELETOR_XML_RESULTADO,
     SELETOR_CANCELAR_RESULTADO,
     SELETOR_MOTIVO_CANCELAMENTO,
+    SELETOR_STATUS_RESULTADO,
     TEXTO_SUCESSO_CANCELAMENTO,
     baixar_documentos_consulta,
     cancelar_nota_consultada,
@@ -355,18 +356,26 @@ class ElementoCancelamentoFalso:
 
 
 class PaginaCancelamentoFalsa:
-    def __init__(self, *, sucesso: bool = True, texto_erro: str = "") -> None:
+    def __init__(
+        self,
+        *,
+        sucesso: bool = True,
+        texto_erro: str = "",
+        status: str = "Autorizada",
+    ) -> None:
         self.acao = ElementoCancelamentoFalso()
         self.campo = ElementoCancelamentoFalso()
         self.confirmar = ElementoCancelamentoFalso()
         self.sucesso = ElementoCancelamentoFalso(expirar=not sucesso)
         self.body = ElementoCancelamentoFalso(texto=texto_erro)
+        self.status = ElementoCancelamentoFalso(texto=status)
         self.recarregada = False
 
     def locator(self, seletor: str):
         return {
             SELETOR_CANCELAR_RESULTADO: self.acao,
             SELETOR_MOTIVO_CANCELAMENTO: self.campo,
+            SELETOR_STATUS_RESULTADO: self.status,
             "body": self.body,
         }[seletor]
 
@@ -384,7 +393,7 @@ class PaginaCancelamentoFalsa:
         self.recarregada = True
 
 
-def test_cancelamento_so_conclui_apos_reload_e_mensagem_oficial() -> None:
+def test_cancelamento_conclui_na_tela_atual_com_mensagem_oficial() -> None:
     pagina = PaginaCancelamentoFalsa()
 
     asyncio.run(cancelar_nota_consultada(
@@ -394,7 +403,19 @@ def test_cancelamento_so_conclui_apos_reload_e_mensagem_oficial() -> None:
     assert pagina.acao.clicado is True
     assert pagina.campo.valor == "Dados incorretos"
     assert pagina.confirmar.clicado is True
-    assert pagina.recarregada is True
+    assert pagina.recarregada is False
+
+
+def test_cancelamento_ja_confirmado_nao_e_enviado_novamente() -> None:
+    pagina = PaginaCancelamentoFalsa(status="  Cancelada  ")
+
+    asyncio.run(cancelar_nota_consultada(
+        pagina, motivo="Dados incorretos", logger=_logger()
+    ))
+
+    assert pagina.acao.clicado is False
+    assert pagina.confirmar.clicado is False
+    assert pagina.recarregada is False
 
 
 def test_cancelamento_antigo_usa_retorno_do_portal_sem_inventar_prazo() -> None:
