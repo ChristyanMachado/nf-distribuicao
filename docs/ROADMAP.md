@@ -37,8 +37,8 @@ um portal autenticado, sem misturar autorização administrativa nesta entrega.
 Migrações `0001`–`0013` e `0015` estão ativas. A `0014` (restrição de RPC anônimo no
 sistema de ponto compartilhado) permanece preparada, fora do journal e
 explicitamente adiada. A `0015` fiscal foi aplicada isoladamente e auditada;
-restam publicar Web/Worker e executar o primeiro cancelamento controlado em
-homologação.
+Web e Worker já foram publicados com o cancelamento habilitado. Resta executar
+o primeiro cancelamento controlado em homologação.
 Cliente, emitente e três produtos reais
 foram aceitos pelo portal. Uma espera por estado da tela-resumo corrigiu a
 corrida entre o Avançar do ICMS e o Avançar para Transporte, sem `sleep` fixo.
@@ -49,8 +49,7 @@ banco de teste e passou no verificador de privilégios.
 
 ## Meta imediata — recuperação histórica e polimento do fluxo diário
 
-0. Publicar Web/Worker e ensaiar um
-   cancelamento recente em homologação. Confirmar sucesso somente pelo texto
+0. Ensaiar um cancelamento recente em homologação. Confirmar sucesso somente pelo texto
    oficial após reload; conferir manualmente qualquer resultado incerto.
 
 1. Validar no celular a confirmação persistente da distribuição, com número,

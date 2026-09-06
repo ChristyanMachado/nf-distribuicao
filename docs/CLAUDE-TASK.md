@@ -46,6 +46,14 @@ Revise principalmente a fronteira
 pós-Confirmar: sucesso exige a mensagem oficial após reload; estado incerto é
 terminal para automação e não admite retry. Testes atuais: 251 Worker e 108 Web.
 
+Atualização de publicação em 06/09: `59625c8` e `2d41b80` estão na `main`, o
+deploy Vercel `dpl_9Eab4AbSVz2dCUdp5BXNXnVowg1B` ficou `READY` e o Worker foi
+atualizado na VM. O container está saudável, sem reinícios, com
+`PROCESSAR_CANCELAMENTOS_FISCAIS=true`; canal e privilégios mínimos passaram
+na imagem publicada. Não repetir deploy nem executar cancelamento por conta
+própria. Próximo gate humano: selecionar uma nota recente em homologação e
+confirmar que ela migra de Ativas para Canceladas sem alterar a tarefa concluída.
+
 As telas `/tarefas` e `/notas` já possuem atualização automática adaptativa de
 10s durante estados ativos, com pausa em aba oculta. Não substitua por Supabase
 Realtime direto enquanto o navegador não possuir uma sessão Supabase autorizada

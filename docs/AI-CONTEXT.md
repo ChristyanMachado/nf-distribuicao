@@ -25,10 +25,16 @@ executa cada tarefa em um `BrowserContext` independente.
   foi modificado. O cancelamento confirmado altera somente a nota e a fila:
   a tarefa de emissão continua concluída. `/notas` separa notas ativas e
   canceladas, ainda agrupadas pela distribuição.
-- O checkpoint anterior `d22be68` está publicado em produção na Vercel e foi
-  confirmado como `READY`. A nova etapa local passou em 251 testes Worker,
-  108 testes Web e build Next.js; a migration já foi aplicada, mas ainda exige
-  publicação e piloto controlado.
+- Os commits `59625c8` e `2d41b80` estão na `main`. O deploy de produção
+  `dpl_9Eab4AbSVz2dCUdp5BXNXnVowg1B` foi confirmado como `READY` na Vercel,
+  com o domínio `nf-distribuicao.vercel.app`. A etapa passou em 251 testes
+  Worker, 108 testes Web, build Next.js e `compileall`.
+- A mesma versão do Worker foi instalada na VM Oracle preservando o `.env`
+  secreto. `PROCESSAR_CANCELAMENTOS_FISCAIS=true`, o container está saudável,
+  sem reinícios, e as auditorias dentro da imagem aprovaram o canal e os
+  privilégios mínimos do papel `nf_worker_vm`. Ainda não foi cancelada nenhuma
+  nota fiscal por automação: o próximo gate é um cancelamento humano controlado
+  de nota recente em homologação.
 
 - Reunião posterior: ver `REUNIAO-2026-09-05-RELATO.md` (relato reconciliado
   com transcrição parcial 000–005; parte perdida não inferida). Próximos pedidos: notas agrupadas por lote,
@@ -50,7 +56,7 @@ executa cada tarefa em um `BrowserContext` independente.
 - O Worker drena tarefas sequenciais sem aguardar o polling entre elas. O
   intervalo de 5s vale apenas para fila vazia; concorrência permanece 1 e as
   esperas/validações da Receita permanecem intactas.
-  A drenagem está validada localmente, ainda pendente de implantação na VM.
+  A drenagem está implantada na VM.
   `Recebido por` permanece opcional via filtro de conferência do roteiro.
 
 - O primeiro ciclo fiscal completo na VM foi validado após a correção da
