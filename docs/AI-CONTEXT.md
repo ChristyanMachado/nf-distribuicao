@@ -21,7 +21,8 @@ executa cada tarefa em um `BrowserContext` independente.
   do host imediatamente antes dos efeitos fiscais e flags mutuamente
   exclusivas. O Web exibe selo Teste/Produção. Emissão normal usa `Emissão` no
   host `nfae.fazenda.pr.gov.br`; consulta normal usa a opção `Consulta` no mesmo
-  host, ainda pendente de uma prova visual somente de leitura antes da virada.
+  host. Em 06/09, um ensaio local somente de leitura confirmou ao vivo a rota,
+  o host, o emitente e o filtro vazio, sem pesquisar ou produzir efeito fiscal.
   O roteiro autoritativo é `PRODUCAO-FISCAL.md`. Não considerar produção
   liberada enquanto essa prova e uma emissão real conscientemente criada pelo
   operador não forem concluídas.

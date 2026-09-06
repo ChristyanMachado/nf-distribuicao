@@ -14,9 +14,10 @@ cancelamento real.
 A emissão normal e seu seletor `#menuLink1119` já constavam do reconhecimento
 manual. A consulta normal é localizada por papel e texto exato `Consulta`, sem
 depender de um id numérico de menu; seu `href` precisa apontar para
-`https://nfae.fazenda.pr.gov.br/nfae/produtor/consulta`. Esta última opção ainda
-precisa de uma confirmação visual, somente de leitura, na sessão real antes da
-ativação do Worker de produção.
+`https://nfae.fazenda.pr.gov.br/nfae/produtor/consulta`. Em 06/09/2026, um
+ensaio local estritamente de leitura confirmou ao vivo esse caminho, o host de
+produção, a seleção do emitente e o filtro vazio, sem pesquisar, emitir ou
+cancelar nota.
 
 ## Barreiras contra troca acidental de ambiente
 
@@ -79,8 +80,8 @@ de variável.
 
 1. Confirmar que não há emissão, recuperação ou cancelamento em andamento.
 2. Publicar e instalar a mesma revisão no Web e na VM, ainda em homologação.
-3. Fazer a prova de leitura da consulta normal: login → Produtor Rural → NFP-e
-   → Consulta. Não pesquisar, emitir ou cancelar nada nessa prova.
+3. Confirmar a evidência da prova de leitura já concluída: login → Produtor
+   Rural → NFP-e → Consulta, sem pesquisa nem efeito fiscal.
 4. Parar o Worker.
 5. Alterar o Vercel para `AMBIENTE_EMISSAO=normal` e fazer novo deploy.
 6. Confirmar visualmente o selo **Produção** antes de criar uma distribuição.
