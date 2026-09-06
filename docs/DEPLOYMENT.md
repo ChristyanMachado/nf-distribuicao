@@ -4,13 +4,15 @@
 
 O Web já está publicado no Vercel e o banco/Storage de homologação estão
 conectados. A VM piloto Oracle foi criada em 05/09/2026 com Ubuntu 22.04 x86_64
-e `VM.Standard.E2.1.Micro`; ela executa o Worker em homologação desde 05/09,
-com concorrência 1, polling 5s e healthcheck validado. O intervalo menor elimina
+e `VM.Standard.E2.1.Micro`; após a homologação de 05/09, ela foi promovida em
+06/09 para ambiente normal, com concorrência 1, polling 5s e healthcheck
+validado. Cancelamentos reais permanecem desligados durante a primeira prova
+de emissão. O intervalo menor elimina
 até 25s ociosos entre tarefas sem alterar o ritmo de interação com a Receita.
 O ensaio com concorrência
 2 falhou nos menus da Receita antes da emissão e foi revertido. O piloto real
-agora está implementado com concorrência 1, mas sua ativação continua sujeita à
-virada coordenada e às provas humanas de `docs/PRODUCAO-FISCAL.md`.
+agora está ativo com concorrência 1. A ativação técnica não substitui a prova
+humana da primeira distribuição real descrita em `docs/PRODUCAO-FISCAL.md`.
 
 ## Topologia recomendada
 

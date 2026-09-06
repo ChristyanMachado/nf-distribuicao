@@ -72,6 +72,12 @@ INSPECIONAR="false"
 PROCESSAR_CANCELAMENTOS_FISCAIS="true"
 ```
 
+No primeiro corte de 06/09/2026, o Worker foi iniciado com
+`PROCESSAR_CANCELAMENTOS_FISCAIS=false`. Essa trava não impede emissões nem
+recuperações e evita que um pedido de cancelamento seja processado durante a
+prova inicial. Ela só deve ser alterada em uma etapa separada, com uma nota
+apropriada escolhida e confirmada pelo operador.
+
 Não manter `teste` no Web e `normal` no Worker, nem o inverso. Tarefas antigas
 preservam o ambiente com que foram criadas e não são convertidas por uma troca
 de variável.
@@ -93,6 +99,17 @@ de variável.
    abrir XML/DANFE e conferir a nota diretamente no portal.
 10. Só depois dessa prova liberar o uso diário. Cancelamento real deve ter um
     teste separado, iniciado e confirmado pelo operador em uma nota apropriada.
+
+## Estado da virada em 06/09/2026
+
+- Vercel: `AMBIENTE_EMISSAO=normal`; redeploy da revisão `46ee06e` com estado
+  `Ready` e domínio oficial atribuído.
+- VM: Worker de código `d8bb52f` (a revisão seguinte altera apenas documentos),
+  `AMBIENTE_EMISSAO=normal`, produção explicitamente habilitada, concorrência 1,
+  cancelamentos desligados e container `healthy`.
+- Log de partida: `Worker persistente iniciado no ambiente normal`.
+- Pendente: operador confirmar o selo **Produção** após login e criar somente
+  uma distribuição real de baixo risco para a prova ponta a ponta.
 
 ## Parada e reversão
 

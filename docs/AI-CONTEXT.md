@@ -23,9 +23,13 @@ executa cada tarefa em um `BrowserContext` independente.
   host `nfae.fazenda.pr.gov.br`; consulta normal usa a opção `Consulta` no mesmo
   host. Em 06/09, um ensaio local somente de leitura confirmou ao vivo a rota,
   o host, o emitente e o filtro vazio, sem pesquisar ou produzir efeito fiscal.
-  O roteiro autoritativo é `PRODUCAO-FISCAL.md`. Não considerar produção
-  liberada enquanto essa prova e uma emissão real conscientemente criada pelo
-  operador não forem concluídas.
+  O roteiro autoritativo é `PRODUCAO-FISCAL.md`. Em 06/09, o Vercel recebeu
+  `AMBIENTE_EMISSAO=normal`, o redeploy da revisão `46ee06e` ficou `Ready` e a
+  VM foi promovida para `normal`; o container está saudável e registra
+  `Worker persistente iniciado no ambiente normal`. O primeiro corte mantém
+  `MAX_CONCORRENCIA=1` e `PROCESSAR_CANCELAMENTOS_FISCAIS=false`. Falta a prova
+  final: uma emissão real de baixo risco, criada e conferida conscientemente
+  pelo operador.
 
 - Cancelamento fiscal RF23 está implementado e testado localmente. Há
   fila própria `fiscal.cancelamentos_fiscais`, motivo editável, idempotência,
@@ -43,12 +47,12 @@ executa cada tarefa em um `BrowserContext` independente.
   `dpl_9Eab4AbSVz2dCUdp5BXNXnVowg1B` foi confirmado como `READY` na Vercel,
   com o domínio `nf-distribuicao.vercel.app`. A etapa passou em 251 testes
   Worker, 108 testes Web, build Next.js e `compileall`.
-- A mesma versão do Worker foi instalada na VM Oracle preservando o `.env`
-  secreto. `PROCESSAR_CANCELAMENTOS_FISCAIS=true`, o container está saudável,
-  sem reinícios, e as auditorias dentro da imagem aprovaram o canal e os
-  privilégios mínimos do papel `nf_worker_vm`. Ainda não foi cancelada nenhuma
-  nota fiscal por automação: o próximo gate é um cancelamento humano controlado
-  de nota recente em homologação.
+- A versão de código `d8bb52f` do Worker foi instalada na VM Oracle preservando
+  o `.env` secreto; `46ee06e` acrescenta apenas documentação. As auditorias
+  dentro da imagem aprovaram o canal e os privilégios mínimos do papel
+  `nf_worker_vm`. O processamento de cancelamentos foi desligado durante a
+  entrada em produção e só deve voltar após a primeira emissão real conferida,
+  em um ensaio separado e explicitamente iniciado pelo operador.
 
 - Reunião posterior: ver `REUNIAO-2026-09-05-RELATO.md` (relato reconciliado
   com transcrição parcial 000–005; parte perdida não inferida). Próximos pedidos: notas agrupadas por lote,
@@ -86,12 +90,12 @@ executa cada tarefa em um `BrowserContext` independente.
   00–10h durante o ensaio. Listagens ainda exigem navegação/recarga para buscar
   o estado novo; atualização automática é melhoria de UX pendente.
 
-- Atualização autoritativa: Worker agora em execução na VM via Compose,
-  homologação, concorrência 1, polling 5s, recuperação 24h e janela fiscal
-  00–06h. Configuração transferida com autorização explícita e modo 600;
-  auditoria de privilégios/canal passou dentro do container, sem reservas.
-  Healthcheck passou; faltam ensaio fiscal completo na VM e medição sob carga.
-  Relatos abaixo de serviço parado representam a preparação anterior.
+- Atualização autoritativa: Worker em execução na VM via Compose, ambiente
+  normal, concorrência 1, polling 5s, recuperação 24h e janela fiscal lida do
+  banco. Configuração transferida com autorização explícita e modo 600;
+  auditoria de privilégios/canal passou dentro do container. O healthcheck
+  passou após a virada. Cancelamentos estão desativados neste primeiro corte.
+  Relatos abaixo de homologação ou serviço parado representam etapas anteriores.
 
 - A VM piloto foi criada na Oracle em Vinhedo com Ubuntu 22.04 x86_64 e a
   forma Always Free `VM.Standard.E2.1.Micro` (1 GB). O bootstrap reproduzível

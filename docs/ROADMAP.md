@@ -32,10 +32,11 @@ um portal autenticado, sem misturar autorização administrativa nesta entrega.
   **Atualização:** emissão autorizada e recuperação histórica já foram
   concluídas pela VM com retorno ao Web. Resta ampliar o piloto para outros
   emitentes/clientes, medir recursos sob carga e melhorar atualização da UI.
-- **Fase 6 — produção:** implementação local concluída; falta publicar a mesma
-  revisão no Web/VM e fazer o primeiro piloto real acompanhado conforme
-  `PRODUCAO-FISCAL.md`. A consulta normal já foi validada em modo somente
-  leitura no host real, sem pesquisar nota.
+- **Fase 6 — produção:** virada coordenada concluída em 06/09/2026. O Web foi
+  redeployado com ambiente `normal` e o Worker está saudável na VM, também em
+  `normal`, com concorrência 1 e cancelamentos temporariamente desligados. A
+  consulta normal já foi validada em modo somente leitura no host real. Falta
+  a primeira emissão real de baixo risco, criada e conferida pelo operador.
 
 Migrações `0001`–`0013` e `0015` estão ativas. A `0014` (restrição de RPC anônimo no
 sistema de ponto compartilhado) permanece preparada, fora do journal e
@@ -52,9 +53,10 @@ banco de teste e passou no verificador de privilégios.
 
 ## Meta imediata — piloto fiscal de produção
 
-0. Publicar Web e Worker na mesma revisão, ainda em homologação.
-1. Rota normal de Consulta validada sem pesquisar nem alterar nota.
-2. Fazer a virada coordenada Web/Worker e confirmar o selo Produção.
+0. Publicar Web e Worker com o mesmo código fiscal. **Concluído.**
+1. Rota normal de Consulta validada sem pesquisar nem alterar nota. **Concluído.**
+2. Fazer a virada coordenada Web/Worker. **Concluído; falta o operador confirmar
+   visualmente o selo Produção após login.**
 3. Emitir uma única nota real criada conscientemente pelo operador e conferir
    banco, XML, DANFE, portal e logs.
 4. Só depois ensaiar cancelamento real separado, iniciado e confirmado pelo
