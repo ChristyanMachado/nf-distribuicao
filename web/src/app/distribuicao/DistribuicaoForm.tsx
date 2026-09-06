@@ -1,12 +1,22 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Card from "@/components/Card";
 import { Label } from "@/components/Field";
 import PrimaryButton from "@/components/PrimaryButton";
 import { calcularFaturavel, validarDistribuicaoTotal } from "@/lib/calculos";
 import { processarDistribuicao } from "./actions";
 import { dataOperacionalBrasil } from "@/lib/datas";
+import {
+  chaveDestino,
+  chaveRascunhoDistribuicao,
+  filtrarProdutosParaBusca,
+  restaurarRascunhoDistribuicao,
+  temConteudoRascunho,
+  type DestinoRascunho,
+  type LinhaRascunho,
+  type ProdutoRascunho,
+} from "@/lib/rascunho-distribuicao";
 
 type Cliente = {
   id: string;
@@ -16,25 +26,9 @@ type Cliente = {
 };
 type Produto = { id: string; descricao: string; precoPadrao: string; unidade: string };
 
-type Linha = {
-  clienteId: string;
-  emitenteId: string;
-  quantidadeDistribuida: string;
-  quantidadeTroca: string;
-  precoUnitario: string;
-  trocaAberta: boolean;
-};
-
-type ProdutoNaDistribuicao = {
-  produtoId: string;
-  quantidadeTotal: string;
-  linhas: Linha[]; // uma por destino fiscal (par cliente + emitente)
-};
-
-type DestinoFiscal = {
-  clienteId: string;
-  emitenteId: string;
-};
+type Linha = LinhaRascunho;
+type ProdutoNaDistribuicao = ProdutoRascunho;
+type DestinoFiscal = DestinoRascunho;
 
 type UltimaDistribuicao = {
   loteId: string;
@@ -59,11 +53,13 @@ export default function DistribuicaoForm({
   produtos,
   precos,
   ultimaDistribuicao,
+  escopoRascunho,
 }: {
   clientes: Cliente[];
   produtos: Produto[];
   precos: Record<string, string>;
   ultimaDistribuicao: UltimaDistribuicao | null;
+  escopoRascunho: string;
 }) {
   const [data, setData] = useState(() => dataOperacionalBrasil());
   const [chaveIdempotencia, setChaveIdempotencia] = useState(() => crypto.randomUUID());
@@ -71,24 +67,80 @@ export default function DistribuicaoForm({
   const [destinos, setDestinos] = useState<DestinoFiscal[]>([]);
   const [produtosDistribuicao, setProdutosDistribuicao] = useState<ProdutoNaDistribuicao[]>([]);
   const [produtoParaAdicionar, setProdutoParaAdicionar] = useState("");
+  const [buscaProduto, setBuscaProduto] = useState("");
+  const [seletorProdutoAberto, setSeletorProdutoAberto] = useState(false);
   const [quantidadeParaAdicionar, setQuantidadeParaAdicionar] = useState("");
   const [status, setStatus] = useState<{ tipo: "ok" | "erro" | "aviso"; texto: string } | null>(null);
   const [enviando, setEnviando] = useState(false);
+  const [rascunhoCarregado, setRascunhoCarregado] = useState(false);
 
-  const produtosDisponiveisParaAdicionar = produtos.filter(
-    (p) => !produtosDistribuicao.some((pd) => pd.produtoId === p.id)
+  const produtosDisponiveisParaAdicionar = useMemo(
+    () => produtos.filter((p) => !produtosDistribuicao.some((pd) => pd.produtoId === p.id)),
+    [produtos, produtosDistribuicao],
+  );
+  const produtosFiltrados = useMemo(
+    () => filtrarProdutosParaBusca(produtosDisponiveisParaAdicionar, buscaProduto),
+    [produtosDisponiveisParaAdicionar, buscaProduto],
   );
   const mercadosSelecionados = useMemo(
     () => new Set(destinos.map((destino) => destino.clienteId)),
     [destinos]
   );
+  const chaveRascunho = useMemo(
+    () => chaveRascunhoDistribuicao(escopoRascunho),
+    [escopoRascunho],
+  );
+  const assinaturaCatalogo = useMemo(
+    () => [
+      produtos.map((produto) => produto.id).sort().join(","),
+      clientes.flatMap((cliente) => cliente.emitentes.map((emitente) => `${cliente.id}:${emitente.id}`)).sort().join(","),
+    ].join("|"),
+    [clientes, produtos],
+  );
+
+  useEffect(() => {
+    const rascunho = restaurarRascunhoDistribuicao(
+      window.localStorage.getItem(chaveRascunho),
+      {
+        produtoIds: produtos.map((produto) => produto.id),
+        destinosPermitidos: clientes.flatMap((cliente) =>
+          cliente.prontoParaEmissao
+            ? cliente.emitentes.map((emitente) => ({ clienteId: cliente.id, emitenteId: emitente.id }))
+            : [],
+        ),
+      },
+    );
+    if (rascunho) {
+      setData(rascunho.data);
+      setChaveIdempotencia(rascunho.chaveIdempotencia);
+      setDestinos(rascunho.destinos);
+      setProdutosDistribuicao(rascunho.produtos);
+      setStatus({
+        tipo: "aviso",
+        texto: "Rascunho restaurado. Confira os dados antes de processar a distribuição.",
+      });
+    }
+    setRascunhoCarregado(true);
+  }, [assinaturaCatalogo, chaveRascunho, clientes, produtos]);
+
+  useEffect(() => {
+    if (!rascunhoCarregado || resultado) return;
+    const rascunho = {
+      versao: 1 as const,
+      data,
+      chaveIdempotencia,
+      destinos,
+      produtos: produtosDistribuicao,
+    };
+    if (temConteudoRascunho(rascunho)) {
+      window.localStorage.setItem(chaveRascunho, JSON.stringify(rascunho));
+    } else {
+      window.localStorage.removeItem(chaveRascunho);
+    }
+  }, [chaveIdempotencia, chaveRascunho, data, destinos, produtosDistribuicao, rascunhoCarregado, resultado]);
 
   function precoInicial(produtoId: string, clienteId: string, precoPadrao: string): string {
     return precos[`${produtoId}:${clienteId}`] ?? precoPadrao;
-  }
-
-  function chaveDestino(destino: DestinoFiscal) {
-    return `${destino.clienteId}:${destino.emitenteId}`;
   }
 
   function adicionarDestino(clienteId: string, emitenteId?: string) {
@@ -156,7 +208,27 @@ export default function DistribuicaoForm({
       },
     ]);
     setProdutoParaAdicionar("");
+    setBuscaProduto("");
     setQuantidadeParaAdicionar("");
+  }
+
+  function selecionarProduto(produto: Produto) {
+    setProdutoParaAdicionar(produto.id);
+    setBuscaProduto(produto.descricao);
+    setSeletorProdutoAberto(false);
+  }
+
+  function descartarRascunho() {
+    window.localStorage.removeItem(chaveRascunho);
+    setData(dataOperacionalBrasil());
+    setDestinos([]);
+    setProdutosDistribuicao([]);
+    setProdutoParaAdicionar("");
+    setBuscaProduto("");
+    setQuantidadeParaAdicionar("");
+    setChaveIdempotencia(crypto.randomUUID());
+    setResultado(null);
+    setStatus({ tipo: "aviso", texto: "Rascunho descartado. Nenhuma distribuição foi enviada." });
   }
 
   function removerProduto(produtoId: string) {
@@ -265,6 +337,7 @@ export default function DistribuicaoForm({
     setDestinos(destinosRepetidos);
     setProdutosDistribuicao(produtosRepetidos);
     setProdutoParaAdicionar("");
+    setBuscaProduto("");
     setQuantidadeParaAdicionar("");
     setResultado(null);
     setChaveIdempotencia(crypto.randomUUID());
@@ -352,7 +425,12 @@ export default function DistribuicaoForm({
       });
       setStatus({ tipo: "ok", texto: processado.reutilizada ? "Esta distribuição já havia sido registrada — nenhum dado foi duplicado." : "Distribuição registrada com segurança." });
       setResultado({ loteId: processado.loteId, numero: processado.numeroDistribuicao, tarefas: processado.tarefasCriadas });
+      window.localStorage.removeItem(chaveRascunho);
+      setDestinos([]);
       setProdutosDistribuicao([]);
+      setProdutoParaAdicionar("");
+      setBuscaProduto("");
+      setQuantidadeParaAdicionar("");
       setChaveIdempotencia(crypto.randomUUID());
     } catch (e) {
       setStatus({ tipo: "erro", texto: e instanceof Error ? e.message : "Erro ao processar." });
@@ -363,8 +441,26 @@ export default function DistribuicaoForm({
 
   return (
     <div className="pb-28 md:pb-6">
+      {rascunhoCarregado && !resultado && temConteudoRascunho({ destinos, produtos: produtosDistribuicao }) && (
+        <Card className="mt-5 flex flex-col gap-3 border-[var(--wheat)] bg-[var(--wheat-tint)] p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm font-semibold text-[var(--ink)]">Rascunho salvo neste dispositivo</p>
+            <p className="mt-1 text-[12px] leading-5 text-[var(--ink-soft)]">
+              As alterações ficam disponíveis apenas nesta conta e neste navegador até você processar ou descartar.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={descartarRascunho}
+            className="tap-target shrink-0 rounded-[var(--radius-control)] border border-[var(--line-strong)] bg-[var(--paper)] px-3 py-2 text-sm font-medium text-[var(--ink-soft)] active:bg-[var(--cream)]"
+          >
+            Descartar rascunho
+          </button>
+        </Card>
+      )}
+
       {ultimaDistribuicao && (
-        <Card className="mt-5 border-[var(--field)] bg-[var(--field-tint)] p-4">
+        <Card className={`${rascunhoCarregado && !resultado && temConteudoRascunho({ destinos, produtos: produtosDistribuicao }) ? "mt-4" : "mt-5"} border-[var(--field)] bg-[var(--field-tint)] p-4`}>
           <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[var(--field-strong)]">
             Atalho do dia
           </p>
@@ -509,33 +605,74 @@ export default function DistribuicaoForm({
 
       {/* Adicionar produto */}
       <Card className="mt-4 p-4">
-        <Label>Adicionar produto</Label>
-        <div className="flex gap-2">
-          <select
-            value={produtoParaAdicionar}
-            onChange={(e) => setProdutoParaAdicionar(e.target.value)}
-            className="flex-1"
-          >
-            <option value="">Selecionar produto...</option>
-            {produtosDisponiveisParaAdicionar.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.descricao}
-              </option>
-            ))}
-          </select>
+        <Label htmlFor="busca-produto">Adicionar produto</Label>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <div className="relative flex-1">
+            <input
+              id="busca-produto"
+              type="search"
+              value={buscaProduto}
+              onFocus={() => setSeletorProdutoAberto(true)}
+              onBlur={() => window.setTimeout(() => setSeletorProdutoAberto(false), 120)}
+              onChange={(event) => {
+                setBuscaProduto(event.target.value);
+                setProdutoParaAdicionar("");
+                setSeletorProdutoAberto(true);
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && produtosFiltrados.length === 1) {
+                  event.preventDefault();
+                  selecionarProduto(produtosFiltrados[0]);
+                }
+                if (event.key === "Escape") setSeletorProdutoAberto(false);
+              }}
+              placeholder="Digite o nome do produto..."
+              autoComplete="off"
+              aria-autocomplete="list"
+              aria-haspopup="listbox"
+              aria-controls="opcoes-produto"
+              aria-expanded={seletorProdutoAberto}
+              role="combobox"
+              className="w-full"
+            />
+            {seletorProdutoAberto && (
+              <div
+                id="opcoes-produto"
+                role="listbox"
+                aria-label="Produtos disponíveis em ordem alfabética"
+                className="absolute z-20 mt-1 max-h-56 w-full overflow-y-auto rounded-[var(--radius-control)] border border-[var(--line-strong)] bg-[var(--paper-raised)] p-1 shadow-lg"
+              >
+                {produtosFiltrados.length > 0 ? produtosFiltrados.map((produto) => (
+                  <button
+                    key={produto.id}
+                    type="button"
+                    role="option"
+                    aria-selected={produtoParaAdicionar === produto.id}
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => selecionarProduto(produto)}
+                    className="tap-target flex min-h-10 w-full items-center rounded-[calc(var(--radius-control)-2px)] px-3 text-left text-sm text-[var(--ink)] hover:bg-[var(--field-tint)] focus:bg-[var(--field-tint)]"
+                  >
+                    {produto.descricao}
+                  </button>
+                )) : (
+                  <p className="px-3 py-2 text-sm text-[var(--ink-soft)]">Nenhum produto encontrado.</p>
+                )}
+              </div>
+            )}
+          </div>
           <input
             type="number"
             inputMode="decimal"
             value={quantidadeParaAdicionar}
             onChange={(e) => setQuantidadeParaAdicionar(e.target.value)}
             placeholder="Qtd. total"
-            className="font-mono-tab w-28"
+            className="font-mono-tab w-full sm:w-28"
           />
           <button
             type="button"
             onClick={adicionarProduto}
             disabled={destinos.length === 0 || !produtoParaAdicionar || !quantidadeParaAdicionar}
-            className="rounded-[var(--radius-control)] border border-[var(--field)] px-4 text-sm font-medium text-[var(--field-strong)] active:bg-[var(--field-tint)] disabled:opacity-30"
+            className="tap-target min-h-11 rounded-[var(--radius-control)] border border-[var(--field)] px-4 text-sm font-medium text-[var(--field-strong)] active:bg-[var(--field-tint)] disabled:opacity-30"
           >
             + Adicionar
           </button>

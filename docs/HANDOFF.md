@@ -1,5 +1,26 @@
 # Handoff — Estado Atual
 
+## Rascunho local e busca de produtos — 06/09/2026
+
+- `/distribuicao` agora restaura automaticamente um rascunho não enviado no
+  mesmo navegador e conta autenticada. O estado inclui data, destinos fiscais,
+  produtos, quantidades, trocas, preços e a chave de idempotência; não cria
+  lote, tarefa ou fila até `Processar distribuição` concluir com sucesso.
+- A chave do `localStorage` usa HMAC da sessão, sem expor usuário/e-mail no
+  nome da chave. A leitura é defensiva e remove referências a produto, cliente
+  ou emitente que deixaram de estar ativos/autorizados. Concluir ou descartar
+  limpa o rascunho; ele é explicitamente local ao dispositivo e não é promessa
+  de sincronização entre celular e PC.
+- O seletor de produto foi substituído por busca textual com lista alfabetizada
+  e tolerante a acentos. `Enter` escolhe o único resultado filtrado. A consulta
+  do servidor também ordena os produtos por descrição; o cliente ordena de novo
+  para manter a experiência previsível.
+- Validação: 114 testes Web, TypeScript e build Next.js passaram. O navegador
+  automatizado do terminal não está instalado e a sessão de inspeção desktop
+  excedeu o tempo de navegação local; a conferência visual humana segue pendente
+  após a publicação. Não houve migration, alteração no Ponto, banco, Worker ou
+  operação fiscal.
+
 ## Primeiro lote legítimo em produção — diagnóstico de 06/09/2026
 
 - A primeira tentativa legítima em produção falhou com segurança antes do

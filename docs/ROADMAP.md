@@ -90,6 +90,11 @@ banco de teste e passou no verificador de privilégios.
 
 ## Próximas entregas de código
 
+- Conferir visualmente em celular e PC o rascunho de `/distribuicao`: iniciar
+  uma distribuição, sair/voltar, confirmar restauração, descartar e confirmar
+  limpeza. Validar também busca por parte do nome e ordem alfabética dos
+  produtos antes de publicar a melhoria.
+
 ### Storage e retorno ao celular
 
 - bucket privado, upload, referências internas e URL assinada estão validados;

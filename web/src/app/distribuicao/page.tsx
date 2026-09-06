@@ -1,11 +1,16 @@
 export const dynamic = "force-dynamic";
 
 import Card from "@/components/Card";
+import { escopoRascunhoDistribuicao } from "@/lib/auth-server";
 import { carregarDadosDistribuicao } from "./actions";
 import DistribuicaoForm from "./DistribuicaoForm";
 
 export default async function DistribuicaoPage() {
-  const { clientes, produtos, precos, ultimaDistribuicao } = await carregarDadosDistribuicao();
+  const [dados, escopoRascunho] = await Promise.all([
+    carregarDadosDistribuicao(),
+    escopoRascunhoDistribuicao(),
+  ]);
+  const { clientes, produtos, precos, ultimaDistribuicao } = dados;
   const clientesProntos = clientes.filter((cliente) => cliente.prontoParaEmissao);
 
   if (produtos.length === 0 || clientes.length === 0) {
@@ -52,6 +57,7 @@ export default async function DistribuicaoPage() {
         produtos={produtos}
         precos={precos}
         ultimaDistribuicao={ultimaDistribuicao}
+        escopoRascunho={escopoRascunho}
       />
     </div>
   );

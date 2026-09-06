@@ -24,7 +24,7 @@ import {
   exigirUuid,
   limitarTexto,
 } from "@/lib/validacao";
-import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { gerarContratoTarefaPendente } from "@/server/contrato-tarefa";
 import { exigirSessaoAdministrativa } from "@/lib/auth-server";
 
@@ -32,7 +32,7 @@ export async function carregarDadosDistribuicao() {
   await exigirSessaoAdministrativa();
   const [listaClientes, listaProdutos, listaPrecos, relacoes, lotesRecentes] = await Promise.all([
     db.select().from(clientes).where(eq(clientes.ativo, true)),
-    db.select().from(produtos).where(eq(produtos.ativo, true)),
+    db.select().from(produtos).where(eq(produtos.ativo, true)).orderBy(asc(produtos.descricao)),
     db.select().from(precosCliente),
     db
       .select({

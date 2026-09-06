@@ -36,6 +36,23 @@ Cada envio de distribuição cria um lote idempotente, numerado e usado também
 como recorte do roteiro do motorista. A Server Action valida tamanho, UUIDs,
 cadastros fiscais e relações antes de gravar tudo em transação.
 
+### Rascunho de distribuição
+
+O formulário pode preservar uma distribuição ainda não enviada somente no
+`localStorage` do navegador. O rascunho não cria lote, tarefa, disponibilidade,
+nota ou fila e, portanto, não é uma distribuição fiscal. Sua chave inclui um
+identificador HMAC opaco da sessão administrativa, para que duas contas no
+mesmo navegador não reutilizem por engano o mesmo conteúdo. O valor salvo
+contém apenas ids de cadastro e valores operacionais preenchidos; nunca inclui
+credenciais fiscais, documentos de login ou dados do Worker.
+
+Na restauração, o Web trata o conteúdo local como não confiável: limita o
+tamanho/estrutura e remove produtos, clientes ou relações emitente-cliente que
+não estejam mais ativos para a sessão atual. O rascunho é apagado após o envio
+confirmado ou descarte explícito. Como ele é local ao navegador, não promete
+continuidade entre dispositivos; uma persistência remota futura exigirá modelo
+de dono, RLS e uma migration própria.
+
 Ao final da transação cada tarefa recebe, no mesmo comando:
 
 - `contrato_versao=1`;
