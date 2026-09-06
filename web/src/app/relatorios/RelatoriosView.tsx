@@ -165,7 +165,7 @@ export default function RelatoriosView({
             detalhe={`${formatarQuantidade(operacao.distribuicoesConcluidas, "completa", "completas")} · ${formatarQuantidade(operacao.emitidas, "nota emitida", "notas emitidas")}`}
           />
           <KpiOperacional
-            titulo="Tempo economizado"
+            titulo="Tempo economizado estimado"
             valor={formatarDuracao(operacao.tempoEconomizadoSegundos)}
             detalhe={`${formatarQuantidade(operacao.distribuicoesMedidas, "distribuição medida", "distribuições medidas")} sem reprocessamento · comparado ao manual`}
             destaque
@@ -182,16 +182,16 @@ export default function RelatoriosView({
             alerta={operacao.erros > 0}
           />
           <KpiOperacional
-            titulo="Média por distribuição"
+            titulo="Tempo médio de processamento"
             valor={
               operacao.tempoMedioLoteSegundos === null
                 ? "—"
                 : formatarDuracao(operacao.tempoMedioLoteSegundos)
             }
-            detalhe={`${formatarQuantidade(operacao.distribuicoesMedidas, "distribuição medida", "distribuições medidas")} sem reprocessamento · da primeira à última nota`}
+            detalhe={`${formatarQuantidade(operacao.distribuicoesMedidas, "distribuição medida", "distribuições medidas")} sem reprocessamento · do início da primeira ao fim da última nota`}
           />
           <KpiOperacional
-            titulo="Taxa concluída"
+            titulo="Taxa de notas concluídas"
             valor={
               operacao.emitidas + operacao.erros === 0
                 ? "—"
@@ -236,7 +236,7 @@ export default function RelatoriosView({
       {/* Ranking por cliente */}
       <div className="mt-4">
         <p className="font-mono-tab mb-2 text-[11px] font-bold uppercase tracking-widest text-[var(--ink-faint)]">
-          Por cliente
+          Valor distribuído por mercado
         </p>
         <Card className="divide-y divide-[var(--line)]">
           {porCliente.slice(0, 8).map((c) => (
@@ -244,12 +244,13 @@ export default function RelatoriosView({
           ))}
           {porCliente.length === 0 && <VazioLista />}
         </Card>
+        <p className="mt-1.5 px-1 text-[11px] text-[var(--ink-faint)]">As barras comparam o valor bruto fiscal no período selecionado; a maior ocupa toda a largura.</p>
       </div>
 
       {/* Ranking por produto */}
       <div className="mt-4">
         <p className="font-mono-tab mb-2 text-[11px] font-bold uppercase tracking-widest text-[var(--ink-faint)]">
-          Por produto
+          Valor distribuído por produto
         </p>
         <Card className="divide-y divide-[var(--line)]">
           {porProduto.slice(0, 8).map((p) => (
@@ -257,6 +258,7 @@ export default function RelatoriosView({
           ))}
           {porProduto.length === 0 && <VazioLista />}
         </Card>
+        <p className="mt-1.5 px-1 text-[11px] text-[var(--ink-faint)]">Valores brutos das notas no período, antes de custos, pagamentos e lucro.</p>
       </div>
       </div>
     </div>

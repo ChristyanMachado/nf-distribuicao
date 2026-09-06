@@ -17,6 +17,7 @@ type Nota = {
   id: string;
   numero: string | null;
   clienteNome: string;
+  emitenteNome: string;
   status: string;
   valorTotal: string;
   dataEmissao: string | null;
@@ -64,6 +65,9 @@ export default function NotaCard({ nota }: { nota: Nota }) {
             <span className="ml-2 text-[13px] font-normal text-[var(--ink-soft)]">
               {nota.clienteNome}
             </span>
+          </p>
+          <p className="mt-0.5 truncate text-[12px] text-[var(--ink-soft)]" title={nota.emitenteNome}>
+            Emitente: {nota.emitenteNome}
           </p>
           <p className="font-mono-tab mt-0.5 text-[13px] text-[var(--ink-faint)]">
             {nota.dataEmissao

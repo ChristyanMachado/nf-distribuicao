@@ -79,6 +79,7 @@ def _reserva_banco() -> SimpleNamespace:
 class _FonteBancoFake:
     def __init__(self, reservas: list[SimpleNamespace]) -> None:
         self.reservar = AsyncMock(return_value=reservas)
+        self.reservar_continuacao_lote = AsyncMock(return_value=[])
         self.devolver_pendente_sem_processar = AsyncMock()
         self.registrar_status = AsyncMock()
         self.registrar_emissao_autorizada = AsyncMock()
@@ -260,6 +261,34 @@ def test_fora_da_janela_nao_reserva_nova_emissao() -> None:
     assert resultado == 0
     fonte.obter_janela_emissao.assert_awaited_once()
     fonte.reservar.assert_not_awaited()
+    fonte.reservar_continuacao_lote.assert_awaited_once_with(1)
+
+
+def test_fora_da_janela_continua_distribuicao_que_ja_comecou() -> None:
+    reserva = _reserva_banco()
+    fonte = _FonteBancoFake([])
+    fonte.reservar_continuacao_lote = AsyncMock(return_value=[reserva])
+    fonte.obter_janela_emissao = AsyncMock(return_value=(0, 1))
+    config = _config_banco()
+
+    with (
+        patch("main.FontePostgresTarefas", return_value=fonte),
+        patch("main.JanelaEmissao.permite_nova_emissao", return_value=False),
+        patch("main._validar_preparacao_reserva", return_value=SimpleNamespace()),
+        patch("main.processar_tarefas_em_paralelo_async", new_callable=AsyncMock, return_value=[SimpleNamespace(sucesso=True)]),
+    ):
+        resultado = asyncio.run(
+            executar_fila_banco_homologacao(
+                config,
+                logging.getLogger("teste-continuacao-lote"),
+                usar_janela_operacional=True,
+                sinalizar_trabalho_concluido=True,
+            )
+        )
+
+    assert resultado == 2
+    fonte.reservar.assert_not_awaited()
+    fonte.reservar_continuacao_lote.assert_awaited_once_with(1)
 
 
 def test_recuperacao_de_upload_associa_documentos_sem_abrir_portal():

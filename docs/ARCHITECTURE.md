@@ -68,6 +68,12 @@ tarefa para `PROCESSANDO` e devolve um token exclusivo. O Worker verifica o
 hash antes do navegador, resolve a credencial apenas no ambiente protegido,
 renova o lease e usa token fencing em todas as transições.
 
+Fora da janela operacional, uma segunda reserva atômica seleciona com
+`FOR UPDATE SKIP LOCKED` somente tarefas `PENDENTE` do lote mais antigo que já
+tenha ao menos uma tarefa com `iniciado_em`. Isso permite concluir uma
+distribuição iniciada mesmo após reinício, sem liberar um lote novo. A operação
+usa os privilégios mínimos já concedidos e não toca o sistema de ponto.
+
 ### Modos da fonte banco
 
 1. **Ensaio sem navegador:** reserva, valida e devolve a `PENDENTE`, limpando
@@ -217,18 +223,19 @@ mensagem repetitiva de fila vazia. O processo opera 24 horas, porém separa os
 trabalhos por política: limpeza, recuperação de upload e recuperação histórica
 podem rodar em qualquer ciclo; a reserva de novas emissões só ocorre na janela
 configurável no Web e persistida no banco, por padrão `00:00–06:00` em
-`America/Sao_Paulo`. Fora dela, a
-função retorna antes de reservar `fiscal.tarefas`. A base `tzdata` é fixada para
+`America/Sao_Paulo`. Fora dela, somente um lote já iniciado pode fornecer sua
+próxima tarefa; lotes inteiramente novos permanecem bloqueados. A base `tzdata` é fixada para
 que essa decisão seja determinística no Windows, Linux e container. Execuções
 manuais continuam explícitas e não herdam silenciosamente o agendamento do
-serviço. Uma tarefa já reservada continua até o fim, mesmo depois do corte; a
+serviço. Todas as tarefas pendentes do lote iniciado continuam em sequência,
+mesmo depois do corte; a
 VM nunca é desligada pela janela e lê alterações no ciclo seguinte. Manter uma
 conexão/fila durável e alertas externos são melhorias
 posteriores; o primeiro piloto pode operar com polling curto e supervisionado.
 
 O serviço solicita explicitamente `sinalizar_trabalho_concluido=True`: o retorno
 interno 2 indica emissão concluída e dispara outro ciclo imediatamente, com nova
-verificação da janela e nova reserva. Retorno 0 indica ciclo sem emissão e
+verificação da janela e reserva normal ou de continuação. Retorno 0 indica ciclo sem emissão e
 mantém polling; 1 mantém backoff. Execuções avulsas preservam códigos 0/1.
 Cada tarefa continua usando contexto independente e as falhas não são
 reenfileiradas automaticamente por essa otimização.

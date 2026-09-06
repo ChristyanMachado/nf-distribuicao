@@ -16,6 +16,8 @@ import NotaCard from "./NotaCard";
 import { assinarDocumentosPrivados } from "@/lib/storage.server";
 import { nomeDownloadDocumento } from "@/lib/storage-caminhos";
 import { documentosDaNotaDisponiveis } from "@/lib/documentos-nota";
+import { agruparNotasPorDistribuicao } from "@/lib/notas-visao";
+import { dataIsoParaBrasil } from "@/lib/datas";
 
 export default async function NotasPage() {
   const lista = await db
@@ -33,6 +35,7 @@ export default async function NotasPage() {
       recuperacaoMensagem: recuperacoesDocumentos.mensagemStatus,
       clienteNome: clientes.nome,
       emitenteNome: emitentes.nome,
+      loteId: tarefas.loteId,
       numeroDistribuicao: lotesDistribuicao.numero,
       dataDistribuicao: lotesDistribuicao.data,
     })
@@ -81,6 +84,7 @@ export default async function NotasPage() {
       ];
     }),
   );
+  const grupos = agruparNotasPorDistribuicao(lista);
 
   return (
     <div>
@@ -94,29 +98,42 @@ export default async function NotasPage() {
         descricao="Acompanhando a recuperação automaticamente"
       />
 
-      <Card className="mt-5 divide-y divide-[var(--line)]">
-        {lista.map((n) => (
-          <NotaCard
-            key={n.id}
-            nota={{
-              ...n,
-              dataEmissao: n.dataEmissao?.toISOString() ?? null,
-              pdfUrl: disponibilidade.get(n.id) && n.pdfPath
-                ? urls.get(n.pdfPath) ?? null
-                : null,
-              xmlUrl: disponibilidade.get(n.id) && n.xmlPath
-                ? urls.get(n.xmlPath) ?? null
-                : null,
-              podeRecuperar: /^\d{44}$/.test(n.chaveAcesso ?? ""),
-            }}
-          />
+      <div className="mt-5 space-y-4">
+        {grupos.map((grupo) => (
+          <section key={grupo.chave} aria-label={grupo.numeroDistribuicao ? `Distribuição ${grupo.numeroDistribuicao}` : "Nota antiga"}>
+            <div className="mb-2 flex items-end justify-between gap-3 px-1">
+              <div>
+                <p className="font-mono-tab text-[11px] font-bold uppercase tracking-widest text-[var(--ink-faint)]">
+                  {grupo.numeroDistribuicao
+                    ? `Distribuição ${String(grupo.numeroDistribuicao).padStart(6, "0")}`
+                    : "Nota anterior ao agrupamento"}
+                </p>
+                {grupo.data && <p className="mt-0.5 text-[12px] text-[var(--ink-soft)]">{dataIsoParaBrasil(grupo.data)}</p>}
+              </div>
+              <span className="text-[12px] text-[var(--ink-faint)]">{grupo.notas.length} {grupo.notas.length === 1 ? "nota" : "notas"}</span>
+            </div>
+            <Card className="divide-y divide-[var(--line)]">
+              {grupo.notas.map((n) => (
+                <NotaCard
+                  key={n.id}
+                  nota={{
+                    ...n,
+                    dataEmissao: n.dataEmissao?.toISOString() ?? null,
+                    pdfUrl: disponibilidade.get(n.id) && n.pdfPath ? urls.get(n.pdfPath) ?? null : null,
+                    xmlUrl: disponibilidade.get(n.id) && n.xmlPath ? urls.get(n.xmlPath) ?? null : null,
+                    podeRecuperar: /^\d{44}$/.test(n.chaveAcesso ?? ""),
+                  }}
+                />
+              ))}
+            </Card>
+          </section>
         ))}
         {lista.length === 0 && (
-          <div className="px-4 py-10 text-center text-sm text-[var(--ink-faint)]">
+          <Card className="px-4 py-10 text-center text-sm text-[var(--ink-faint)]">
             Nenhuma nota emitida ainda.
-          </div>
+          </Card>
         )}
-      </Card>
+      </div>
     </div>
   );
 }

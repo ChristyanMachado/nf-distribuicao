@@ -45,6 +45,11 @@ Lease permitido: 60–3600 segundos. Renovação e transições exigem Worker, t
 e lease vigentes. `EXECUTE` de `PUBLIC` foi revogado; a implantação deve
 conceder apenas ao papel dedicado do Worker.
 
+Fora da janela, `FontePostgresTarefas.reservar_continuacao_lote` faz uma
+reserva parametrizada e transacional, limitada ao lote mais antigo que já
+possua tarefa iniciada. Seleção e mudança para `PROCESSANDO` usam o mesmo
+bloqueio: o corte impede lotes novos sem deixar uma distribuição pela metade.
+
 ## Estados e transições
 
 ```text

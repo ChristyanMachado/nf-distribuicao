@@ -227,6 +227,36 @@ def test_reserva_snapshot_integro_e_devolve_token_canonico() -> None:
     assert "reserva_token=$2" in conexao.chamadas[1][1]
 
 
+def test_continuacao_reserva_somente_lote_que_ja_possui_inicio() -> None:
+    texto = _payload_texto()
+    conexao = _ConexaoFake(
+        fetch=[[{"tarefa_id": UUID(TAREFA_ID), "reserva_token": UUID(RESERVA_TOKEN)}]],
+        fetchrow=[{
+            "payload_text": texto,
+            "payload_hash": hashlib.sha256(texto.encode("utf-8")).hexdigest(),
+        }],
+    )
+    fonte = _fonte_com_conexao(conexao)
+
+    reservas = asyncio.run(fonte.reservar_continuacao_lote(1))
+
+    assert len(reservas) == 1
+    _, consulta, argumentos = conexao.chamadas[0]
+    assert "iniciada.iniciado_em IS NOT NULL" in consulta
+    assert "pendente.status='PENDENTE'" in consulta
+    assert "FOR UPDATE OF t SKIP LOCKED" in consulta
+    assert argumentos == ("worker-teste", 1)
+    assert conexao.transacao_fake.entrou is True
+    assert conexao.transacao_fake.saiu is True
+
+
+def test_continuacao_recusa_limite_fora_da_faixa() -> None:
+    fonte = _fonte_com_conexao(_ConexaoFake())
+
+    with pytest.raises(FonteTarefasErro, match="Limite de continuação"):
+        asyncio.run(fonte.reservar_continuacao_lote(0))
+
+
 def test_reserva_snapshot_adulterado_vai_para_conferencia_e_continua_lote() -> None:
     texto = _payload_texto()
     outro_id = UUID("77777777-7777-4777-8777-777777777777")

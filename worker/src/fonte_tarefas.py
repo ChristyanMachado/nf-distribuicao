@@ -172,41 +172,118 @@ class FontePostgresTarefas:
                     "SELECT tarefa_id, reserva_token FROM fiscal.reservar_tarefas_worker($1, $2)",
                     self.worker_id, limite,
                 )
-                resultado: list[TarefaReservada] = []
-                for reserva in reservas:
-                    tarefa_id, token = reserva["tarefa_id"], str(reserva["reserva_token"])
-                    try:
-                        snapshot = await conexao.fetchrow(
-                            """SELECT t.payload_worker::text AS payload_text,t.payload_hash FROM fiscal.tarefas t WHERE t.id=$1 AND t.status='PROCESSANDO' AND t.reserva_token=$2""",
-                            tarefa_id, reserva["reserva_token"],
-                        )
-                        if snapshot is None:
-                            raise FonteTarefasErro("Reserva não pôde ser carregada.")
-                        texto = snapshot["payload_text"]
-                        calculado = hashlib.sha256(texto.encode("utf-8")).hexdigest()
-                        if not hmac.compare_digest(calculado, snapshot["payload_hash"]):
-                            raise FonteTarefasErro("Integridade do contrato fiscal não confirmada.")
-                        contratada = carregar_contrato_tarefa(json.loads(texto))
-                        resultado.append(TarefaReservada(contratada, token))
-                    except (
-                        FonteTarefasErro,
-                        ContratoTarefaInvalido,
-                        json.JSONDecodeError,
-                        TypeError,
-                        UnicodeError,
-                        KeyError,
-                        AttributeError,
-                    ):
-                        await self._registrar_status_conexao(
-                            conexao, str(tarefa_id), token, "AGUARDANDO_CONFERENCIA",
-                            "Contrato fiscal incompleto ou incompatível; revise o cadastro.",
-                            "CONTRATO_INVALIDO",
-                        )
-                return resultado
+                return await self._materializar_reservas(conexao, reservas)
         except FonteTarefasErro:
             raise
         except Exception as exc:
             raise FonteTarefasErro("Não foi possível reservar tarefas no banco.") from exc
+
+    async def reservar_continuacao_lote(self, limite: int = 1) -> list[TarefaReservada]:
+        """Reserva somente o lote mais antigo que já começou.
+
+        Esta operação é usada fora da janela. O filtro e a mudança de estado
+        ocorrem na mesma transação, então uma distribuição inteiramente nova
+        nunca começa por engano entre a conferência e a reserva.
+        """
+
+        if not 1 <= limite <= 20:
+            raise FonteTarefasErro("Limite de continuação é inválido.")
+        try:
+            async with self._conexao() as conexao:
+                async with conexao.transaction():
+                    reservas = await conexao.fetch(
+                        """WITH lote_prioritario AS (
+                               SELECT pendente.lote_id
+                               FROM fiscal.tarefas pendente
+                               WHERE pendente.status='PENDENTE'
+                                 AND pendente.lote_id IS NOT NULL
+                                 AND pendente.contrato_versao=1
+                                 AND pendente.payload_worker IS NOT NULL
+                                 AND pendente.payload_hash IS NOT NULL
+                                 AND EXISTS (
+                                   SELECT 1 FROM fiscal.tarefas iniciada
+                                   WHERE iniciada.lote_id=pendente.lote_id
+                                     AND iniciada.iniciado_em IS NOT NULL
+                                 )
+                               GROUP BY pendente.lote_id
+                               ORDER BY min(pendente.criado_em), pendente.lote_id
+                               LIMIT 1
+                           ), candidatas AS (
+                               SELECT t.id
+                               FROM fiscal.tarefas t
+                               JOIN lote_prioritario l ON l.lote_id=t.lote_id
+                               WHERE t.status='PENDENTE'
+                                 AND t.contrato_versao=1
+                                 AND t.payload_worker IS NOT NULL
+                                 AND t.payload_hash IS NOT NULL
+                               ORDER BY t.criado_em,t.id
+                               LIMIT $2
+                               FOR UPDATE OF t SKIP LOCKED
+                           ), reservadas AS (
+                               UPDATE fiscal.tarefas t
+                               SET status='PROCESSANDO',reservada_por=$1,
+                                   reserva_token=gen_random_uuid(),
+                                   reserva_expira_em=now()+make_interval(secs=>900),
+                                   tentativas=t.tentativas+1,
+                                   iniciado_em=COALESCE(t.iniciado_em,now()),
+                                   atualizado_em=now()
+                               FROM candidatas c WHERE t.id=c.id
+                               RETURNING t.id AS tarefa_id,t.reserva_token
+                           )
+                           SELECT tarefa_id,reserva_token FROM reservadas""",
+                        self.worker_id,
+                        limite,
+                    )
+                    return await self._materializar_reservas(conexao, reservas)
+        except FonteTarefasErro:
+            raise
+        except Exception as exc:
+            raise FonteTarefasErro(
+                "Não foi possível continuar a distribuição iniciada."
+            ) from exc
+
+    async def _materializar_reservas(
+        self,
+        conexao: Any,
+        reservas: list[Any],
+    ) -> list[TarefaReservada]:
+        resultado: list[TarefaReservada] = []
+        for reserva in reservas:
+            tarefa_id, token = reserva["tarefa_id"], str(reserva["reserva_token"])
+            try:
+                snapshot = await conexao.fetchrow(
+                    """SELECT t.payload_worker::text AS payload_text,t.payload_hash
+                       FROM fiscal.tarefas t
+                       WHERE t.id=$1 AND t.status='PROCESSANDO' AND t.reserva_token=$2""",
+                    tarefa_id,
+                    reserva["reserva_token"],
+                )
+                if snapshot is None:
+                    raise FonteTarefasErro("Reserva não pôde ser carregada.")
+                texto = snapshot["payload_text"]
+                calculado = hashlib.sha256(texto.encode("utf-8")).hexdigest()
+                if not hmac.compare_digest(calculado, snapshot["payload_hash"]):
+                    raise FonteTarefasErro("Integridade do contrato fiscal não confirmada.")
+                contratada = carregar_contrato_tarefa(json.loads(texto))
+                resultado.append(TarefaReservada(contratada, token))
+            except (
+                FonteTarefasErro,
+                ContratoTarefaInvalido,
+                json.JSONDecodeError,
+                TypeError,
+                UnicodeError,
+                KeyError,
+                AttributeError,
+            ):
+                await self._registrar_status_conexao(
+                    conexao,
+                    str(tarefa_id),
+                    token,
+                    "AGUARDANDO_CONFERENCIA",
+                    "Contrato fiscal incompleto ou incompatível; revise o cadastro.",
+                    "CONTRATO_INVALIDO",
+                )
+        return resultado
 
     async def obter_janela_emissao(self) -> tuple[int, int]:
         """Carrega a preferência operacional sem conceder escrita ao Worker."""

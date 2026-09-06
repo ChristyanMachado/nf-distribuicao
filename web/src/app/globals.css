@@ -120,14 +120,32 @@ select:focus {
 
   .print-sheet {
     margin-top: 0 !important;
+    font-size: 11px;
+    line-height: 1.25;
   }
+
+  .print-route-header { padding-bottom: 7px !important; }
+  .print-route-header h2 { margin-top: 2px !important; font-size: 20px !important; line-height: 1.15 !important; }
+  .print-route-header > p { margin-top: 2px !important; font-size: 10px !important; }
+  .print-route-header > div { margin-top: 6px !important; gap: 5px 24px !important; font-size: 10px !important; }
+  .print-route-list { margin-top: 8px !important; display: grid; gap: 7px !important; }
 
   .print-card {
     break-inside: avoid;
     border-color: #bbb !important;
   }
 
+  .print-stop-header { gap: 7px !important; padding: 5px 8px !important; }
+  .print-stop-header > span { width: 20px !important; height: 20px !important; font-size: 10px !important; }
+  .print-stop-header h3 { font-size: 13px !important; line-height: 1.2 !important; }
+  .print-stop-header p { margin-top: 1px !important; font-size: 9px !important; }
+  .print-item { gap: 8px !important; padding: 4px 8px !important; font-size: 10px !important; }
+  .print-item > span { font-size: 10px !important; }
+  .print-check { padding: 5px 8px !important; font-size: 9px !important; }
+  .print-check > div { gap: 4px 16px !important; }
+  .print-check > div + div { margin-top: 5px !important; }
+
   * { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
 }
 
-@page { margin: 12mm; }
+@page { margin: 8mm; }

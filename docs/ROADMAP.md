@@ -22,7 +22,8 @@ um portal autenticado, sem misturar autorização administrativa nesta entrega.
 - **Fase 5 — operação persistente:** a VM piloto Oracle está criada e recebeu
   swap, Docker/Compose, firewall, fuso e atualizações automáticas por bootstrap
   reproduzível. A janela editável no Web já separa recuperações 24h do início
-  de novas emissões; tarefas iniciadas antes do corte sempre terminam. A 0013
+  de novas emissões; distribuições iniciadas antes do corte agora continuam
+  até esgotar suas tarefas pendentes. A 0013
   foi aplicada, identidade exclusiva instalada e polling iniciado na VM;
   auditorias e healthcheck passaram. Falta ensaio fiscal de ponta a ponta
   nessa máquina e medição de recursos sob carga. O ensaio com concorrência 2
@@ -33,9 +34,9 @@ um portal autenticado, sem misturar autorização administrativa nesta entrega.
   emitentes/clientes, medir recursos sob carga e melhorar atualização da UI.
 - **Fase 6 — produção:** não iniciada e explicitamente bloqueada.
 
-Migrações `0001`–`0012` estão ativas. `0013` (janela operacional) e `0014`
-(restrição de RPC anônimo no sistema de ponto compartilhado) estão preparadas,
-mas aguardam aplicação consciente e validação. Cliente, emitente e três produtos reais
+Migrações `0001`–`0013` estão ativas. A `0014` (restrição de RPC anônimo no
+sistema de ponto compartilhado) permanece preparada e explicitamente adiada.
+Cliente, emitente e três produtos reais
 foram aceitos pelo portal. Uma espera por estado da tela-resumo corrigiu a
 corrida entre o Avançar do ICMS e o Avançar para Transporte, sem `sleep` fixo.
 
@@ -45,12 +46,12 @@ banco de teste e passou no verificador de privilégios.
 
 ## Meta imediata — recuperação histórica e polimento do fluxo diário
 
-1. Corrigir no celular o bloco Adicionar produto e manter a confirmação da
-   distribuição criada imediatamente visível.
+1. Validar no celular a confirmação persistente da distribuição, com número,
+   quantidade de notas e atalhos para acompanhamento e roteiro.
 2. Pedir confirmação explícita quando houver quantidade não distribuída,
    preservando o bloqueio de excesso no cliente e no servidor.
-3. Harmonizar os conceitos de nota registrada, nota emitida e distribuição
-   entre Home e Relatórios, usando duração real para o tempo médio.
+3. Validar Notas agrupadas por distribuição, rótulos explícitos dos relatórios
+   e a densidade da nova impressão compacta em PC e celular.
 4. Ensaiar a limpeza da migration `0011`; depois retomar container/VM e operação
    persistente. O Web já está publicado e o ciclo conectado foi comprovado.
 
@@ -78,7 +79,7 @@ banco de teste e passou no verificador de privilégios.
   promover esse dimensionamento para produção sem prova de estabilidade;
 - papel PostgreSQL exclusivo do Worker com privilégios mínimos;
 - validar na VM a janela configurada no Web, mantendo recuperações disponíveis
-  24h e comprovando que o corte não interrompe tarefa já iniciada;
+  24h e comprovando que o corte conclui o lote iniciado sem começar outro;
 - healthcheck, métricas, alertas e recuperação segura;
 - nunca repetir automaticamente resultado fiscal incerto.
 

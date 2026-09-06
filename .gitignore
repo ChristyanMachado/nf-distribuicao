@@ -22,6 +22,8 @@ worker/logs/*
 
 # OS
 .DS_Store
+# Negociação e relatos privados; não publicar no repositório público.
+/docs/privado/
 worker/tarefa_real.json
 worker/.env.vm
 worker/.env.vm.*

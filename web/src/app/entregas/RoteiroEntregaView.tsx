@@ -89,7 +89,7 @@ export default function RoteiroEntregaView({
 
       {loteSelecionado && (
         <section className="print-sheet mt-6">
-          <header className="border-b-2 border-[var(--ink)] pb-4">
+          <header className="print-route-header border-b-2 border-[var(--ink)] pb-4">
             <p className="font-mono-tab text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--ink-faint)]">Graalyst · roteiro de entrega</p>
             <h2 className="mt-1 text-3xl font-medium">Distribuição {String(loteSelecionado.numero ?? "—").padStart(6, "0")}</h2>
             <p className="mt-1 text-sm text-[var(--ink-soft)]">
@@ -102,12 +102,12 @@ export default function RoteiroEntregaView({
             </div>
           </header>
 
-          <div className="mt-5 space-y-4">
+          <div className="print-route-list mt-5 space-y-4">
             {roteiro.map((parada, indice) => {
               const local = endereco(parada);
               return (
                 <Card key={parada.clienteId} className="print-card overflow-hidden">
-                  <div className="flex items-start gap-3 border-b border-[var(--line)] bg-[var(--field-tint)] px-4 py-3">
+                  <div className="print-stop-header flex items-start gap-3 border-b border-[var(--line)] bg-[var(--field-tint)] px-4 py-3">
                     <span className="font-mono-tab flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--field)] text-sm font-bold text-white">{indice + 1}</span>
                     <div className="min-w-0">
                       <h3 className="text-lg font-medium">{parada.clienteNome}</h3>
@@ -120,7 +120,7 @@ export default function RoteiroEntregaView({
                   </div>
                   <div className="divide-y divide-[var(--line)]">
                     {parada.itens.map((item) => (
-                      <div key={`${parada.clienteId}-${item.produtoId}`} className="grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-1 px-4 py-3 sm:flex sm:justify-between">
+                      <div key={`${parada.clienteId}-${item.produtoId}`} className="print-item grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-1 px-4 py-3 sm:flex sm:justify-between">
                         <span className="font-medium">{item.produtoDescricao}</span>
                         <span className="font-mono-tab shrink-0 text-base font-bold">{item.quantidadeDistribuida} {item.unidade}</span>
                         {mostrarTrocas && item.quantidadeTroca > 0 && <span className="col-span-2 shrink-0 text-sm text-[var(--stamp)] sm:col-span-1">troca: {item.quantidadeTroca} {item.unidade}</span>}
@@ -129,7 +129,7 @@ export default function RoteiroEntregaView({
                     ))}
                   </div>
                   {mostrarConferencia && (
-                    <div className="border-t border-[var(--line)] px-4 py-3 text-[12px] text-[var(--ink-soft)]">
+                    <div className="print-check border-t border-[var(--line)] px-4 py-3 text-[12px] text-[var(--ink-soft)]">
                       <div className="flex flex-wrap gap-x-5 gap-y-2">
                         <span>□ Entregue</span><span>□ Parcial</span><span>□ Não entregue</span>
                       </div>

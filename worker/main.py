@@ -757,8 +757,15 @@ async def executar_fila_banco_homologacao(
             if usar_janela_operacional:
                 inicio, fim = await fonte.obter_janela_emissao()
                 if not JanelaEmissao(inicio, fim).permite_nova_emissao():
-                    return int(falha_recuperacao)
-            reservas = await fonte.reservar(limite)
+                    reservas = await fonte.reservar_continuacao_lote(limite)
+                    if reservas:
+                        logger.info(
+                            "Distribuição iniciada antes do fechamento será concluída."
+                        )
+                else:
+                    reservas = await fonte.reservar(limite)
+            else:
+                reservas = await fonte.reservar(limite)
             if not reservas:
                 if not silencioso_sem_tarefas:
                     logger.info("Nenhuma tarefa elegível encontrada na fila do banco.")

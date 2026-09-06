@@ -2,6 +2,11 @@
 
 ## Objetivo
 
+Preferência do responsável: recomendar modelo e intensidade ao iniciar cada
+novo trabalho, com justificativa curta, sem bloquear execução por troca.
+Consultar `MODELOS-IA.md`; não prometer economia não medida ou equivalência
+entre modelos. Para tarefa continuada, repetir apenas quando mudar o escopo.
+
 Contexto autoritativo para pessoas e IAs. Antes de alterar código, ler também
 `ARCHITECTURE.md`, `HANDOFF.md` e `COLABORACAO.md` e conferir o diff atual.
 
@@ -10,6 +15,17 @@ gera tarefas; o banco mantém snapshots imutáveis e a fila; o Worker reserva e
 executa cada tarefa em um `BrowserContext` independente.
 
 ## Estado validado em 05/09/2026
+
+- Reunião posterior: ver `REUNIAO-2026-09-05-RELATO.md` (relato reconciliado
+  com transcrição parcial 000–005; parte perdida não inferida). Próximos pedidos: notas agrupadas por lote,
+  cancelamento fiscal separado, recuperação de senha e novo benchmark realista.
+  Manter homologação; início de produção ainda requer confirmação explícita.
+  Financeiro será repositório independente com hub futuro. Não alterar Ponto.
+  Negociação comercial está em `docs/privado/`, ignorado pelo Git.
+  As prioridades foram implementadas localmente: confirmação persistente,
+  notas agrupadas, rótulos claros e impressão compacta. A janela agora conclui
+  o lote iniciado, mas essa regra ainda precisa de ensaio na VM.
+  Cancelamento manual em homologação pode exigir reconciliação de estado.
 
 - Tarefas e recuperações agora atualizam automaticamente enquanto houver
   trabalho ativo, em ciclos de 10s, pausados em aba oculta e encerrados ao
@@ -89,13 +105,14 @@ executa cada tarefa em um `BrowserContext` independente.
   etapa e o Web mostra “o que aconteceu” + “o que fazer”. O botão **Tentar
   novamente** aparece somente para falhas pré-emissão permitidas por lista
   fechada; resultado fiscal incerto nunca volta à fila.
-- Validação local: **239 testes Worker**, **101 testes Web**, 3 testes do
-  preflight de deploy, TypeScript e build de produção passaram.
+- Validação mais recente: **246 testes Worker** e **106 testes Web** passaram;
+  TypeScript e `compileall` também passaram. Ver `HANDOFF.md` para o build.
 - O serviço persistente permanece disponível 24 horas para limpeza, retomada de
   upload e recuperação histórica. Apenas a reserva de novas emissões usa a
   janela configurável no Web e persistida no banco, padrão `00:00–06:00` em
-  `America/Sao_Paulo`; fora dela nenhuma tarefa fiscal é reservada. O corte só
-  impede novos inícios: tarefa já reservada continua até terminar. A mudança é
+  `America/Sao_Paulo`; fora dela somente tarefas pendentes do lote mais antigo
+  já iniciado podem ser reservadas. O corte impede outro lote, mas conclui a
+  distribuição em curso. A mudança é
   lida no ciclo seguinte, sem reiniciar a VM. `tzdata` fixa a base de fuso em
   todos os ambientes. O container já abriu o Chromium na VM; falta instalar a
   configuração operacional e provar o canal sem reservar fila involuntária.

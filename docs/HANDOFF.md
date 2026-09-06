@@ -2,6 +2,36 @@
 
 ## Estado autoritativo — 05/09/2026
 
+- Prioridades da reunião implementadas localmente: confirmação após distribuir
+  agora permanece em card destacado com número, quantidade de notas e atalhos;
+  `/notas` agrupa pelo lote real e mantém PDF, XML, compartilhamento e
+  recuperação individual. Legado sem lote fica isolado para não inventar
+  agrupamento. Relatórios explicitam valor bruto, período, duração e estimativa;
+  a impressão ganhou compactação exclusiva, mantendo os filtros.
+- Regra confirmada da janela: fora do horário, o Worker faz reserva atômica
+  apenas do lote mais antigo que já tenha tarefa iniciada. Ele termina as notas
+  pendentes daquela distribuição sem começar outra, inclusive após reinício.
+  Não houve migration, alteração do Ponto, deploy ou mudança para produção.
+  Pendente: ensaio controlado dessa fronteira na VM.
+- Validação local: 246 testes Worker, 106 testes Web, TypeScript, `compileall`,
+  build Next.js e `git diff --check` passaram. O primeiro build apontou que
+  `Card` não encaminhava atributos ARIA; o componente-base foi corrigido e o
+  segundo build concluiu. A inspeção pelo navegador confirmou o shell e a tela
+  segura de indisponibilidade, mas a rede desta sessão bloqueou o banco remoto;
+  agrupamento e impressão ainda exigem conferência visual com dados reais.
+  Cancelamento fiscal não foi
+  iniciado porque seletores e confirmação do resultado ainda não são seguros.
+
+- Novo relato de reunião registrado em `REUNIAO-2026-09-05-RELATO.md`.
+  Transcrição parcial 000–005 reconciliada; este turno autorizou apenas documentação.
+  Não implementar automaticamente cancelamento fiscal nem liberar produção.
+  Valores e condições comerciais são provisórios e estão em docs/privado/,
+  fora do versionamento público. Prioridades identificadas: confirmação de envio
+  perceptível, notas por distribuição, métricas claras e impressão compacta.
+  Decidir se janela admite lote inteiro ou apenas tarefa reservada; não alterar
+  horário com base nas falas. Cancelamento manual em homologação pode ter deixado
+  divergência no sistema: investigar por chave antes de qualquer escrita.
+
 - UX para demonstração: distribuição tem conferência compacta por mercado +
   emitente, produtos, quantidades, trocas e total antes do envio, sem clique
   adicional obrigatório. Tarefas mostram o resultado da última distribuição
