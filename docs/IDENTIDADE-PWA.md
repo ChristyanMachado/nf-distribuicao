@@ -21,9 +21,11 @@ marca, para navegadores que ainda preferem o formato ICO.
 ## Manifest e cache
 
 `web/src/app/manifest.ts` define o aplicativo instalável (`standalone`),
-nome, cores e ícones. O `layout.tsx` aponta para o manifest com uma versão de
-URL e para os arquivos de marca com nomes versionados. Isso evita que o Chrome
-reaproveite o JPG/favicons antigos depois do deploy.
+nome, cores e ícones. O `layout.tsx` aponta para o manifest e para os arquivos
+de marca com nomes versionados. Isso evita que o Chrome reaproveite o JPG ou
+favicons antigos depois do deploy. O `proxy.ts` deixa somente o manifesto,
+favicon e `brand/` públicos: o Chrome precisa buscá-los antes de existir uma
+sessão, mas as telas e dados administrativos continuam protegidos.
 
 Não há service worker, Workbox ou registro de cache próprio neste projeto.
 Logo, não existe cache de aplicação a limpar; a atualização depende apenas do

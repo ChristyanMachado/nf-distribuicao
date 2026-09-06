@@ -53,4 +53,11 @@ export function proxy(request: NextRequest) {
   return resposta;
 }
 
-export const config = { matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"] };
+/**
+ * Ícones e manifesto são recursos públicos: o Chrome os requisita antes da
+ * sessão existir para decidir se o site pode ser instalado. Excluir somente
+ * esses arquivos estáticos não expõe rotas, dados ou ações administrativas.
+ */
+export const config = {
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|manifest\\.webmanifest|brand/).*)"],
+};

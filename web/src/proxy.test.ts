@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { COOKIE_SESSAO, criarTokenSessao } from "./lib/auth-session";
-import { proxy } from "./proxy";
+import { config, proxy } from "./proxy";
 
 describe("proteção administrativa", () => {
   beforeEach(() => {
@@ -32,5 +32,12 @@ describe("proteção administrativa", () => {
     });
 
     expect(proxy(requisicao).status).toBe(200);
+  });
+
+  it("mantém manifest e ícones públicos para a instalação móvel antes do login", () => {
+    const matcher = String(config.matcher?.[0]);
+    expect(matcher).toContain("manifest\\.webmanifest");
+    expect(matcher).toContain("brand/");
+    expect(matcher).toContain("favicon.ico");
   });
 });
