@@ -105,9 +105,10 @@ de variável.
 
 - Vercel: `AMBIENTE_EMISSAO=normal`; redeploy da revisão `46ee06e` com estado
   `Ready` e domínio oficial atribuído.
-- VM: Worker de código `d8bb52f` (a revisão seguinte altera apenas documentos),
+- VM: Worker de código `d8bb52f` (as revisões seguintes não alteram o Worker),
   `AMBIENTE_EMISSAO=normal`, produção explicitamente habilitada, concorrência 1,
-  cancelamentos desligados e container `healthy`.
+  cancelamentos habilitados somente sob solicitação humana e container
+  `healthy`.
 - Log de partida: `Worker persistente iniciado no ambiente normal`.
 - O operador confirmou o ambiente de produção, os três emitentes e quatro
   produtos ativos visíveis. Produção está **preparada**, não validada ponta a
@@ -115,6 +116,9 @@ de variável.
 - A limpeza controlada do histórico de homologação está especificada em
   `LIMPEZA-INICIO-PRODUCAO.md` e foi concluída com autorização: histórico e
   Storage ficaram vazios, cadastros foram preservados e o próximo lote será 1.
+- A exclusão temporária de cadastros fictícios foi usada na revisão `eea91d9`.
+  A limpeza manual foi concluída e a exceção foi removida do código; o
+  comportamento permanente para cadastros volta a ser ativo/inativo.
 
 ## Parada e reversão
 

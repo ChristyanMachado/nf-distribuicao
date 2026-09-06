@@ -34,7 +34,8 @@ um portal autenticado, sem misturar autorização administrativa nesta entrega.
   emitentes/clientes, medir recursos sob carga e melhorar atualização da UI.
 - **Fase 6 — produção:** virada coordenada concluída em 06/09/2026. O Web foi
   redeployado com ambiente `normal` e o Worker está saudável na VM, também em
-  `normal`, com concorrência 1 e cancelamentos temporariamente desligados. A
+  `normal`, com concorrência 1. Após zerar as filas, cancelamentos foram
+  habilitados somente sob pedido explícito no Web. A
   consulta normal já foi validada em modo somente leitura no host real. Falta
   a primeira emissão real legítima, criada e conferida pelo operador. Não será
   criada uma operação fiscal artificial para teste. O estado correto até essa
@@ -76,6 +77,9 @@ banco de teste e passou no verificador de privilégios.
    `precos_cliente` e todos os cadastros foram preservados. **Concluído.**
 10. Excluir manualmente os dois produtos e o cliente fictício usando a ação
     temporária; depois desligar a flag e remover definitivamente essa exceção.
+    **Concluído:** o responsável removeu manualmente os cadastros fictícios e
+    a exceção temporária foi retirada do Web. O comportamento definitivo é
+    ativo/inativo.
 
 ## Próximas entregas de código
 

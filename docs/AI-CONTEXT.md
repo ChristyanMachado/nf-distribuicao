@@ -38,8 +38,12 @@ executa cada tarefa em um `BrowserContext` independente.
   notas, filas e os 44 objetos fiscais de homologação ficaram em zero; a
   sequência foi reiniciada para que o próximo lote seja 1. Foram preservados
   6 produtos, 5 clientes, 3 emitentes, 20 preços por cliente, 1 regra e 1
-  configuração. O Worker permanece parado até a publicação da exclusão
-  temporária e a auditoria final.
+  configuração. A exclusão temporária foi publicada pela revisão `eea91d9` e o
+  deploy ficou `Ready`; o responsável concluiu a remoção manual dos cadastros
+  fictícios. A auditoria final registra 4 produtos ativos, 4 clientes ativos,
+  3 emitentes ativos e nenhuma fila ou histórico fiscal. O Worker voltou
+  `healthy` em ambiente `normal`, com cancelamentos habilitados; a fila
+  permaneceu vazia após a partida.
 
 - Cancelamento fiscal RF23 está implementado e testado localmente. Há
   fila própria `fiscal.cancelamentos_fiscais`, motivo editável, idempotência,
@@ -60,9 +64,10 @@ executa cada tarefa em um `BrowserContext` independente.
 - A versão de código `d8bb52f` do Worker foi instalada na VM Oracle preservando
   o `.env` secreto; `46ee06e` acrescenta apenas documentação. As auditorias
   dentro da imagem aprovaram o canal e os privilégios mínimos do papel
-  `nf_worker_vm`. O processamento de cancelamentos foi desligado durante a
-  entrada em produção e só deve voltar após a primeira emissão real conferida,
-  em um ensaio separado e explicitamente iniciado pelo operador.
+  `nf_worker_vm`. Após a limpeza das filas, o processamento de cancelamentos foi
+  habilitado. Isso não cria cancelamento: o pedido só nasce após o operador
+  revisar o motivo e confirmar explicitamente no Web; resultado incerto nunca
+  recebe repetição automática.
 
 - Reunião posterior: ver `REUNIAO-2026-09-05-RELATO.md` (relato reconciliado
   com transcrição parcial 000–005; parte perdida não inferida). Próximos pedidos: notas agrupadas por lote,

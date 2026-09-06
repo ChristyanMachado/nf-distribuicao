@@ -73,12 +73,9 @@ excluir manualmente um produto ou cliente fictício, somente os preços ligados
 
 ## Exclusão temporária de cadastros fictícios
 
-Com `PERMITIR_EXCLUSAO_CADASTROS=true`, as telas de Produtos e Clientes mostram
-uma ação definitiva somente nos registros já inativos. A ação pede confirmação
-e o servidor recusa a exclusão se encontrar histórico. Ela remove apenas os
-vínculos e preços do próprio cadastro escolhido. Depois que os dois produtos e
-o cliente fictício forem removidos, alterar a flag para `false` e remover essa
-exceção do código; o comportamento permanente volta a ser ativo/inativo.
+A ação temporária foi usada para a limpeza manual dos cadastros fictícios e foi
+removida do Web em seguida. O comportamento permanente voltou a ser somente
+ativo/inativo, preservando o histórico de qualquer operação futura.
 
 ## Estado de produção
 
