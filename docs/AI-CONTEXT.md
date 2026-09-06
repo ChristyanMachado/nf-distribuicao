@@ -142,10 +142,13 @@ executa cada tarefa em um `BrowserContext` independente.
 
 - A marca confirmada do produto é **Graalyst**. Em 06/09/2026, a marca recebeu
   ativos próprios para favicon e instalação móvel: PNG transparente sem sombra,
-  ICO compatível e manifest explícito. Não há service worker nem cache próprio;
-  os nomes versionados de ativos e do manifest evitam reaproveitar o JPG/ícone
-  antigo. Ver `IDENTIDADE-PWA.md`. Não confundir a marca com nomes de emitentes
-  presentes em dados ou testes históricos.
+  ICO compatível e manifest explícito. O primeiro pacote tinha duas regressões
+  de instalação: manifest protegido pelo login e resposta 500 por `id` no
+  `manifest.ts`; ambos foram corrigidos e validados localmente com `200` e MIME
+  correto. A variante aprovada é a mais detalhada, indicada como "esquerda".
+  Não há service worker nem cache próprio; ver `IDENTIDADE-PWA.md`. Não
+  confundir a marca com nomes de emitentes presentes em dados ou testes
+  históricos.
 
 - Web: cadastros, distribuição por lote, tarefas, notas, roteiro de entrega e
   relatórios operacionais; interface responsiva e fluxo diário reduzido.

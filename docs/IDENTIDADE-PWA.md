@@ -3,9 +3,10 @@
 ## Fonte da marca
 
 A marca Graalyst usa o símbolo de guindaste e caixa. A versão de aplicação é
-uma releitura limpa do arquivo visual original: fundo transparente, uma única
-cor azul-acinzentada e sem sombra, vinheta ou moldura. Ela é adequada para
-superfícies claras da interface e para tamanhos pequenos.
+uma releitura limpa do arquivo visual original: fundo transparente, azul
+acinzentado e sem sombra, vinheta ou moldura. A fonte aprovada é a variante de
+maior detalhe do símbolo (a variante indicada como **esquerda** pelo
+responsável); ela é a origem de todos os tamanhos abaixo.
 
 Os ativos publicados estão em `web/public/brand/`:
 
@@ -26,6 +27,23 @@ de marca com nomes versionados. Isso evita que o Chrome reaproveite o JPG ou
 favicons antigos depois do deploy. O `proxy.ts` deixa somente o manifesto,
 favicon e `brand/` públicos: o Chrome precisa buscá-los antes de existir uma
 sessão, mas as telas e dados administrativos continuam protegidos.
+
+### Diagnóstico da regressão de instalação — 06/09/2026
+
+Foram encontradas duas regressões no primeiro pacote de ícones:
+
+1. o manifest gerado pelo App Router ainda passava pelo `proxy` de autenticação
+   e era redirecionado para `/login` quando o Chrome tentava ler os requisitos
+   de instalação;
+2. o campo `id` no retorno de `manifest.ts` fazia a rota responder `500` em
+   execução de produção, embora a compilação TypeScript fosse bem-sucedida.
+
+O `id` foi removido e manifesto, favicon e diretório `brand/` foram excluídos
+do matcher de autenticação. A validação de produção local confirmou
+`GET /manifest.webmanifest` com `200`, MIME `application/manifest+json`,
+`display: standalone` e os ícones PNG de 192 e 512 px. Não foi necessário
+adicionar service worker: este Web não possui cache offline próprio, e o Chrome
+consegue instalar um site com manifesto válido.
 
 Não há service worker, Workbox ou registro de cache próprio neste projeto.
 Logo, não existe cache de aplicação a limpar; a atualização depende apenas do

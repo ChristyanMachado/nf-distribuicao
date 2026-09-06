@@ -7,7 +7,6 @@ import type { MetadataRoute } from "next";
  */
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    id: "/",
     name: "Graalyst | Distribuição & Notas",
     short_name: "Graalyst NF",
     description: "Distribuição de produtos e emissão de notas fiscais",

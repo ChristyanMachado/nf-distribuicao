@@ -318,6 +318,12 @@
   fonte histórica e não deve voltar a ser referenciado. Ver
   `IDENTIDADE-PWA.md`. Nomes semelhantes em fixtures fiscais não devem ser
   alterados automaticamente, pois podem representar emitentes.
+- Correção PWA de 06/09: o pacote inicial respondia incorretamente ao Chrome
+  antes do login (redirect do manifesto) e `manifest.ts` retornava 500 em
+  produção por causa do campo `id`. O manifest, favicon e `brand/` são os
+  únicos recursos liberados antes da sessão; remover `id` restaurou a resposta
+  200 com MIME de manifesto. A variante visual aprovada é a detalhada indicada
+  como **esquerda**; não substituir pela simplificada sem nova decisão.
 
 > Esta seção substitui afirmações de estado das continuações históricas abaixo.
 > O restante do arquivo preserva decisões e reconhecimentos anteriores, mas
