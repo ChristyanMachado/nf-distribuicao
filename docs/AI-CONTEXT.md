@@ -28,8 +28,18 @@ executa cada tarefa em um `BrowserContext` independente.
   VM foi promovida para `normal`; o container está saudável e registra
   `Worker persistente iniciado no ambiente normal`. O primeiro corte mantém
   `MAX_CONCORRENCIA=1` e `PROCESSAR_CANCELAMENTOS_FISCAIS=false`. Falta a prova
-  final: uma emissão real de baixo risco, criada e conferida conscientemente
-  pelo operador.
+  final: a primeira distribuição real legítima, criada e conferida
+  conscientemente pelo operador. Não existe operação artificial de baixo risco
+  autorizada. Produção está **preparada, ainda não validada ponta a ponta**.
+  O operador já conferiu no ambiente normal os três emitentes e quatro produtos
+  ativos. O escopo e a evidência da limpeza autorizada estão em
+  `LIMPEZA-INICIO-PRODUCAO.md`.
+  Em 06/09, a limpeza autorizada foi concluída: histórico de lotes, tarefas,
+  notas, filas e os 44 objetos fiscais de homologação ficaram em zero; a
+  sequência foi reiniciada para que o próximo lote seja 1. Foram preservados
+  6 produtos, 5 clientes, 3 emitentes, 20 preços por cliente, 1 regra e 1
+  configuração. O Worker permanece parado até a publicação da exclusão
+  temporária e a auditoria final.
 
 - Cancelamento fiscal RF23 está implementado e testado localmente. Há
   fila própria `fiscal.cancelamentos_fiscais`, motivo editável, idempotência,
@@ -251,6 +261,8 @@ executa cada tarefa em um `BrowserContext` independente.
   mas só cria a sessão curta da aplicação depois de confirmar no próprio token
   do usuário que `public.perfis` contém `papel=gerente` e `ativo=true`. O login
   administrativo permanece como fallback até a chave publicável ser configurada.
+  Recuperação de senha foi explicitamente adiada porque as contas atuais usam
+  e-mails fictícios; não improvisar alteração direta em `auth.users`.
 - O Worker local possui papel PostgreSQL exclusivo de menor privilégio,
   provisionado por comando explícito e salvo somente no `.env` ignorado. A
   auditoria confirmou todos os privilégios obrigatórios e nenhum excessivo.

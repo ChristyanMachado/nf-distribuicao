@@ -8,6 +8,7 @@ import {
   atualizarCliente,
   criarCliente,
   desativarCliente,
+  excluirClienteTeste,
   listarClientes,
   listarEmitentes,
   reativarCliente,
@@ -21,6 +22,7 @@ const MENSAGENS_SALVAMENTO: Record<string, string> = {
   "cliente-atualizado": "Cadastro fiscal do cliente atualizado com sucesso.",
   "cliente-desativado": "Cliente desativado. O histórico foi preservado.",
   "cliente-reativado": "Cliente reativado e disponível novamente.",
+  "cliente-excluido": "Cliente de teste excluído definitivamente.",
 };
 
 export default async function ClientesPage({
@@ -39,6 +41,7 @@ export default async function ClientesPage({
     : undefined;
   const clientesAtivos = clientes.filter((cliente) => cliente.ativo);
   const clientesInativos = clientes.filter((cliente) => !cliente.ativo);
+  const exclusaoTemporaria = process.env.PERMITIR_EXCLUSAO_CADASTROS === "true";
 
   return (
     <div>
@@ -266,6 +269,17 @@ export default async function ClientesPage({
                     Reativar
                   </PrimaryButton>
                 </FormularioComFeedback>
+                {exclusaoTemporaria && (
+                  <FormularioComFeedback
+                    action={excluirClienteTeste}
+                    confirmMessage={`Excluir definitivamente o cliente de teste “${cliente.nome}”? Esta ação não pode ser desfeita.`}
+                  >
+                    <input type="hidden" name="clienteId" value={cliente.id} />
+                    <button type="submit" className="tap-target min-h-11 text-[13px] text-[var(--stamp)]">
+                      Excluir cliente de teste
+                    </button>
+                  </FormularioComFeedback>
+                )}
               </div>
             ))}
           </Card>

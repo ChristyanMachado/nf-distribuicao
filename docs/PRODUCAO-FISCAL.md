@@ -93,8 +93,9 @@ de variável.
 6. Confirmar visualmente o selo **Produção** antes de criar uma distribuição.
 7. Alterar a VM para as variáveis do piloto, validar a configuração e iniciar o
    Worker. Conferir healthcheck e logs sem criar trabalho automaticamente.
-8. O operador cria conscientemente uma única distribuição real, de baixo
-   risco, e confere destinatário, itens, quantidades e valores antes do envio.
+8. Na primeira necessidade real, o operador cria conscientemente a distribuição
+   legítima e confere destinatário, itens, quantidades e valores. Não criar uma
+   operação fiscal artificial apenas para testar produção.
 9. Acompanhar os estados `PENDENTE` → `PROCESSANDO` → `EMITINDO` → `EMITIDA`,
    abrir XML/DANFE e conferir a nota diretamente no portal.
 10. Só depois dessa prova liberar o uso diário. Cancelamento real deve ter um
@@ -108,8 +109,12 @@ de variável.
   `AMBIENTE_EMISSAO=normal`, produção explicitamente habilitada, concorrência 1,
   cancelamentos desligados e container `healthy`.
 - Log de partida: `Worker persistente iniciado no ambiente normal`.
-- Pendente: operador confirmar o selo **Produção** após login e criar somente
-  uma distribuição real de baixo risco para a prova ponta a ponta.
+- O operador confirmou o ambiente de produção, os três emitentes e quatro
+  produtos ativos visíveis. Produção está **preparada**, não validada ponta a
+  ponta: falta a primeira distribuição legítima e sua conferência completa.
+- A limpeza controlada do histórico de homologação está especificada em
+  `LIMPEZA-INICIO-PRODUCAO.md` e foi concluída com autorização: histórico e
+  Storage ficaram vazios, cadastros foram preservados e o próximo lote será 1.
 
 ## Parada e reversão
 

@@ -4,7 +4,14 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
-import { produtos, regrasFiscais, tarefaItens, tarefas } from "@/db/schema";
+import {
+  disponibilidades,
+  precosCliente,
+  produtos,
+  regrasFiscais,
+  tarefaItens,
+  tarefas,
+} from "@/db/schema";
 import { exigirSessaoAdministrativa } from "@/lib/auth-server";
 import {
   ErroFormulario,
@@ -111,6 +118,14 @@ function revalidarProdutos() {
   revalidatePath("/");
   revalidatePath("/produtos");
   revalidatePath("/distribuicao");
+}
+
+function exigirExclusaoTemporariaHabilitada() {
+  if (process.env.PERMITIR_EXCLUSAO_CADASTROS !== "true") {
+    throw new ErroFormulario(
+      "A exclusão temporária está desabilitada. Use ativo/inativo para preservar o histórico.",
+    );
+  }
 }
 
 export async function criarProduto(
@@ -237,4 +252,64 @@ export async function reativarProduto(
 
   revalidarProdutos();
   redirect("/produtos?salvo=produto-reativado");
+}
+
+/**
+ * Exceção temporária para remover cadastros fictícios antes do primeiro uso
+ * real. Exige produto já inativo, flag explícita e ausência de histórico.
+ */
+export async function excluirProdutoTeste(
+  _estado: EstadoFormulario,
+  formData: FormData,
+): Promise<EstadoFormulario> {
+  await exigirSessaoAdministrativa();
+  try {
+    exigirExclusaoTemporariaHabilitada();
+    const produtoId = exigirUuid(
+      String(formData.get("produtoId") ?? ""),
+      "Produto",
+    );
+
+    await db.transaction(async (tx) => {
+      const [produto] = await tx
+        .select({ id: produtos.id, ativo: produtos.ativo })
+        .from(produtos)
+        .where(eq(produtos.id, produtoId))
+        .limit(1);
+      if (!produto) throw new ErroFormulario("Produto não encontrado.");
+      if (produto.ativo) {
+        throw new ErroFormulario("Desative o produto antes de excluí-lo.");
+      }
+
+      const [usoEmDistribuicao] = await tx
+        .select({ id: disponibilidades.id })
+        .from(disponibilidades)
+        .where(eq(disponibilidades.produtoId, produtoId))
+        .limit(1);
+      const [usoEmTarefa] = await tx
+        .select({ id: tarefaItens.id })
+        .from(tarefaItens)
+        .where(eq(tarefaItens.produtoId, produtoId))
+        .limit(1);
+      if (usoEmDistribuicao || usoEmTarefa) {
+        throw new ErroFormulario(
+          "Este produto possui histórico e não pode ser excluído. Mantenha-o desativado.",
+        );
+      }
+
+      await tx.delete(precosCliente).where(eq(precosCliente.produtoId, produtoId));
+      const excluidos = await tx
+        .delete(produtos)
+        .where(and(eq(produtos.id, produtoId), eq(produtos.ativo, false)))
+        .returning({ id: produtos.id });
+      if (excluidos.length !== 1) {
+        throw new ErroFormulario("O produto mudou durante a operação. Atualize a página.");
+      }
+    });
+  } catch (erro) {
+    return falhaFormulario(erro, "Não foi possível excluir o produto de teste.");
+  }
+
+  revalidarProdutos();
+  redirect("/produtos?salvo=produto-excluido");
 }

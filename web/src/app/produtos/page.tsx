@@ -8,6 +8,7 @@ import {
   atualizarProduto,
   criarProduto,
   desativarProduto,
+  excluirProdutoTeste,
   listarProdutos,
   listarRegrasFiscaisAtivas,
   reativarProduto,
@@ -19,6 +20,7 @@ const MENSAGENS_SALVAMENTO: Record<string, string> = {
   "produto-atualizado": "Produto atualizado com sucesso.",
   "produto-desativado": "Produto desativado. O histórico foi preservado.",
   "produto-reativado": "Produto reativado e disponível novamente.",
+  "produto-excluido": "Produto de teste excluído definitivamente.",
 };
 
 export default async function ProdutosPage({
@@ -37,6 +39,7 @@ export default async function ProdutosPage({
     : undefined;
   const produtosAtivos = produtos.filter((produto) => produto.ativo);
   const produtosInativos = produtos.filter((produto) => !produto.ativo);
+  const exclusaoTemporaria = process.env.PERMITIR_EXCLUSAO_CADASTROS === "true";
 
   return (
     <div>
@@ -352,6 +355,17 @@ export default async function ProdutosPage({
                     Reativar
                   </PrimaryButton>
                 </FormularioComFeedback>
+                {exclusaoTemporaria && (
+                  <FormularioComFeedback
+                    action={excluirProdutoTeste}
+                    confirmMessage={`Excluir definitivamente o produto de teste “${produto.descricao}”? Esta ação não pode ser desfeita.`}
+                  >
+                    <input type="hidden" name="produtoId" value={produto.id} />
+                    <button type="submit" className="tap-target min-h-11 text-[13px] text-[var(--stamp)]">
+                      Excluir produto de teste
+                    </button>
+                  </FormularioComFeedback>
+                )}
               </div>
             ))}
           </Card>

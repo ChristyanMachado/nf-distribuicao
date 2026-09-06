@@ -36,7 +36,9 @@ um portal autenticado, sem misturar autorização administrativa nesta entrega.
   redeployado com ambiente `normal` e o Worker está saudável na VM, também em
   `normal`, com concorrência 1 e cancelamentos temporariamente desligados. A
   consulta normal já foi validada em modo somente leitura no host real. Falta
-  a primeira emissão real de baixo risco, criada e conferida pelo operador.
+  a primeira emissão real legítima, criada e conferida pelo operador. Não será
+  criada uma operação fiscal artificial para teste. O estado correto até essa
+  prova é **preparada, ainda não validada ponta a ponta**.
 
 Migrações `0001`–`0013` e `0015` estão ativas. A `0014` (restrição de RPC anônimo no
 sistema de ponto compartilhado) permanece preparada, fora do journal e
@@ -55,10 +57,10 @@ banco de teste e passou no verificador de privilégios.
 
 0. Publicar Web e Worker com o mesmo código fiscal. **Concluído.**
 1. Rota normal de Consulta validada sem pesquisar nem alterar nota. **Concluído.**
-2. Fazer a virada coordenada Web/Worker. **Concluído; falta o operador confirmar
-   visualmente o selo Produção após login.**
-3. Emitir uma única nota real criada conscientemente pelo operador e conferir
-   banco, XML, DANFE, portal e logs.
+2. Fazer a virada coordenada Web/Worker e confirmar visualmente o selo
+   Produção após login. **Concluído.**
+3. Quando surgir a primeira distribuição legítima, acompanhar sua emissão e
+   conferir banco, XML, DANFE, portal e logs.
 4. Só depois ensaiar cancelamento real separado, iniciado e confirmado pelo
    operador; nunca repetir resultado incerto.
 
@@ -70,6 +72,10 @@ banco de teste e passou no verificador de privilégios.
    e a densidade da nova impressão compacta em PC e celular.
 8. Ensaiar a limpeza da migration `0011`; depois retomar container/VM e operação
    persistente. O Web já está publicado e o ciclo conectado foi comprovado.
+9. Limpeza controlada do histórico de homologação concluída com autorização;
+   `precos_cliente` e todos os cadastros foram preservados. **Concluído.**
+10. Excluir manualmente os dois produtos e o cliente fictício usando a ação
+    temporária; depois desligar a flag e remover definitivamente essa exceção.
 
 ## Próximas entregas de código
 

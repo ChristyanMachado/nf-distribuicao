@@ -4,7 +4,15 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
-import { clientes, emitentes, clienteEmitentes, tarefas } from "@/db/schema";
+import {
+  clientes,
+  emitentes,
+  clienteEmitentes,
+  distribuicoes,
+  notas,
+  precosCliente,
+  tarefas,
+} from "@/db/schema";
 import { exigirSessaoAdministrativa } from "@/lib/auth-server";
 import {
   ErroFormulario,
@@ -102,6 +110,14 @@ function revalidarCadastros() {
   revalidatePath("/clientes");
   revalidatePath("/distribuicao");
   revalidatePath("/entregas");
+}
+
+function exigirExclusaoTemporariaHabilitada() {
+  if (process.env.PERMITIR_EXCLUSAO_CADASTROS !== "true") {
+    throw new ErroFormulario(
+      "A exclusão temporária está desabilitada. Use ativo/inativo para preservar o histórico.",
+    );
+  }
 }
 
 export async function criarCliente(
@@ -229,4 +245,70 @@ export async function reativarCliente(
   }
   revalidarCadastros();
   redirect("/clientes?salvo=cliente-reativado");
+}
+
+/**
+ * Exceção temporária para remover um destinatário fictício antes da produção.
+ * Clientes ativos ou com qualquer histórico permanecem protegidos.
+ */
+export async function excluirClienteTeste(
+  _estado: EstadoFormulario,
+  formData: FormData,
+): Promise<EstadoFormulario> {
+  await exigirSessaoAdministrativa();
+  try {
+    exigirExclusaoTemporariaHabilitada();
+    const clienteId = exigirUuid(
+      String(formData.get("clienteId") ?? ""),
+      "Cliente",
+    );
+
+    await db.transaction(async (tx) => {
+      const [cliente] = await tx
+        .select({ id: clientes.id, ativo: clientes.ativo })
+        .from(clientes)
+        .where(eq(clientes.id, clienteId))
+        .limit(1);
+      if (!cliente) throw new ErroFormulario("Cliente não encontrado.");
+      if (cliente.ativo) {
+        throw new ErroFormulario("Desative o cliente antes de excluí-lo.");
+      }
+
+      const [usoEmDistribuicao] = await tx
+        .select({ id: distribuicoes.id })
+        .from(distribuicoes)
+        .where(eq(distribuicoes.clienteId, clienteId))
+        .limit(1);
+      const [usoEmTarefa] = await tx
+        .select({ id: tarefas.id })
+        .from(tarefas)
+        .where(eq(tarefas.clienteId, clienteId))
+        .limit(1);
+      const [usoEmNota] = await tx
+        .select({ id: notas.id })
+        .from(notas)
+        .where(eq(notas.clienteId, clienteId))
+        .limit(1);
+      if (usoEmDistribuicao || usoEmTarefa || usoEmNota) {
+        throw new ErroFormulario(
+          "Este cliente possui histórico e não pode ser excluído. Mantenha-o desativado.",
+        );
+      }
+
+      await tx.delete(precosCliente).where(eq(precosCliente.clienteId, clienteId));
+      await tx.delete(clienteEmitentes).where(eq(clienteEmitentes.clienteId, clienteId));
+      const excluidos = await tx
+        .delete(clientes)
+        .where(and(eq(clientes.id, clienteId), eq(clientes.ativo, false)))
+        .returning({ id: clientes.id });
+      if (excluidos.length !== 1) {
+        throw new ErroFormulario("O cliente mudou durante a operação. Atualize a página.");
+      }
+    });
+  } catch (erro) {
+    return falhaFormulario(erro, "Não foi possível excluir o cliente de teste.");
+  }
+
+  revalidarCadastros();
+  redirect("/clientes?salvo=cliente-excluido");
 }
