@@ -24,8 +24,10 @@ executa cada tarefa em um `BrowserContext` independente.
   `/emitir/destinatario`. O erro original era o timeout do primeiro locator
   `CNPJ`, ocultado pelo wrapper de `main.py:1119`; os dados do destinatário
   ainda não haviam sido lidos. A correção local estabiliza apenas essa
-  fronteira e confirma a âncora de Destinatário antes de prosseguir. VM ainda
-  não atualizada; produção permanece preparada, mas não validada ponta a ponta.
+  fronteira e confirma a âncora de Destinatário antes de prosseguir. A revisão
+  `cabf9a4` foi instalada na VM com autorização, após backup e auditorias; o
+  container está saudável e sem reinícios. Produção permanece preparada, mas
+  não validada ponta a ponta até o reprocessamento legítimo.
 
 - A transição fiscal para produção está implementada localmente e protegida
   por ambiente no snapshot, correspondência obrigatória Web/Worker, validação

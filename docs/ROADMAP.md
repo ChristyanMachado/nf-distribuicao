@@ -40,8 +40,8 @@ um portal autenticado, sem misturar autorização administrativa nesta entrega.
   concluir a primeira emissão real legítima. A primeira distribuição legítima
   já foi criada, mas duas tentativas falharam com segurança antes do
   destinatário e sem emissão. O diagnóstico comprovou uma corrida na
-  estabilização do emitente em produção; a correção mínima está validada
-  localmente e aguarda implantação controlada na VM. Não será criada uma
+  estabilização do emitente em produção; a correção mínima foi validada e
+  implantada de forma controlada na VM. Não será criada uma
   operação fiscal artificial para teste. O estado correto até a prova final é
   **preparada, ainda não validada ponta a ponta**.
 
@@ -66,6 +66,7 @@ banco de teste e passou no verificador de privilégios.
    Produção após login. **Concluído.**
 3. Implantar na VM a correção local da transição Emitente → Destinatário, com
    autorização e conferência prévia de que não existe outra tarefa em execução.
+   **Concluído na revisão `cabf9a4`.**
 4. Reprocessar de forma controlada a primeira distribuição legítima e conferir
    banco, XML, DANFE, portal e logs.
 5. Só depois ensaiar cancelamento real separado, iniciado e confirmado pelo

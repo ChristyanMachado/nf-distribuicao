@@ -24,9 +24,12 @@
   destinatário e registra uma mensagem específica. Não há repetição cega do
   clique nem mudança nas demais esperas fiscais.
 - Validação local após a correção: 19 testes focados e **263 testes Worker**
-  passaram. A VM permanece intocada nesta etapa. Próximo gate: publicar a
-  correção na VM apenas com autorização, depois fazer uma nova tentativa
-  controlada da distribuição legítima e acompanhar os logs.
+  passaram. Com autorização explícita, a revisão `cabf9a4` foi instalada na
+  VM preservando o `.env` com modo `600` e mantendo backup recuperável da
+  versão `d8bb52f`. Antes da partida, Chromium, privilégios mínimos e canal do
+  banco passaram; havia zero tarefa elegível. O container iniciou saudável,
+  sem reinícios, em ambiente normal. Próximo gate: o operador usar `Tentar
+  novamente` somente na distribuição legítima que falhou e acompanhar os logs.
 
 ## Análise de reestruturação Fiscal/Financeiro — 06/09/2026
 
