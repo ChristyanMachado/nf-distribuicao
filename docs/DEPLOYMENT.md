@@ -8,9 +8,9 @@ e `VM.Standard.E2.1.Micro`; ela executa o Worker em homologação desde 05/09,
 com concorrência 1, polling 5s e healthcheck validado. O intervalo menor elimina
 até 25s ociosos entre tarefas sem alterar o ritmo de interação com a Receita.
 O ensaio com concorrência
-2 falhou nos menus da Receita antes da emissão e foi revertido. Nenhuma credencial
-de produção foi criada por esta decisão e a liberação fiscal real continua
-bloqueada pelas fases de homologação do `docs/ROADMAP.md`.
+2 falhou nos menus da Receita antes da emissão e foi revertido. O piloto real
+agora está implementado com concorrência 1, mas sua ativação continua sujeita à
+virada coordenada e às provas humanas de `docs/PRODUCAO-FISCAL.md`.
 
 ## Topologia recomendada
 
@@ -105,6 +105,8 @@ Configure no painel do Vercel, em Settings → Environment Variables:
 - `SUPABASE_STORAGE_BUCKET=documentos-fiscais`;
 - `APP_AUTH_ENABLED=true`;
 - `APP_SESSION_SECRET` forte;
+- `AMBIENTE_EMISSAO=teste` durante homologação ou `normal` somente na virada
+  coordenada com o Worker; novas tarefas preservam esse valor no snapshot;
 - para o fallback atual: `APP_AUTH_PROVIDER=administrativo`,
   `APP_ADMIN_USER` e `APP_ADMIN_PASSWORD`;
 - para reutilizar usuários existentes: `APP_AUTH_PROVIDER=supabase` e
@@ -177,6 +179,20 @@ ARMAZENAR_DOCUMENTOS="true"
 LIMPAR_DOCUMENTOS_EXPIRADOS="true"
 PROCESSAR_RECUPERACOES_DOCUMENTOS="true"
 ```
+
+Para o piloto real, substituir as três linhas de ambiente/liberação por:
+
+```dotenv
+AMBIENTE_EMISSAO="normal"
+TESTAR_EMISSAO_HOMOLOGACAO="false"
+HABILITAR_PRODUCAO_FISCAL="true"
+MODO_OPERACAO="automatico"
+MAX_CONCORRENCIA="1"
+```
+
+Não ativar a VM antes de o deploy do Web exibir o selo **Produção**. Não criar
+tarefa entre as duas trocas. O procedimento completo e a reversão segura estão
+em `docs/PRODUCAO-FISCAL.md`.
 
 O serviço fica ativo 24 horas. Limpeza, retomada de upload interrompido e
 recuperações solicitadas no Web são atendidas em qualquer horário. Somente a

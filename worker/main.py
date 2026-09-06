@@ -1,10 +1,8 @@
 """Ponto de entrada do Worker durante a migração para Playwright Async.
 
-Enquanto a migração está em andamento, este ponto de entrada executa somente
-testes controlados sobre Async Playwright: autenticação, navegação até a
-emissão e (opcionalmente) o preenchimento completo do formulário — sem
-nunca emitir no ambiente normal. Uma emissão controlada em homologação pode
-ser liberada por flag explícita; produção permanece desabilitada.
+O ambiente fiscal pertence ao contrato imutável da tarefa. Homologação e
+produção usam travas explícitas e mutuamente exclusivas; uma tarefa nunca pode
+ser desviada para o outro ambiente apenas por configuração da VM.
 """
 
 from __future__ import annotations
@@ -18,7 +16,7 @@ from contextlib import suppress
 
 from playwright.async_api import BrowserContext
 
-from src.auth import navegar_ate_consulta_teste, navegar_ate_emissao, realizar_login
+from src.auth import navegar_ate_consulta, navegar_ate_emissao, realizar_login
 from src.config import Config, carregar_config, carregar_credencial
 from src.flows import emissao as fluxo_emissao
 from src.flows.consulta import (
@@ -60,10 +58,10 @@ class FalhaPreparacaoTarefa(RuntimeError):
 
 def _validar_preparacao_reserva(reserva, config: Config):
     contratada = reserva.contratada
-    if contratada.ambiente != "teste" or config.ambiente_emissao != "teste":
+    if contratada.ambiente != config.ambiente_emissao:
         raise FalhaPreparacaoTarefa(
             "AMBIENTE_INCORRETO",
-            "A tarefa não pertence ao ambiente seguro configurado no Worker.",
+            "A tarefa pertence a outro ambiente fiscal e não será processada por este Worker.",
         )
 
     try:
@@ -144,8 +142,8 @@ async def preencher_formulario_completo(page, tarefa: Tarefa, logger) -> None:
     await etapa("transporte", fluxo_emissao.preencher_transporte(page, tarefa, logger))
 
 
-async def executar_emissao_homologacao(page, tarefa: Tarefa, config: Config, logger):
-    """Executa emissão de teste após as travas técnicas de homologação."""
+async def executar_emissao_fiscal(page, tarefa: Tarefa, config: Config, logger):
+    """Executa a emissão no ambiente já validado no contrato e na Page."""
     await fluxo_emissao.emitir(
         page,
         tarefa,
@@ -245,7 +243,9 @@ async def teste_autenticacao(
                     f"{tarefa_id}_EMITENTE no ambiente protegido do Worker."
                 )
             logger.info("[%s] Iniciando teste da consulta histórica", tarefa_id)
-            await navegar_ate_consulta_teste(page, logger)
+            await navegar_ate_consulta(
+                page, logger, ambiente=getattr(config, "ambiente_emissao", "teste")
+            )
             await selecionar_emitente_consulta(page, credencial.emitente, logger)
             if config.consultar_ultimo_xml:
                 xml_path = localizar_xml_autorizado_mais_recente(
@@ -305,7 +305,10 @@ async def teste_autenticacao(
                     tarefa_id,
                 )
 
-                if config.testar_emissao_homologacao:
+                if (
+                    config.testar_emissao_homologacao
+                    or getattr(config, "habilitar_producao_fiscal", False)
+                ):
                     if config.pausar_antes_emitir:
                         logger.warning(
                             "[%s] Resumo pronto. Confira quantidades, valores e "
@@ -314,10 +317,11 @@ async def teste_autenticacao(
                         )
                         await page.pause()
                     logger.warning(
-                        "[%s] TESTE CONTROLADO DE EMISSÃO EM HOMOLOGAÇÃO habilitado",
+                        "[%s] EMISSÃO FISCAL habilitada no ambiente %s",
                         tarefa_id,
+                        config.ambiente_emissao,
                     )
-                    documentos = await executar_emissao_homologacao(
+                    documentos = await executar_emissao_fiscal(
                         page,
                         tarefa_cliente,
                         config,
@@ -326,7 +330,7 @@ async def teste_autenticacao(
                     if documentos is None:
                         return
                     logger.info(
-                        "[%s] EMISSÃO DE HOMOLOGAÇÃO E DOWNLOADS CONCLUÍDOS (%s)",
+                        "[%s] EMISSÃO E DOWNLOADS CONCLUÍDOS (%s)",
                         tarefa_id,
                         ", ".join(sorted(documentos)),
                     )
@@ -658,14 +662,23 @@ async def _processar_cancelamentos_fiscais(
             etapa = "autenticacao"
             await realizar_login(page, config.sistema_fiscal_url, credenciais[cancelamento_id], logger)
             etapa = "navegacao"
-            await navegar_ate_consulta_teste(page, logger)
+            await navegar_ate_consulta(
+                page,
+                logger,
+                ambiente=cancelamento.contratada.ambiente,
+            )
             await selecionar_emitente_consulta(page, tarefa.emitente.valor_select, logger)
             etapa = "consulta"
             await pesquisar_nota_por_chave(
                 page, cancelamento.chave_acesso, logger, pausar_apos_clique=False
             )
             etapa = "cancelamento"
-            await cancelar_nota_consultada(page, motivo=cancelamento.motivo, logger=logger)
+            await cancelar_nota_consultada(
+                page,
+                motivo=cancelamento.motivo,
+                ambiente=cancelamento.contratada.ambiente,
+                logger=logger,
+            )
             await fonte.concluir_cancelamento_fiscal(cancelamento)
             logger.info("[%s] Cancelamento confirmado e registrado.", cancelamento.tarefa_id)
         except Exception as exc:
@@ -770,7 +783,11 @@ async def _processar_recuperacoes_documentos(
                 logger,
             )
             etapa = "navegacao"
-            await navegar_ate_consulta_teste(page, logger)
+            await navegar_ate_consulta(
+                page,
+                logger,
+                ambiente=recuperacao.contratada.ambiente,
+            )
             await selecionar_emitente_consulta(
                 page,
                 tarefa.emitente.valor_select,
@@ -845,7 +862,7 @@ async def _processar_recuperacoes_documentos(
     return houve_falha or any(not resultado.sucesso for resultado in resultados)
 
 
-async def executar_fila_banco_homologacao(
+async def executar_fila_banco(
     config: Config,
     logger,
     *,
@@ -853,7 +870,7 @@ async def executar_fila_banco_homologacao(
     usar_janela_operacional: bool = False,
     sinalizar_trabalho_concluido: bool = False,
 ) -> int:
-    """Processa até três tarefas do banco, exclusivamente em homologação.
+    """Processa tarefas do banco no ambiente fiscal configurado.
 
     O token de reserva acompanha todas as mudanças de estado. Falhas depois
     de entrar em EMITINDO nunca voltam automaticamente à fila, pois o clique
@@ -963,7 +980,11 @@ async def executar_fila_banco_homologacao(
                         logger,
                     )
                     etapa = "navegacao"
-                    await navegar_ate_emissao(page, logger, ambiente="teste")
+                    await navegar_ate_emissao(
+                        page,
+                        logger,
+                        ambiente=contratada.ambiente,
+                    )
                     etapa = "preenchimento"
                     await preencher_formulario_completo(
                         page,
@@ -974,11 +995,15 @@ async def executar_fila_banco_homologacao(
                         tarefa_id,
                         reserva.reserva_token,
                         "EMITINDO",
-                        mensagem="Formulário conferido; emissão em homologação iniciada.",
+                        mensagem=(
+                            "Formulário conferido; emissão fiscal de produção iniciada."
+                            if contratada.ambiente == "normal"
+                            else "Formulário conferido; emissão em homologação iniciada."
+                        ),
                     )
                     entrou_em_emissao = True
                     etapa = "emissao"
-                    documentos = await executar_emissao_homologacao(
+                    documentos = await executar_emissao_fiscal(
                         page,
                         contratada.tarefa,
                         config,
@@ -1156,9 +1181,10 @@ def main() -> int:
     if config.fonte_tarefas == "banco":
         if config.processar_fila_banco:
             logger.warning(
-                "FONTE_TAREFAS=banco — processando fila exclusivamente em homologação"
+                "FONTE_TAREFAS=banco — processando fila no ambiente %s",
+                config.ambiente_emissao,
             )
-            return asyncio.run(executar_fila_banco_homologacao(config, logger))
+            return asyncio.run(executar_fila_banco(config, logger))
         logger.info(
             "FONTE_TAREFAS=banco — validando contratos sem abrir o navegador"
         )

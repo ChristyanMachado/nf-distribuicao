@@ -71,6 +71,16 @@ def test_emitir_clica_somente_no_dominio_de_homologacao():
     assert pagina.botao.clicado is True
 
 
+def test_emitir_clica_no_dominio_de_producao_quando_ambiente_corresponde():
+    pagina = PaginaEmissaoFalsa(
+        "https://nfae.fazenda.pr.gov.br/nfae/produtor/emitir/resumo"
+    )
+
+    asyncio.run(emitir(pagina, _tarefa_fake("T1"), _logger_silencioso(), ambiente="normal"))
+
+    assert pagina.botao.clicado is True
+
+
 @pytest.mark.parametrize(
     ("url", "ambiente"),
     [
@@ -79,10 +89,10 @@ def test_emitir_clica_somente_no_dominio_de_homologacao():
         ("https://homologacao.nfae.fazenda.pr.gov.br.evil.example/nfae/x", "teste"),
     ],
 )
-def test_emitir_bloqueia_fora_da_homologacao(url, ambiente):
+def test_emitir_bloqueia_quando_host_e_ambiente_nao_correspondem(url, ambiente):
     pagina = PaginaEmissaoFalsa(url)
 
-    with pytest.raises(EmissaoBloqueada, match="homologação"):
+    with pytest.raises(EmissaoBloqueada, match="ambiente fiscal"):
         asyncio.run(
             emitir(
                 pagina,
@@ -144,6 +154,22 @@ def test_aguarda_status_autorizada_confirmado_em_homologacao():
             _tarefa_fake("T1"),
             _logger_silencioso(),
             ambiente="teste",
+        )
+    )
+
+    assert pagina.status.aguardado is True
+
+
+def test_aguarda_status_autorizada_confirmado_em_producao():
+    pagina = PaginaAutorizadaFalsa()
+    pagina.url = "https://nfae.fazenda.pr.gov.br/nfae/produtor/emitir/resumo"
+
+    asyncio.run(
+        aguardar_autorizacao(
+            pagina,
+            _tarefa_fake("T1"),
+            _logger_silencioso(),
+            ambiente="normal",
         )
     )
 

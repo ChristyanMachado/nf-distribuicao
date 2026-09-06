@@ -1,4 +1,4 @@
-"""Laço persistente do Worker para VM/container, ainda só em homologação."""
+"""Laço persistente do Worker para VM/container fiscal."""
 from __future__ import annotations
 
 import asyncio
@@ -10,7 +10,7 @@ from pathlib import Path
 import signal
 from typing import Awaitable, Callable
 
-from main import executar_fila_banco_homologacao
+from main import executar_fila_banco
 from scripts.verificar_privilegios_banco import verificar as verificar_privilegios
 from .config import Config, carregar_config
 from .utils.logging import configurar_logger
@@ -22,7 +22,7 @@ ExecutorFila = Callable[[Config, logging.Logger], Awaitable[int]]
 async def _executar_ciclo_persistente(config: Config, logger: logging.Logger) -> int:
     """Mantém recuperação 24h e restringe emissões à janela operacional."""
 
-    return await executar_fila_banco_homologacao(
+    return await executar_fila_banco(
         config,
         logger,
         silencioso_sem_tarefas=True,
@@ -90,8 +90,9 @@ async def executar_servico(
     ciclos = 0
 
     logger.info(
-        "Worker persistente iniciado em homologação; recuperações 24h e "
+        "Worker persistente iniciado no ambiente %s; recuperações 24h e "
         "janela de novas emissões carregada do banco.",
+        getattr(config, "ambiente_emissao", "teste"),
     )
     while not parar.is_set():
         _gravar_saude(saude, estado="processando", codigo_saida=0)

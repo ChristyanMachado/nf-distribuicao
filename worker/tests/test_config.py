@@ -16,6 +16,7 @@ def _preparar_env_minimo(monkeypatch):
     monkeypatch.delenv("TESTAR_NAVEGACAO_CONSULTA", raising=False)
     monkeypatch.delenv("TESTAR_PREENCHIMENTO_COMPLETO", raising=False)
     monkeypatch.delenv("TESTAR_EMISSAO_HOMOLOGACAO", raising=False)
+    monkeypatch.delenv("HABILITAR_PRODUCAO_FISCAL", raising=False)
     monkeypatch.delenv("CONSULTAR_ULTIMO_XML", raising=False)
     monkeypatch.delenv("BAIXAR_DOCUMENTOS_CONSULTA", raising=False)
     monkeypatch.delenv("PAUSAR_APOS_DOWNLOADS", raising=False)
@@ -182,6 +183,53 @@ def _habilitar_emissao_homologacao(monkeypatch):
     monkeypatch.setenv("TESTAR_NAVEGACAO_EMISSAO", "true")
     monkeypatch.setenv("TESTAR_PREENCHIMENTO_COMPLETO", "true")
     monkeypatch.setenv("TESTAR_EMISSAO_HOMOLOGACAO", "true")
+
+
+def _habilitar_emissao_producao(monkeypatch):
+    _preparar_env_minimo(monkeypatch)
+    monkeypatch.setenv("AMBIENTE_EMISSAO", "normal")
+    monkeypatch.setenv("HABILITAR_PRODUCAO_FISCAL", "true")
+    monkeypatch.setenv("MODO_OPERACAO", "automatico")
+    monkeypatch.setenv("TESTAR_NAVEGACAO_EMISSAO", "true")
+    monkeypatch.setenv("TESTAR_PREENCHIMENTO_COMPLETO", "true")
+    monkeypatch.setenv("FONTE_TAREFAS", "banco")
+    monkeypatch.setenv("WORKER_DATABASE_URL", "postgresql://usuario@localhost/teste")
+    monkeypatch.setenv("WORKER_ID", "worker-producao")
+    monkeypatch.setenv("TESTAR_INTEGRACAO_BANCO", "true")
+    monkeypatch.setenv("PROCESSAR_FILA_BANCO", "true")
+    monkeypatch.setenv("MAX_CONCORRENCIA", "1")
+
+
+def test_producao_exige_trava_separada_e_configuracao_coerente(monkeypatch):
+    _habilitar_emissao_producao(monkeypatch)
+
+    config = carregar_config()
+
+    assert config.ambiente_emissao == "normal"
+    assert config.habilitar_producao_fiscal is True
+    assert config.testar_emissao_homologacao is False
+    assert config.modo_operacao == "automatico"
+    assert config.max_concorrencia == 1
+
+
+def test_producao_recusa_arquivo_local_ou_concorrencia_nao_validada(monkeypatch):
+    _habilitar_emissao_producao(monkeypatch)
+    monkeypatch.setenv("FONTE_TAREFAS", "arquivo")
+    with pytest.raises(RuntimeError, match="FONTE_TAREFAS=banco"):
+        carregar_config()
+
+    _habilitar_emissao_producao(monkeypatch)
+    monkeypatch.setenv("MAX_CONCORRENCIA", "2")
+    with pytest.raises(RuntimeError, match="MAX_CONCORRENCIA=1"):
+        carregar_config()
+
+
+def test_homologacao_e_producao_nao_podem_ser_ligadas_juntas(monkeypatch):
+    _habilitar_emissao_homologacao(monkeypatch)
+    monkeypatch.setenv("HABILITAR_PRODUCAO_FISCAL", "true")
+
+    with pytest.raises(RuntimeError, match="não podem ser habilitadas juntas"):
+        carregar_config()
 
 
 def test_emissao_homologacao_controlada_carrega_com_todas_as_travas(monkeypatch):
@@ -357,7 +405,7 @@ def test_pausa_apos_downloads_exige_emissao_e_inspector(monkeypatch):
     _preparar_env_minimo(monkeypatch)
     monkeypatch.setenv("PAUSAR_APOS_DOWNLOADS", "true")
 
-    with pytest.raises(RuntimeError, match="TESTAR_EMISSAO_HOMOLOGACAO"):
+    with pytest.raises(RuntimeError, match="fluxo fiscal"):
         carregar_config()
 
     _habilitar_emissao_homologacao(monkeypatch)
@@ -374,7 +422,7 @@ def test_pausa_antes_emitir_exige_emissao_e_inspector(monkeypatch):
     _preparar_env_minimo(monkeypatch)
     monkeypatch.setenv("PAUSAR_ANTES_EMITIR", "true")
 
-    with pytest.raises(RuntimeError, match="TESTAR_EMISSAO_HOMOLOGACAO"):
+    with pytest.raises(RuntimeError, match="fluxo fiscal"):
         carregar_config()
 
     _habilitar_emissao_homologacao(monkeypatch)
@@ -409,7 +457,7 @@ def test_processar_fila_banco_exige_fonte_e_travas_de_homologacao(monkeypatch):
     monkeypatch.setenv("WORKER_DATABASE_URL", "postgresql://usuario@localhost/teste")
     monkeypatch.setenv("WORKER_ID", "worker-teste")
     monkeypatch.setenv("TESTAR_INTEGRACAO_BANCO", "true")
-    with pytest.raises(RuntimeError, match="TESTAR_EMISSAO_HOMOLOGACAO"):
+    with pytest.raises(RuntimeError, match="homologação ou produção"):
         carregar_config()
 
 

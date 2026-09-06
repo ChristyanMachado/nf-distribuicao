@@ -11,7 +11,10 @@ import {
   tarefaItens,
   tarefas,
 } from "@/db/schema";
-import { montarContratoTarefaV1 } from "@/lib/contrato-tarefa";
+import {
+  montarContratoTarefaV1,
+  validarAmbienteFiscal,
+} from "@/lib/contrato-tarefa";
 import { exigirUuid } from "@/lib/validacao";
 
 type LeitorContrato = Pick<typeof db, "select">;
@@ -121,5 +124,5 @@ export async function gerarContratoTarefaPendente(
         modalidadeFrete: item.modalidadeFrete,
       },
     })),
-  });
+  }, validarAmbienteFiscal(process.env.AMBIENTE_EMISSAO));
 }

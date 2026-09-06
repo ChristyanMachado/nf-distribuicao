@@ -356,6 +356,8 @@ class ElementoCancelamentoFalso:
 
 
 class PaginaCancelamentoFalsa:
+    url = "https://homologacao.nfae.fazenda.pr.gov.br/nfae/produtor/consulta"
+
     def __init__(
         self,
         *,
@@ -397,7 +399,7 @@ def test_cancelamento_conclui_na_tela_atual_com_mensagem_oficial() -> None:
     pagina = PaginaCancelamentoFalsa()
 
     asyncio.run(cancelar_nota_consultada(
-        pagina, motivo="Dados incorretos", logger=_logger()
+        pagina, motivo="Dados incorretos", ambiente="teste", logger=_logger()
     ))
 
     assert pagina.acao.clicado is True
@@ -410,7 +412,7 @@ def test_cancelamento_ja_confirmado_nao_e_enviado_novamente() -> None:
     pagina = PaginaCancelamentoFalsa(status="  Cancelada  ")
 
     asyncio.run(cancelar_nota_consultada(
-        pagina, motivo="Dados incorretos", logger=_logger()
+        pagina, motivo="Dados incorretos", ambiente="teste", logger=_logger()
     ))
 
     assert pagina.acao.clicado is False
@@ -426,7 +428,7 @@ def test_cancelamento_antigo_usa_retorno_do_portal_sem_inventar_prazo() -> None:
 
     with pytest.raises(CancelamentoFiscalRecusado, match="pode ser antiga demais"):
         asyncio.run(cancelar_nota_consultada(
-            pagina, motivo="Dados incorretos", logger=_logger()
+            pagina, motivo="Dados incorretos", ambiente="teste", logger=_logger()
         ))
 
 
@@ -435,5 +437,17 @@ def test_cancelamento_sem_confirmacao_fica_incerto_e_nao_presume_sucesso() -> No
 
     with pytest.raises(CancelamentoResultadoIncerto, match="Confira a nota"):
         asyncio.run(cancelar_nota_consultada(
-            pagina, motivo="Dados incorretos", logger=_logger()
+            pagina, motivo="Dados incorretos", ambiente="teste", logger=_logger()
         ))
+
+
+def test_cancelamento_recusa_pagina_de_outro_ambiente_antes_do_clique() -> None:
+    pagina = PaginaCancelamentoFalsa()
+
+    with pytest.raises(Exception, match="página e ambiente fiscal não correspondem"):
+        asyncio.run(cancelar_nota_consultada(
+            pagina, motivo="Dados incorretos", ambiente="normal", logger=_logger()
+        ))
+
+    assert pagina.acao.clicado is False
+    assert pagina.confirmar.clicado is False

@@ -69,16 +69,23 @@ def _assinatura_operacao(item: Mapping[str, Any]) -> tuple[Any, ...]:
     )
 
 
-def montar_payload_contrato(cabecalho: Mapping[str, Any], itens: list[Mapping[str, Any]]) -> dict[str, Any]:
+def montar_payload_contrato(
+    cabecalho: Mapping[str, Any],
+    itens: list[Mapping[str, Any]],
+    *,
+    ambiente: str = "teste",
+) -> dict[str, Any]:
     """Converte a projeção SQL em contrato v1; a validação final é centralizada."""
     if not itens:
         raise FonteTarefasErro("Tarefa reservada não possui itens.")
+    if ambiente not in {"teste", "normal"}:
+        raise FonteTarefasErro("Ambiente fiscal do contrato é inválido.")
     regra = itens[0]
     if any(_assinatura_operacao(item) != _assinatura_operacao(regra) for item in itens):
         raise FonteTarefasErro("Itens da tarefa possuem regras operacionais incompatíveis.")
     return {
         "versaoContrato": 1,
-        "ambiente": "teste",
+        "ambiente": ambiente,
         "tarefa": {
             "id": str(cabecalho["tarefa_id"]),
             "clienteId": str(cabecalho["cliente_id"]),

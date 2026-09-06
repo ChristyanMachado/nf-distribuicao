@@ -14,6 +14,7 @@ from pathlib import Path
 
 from playwright.async_api import Locator, Page, TimeoutError as PlaywrightTimeoutError
 
+from ..auth import AmbienteEmissao, exigir_pagina_consulta
 from .emissao import (
     FalhaDownloadDocumento,
     baixar_documento_por_acao,
@@ -144,6 +145,7 @@ async def cancelar_nota_consultada(
     page: Page,
     *,
     motivo: str,
+    ambiente: AmbienteEmissao,
     logger: logging.Logger,
 ) -> None:
     """Cancela a única nota consultada e exige a prova na resposta atual.
@@ -157,6 +159,7 @@ async def cancelar_nota_consultada(
     """
 
     motivo_limpo = _normalizar_motivo_cancelamento(motivo)
+    exigir_pagina_consulta(page.url, ambiente)
 
     try:
         status = page.locator(SELETOR_STATUS_RESULTADO).last
@@ -195,6 +198,9 @@ async def cancelar_nota_consultada(
     # A partir do início deste clique, qualquer interrupção é ambígua: o portal
     # pode ter recebido a confirmação mesmo sem responder ao navegador.
     try:
+        # Revalidar imediatamente antes do primeiro efeito fiscal protege
+        # contra redirecionamentos ocorridos após a consulta da chave.
+        exigir_pagina_consulta(page.url, ambiente)
         await page.get_by_role("button", name="Confirmar", exact=True).click(
             timeout=15_000
         )

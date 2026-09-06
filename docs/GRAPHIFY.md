@@ -66,7 +66,7 @@ No PowerShell, a partir da raiz do projeto:
 # Consultas com orçamento pequeno de contexto
 .\.tools\graphify\Scripts\graphify.exe query "como a tarefa vai do banco ao Worker" --budget 1200
 .\.tools\graphify\Scripts\graphify.exe explain "FontePostgresTarefas"
-.\.tools\graphify\Scripts\graphify.exe path "FontePostgresTarefas" "executar_emissao_homologacao()" --undirected
+.\.tools\graphify\Scripts\graphify.exe path "FontePostgresTarefas" "executar_emissao_fiscal()" --undirected
 ```
 
 Reconstrução completa só é necessária após mudança de parser ou suspeita de

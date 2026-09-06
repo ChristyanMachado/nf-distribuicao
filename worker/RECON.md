@@ -21,8 +21,9 @@ AMBIENTE_EMISSAO=teste é o padrão.
 
 O fluxo após Emissão - TESTE usa as mesmas telas/campos reconhecidos no ambiente normal.
 
-Produção continua bloqueada; Emitir só é chamado no host exato de homologação e
-com todas as travas explícitas do Worker.
+O piloto de produção foi implementado em 06/09/2026. `Emitir` só é chamado no
+host exato correspondente ao ambiente imutável da tarefa e com todas as travas
+explícitas do Worker. A ativação operacional segue `docs/PRODUCAO-FISCAL.md`.
 
 Observação operacional
 
@@ -409,12 +410,13 @@ permitindo o envio posterior ao Storage privado.
 Ainda falta capturar o seletor/texto do estado rejeitado, os totais do Resumo
 e eventual modal intermediário.
 
-Atualização posterior: o `main.py` pode executar uma emissão **somente em
-homologação** quando `TESTAR_EMISSAO_HOMOLOGACAO=true`. A flag é bloqueada em
-ambiente normal e o próprio `emitir()` confere o host da Page antes de clicar.
-Não há confirmação por terminal: a flag é a autorização explícita do teste.
-Até três clientes podem emitir em paralelo com `MAX_CONCORRENCIA=3`.
-Produção continua indisponível.
+Atualização de 06/09: o `main.py` aceita homologação com
+`TESTAR_EMISSAO_HOMOLOGACAO=true` ou o piloto real com
+`HABILITAR_PRODUCAO_FISCAL=true`; as flags são mutuamente exclusivas. Produção
+exige banco, modo automático e `MAX_CONCORRENCIA=1`. O próprio `emitir()` e o
+cancelamento conferem novamente o host da Page antes do efeito fiscal. Em
+homologação, até três clientes continuam tecnicamente aceitos, embora a VM
+Micro validada permaneça com concorrência 1.
 
 11. Validação atual do fluxo
 

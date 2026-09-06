@@ -20,6 +20,7 @@ def main():
         re.fullmatch(r'CLIENTE_[A-Z0-9_]+_(LOGIN|SENHA|IDENTIDADE_ESPERADA|EMITENTE|NOME_EMITENTE)', k))}
     valores.update(WORKER_DATABASE_URL=url, WORKER_ID='worker-vm-homologacao',
         FONTE_TAREFAS='banco', AMBIENTE_EMISSAO='teste', MAX_CONCORRENCIA='1',
+        HABILITAR_PRODUCAO_FISCAL='false',
         DOWNLOAD_DIR='/app/downloads', LOG_DIR='/app/logs', DOCUMENTOS_RETENCAO_DIAS='30',
         WORKER_POLL_SECONDS='30')
     for nome in ('SMOKE_TEST', 'TESTAR_INTEGRACAO_BANCO', 'PROCESSAR_FILA_BANCO',

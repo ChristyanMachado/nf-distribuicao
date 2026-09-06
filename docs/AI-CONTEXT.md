@@ -16,6 +16,16 @@ executa cada tarefa em um `BrowserContext` independente.
 
 ## Estado validado em 06/09/2026
 
+- A transição fiscal para produção está implementada localmente e protegida
+  por ambiente no snapshot, correspondência obrigatória Web/Worker, validação
+  do host imediatamente antes dos efeitos fiscais e flags mutuamente
+  exclusivas. O Web exibe selo Teste/Produção. Emissão normal usa `Emissão` no
+  host `nfae.fazenda.pr.gov.br`; consulta normal usa a opção `Consulta` no mesmo
+  host, ainda pendente de uma prova visual somente de leitura antes da virada.
+  O roteiro autoritativo é `PRODUCAO-FISCAL.md`. Não considerar produção
+  liberada enquanto essa prova e uma emissão real conscientemente criada pelo
+  operador não forem concluídas.
+
 - Cancelamento fiscal RF23 está implementado e testado localmente. Há
   fila própria `fiscal.cancelamentos_fiscais`, motivo editável, idempotência,
   lease/token e prova obrigatória na resposta atual pelo texto oficial. O
@@ -105,7 +115,8 @@ executa cada tarefa em um `BrowserContext` independente.
   relatórios operacionais; interface responsiva e fluxo diário reduzido.
 - Worker: Playwright Async, 1 Browser + até 3 contextos isolados. Login,
   preenchimento, autorização em homologação e download de XML/DANFE já foram
-  demonstrados ao vivo. Produção permanece bloqueada.
+  demonstrados ao vivo. O piloto de produção está implementado com
+  concorrência obrigatória 1 e aguarda o checklist humano de liberação.
 - A fonte de banco está ligada ao `main.py`. Com `FONTE_TAREFAS=banco` e as
   flags de integração, o modo seguro reserva, valida e devolve a tarefa a
   `PENDENTE`. Com `PROCESSAR_FILA_BANCO=true` e todas as travas de homologação,
@@ -128,8 +139,10 @@ executa cada tarefa em um `BrowserContext` independente.
   etapa e o Web mostra “o que aconteceu” + “o que fazer”. O botão **Tentar
   novamente** aparece somente para falhas pré-emissão permitidas por lista
   fechada; resultado fiscal incerto nunca volta à fila.
-- Validação mais recente: **246 testes Worker** e **106 testes Web** passaram;
-  TypeScript e `compileall` também passaram. Ver `HANDOFF.md` para o build.
+- Validação local mais recente: **262 testes Worker** e **110 testes Web**
+  passaram; build Next.js, TypeScript, `compileall` e preflight testado também
+  passaram. O preflight operacional local só permanece bloqueado porque o
+  `.env` de desenvolvimento não contém as credenciais `APP_*` do Vercel.
 - O serviço persistente permanece disponível 24 horas para limpeza, retomada de
   upload e recuperação histórica. Apenas a reserva de novas emissões usa a
   janela configurável no Web e persistida no banco, padrão `00:00–06:00` em
@@ -335,11 +348,11 @@ Ctrl+V está implementada, mas permanece no gate de validação pré-emissão.
    consumir a fila. Docker/Compose, imagem e Chromium já foram validados.
 4. Usar exclusivamente `nf_worker_vm`, já criada e auditada; iniciar o serviço
    somente quando não houver tarefa involuntária elegível.
-5. Repetir o fluxo conectado com até 3 tarefas/contextos simultâneos, medindo
-   CPU/RAM, isolamento, tempo e fronteiras da janela; depois adicionar alertas.
+5. Manter a VM Micro em concorrência 1 no piloto. Reavaliar paralelismo somente
+   numa máquina maior, medindo CPU/RAM, isolamento, tempo e fronteiras da janela.
 6. Validar a limpeza isolada da migration `0011` num documento de teste vencido. Manter a flag desligada até esse
-   ensaio; produção segue bloqueada até autenticação/autorização definitiva,
-   backup, recuperação e piloto humano aprovado.
+   ensaio; o piloto real segue condicionado à virada coordenada, backup e
+   aprovação humana de `PRODUCAO-FISCAL.md`.
 
 ## Índice local de código
 

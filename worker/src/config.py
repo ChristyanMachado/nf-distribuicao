@@ -68,6 +68,10 @@ class Config:
     # código exige AMBIENTE_EMISSAO=teste, HEADLESS=false e confere o domínio
     # da Page no instante do clique. O teste fiscal permite até 3 contextos.
     testar_emissao_homologacao: bool
+    # Trava separada para efeitos fiscais reais. Só é aceita com ambiente
+    # normal, fila do banco e modo automático; nunca substitui a confirmação
+    # do usuário que cria a distribuição ou solicita um cancelamento no Web.
+    habilitar_producao_fiscal: bool
     # Limite opcional de contextos/abas simultâneos. None = sem limite (hoje
     # equivalente a len(clientes_ativos), já que só 3 foram testados). Existe
     # pra quando o worker crescer de 3 pra N tarefas num servidor com CPU/RAM
@@ -77,8 +81,8 @@ class Config:
     # Receita PR — RECOMENDADO durante desenvolvimento pra não poluir o
     # histórico fiscal real com tentativas. "normal" usa produção.
     ambiente_emissao: str
-    # Fonte local preserva o fluxo atual. "banco" é ativada apenas por flag
-    # explícita e continua limitada ao ambiente de homologação.
+    # Fonte local preserva ensaios. Produção exige "banco" para que todo efeito
+    # fiscal tenha origem em uma ação confirmada no Web e snapshot íntegro.
     fonte_tarefas: str
     # A URL contém usuário/senha do banco. ``repr=False`` impede que a
     # representação automática da configuração vaze esse segredo em logs,
@@ -90,8 +94,8 @@ class Config:
     # True permite abrir o portal e emitir somente quando todas as travas de
     # homologação acima também estiverem ativas.
     processar_fila_banco: bool
-    # Ativa o invólucro contínuo para VM/container. Continua restrito à
-    # homologação até existir uma decisão separada e auditada para produção.
+    # Ativa o invólucro contínuo para VM/container no ambiente explicitamente
+    # habilitado pelas travas acima.
     worker_persistente: bool
     # Exclusão física de XML/DANFE vencido. Desligada por padrão e só aceita
     # fonte banco + Storage privado; nunca apaga o histórico fiscal.
@@ -99,8 +103,8 @@ class Config:
     # Consulta histórica por fila própria. Exige que a limpeza tenha removido
     # os objetos vencidos antes de reenviar a cópia recuperada por sete dias.
     processar_recuperacoes_documentos: bool
-    # Cancelamento fiscal usa a consulta por chave e permanece restrito ao
-    # ambiente de homologação até uma autorização separada para produção.
+    # Cancelamento fiscal usa a consulta por chave no ambiente do snapshot. A
+    # autorização operacional é o formulário confirmado pelo usuário no Web.
     processar_cancelamentos_fiscais: bool
     # None mantém o comportamento anterior: documentos validados ficam locais.
     # Quando configurado, a chave permanece apenas no processo do Worker.
@@ -131,6 +135,9 @@ def carregar_config() -> Config:
     )
     testar_emissao_homologacao = (
         os.getenv("TESTAR_EMISSAO_HOMOLOGACAO", "false").lower() == "true"
+    )
+    habilitar_producao_fiscal = (
+        os.getenv("HABILITAR_PRODUCAO_FISCAL", "false").lower() == "true"
     )
     consultar_ultimo_xml = (
         os.getenv("CONSULTAR_ULTIMO_XML", "false").lower() == "true"
@@ -188,13 +195,17 @@ def carregar_config() -> Config:
         raise RuntimeError(
             "BAIXAR_DOCUMENTOS_CONSULTA=true exige CONSULTAR_ULTIMO_XML=true."
         )
-    if pausar_apos_downloads and not testar_emissao_homologacao:
+    if pausar_apos_downloads and not (
+        testar_emissao_homologacao or habilitar_producao_fiscal
+    ):
         raise RuntimeError(
-            "PAUSAR_APOS_DOWNLOADS=true exige TESTAR_EMISSAO_HOMOLOGACAO=true."
+            "PAUSAR_APOS_DOWNLOADS=true exige um fluxo fiscal explicitamente habilitado."
         )
-    if pausar_antes_emitir and not testar_emissao_homologacao:
+    if pausar_antes_emitir and not (
+        testar_emissao_homologacao or habilitar_producao_fiscal
+    ):
         raise RuntimeError(
-            "PAUSAR_ANTES_EMITIR=true exige TESTAR_EMISSAO_HOMOLOGACAO=true."
+            "PAUSAR_ANTES_EMITIR=true exige um fluxo fiscal explicitamente habilitado."
         )
     if pausar_apos_consulta and not consultar_ultimo_xml:
         raise RuntimeError(
@@ -234,6 +245,11 @@ def carregar_config() -> Config:
                 "Emissão de homologação permite MAX_CONCORRENCIA de até 3."
             )
 
+    if testar_emissao_homologacao and habilitar_producao_fiscal:
+        raise RuntimeError(
+            "Homologação e produção fiscal não podem ser habilitadas juntas."
+        )
+
     modo_operacao = os.getenv("MODO_OPERACAO", "conferencia").strip().lower()
     if modo_operacao not in {"simulacao", "conferencia", "automatico"}:
         raise RuntimeError("MODO_OPERACAO deve ser simulacao, conferencia ou automatico.")
@@ -255,6 +271,30 @@ def carregar_config() -> Config:
         raise RuntimeError("WORKER_ID deve ter até 120 caracteres visíveis.")
     testar_integracao_banco = os.getenv("TESTAR_INTEGRACAO_BANCO", "false").lower() == "true"
     processar_fila_banco = os.getenv("PROCESSAR_FILA_BANCO", "false").lower() == "true"
+    operacao_fiscal_habilitada = (
+        testar_emissao_homologacao or habilitar_producao_fiscal
+    )
+    if habilitar_producao_fiscal:
+        if ambiente_emissao != "normal":
+            raise RuntimeError(
+                "HABILITAR_PRODUCAO_FISCAL=true exige AMBIENTE_EMISSAO=normal."
+            )
+        if fonte_tarefas != "banco":
+            raise RuntimeError(
+                "Produção fiscal só aceita tarefas confirmadas pelo Web e exige FONTE_TAREFAS=banco."
+            )
+        if not testar_navegacao_emissao or not testar_preenchimento_completo:
+            raise RuntimeError(
+                "Produção fiscal exige navegação e preenchimento completos habilitados."
+            )
+        if modo_operacao != "automatico":
+            raise RuntimeError(
+                "Produção fiscal exige MODO_OPERACAO=automatico."
+            )
+        if max_concorrencia != 1:
+            raise RuntimeError(
+                "O piloto de produção exige MAX_CONCORRENCIA=1 até nova validação de capacidade."
+            )
     if fonte_tarefas == "banco" and (not worker_database_url or not worker_id):
         raise RuntimeError("FONTE_TAREFAS=banco exige WORKER_DATABASE_URL e WORKER_ID.")
     if fonte_tarefas == "banco" and not testar_integracao_banco:
@@ -263,10 +303,9 @@ def carregar_config() -> Config:
         )
     if processar_fila_banco and fonte_tarefas != "banco":
         raise RuntimeError("PROCESSAR_FILA_BANCO=true exige FONTE_TAREFAS=banco.")
-    if processar_fila_banco and not testar_emissao_homologacao:
+    if processar_fila_banco and not operacao_fiscal_habilitada:
         raise RuntimeError(
-            "PROCESSAR_FILA_BANCO=true exige todas as travas de "
-            "TESTAR_EMISSAO_HOMOLOGACAO=true."
+            "PROCESSAR_FILA_BANCO=true exige homologação ou produção fiscal explicitamente habilitada."
         )
     if testar_navegacao_consulta and testar_navegacao_emissao:
         raise RuntimeError(
@@ -306,20 +345,20 @@ def carregar_config() -> Config:
         or fonte_tarefas != "banco"
         or not testar_integracao_banco
         or not limpar_documentos_expirados
-        or ambiente_emissao != "teste"
+        or not operacao_fiscal_habilitada
     ):
         raise RuntimeError(
             "PROCESSAR_RECUPERACOES_DOCUMENTOS=true exige fila do banco, "
-            "homologação, limpeza controlada e Storage privado configurado."
+            "ambiente fiscal habilitado, limpeza controlada e Storage privado configurado."
         )
     if processar_cancelamentos_fiscais and (
         fonte_tarefas != "banco"
         or not testar_integracao_banco
-        or ambiente_emissao != "teste"
+        or not operacao_fiscal_habilitada
     ):
         raise RuntimeError(
             "PROCESSAR_CANCELAMENTOS_FISCAIS=true exige fila do banco, "
-            "integração controlada e ambiente de homologação."
+            "integração controlada e ambiente fiscal explicitamente habilitado."
         )
     if worker_persistente:
         if (
@@ -337,13 +376,12 @@ def carregar_config() -> Config:
             fonte_tarefas != "banco"
             or not testar_integracao_banco
             or not processar_fila_banco
-            or not testar_emissao_homologacao
-            or ambiente_emissao != "teste"
+            or not operacao_fiscal_habilitada
             or storage_documentos is None
             or max_concorrencia is None
         ):
             raise RuntimeError(
-                "WORKER_PERSISTENTE exige fila do banco, homologação completa, "
+                "WORKER_PERSISTENTE exige fila do banco, ambiente fiscal habilitado, "
                 "Storage privado e MAX_CONCORRENCIA explícita."
             )
 
@@ -364,6 +402,7 @@ def carregar_config() -> Config:
         pausar_antes_emitir=pausar_antes_emitir,
         testar_preenchimento_completo=testar_preenchimento_completo,
         testar_emissao_homologacao=testar_emissao_homologacao,
+        habilitar_producao_fiscal=habilitar_producao_fiscal,
         max_concorrencia=max_concorrencia,
         ambiente_emissao=ambiente_emissao,
         fonte_tarefas=fonte_tarefas,

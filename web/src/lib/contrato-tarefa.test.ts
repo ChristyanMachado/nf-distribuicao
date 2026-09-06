@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { montarContratoTarefaV1, type DadosContratoTarefa } from "./contrato-tarefa";
+import {
+  montarContratoTarefaV1,
+  validarAmbienteFiscal,
+  type DadosContratoTarefa,
+} from "./contrato-tarefa";
 
 function dadosValidos(): DadosContratoTarefa {
   return {
@@ -58,6 +62,16 @@ describe("montarContratoTarefaV1", () => {
     expect(contrato.tarefa.numeroDistribuicao).toBe(42);
     expect(contrato.tarefa.nomeEmitente).toBe("Graalys");
     expect(JSON.stringify(contrato)).not.toMatch(/senha|password|loginUsuario/);
+  });
+
+  it("produz contrato de produção somente quando solicitado explicitamente", () => {
+    expect(montarContratoTarefaV1(dadosValidos(), "normal").ambiente).toBe("normal");
+  });
+
+  it("mantém homologação como padrão e recusa ambiente ambíguo", () => {
+    expect(validarAmbienteFiscal(undefined)).toBe("teste");
+    expect(validarAmbienteFiscal(" NORMAL ")).toBe("normal");
+    expect(() => validarAmbienteFiscal("producao")).toThrow(/AMBIENTE_EMISSAO/);
   });
 
   it("bloqueia tarefa sem credencial ou identificador fiscal", () => {

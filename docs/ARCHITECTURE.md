@@ -78,9 +78,15 @@ usa os privilégios mínimos já concedidos e não toca o sistema de ponto.
 
 1. **Ensaio sem navegador:** reserva, valida e devolve a `PENDENTE`, limpando
    token/lease e restituindo a tentativa.
-2. **Homologação processada:** sob todas as flags explícitas, executa
+2. **Fila fiscal processada:** sob as flags explícitas do ambiente contratado,
+   executa em homologação ou no piloto de produção
    reserva → Playwright → `EMITINDO` → XML `cStat=100` → registro transacional
    de nota e tarefa `EMITIDA`.
+
+O ambiente é parte do snapshot imutável. Web e Worker precisam concordar; a
+Page também é revalidada contra o host oficial imediatamente antes de emitir
+ou confirmar cancelamento. O piloto normal exige `MAX_CONCORRENCIA=1`. Ver
+`PRODUCAO-FISCAL.md`.
 
 Contrato/hash/credencial inválidos vão para `AGUARDANDO_CONFERENCIA`. Lease
 vencido ou incerteza depois do clique fiscal não volta automaticamente à fila.
@@ -101,9 +107,11 @@ fiscal nunca são ocultados por essa ação.
 
 ## Travas fiscais
 
-- `AMBIENTE_EMISSAO=teste`;
-- host HTTPS exato `homologacao.nfae.fazenda.pr.gov.br` revalidado no clique;
-- `HEADLESS=false` para o ensaio humano;
+- `AMBIENTE_EMISSAO=teste|normal` persistido no contrato imutável;
+- host HTTPS exato do ambiente revalidado no clique fiscal;
+- homologação e produção são flags mutuamente exclusivas;
+- produção exige fila do banco, modo automático e concorrência 1;
+- ensaio humano continua visível; o serviço persistente continua headless;
 - navegação, preenchimento e emissão exigem flags separadas;
 - banco exige `TESTAR_INTEGRACAO_BANCO`, URL TLS e `WORKER_ID`;
 - `PROCESSAR_FILA_BANCO` exige todas as travas anteriores;
@@ -172,8 +180,10 @@ reabre a emissão: a tarefa fica `EMITIDA`, com documentos pendentes. Antes de
 enviar, o Worker grava em seu volume persistente um manifesto com tarefa,
 token, caminhos locais e hashes. No ciclo seguinte, ele tenta recuperar esses
 documentos antes de reservar qualquer tarefa nova; o manifesto só é removido
-após a confirmação atômica no banco. Ainda faltam validar a recuperação ao vivo,
-autorização por papéis/tenant, scheduler e alertas. Produção permanece bloqueada.
+após a confirmação atômica no banco. A recuperação já foi validada ao vivo;
+autorização multiempresa, alertas e uma prova formal de restauração continuam
+pendentes. O piloto de produção só é liberado pelo checklist humano de
+`PRODUCAO-FISCAL.md`.
 
 Chaves atuais `sb_secret_` são enviadas ao Storage somente no cabeçalho
 `apikey`; a compatibilidade com a `service_role` legada acrescenta o Bearer JWT.
@@ -249,8 +259,9 @@ O container usa filesystem raiz somente leitura, capabilities removidas,
 sem dados fiscais. A saída padrão do Docker tem rotação limitada para não
 esgotar o disco da VM. O serviço audita o papel PostgreSQL antes de iniciar e só
 aceita `WORKER_PERSISTENTE=true` quando está headless, sem Inspector ou pausa,
-com fila processada, Storage, concorrência explícita e todas as travas de
-homologação. Ele não amplia a autorização para produção.
+com fila processada, Storage, concorrência explícita e todas as travas do
+ambiente fiscal escolhido. Em produção, a solicitação humana no Web continua
+sendo a origem obrigatória do trabalho.
 
 O polling persistente reutiliza o mesmo contrato/reserva já testado e omite a
 mensagem repetitiva de fila vazia. O processo opera 24 horas, porém separa os

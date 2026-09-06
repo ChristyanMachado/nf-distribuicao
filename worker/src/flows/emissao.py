@@ -1355,8 +1355,8 @@ async def emitir(
     *,
     ambiente: str,
 ) -> None:
-    """Clica em Emitir somente quando a Page está no domínio de homologação."""
-    _exigir_pagina_homologacao(page.url, ambiente)
+    """Clica em Emitir somente no host fiscal exato do ambiente contratado."""
+    _exigir_pagina_fiscal(page.url, ambiente)
     logger.info(f"[{tarefa.tarefa_id}] Emitindo nota")
     try:
         await page.get_by_role("button", name="Emitir", exact=True).click()
@@ -1383,7 +1383,7 @@ async def aguardar_autorizacao(
     curta e o texto exato são mais estáveis do que a cadeia estrutural com
     ``nth-child`` copiada do DevTools.
     """
-    _exigir_pagina_homologacao(page.url, ambiente)
+    _exigir_pagina_fiscal(page.url, ambiente)
     status_autorizada = page.locator("span.autorizada").filter(
         has_text=re.compile(r"^\s*AUTORIZADA\s*$")
     ).first
@@ -1429,7 +1429,7 @@ async def aguardar_autorizacao(
         ) from exc
 
     # Defesa contra mudança de página entre o clique e a resposta do portal.
-    _exigir_pagina_homologacao(page.url, ambiente)
+    _exigir_pagina_fiscal(page.url, ambiente)
     logger.info("[%s] Emissão confirmada como AUTORIZADA", tarefa.tarefa_id)
 
 
@@ -1477,18 +1477,43 @@ async def salvar_diagnostico_resultado(
     return tuple(salvos)
 
 
-def _exigir_pagina_homologacao(url_atual: str, ambiente: str) -> None:
-    """Defesa final contra emissão acidental no ambiente fiscal normal."""
-    url = urlsplit(url_atual)
-    if (
-        ambiente != "teste"
-        or url.scheme != "https"
-        or url.hostname != "homologacao.nfae.fazenda.pr.gov.br"
-        or not url.path.startswith("/nfae/")
-    ):
-        raise EmissaoBloqueada(
-            "Emissão bloqueada: a página atual não pertence à homologação NFP-e TESTES."
+def _exigir_pagina_fiscal(url_atual: str, ambiente: str) -> None:
+    """Confere ambiente, origem e rota imediatamente antes do efeito fiscal.
+
+    A configuração de produção não reduz esta defesa: uma tarefa ``normal``
+    só pode clicar no host de produção, enquanto uma tarefa ``teste`` só pode
+    clicar na homologação. Portas, credenciais embutidas e rotas estranhas são
+    recusadas. Assim, um redirecionamento inesperado nunca vira autorização.
+    """
+
+    hosts = {
+        "teste": "homologacao.nfae.fazenda.pr.gov.br",
+        "normal": "nfae.fazenda.pr.gov.br",
+    }
+    try:
+        url = urlsplit(url_atual)
+        host_esperado = hosts.get(ambiente)
+        valido = (
+            host_esperado is not None
+            and url.scheme == "https"
+            and url.hostname == host_esperado
+            and url.port in {None, 443}
+            and url.username is None
+            and url.password is None
+            and url.path.startswith("/nfae/produtor/emitir/")
         )
+    except (TypeError, ValueError):
+        valido = False
+    if not valido:
+        raise EmissaoBloqueada(
+            "Emissão bloqueada: página e ambiente fiscal não correspondem à tarefa."
+        )
+
+
+def _exigir_pagina_homologacao(url_atual: str, ambiente: str) -> None:
+    """Alias temporário para integrações antigas; usa a validação atual."""
+
+    _exigir_pagina_fiscal(url_atual, ambiente)
 
 
 async def cancelar_nota(page: Page, numero_nota: str, motivo: str, logger: logging.Logger) -> None:

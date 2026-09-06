@@ -7,6 +7,7 @@ import {
 } from "./validacao";
 
 type IndicadorIe = "CONTRIBUINTE" | "CONTRIBUINTE_ISENTO" | "NAO_CONTRIBUINTE";
+export type AmbienteFiscal = "teste" | "normal";
 
 export type DadosContratoTarefa = {
   tarefa: {
@@ -55,10 +56,13 @@ export type DadosContratoTarefa = {
 
 /**
  * Projeta uma tarefa do banco no contrato v1 já aceito pelo Worker.
- * Mantém homologação fixa e falha antes de produzir um payload incompleto.
+ * Preserva o ambiente explicitamente escolhido e falha antes de produzir um payload incompleto.
  * A função é pura para ser testada sem banco nem navegador.
  */
-export function montarContratoTarefaV1(dados: DadosContratoTarefa) {
+export function montarContratoTarefaV1(
+  dados: DadosContratoTarefa,
+  ambiente: AmbienteFiscal = "teste",
+) {
   if (dados.tarefa.status !== "PENDENTE") {
     throw new Error("Somente tarefa pendente pode gerar contrato.");
   }
@@ -140,7 +144,7 @@ export function montarContratoTarefaV1(dados: DadosContratoTarefa) {
 
   return {
     versaoContrato: 1 as const,
-    ambiente: "teste" as const,
+    ambiente,
     tarefa: {
       id: exigirUuid(dados.tarefa.id, "Tarefa"),
       clienteId: exigirUuid(dados.tarefa.clienteId, "Cliente"),
@@ -185,6 +189,19 @@ export function montarContratoTarefaV1(dados: DadosContratoTarefa) {
       })),
     },
   };
+}
+
+/**
+ * Interpreta a configuração do servidor sem aceitar aliases ambíguos.
+ * Ausência continua significando homologação; produção precisa ser escrita
+ * explicitamente como `normal` no ambiente protegido do deploy.
+ */
+export function validarAmbienteFiscal(valor: string | undefined): AmbienteFiscal {
+  const ambiente = (valor ?? "teste").trim().toLowerCase();
+  if (ambiente !== "teste" && ambiente !== "normal") {
+    throw new Error("AMBIENTE_EMISSAO deve ser 'teste' ou 'normal'.");
+  }
+  return ambiente;
 }
 
 function textoObrigatorio(valor: string | null, campo: string, maximo: number) {

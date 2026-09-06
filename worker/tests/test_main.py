@@ -12,12 +12,14 @@ from main import (
     _limpar_documentos_expirados,
     _processar_recuperacoes_documentos,
     _recuperar_uploads_pendentes,
-    executar_emissao_homologacao,
-    executar_fila_banco_homologacao,
+    _validar_preparacao_reserva,
+    executar_emissao_fiscal,
+    executar_fila_banco,
     executar_validacao_fila_banco,
     preparar_tarefa_para_cliente,
     teste_autenticacao as _teste_autenticacao,
 )
+from main import FalhaPreparacaoTarefa
 from src.flows.emissao import (
     AcessoPortalNegado,
     Destinatario,
@@ -74,6 +76,31 @@ def _reserva_banco() -> SimpleNamespace:
             tarefa=_tarefa_de_teste(),
         ),
     )
+
+
+def test_preparacao_recusa_snapshot_de_outro_ambiente_antes_de_credenciais():
+    reserva = _reserva_banco()
+    config = _config_banco()
+    config.ambiente_emissao = "normal"
+
+    with pytest.raises(FalhaPreparacaoTarefa) as erro:
+        _validar_preparacao_reserva(reserva, config)
+
+    assert erro.value.codigo == "AMBIENTE_INCORRETO"
+
+
+def test_preparacao_aceita_snapshot_normal_no_worker_normal():
+    reserva = _reserva_banco()
+    reserva.contratada.ambiente = "normal"
+    config = _config_banco()
+    config.ambiente_emissao = "normal"
+    credencial = SimpleNamespace(
+        identidade_esperada="Emitente esperado",
+        emitente="emitente-original",
+    )
+
+    with patch("main.carregar_credencial", return_value=credencial):
+        assert _validar_preparacao_reserva(reserva, config) is credencial
 
 
 class _FonteBancoFake:
@@ -157,7 +184,7 @@ def test_consulta_do_ultimo_xml_pesquisa_sem_logar_chave_e_pausa():
     with (
         patch("main.carregar_credencial", return_value=credencial),
         patch("main.realizar_login", new_callable=AsyncMock),
-        patch("main.navegar_ate_consulta_teste", new_callable=AsyncMock),
+        patch("main.navegar_ate_consulta", new_callable=AsyncMock),
         patch("main.selecionar_emitente_consulta", new_callable=AsyncMock),
         patch(
             "main.localizar_xml_autorizado_mais_recente",
@@ -208,7 +235,7 @@ def test_emissao_local_pausa_somente_depois_dos_downloads():
         patch("main.navegar_ate_emissao", new_callable=AsyncMock),
         patch("main.preencher_formulario_completo", new_callable=AsyncMock),
         patch(
-            "main.executar_emissao_homologacao",
+            "main.executar_emissao_fiscal",
             new_callable=AsyncMock,
             return_value={"xml_path": "nota.xml", "pdf_path": "danfe.pdf"},
         ) as emitir,
@@ -231,7 +258,7 @@ def test_fila_persistente_nao_repete_log_quando_esta_ociosa(caplog):
     with patch("main.FontePostgresTarefas", return_value=fonte):
         with caplog.at_level(logging.INFO, logger=logger.name):
             resultado = asyncio.run(
-                executar_fila_banco_homologacao(
+                executar_fila_banco(
                     _config_banco(),
                     logger,
                     silencioso_sem_tarefas=True,
@@ -251,7 +278,7 @@ def test_fora_da_janela_nao_reserva_nova_emissao() -> None:
         patch("main.JanelaEmissao.permite_nova_emissao", return_value=False),
     ):
         resultado = asyncio.run(
-            executar_fila_banco_homologacao(
+            executar_fila_banco(
                 _config_banco(),
                 logging.getLogger("teste-fila-fora-da-janela"),
                 usar_janela_operacional=True,
@@ -278,7 +305,7 @@ def test_fora_da_janela_continua_distribuicao_que_ja_comecou() -> None:
         patch("main.processar_tarefas_em_paralelo_async", new_callable=AsyncMock, return_value=[SimpleNamespace(sucesso=True)]),
     ):
         resultado = asyncio.run(
-            executar_fila_banco_homologacao(
+            executar_fila_banco(
                 config,
                 logging.getLogger("teste-continuacao-lote"),
                 usar_janela_operacional=True,
@@ -396,7 +423,7 @@ def test_recuperacao_historica_valida_xml_antes_de_publicar_por_sete_dias():
     with (
         patch("main.carregar_credencial", return_value=credencial),
         patch("main.realizar_login", new_callable=AsyncMock),
-        patch("main.navegar_ate_consulta_teste", new_callable=AsyncMock),
+        patch("main.navegar_ate_consulta", new_callable=AsyncMock),
         patch("main.selecionar_emitente_consulta", new_callable=AsyncMock),
         patch("main.pesquisar_nota_por_chave", new_callable=AsyncMock),
         patch(
@@ -448,7 +475,7 @@ def test_falha_na_consulta_fica_na_fila_de_recuperacao_sem_alterar_emissao():
     with (
         patch("main.carregar_credencial", return_value=credencial),
         patch("main.realizar_login", new_callable=AsyncMock),
-        patch("main.navegar_ate_consulta_teste", new_callable=AsyncMock),
+        patch("main.navegar_ate_consulta", new_callable=AsyncMock),
         patch("main.selecionar_emitente_consulta", new_callable=AsyncMock),
         patch(
             "main.pesquisar_nota_por_chave",
@@ -517,7 +544,7 @@ def test_emissao_controlada_encadeia_emitir_e_downloads():
         ) as baixar_mock,
     ):
         resultado = asyncio.run(
-            executar_emissao_homologacao(object(), tarefa, config, logger)
+            executar_emissao_fiscal(object(), tarefa, config, logger)
         )
 
     assert resultado == {"xml_path": "x.xml", "pdf_path": "x.pdf"}
@@ -558,7 +585,7 @@ def test_emissao_sem_autorizacao_confirmada_nao_baixa():
     ):
         with pytest.raises(FalhaConfirmacaoEmissao, match="status não confirmado"):
             asyncio.run(
-                executar_emissao_homologacao(object(), tarefa, config, logger)
+                executar_emissao_fiscal(object(), tarefa, config, logger)
             )
 
     baixar_mock.assert_not_awaited()
@@ -625,7 +652,7 @@ def test_fila_banco_falha_antes_de_emitir_vai_para_erro():
             side_effect=_orquestrador_sem_browser,
         ),
     ):
-        resultado = asyncio.run(executar_fila_banco_homologacao(_config_banco(), logger))
+        resultado = asyncio.run(executar_fila_banco(_config_banco(), logger))
 
     assert resultado == 1
     fonte.registrar_status.assert_awaited_once_with(
@@ -654,7 +681,7 @@ def test_fila_banco_falha_depois_de_emitindo_exige_conferencia():
         patch("main.navegar_ate_emissao", new_callable=AsyncMock),
         patch("main.preencher_formulario_completo", new_callable=AsyncMock),
         patch(
-            "main.executar_emissao_homologacao",
+            "main.executar_emissao_fiscal",
             new_callable=AsyncMock,
             side_effect=RuntimeError("resposta interrompida"),
         ),
@@ -663,7 +690,7 @@ def test_fila_banco_falha_depois_de_emitindo_exige_conferencia():
             side_effect=_orquestrador_sem_browser,
         ),
     ):
-        resultado = asyncio.run(executar_fila_banco_homologacao(_config_banco(), logger))
+        resultado = asyncio.run(executar_fila_banco(_config_banco(), logger))
 
     assert resultado == 1
     assert fonte.registrar_status.await_count == 2
@@ -696,7 +723,7 @@ def test_fila_banco_bloqueia_emitente_divergente_antes_do_navegador():
         ) as orquestrador,
     ):
         resultado = asyncio.run(
-            executar_fila_banco_homologacao(_config_banco(), logger)
+            executar_fila_banco(_config_banco(), logger)
         )
 
     assert resultado == 1
@@ -736,7 +763,7 @@ def test_fila_banco_autorizada_registra_metadados_com_token_da_reserva(sinalizar
         patch("main.navegar_ate_emissao", new_callable=AsyncMock),
         patch("main.preencher_formulario_completo", new_callable=AsyncMock),
         patch(
-            "main.executar_emissao_homologacao",
+            "main.executar_emissao_fiscal",
             new_callable=AsyncMock,
             return_value={"xml_path": "nota.xml", "pdf_path": "danfe.pdf"},
         ),
@@ -746,7 +773,7 @@ def test_fila_banco_autorizada_registra_metadados_com_token_da_reserva(sinalizar
             side_effect=_orquestrador_sem_browser,
         ),
     ):
-        resultado = asyncio.run(executar_fila_banco_homologacao(
+        resultado = asyncio.run(executar_fila_banco(
             _config_banco(), logger, sinalizar_trabalho_concluido=sinalizar,
         ))
 
@@ -793,7 +820,7 @@ def test_fila_banco_com_storage_associa_documentos_sem_reemitir():
         patch("main.navegar_ate_emissao", new_callable=AsyncMock),
         patch("main.preencher_formulario_completo", new_callable=AsyncMock),
         patch(
-            "main.executar_emissao_homologacao",
+            "main.executar_emissao_fiscal",
             new_callable=AsyncMock,
             return_value={"xml_path": "nota.xml", "pdf_path": "danfe.pdf"},
         ),
@@ -814,7 +841,7 @@ def test_fila_banco_com_storage_associa_documentos_sem_reemitir():
             side_effect=_orquestrador_sem_browser,
         ),
     ):
-        resultado = asyncio.run(executar_fila_banco_homologacao(config, logger))
+        resultado = asyncio.run(executar_fila_banco(config, logger))
 
     assert resultado == 0
     fonte.registrar_emissao_autorizada.assert_awaited_once()

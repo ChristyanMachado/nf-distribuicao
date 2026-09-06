@@ -75,6 +75,14 @@ URL_CONSULTA_TESTE_TEXTO = (
 URL_CONSULTA_TESTE = re.compile(
     r"^https://homologacao\.nfae\.fazenda\.pr\.gov\.br/nfae/produtor/consulta/?(?:[?#].*)?$"
 )
+# A produção usa a opção normal "Consulta", sem o submenu/sufixo TESTE. O
+# identificador numérico do menu não foi tratado como contrato: localizar pelo
+# papel/texto e validar o href oficial é mais resistente a reordenações do menu.
+NOME_MENU_CONSULTA_NORMAL = "Consulta"
+URL_CONSULTA_NORMAL_TEXTO = "https://nfae.fazenda.pr.gov.br/nfae/produtor/consulta"
+URL_CONSULTA_NORMAL = re.compile(
+    r"^https://nfae\.fazenda\.pr\.gov\.br/nfae/produtor/consulta/?(?:[?#].*)?$"
+)
 SELETOR_POS_NAVEGACAO_CONSULTA = "article select.slds-select"
 
 
@@ -92,6 +100,31 @@ class FalhaNavegacaoEmissao(Exception):
 
 class FalhaNavegacaoConsulta(Exception):
     """Levantada quando a consulta de homologação não é confirmada."""
+
+
+def exigir_pagina_consulta(url_atual: str, ambiente: AmbienteEmissao) -> None:
+    """Confere a origem da consulta antes de pesquisar ou alterar uma nota."""
+
+    hosts = {
+        "teste": "homologacao.nfae.fazenda.pr.gov.br",
+        "normal": "nfae.fazenda.pr.gov.br",
+    }
+    try:
+        url = urlsplit(url_atual)
+        valido = (
+            url.scheme == "https"
+            and url.hostname == hosts.get(ambiente)
+            and url.port in {None, 443}
+            and url.username is None
+            and url.password is None
+            and url.path.rstrip("/") == "/nfae/produtor/consulta"
+        )
+    except (TypeError, ValueError):
+        valido = False
+    if not valido:
+        raise FalhaNavegacaoConsulta(
+            "A consulta foi bloqueada porque página e ambiente fiscal não correspondem."
+        )
 
 
 def _pagina_login_permanece_oficial(valor: str) -> bool:
@@ -324,39 +357,66 @@ async def navegar_ate_emissao(
     logger.info("Área de emissão carregada (ambiente=%s)", ambiente)
 
 
-async def navegar_ate_consulta_teste(
+async def navegar_ate_consulta(
     page: Page,
     logger: logging.Logger,
+    ambiente: AmbienteEmissao = "teste",
 ) -> None:
-    """Abre a consulta histórica exclusivamente na homologação NFP-e.
+    """Abre a consulta histórica no ambiente fiscal explicitamente escolhido.
 
-    A consulta de produção ainda não foi reconhecida e, portanto, não existe
-    parâmetro para ativá-la por engano. O acesso final é feito diretamente em
-    HTTPS porque o ``href`` observado no portal usa HTTP.
+    Homologação passa por ``NFP-e TESTES -> Consulta - TESTE``; produção usa a
+    opção normal ``Consulta`` logo abaixo de NFP-e. Em ambos os casos o href é
+    validado antes de abrir diretamente a rota HTTPS oficial. A escolha do
+    ambiente também é conferida pelo contrato da tarefa e pela configuração do
+    Worker antes de esta função ser chamada.
     """
 
-    logger.info(
-        "Navegando: Produtor Rural -> NFP-e -> NFP-e TESTES -> Consulta - TESTE"
-    )
+    logger.info("Navegando: Produtor Rural -> NFP-e -> %s", (
+        "NFP-e TESTES -> Consulta - TESTE" if ambiente == "teste" else "Consulta"
+    ))
     await page.get_by_role("link", name="Produtor Rural", exact=True).click()
     await page.get_by_role("link", name="NFP-e", exact=True).click()
-    await page.locator(SELETOR_MENU_NFPE_TESTES).click()
 
-    link_consulta = page.locator(SELETOR_MENU_CONSULTA_TESTE)
+    if ambiente == "teste":
+        await page.locator(SELETOR_MENU_NFPE_TESTES).click()
+        link_consulta = page.locator(SELETOR_MENU_CONSULTA_TESTE)
+        host_esperado = "homologacao.nfae.fazenda.pr.gov.br"
+        url_texto = URL_CONSULTA_TESTE_TEXTO
+        url_esperada = URL_CONSULTA_TESTE
+        rotulo = "NFP-e TESTE"
+    else:
+        link_consulta = page.get_by_role(
+            "link", name=NOME_MENU_CONSULTA_NORMAL, exact=True
+        )
+        host_esperado = "nfae.fazenda.pr.gov.br"
+        url_texto = URL_CONSULTA_NORMAL_TEXTO
+        url_esperada = URL_CONSULTA_NORMAL
+        rotulo = "NFP-e de produção"
+
     await link_consulta.wait_for(state="visible", timeout=30_000)
     href = await link_consulta.get_attribute("href")
-    if href is None or not re.match(
-        r"^https?://homologacao\.nfae\.fazenda\.pr\.gov\.br/nfae/produtor/consulta/?$",
-        href,
+    try:
+        url_link = urlsplit(href or "")
+    except (TypeError, ValueError):
+        url_link = urlsplit("")
+    if not (
+        url_link.scheme in {"http", "https"}
+        and url_link.hostname == host_esperado
+        and url_link.port in {None, 80, 443}
+        and url_link.username is None
+        and url_link.password is None
+        and url_link.path.rstrip("/") == "/nfae/produtor/consulta"
+        and not url_link.query
+        and not url_link.fragment
     ):
         raise FalhaNavegacaoConsulta(
-            "O link de consulta de homologação mudou ou não pertence à Receita PR."
+            "O link de consulta mudou ou não pertence ao ambiente oficial da Receita PR."
         )
 
     try:
-        await page.goto(URL_CONSULTA_TESTE_TEXTO, wait_until="domcontentloaded")
+        await page.goto(url_texto, wait_until="domcontentloaded")
         await page.wait_for_url(
-            URL_CONSULTA_TESTE,
+            url_esperada,
             wait_until="domcontentloaded",
             timeout=30_000,
         )
@@ -365,12 +425,25 @@ async def navegar_ate_consulta_teste(
             state="visible",
             timeout=30_000,
         )
+        exigir_pagina_consulta(page.url, ambiente)
     except PlaywrightTimeoutError as exc:
         raise FalhaNavegacaoConsulta(
-            "A consulta NFP-e TESTE não foi confirmada em 30s. "
+            f"A consulta {rotulo} não foi confirmada em 30s. "
             "O portal pode estar indisponível ou ter mudado a tela."
         ) from exc
 
-    logger.warning(
-        "CONSULTA EM AMBIENTE DE TESTE confirmada; nenhuma emissão será iniciada."
-    )
+    if ambiente == "teste":
+        logger.warning(
+            "CONSULTA EM AMBIENTE DE TESTE confirmada; nenhuma emissão será iniciada."
+        )
+    else:
+        logger.warning("CONSULTA EM PRODUÇÃO confirmada; nenhuma emissão será iniciada.")
+
+
+async def navegar_ate_consulta_teste(
+    page: Page,
+    logger: logging.Logger,
+) -> None:
+    """Compatibilidade para testes/comandos antigos, sempre em homologação."""
+
+    await navegar_ate_consulta(page, logger, ambiente="teste")

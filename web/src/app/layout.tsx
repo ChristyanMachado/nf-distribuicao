@@ -17,6 +17,7 @@ import {
 import { sair } from "@/app/login/actions";
 import IdleLock from "@/components/IdleLock";
 import AppNavLink from "@/components/AppNavLink";
+import { validarAmbienteFiscal } from "@/lib/contrato-tarefa";
 
 export const metadata: Metadata = {
   title: "Graalyst | Distribuição & Notas",
@@ -54,6 +55,8 @@ export default function RootLayout({
   const autenticacaoConfigurada = Boolean(
     process.env.APP_SESSION_SECRET || process.env.APP_AUTH_ENABLED === "true" || process.env.NODE_ENV === "production"
   );
+  const ambienteFiscal = validarAmbienteFiscal(process.env.AMBIENTE_EMISSAO);
+  const ambienteProducao = ambienteFiscal === "normal";
   return (
     <html lang="pt-BR">
       <body>
@@ -66,6 +69,16 @@ export default function RootLayout({
               <p className="font-mono-tab text-[11px] font-bold uppercase tracking-widest text-[var(--ink-faint)]">
                 Graalyst · NF
               </p>
+              <span
+                className={`ml-auto rounded-full px-2 py-0.5 font-mono-tab text-[9px] font-bold uppercase tracking-wide ${
+                  ambienteProducao
+                    ? "bg-emerald-100 text-emerald-800"
+                    : "bg-amber-100 text-amber-800"
+                }`}
+                title={ambienteProducao ? "Notas com validade fiscal" : "Notas sem validade fiscal"}
+              >
+                {ambienteProducao ? "Produção" : "Teste"}
+              </span>
             </div>
             <nav className="flex flex-col gap-1">
               {[...NAV_ITEMS, ...NAV_ITEMS_SECUNDARIOS].map(
@@ -95,6 +108,15 @@ export default function RootLayout({
               <p className="font-mono-tab text-[11px] font-bold uppercase tracking-widest text-[var(--ink-faint)]">
                 Graalyst · NF
               </p>
+              <span
+                className={`rounded-full px-1.5 py-0.5 font-mono-tab text-[8px] font-bold uppercase tracking-wide ${
+                  ambienteProducao
+                    ? "bg-emerald-100 text-emerald-800"
+                    : "bg-amber-100 text-amber-800"
+                }`}
+              >
+                {ambienteProducao ? "Produção" : "Teste"}
+              </span>
             </div>
             <div className="flex items-center gap-3">
               {autenticacaoConfigurada && <form action={sair}><button aria-label="Bloquear sessão" className="tap-target text-[var(--ink-soft)]"><IconLock className="h-5 w-5" /></button></form>}

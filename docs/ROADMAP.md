@@ -32,7 +32,9 @@ um portal autenticado, sem misturar autorização administrativa nesta entrega.
   **Atualização:** emissão autorizada e recuperação histórica já foram
   concluídas pela VM com retorno ao Web. Resta ampliar o piloto para outros
   emitentes/clientes, medir recursos sob carga e melhorar atualização da UI.
-- **Fase 6 — produção:** não iniciada e explicitamente bloqueada.
+- **Fase 6 — produção:** implementação local concluída; falta publicar a mesma
+  revisão no Web/VM, validar a consulta normal em modo somente leitura e fazer
+  o primeiro piloto real acompanhado conforme `PRODUCAO-FISCAL.md`.
 
 Migrações `0001`–`0013` e `0015` estão ativas. A `0014` (restrição de RPC anônimo no
 sistema de ponto compartilhado) permanece preparada, fora do journal e
@@ -47,19 +49,23 @@ O Web já indica quais cadastros impedem o teste e bloqueia o formulário antes
 de o usuário montar um lote inviável. O papel mínimo do Worker foi criado no
 banco de teste e passou no verificador de privilégios.
 
-## Meta imediata — recuperação histórica e polimento do fluxo diário
+## Meta imediata — piloto fiscal de produção
 
-0. Ensaiar um cancelamento recente em homologação. Confirmar sucesso somente
-   pelo texto oficial na resposta atual, sem recarregar a SPA; conferir
-   manualmente qualquer resultado incerto.
+0. Publicar Web e Worker na mesma revisão, ainda em homologação.
+1. Validar visualmente a rota normal de Consulta sem pesquisar nem alterar nota.
+2. Fazer a virada coordenada Web/Worker e confirmar o selo Produção.
+3. Emitir uma única nota real criada conscientemente pelo operador e conferir
+   banco, XML, DANFE, portal e logs.
+4. Só depois ensaiar cancelamento real separado, iniciado e confirmado pelo
+   operador; nunca repetir resultado incerto.
 
-1. Validar no celular a confirmação persistente da distribuição, com número,
+5. Validar no celular a confirmação persistente da distribuição, com número,
    quantidade de notas e atalhos para acompanhamento e roteiro.
-2. Pedir confirmação explícita quando houver quantidade não distribuída,
+6. Pedir confirmação explícita quando houver quantidade não distribuída,
    preservando o bloqueio de excesso no cliente e no servidor.
-3. Validar Notas agrupadas por distribuição, rótulos explícitos dos relatórios
+7. Validar Notas agrupadas por distribuição, rótulos explícitos dos relatórios
    e a densidade da nova impressão compacta em PC e celular.
-4. Ensaiar a limpeza da migration `0011`; depois retomar container/VM e operação
+8. Ensaiar a limpeza da migration `0011`; depois retomar container/VM e operação
    persistente. O Web já está publicado e o ciclo conectado foi comprovado.
 
 ## Próximas entregas de código

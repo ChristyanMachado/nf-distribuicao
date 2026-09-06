@@ -16,6 +16,17 @@ const ambienteValido = {
 
 test("aceita configuração completa sem retornar valores", () => {
   assert.deepEqual(pendenciasEnvDeploy(ambienteValido), []);
+  assert.deepEqual(
+    pendenciasEnvDeploy({ ...ambienteValido, AMBIENTE_EMISSAO: "normal" }),
+    [],
+  );
+});
+
+test("bloqueia ambiente fiscal desconhecido", () => {
+  assert.deepEqual(
+    pendenciasEnvDeploy({ ...ambienteValido, AMBIENTE_EMISSAO: "producao" }),
+    ["AMBIENTE_EMISSAO"],
+  );
 });
 
 test("bloqueia segredo público, autenticação desligada e URL divergente", () => {

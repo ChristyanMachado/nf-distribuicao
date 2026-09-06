@@ -18,7 +18,10 @@ from src.auth import (
     SELETOR_POS_NAVEGACAO_CONSULTA,
     URL_EMISSAO,
     URL_EMISSAO_TESTE,
+    URL_CONSULTA_NORMAL,
     URL_CONSULTA_TESTE,
+    exigir_pagina_consulta,
+    navegar_ate_consulta,
     navegar_ate_emissao,
     navegar_ate_consulta_teste,
 )
@@ -52,6 +55,7 @@ class PaginaFalsa:
         self.seletor_aguardado: str | None = None
         self.url_esperada_recebida = None
         self.url_aberta: str | None = None
+        self.url = "https://receita.pr.gov.br/area-autenticada"
         self.href_consulta = href_consulta
 
     def locator(self, seletor: str) -> LocalizadorFalso:
@@ -65,7 +69,7 @@ class PaginaFalsa:
         exact: bool,
     ) -> LocalizadorFalso:
         assert papel == "link"
-        assert name in {"Produtor Rural", "NFP-e"}
+        assert name in {"Produtor Rural", "NFP-e", "Consulta"}
         assert exact is True
         return LocalizadorFalso(f"link:{name}", self.cliques, self.href_consulta)
 
@@ -78,6 +82,7 @@ class PaginaFalsa:
 
     async def goto(self, url: str, **kwargs) -> None:
         self.url_aberta = url
+        self.url = url
         assert kwargs == {"wait_until": "domcontentloaded"}
 
     async def wait_for_selector(self, seletor: str, **kwargs) -> None:
@@ -194,6 +199,24 @@ def test_navega_para_consulta_teste_sem_seguir_href_http():
     assert pagina.seletor_aguardado == SELETOR_POS_NAVEGACAO_CONSULTA
 
 
+def test_navega_para_consulta_normal_sem_passar_pelo_menu_de_teste():
+    pagina = PaginaFalsa(
+        href_consulta="http://nfae.fazenda.pr.gov.br/nfae/produtor/consulta"
+    )
+
+    asyncio.run(
+        navegar_ate_consulta(pagina, _logger_silencioso(), ambiente="normal")
+    )
+
+    assert pagina.cliques == ["link:Produtor Rural", "link:NFP-e"]
+    assert SELETOR_MENU_NFPE_TESTES not in pagina.cliques
+    assert pagina.url_aberta == (
+        "https://nfae.fazenda.pr.gov.br/nfae/produtor/consulta"
+    )
+    assert pagina.url_esperada_recebida == URL_CONSULTA_NORMAL
+    assert pagina.seletor_aguardado == SELETOR_POS_NAVEGACAO_CONSULTA
+
+
 def test_consulta_teste_falha_fechado_quando_pagina_nao_carrega():
     with pytest.raises(FalhaNavegacaoConsulta, match="não foi confirmada"):
         asyncio.run(
@@ -212,3 +235,11 @@ def test_consulta_recusa_link_apontando_para_host_inesperado():
         asyncio.run(navegar_ate_consulta_teste(pagina, _logger_silencioso()))
 
     assert pagina.url_aberta is None
+
+
+def test_consulta_recusa_host_de_homologacao_em_contrato_normal():
+    with pytest.raises(FalhaNavegacaoConsulta, match="página e ambiente fiscal"):
+        exigir_pagina_consulta(
+            "https://homologacao.nfae.fazenda.pr.gov.br/nfae/produtor/consulta",
+            "normal",
+        )

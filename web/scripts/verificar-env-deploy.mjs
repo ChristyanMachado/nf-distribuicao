@@ -27,6 +27,7 @@ export function pendenciasEnvDeploy(ambiente) {
   const chaveServidor = texto(ambiente, "SUPABASE_SECRET_KEY")
     || texto(ambiente, "SUPABASE_SERVICE_ROLE_KEY");
   const provedorAuth = texto(ambiente, "APP_AUTH_PROVIDER") || "administrativo";
+  const ambienteFiscal = texto(ambiente, "AMBIENTE_EMISSAO") || "teste";
   const chavePublica = texto(ambiente, "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY")
     || texto(ambiente, "NEXT_PUBLIC_SUPABASE_ANON_KEY");
 
@@ -58,6 +59,9 @@ export function pendenciasEnvDeploy(ambiente) {
   }
   if (texto(ambiente, "APP_SESSION_SECRET").length < 32) {
     pendencias.push("APP_SESSION_SECRET");
+  }
+  if (!["teste", "normal"].includes(ambienteFiscal.toLowerCase())) {
+    pendencias.push("AMBIENTE_EMISSAO");
   }
   return [...new Set(pendencias)];
 }
