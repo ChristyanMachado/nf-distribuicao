@@ -1058,6 +1058,12 @@ async def executar_fila_banco(
                             tarefa_id,
                         )
                 except Exception as exc:
+                    logger.exception(
+                        "[%s] Falha original na etapa=%s: %s",
+                        tarefa_id,
+                        etapa,
+                        exc,
+                    )
                     if autorizacao_registrada:
                         logger.error(
                             "[%s] Nota autorizada, mas os documentos ainda não foram "

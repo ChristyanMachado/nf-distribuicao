@@ -1,5 +1,14 @@
 # Handoff — Estado Atual
 
+## Análise de reestruturação Fiscal/Financeiro — 06/09/2026
+
+- Foi lido o Auditor legado em repositório separado (`F:\.Faculdade\Projetos Pessoais\Auditor`) sem sobrescrever as alterações locais dele. O resultado está em `docs/AUDITORIA-FISCAL-REESTRUTURACAO.md`.
+- O legado é um MVP de importação PDF/XML, regras comerciais de previsão/valor líquido e conciliação OFX. Não possui razão contábil, contas a pagar, pagamentos parciais, estornos, custos, caixa ou trilha de auditoria suficiente para ser transplantado.
+- A decisão desta etapa é preservar conceitos, não código: o Financeiro deve consumir `fiscal` por contrato somente leitura. Nota autorizada não equivale a recebimento, e PDF/XML legado não deve duplicar notas geradas pela Distribuição.
+- O mapa Graphify consultado e os nós/arestas relevantes estão em `docs/GRAPHIFY-AUDITORIA-FISCAL.md`; o índice atual cobre este repositório, não o repositório Python separado.
+- Foram avaliadas referências open source: ERPNext, LedgerSMB, Odoo, Dolibarr, Akaunting, Firefly III e Actual Budget. A recomendação é usar conceitos de contabilidade/reconciliação/UX, sem copiar código nesta fase; licenças e dependências exigiriam revisão específica.
+- Nenhuma migration, alteração funcional, publicação, implantação ou mudança de dados foi feita nesta etapa. Próximo gate: definir e testar o contrato Fiscal → Financeiro antes de criar tabelas financeiras.
+
 ## Estado autoritativo — 06/09/2026
 
 - Checkpoint visual `d22be68` enviado à `main`; deploy Vercel de produção
@@ -11,8 +20,9 @@
   iniciado em “Dados incorretos” e confirmação humana. Web e Worker usam fila
   exclusiva com lease/token, uma linha por nota e exclusão mútua com recuperação.
   O Worker reutiliza login → Consulta - TESTE → emitente → chave; clica apenas
-  na ação dentro de `tbody`, preenche o motivo, confirma, recarrega e só conclui
-  ao encontrar `Evento registrado e vinculado a NF-e`. Recusa do portal vira
+  na ação dentro de `tbody`, preenche o motivo, confirma e só conclui ao encontrar
+  `Evento registrado e vinculado a NF-e` na resposta atual. Antes do clique,
+  `Cancelada` na linha encerra sem reenviar a operação. Recusa do portal vira
   erro orientado sem prazo legal fixo. Falha após o clique sem a mensagem vira
   `AGUARDANDO_CONFERENCIA` e não permite retry automático.
 - Validação local desta etapa: **251 testes Worker**, **108 testes Web**, build
@@ -1133,11 +1143,21 @@ ausência de grants da nova tabela para `anon`/`authenticated` e acesso mínimo 
 papel `nf_worker_vm`.
 
 O contrato distingue a tarefa concluída da situação posterior da nota. Depois
-de `Confirmar`, o Worker recarrega a página e exige o texto `Evento registrado
-e vinculado a NF-e`; somente então, na mesma transação, altera
+de `Confirmar`, o Worker preserva a resposta atual da SPA e exige o texto
+`Evento registrado e vinculado a NF-e`; somente então, na mesma transação, altera
 `fiscal.notas.status` para `CANCELADA` e a fila para `CONCLUIDO`. Nenhum comando
 atualiza `fiscal.tarefas`, coberto também por teste. Ausência de prova fica em
 conferência e resposta de prazo vem do portal, sem número de dias presumido.
+
+Correção local de 06/09: o `reload` posterior à confirmação foi removido após o
+ensaio mostrar que ele apagava o resultado transitório e exigia refazer a
+consulta. O Worker agora lê a prova na tela já apresentada e, antes de abrir o
+formulário, verifica a situação da única linha para não cancelar novamente uma
+nota que já aparece como `Cancelada`. No Web, o texto “Cancelar esta nota” foi
+substituído por um ícone de cadeado acessível, do mesmo tamanho e ao lado de
+Compartilhar. Validação local: 252 testes Worker, 108 testes Web, `compileall`
+e build Next.js aprovados. Esta correção ainda não foi publicada nem instalada
+na VM; nenhum banco ou operação fiscal foi alterado nesta etapa.
 
 Em `/notas`, as abas `Ativas` e `Canceladas` usam exclusivamente o estado da
 nota e mantêm agrupamento por distribuição. A nota cancelada conserva PDF/XML

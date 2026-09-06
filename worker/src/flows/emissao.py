@@ -471,72 +471,212 @@ async def selecionar_emitente(page: Page, emitente: Emitente, logger: logging.Lo
 
 
 
+
 async def preencher_destinatario(
     page: Page,
     destinatario: Destinatario,
-    logger: logging.Logger
+    logger: logging.Logger,
 ) -> None:
     logger.info("Preenchendo destinatário da tarefa")
 
-    # Tipo de identificação: CNPJ.
-    await page.get_by_text("CNPJ", exact=True).first.click()
+    # ================================================================
+    # TIPO DE IDENTIFICAÇÃO
+    # ================================================================
 
-    # Campo CNPJ visível.
+    logger.info("Destinatário: selecionando tipo CNPJ")
+
+    await page.get_by_text(
+        "CNPJ",
+        exact=True,
+    ).first.click()
+
+    logger.info("Destinatário: tipo CNPJ selecionado")
+
+    # ================================================================
+    # CNPJ
+    # ================================================================
+
     campo_cnpj = page.locator(
         "div.slds-form-element.slds-col.slds-size_3-of-12 "
         "input:not([type=radio]):visible"
     ).first
 
+    logger.info("Destinatário: aguardando campo CNPJ")
+
+    try:
+        await campo_cnpj.wait_for(
+            state="visible",
+            timeout=10000,
+        )
+    except PlaywrightTimeoutError as exc:
+        raise RuntimeError(
+            "Campo CNPJ não ficou visível."
+        ) from exc
+
+    logger.info("Destinatário: preenchendo CNPJ")
+
     await campo_cnpj.fill(destinatario.cnpj)
 
-    # Confirmado: somente o fluxo CONTRIBUINTE foi reconhecido.
+    logger.info("Destinatário: CNPJ preenchido")
+
+    # ================================================================
+    # INDICADOR DE IE
+    # ================================================================
+
     if destinatario.indicador_ie != "CONTRIBUINTE":
         raise DadosFiscaisIncompletos(
-            "Só o fluxo CONTRIBUINTE (1 — Contribuinte ICMS, que já vem "
-            "selecionado por padrão) foi reconhecido no sistema real. "
+            "Só o fluxo CONTRIBUINTE "
+            "(1 — Contribuinte ICMS, que já vem selecionado por padrão) "
+            "foi reconhecido no sistema real. "
             "Reconhecer os demais casos antes de usar."
         )
 
-    # Inscrição Estadual.
+    # ================================================================
+    # INSCRIÇÃO ESTADUAL
+    # ================================================================
+
     if destinatario.inscricao_estadual:
-        await page.locator(
+        logger.info(
+            "Destinatário: aguardando campo de inscrição estadual"
+        )
+
+        campo_ie = page.locator(
             "div.slds-grid.slds-wrap.slds-gutters "
             "> div:nth-child(7) input:visible"
-        ).fill(destinatario.inscricao_estadual)
+        )
 
-    # Razão Social.
-    await page.locator(
+        try:
+            await campo_ie.wait_for(
+                state="visible",
+                timeout=10000,
+            )
+        except PlaywrightTimeoutError as exc:
+            raise RuntimeError(
+                "Campo de inscrição estadual não ficou visível."
+            ) from exc
+
+        logger.info(
+            "Destinatário: preenchendo inscrição estadual"
+        )
+
+        await campo_ie.fill(
+            destinatario.inscricao_estadual
+        )
+
+        logger.info(
+            "Destinatário: inscrição estadual preenchida"
+        )
+
+    # ================================================================
+    # RAZÃO SOCIAL
+    # ================================================================
+
+    campo_razao_social = page.locator(
         "div.slds-form-element.slds-col.slds-size_12-of-12 "
         "input:visible"
-    ).first.fill(destinatario.razao_social)
+    ).first
+
+    logger.info(
+        "Destinatário: aguardando campo razão social"
+    )
+
+    try:
+        await campo_razao_social.wait_for(
+            state="visible",
+            timeout=10000,
+        )
+    except PlaywrightTimeoutError as exc:
+        raise RuntimeError(
+            "Campo de razão social não ficou visível."
+        ) from exc
+
+    logger.info(
+        "Destinatário: preenchendo razão social"
+    )
+
+    await campo_razao_social.fill(
+        destinatario.razao_social
+    )
+
+    logger.info(
+        "Destinatário: razão social preenchida"
+    )
 
     # ================================================================
     # CEP
     # ================================================================
 
+    logger.info(
+        "Destinatário: procurando campo CEP"
+    )
+
     cep = page.locator(
-        "#div-endereco div.slds-form-element.slds-col.slds-size_12-of-12 "
+        "#div-endereco "
+        "div.slds-form-element.slds-col.slds-size_12-of-12 "
         "input:visible"
     ).first
 
-    await cep.wait_for(state="visible")
+    try:
+        await cep.wait_for(
+            state="visible",
+            timeout=10000,
+        )
+    except PlaywrightTimeoutError as exc:
+        quantidade = await page.locator(
+            "#div-endereco "
+            "div.slds-form-element.slds-col.slds-size_12-of-12 "
+            "input"
+        ).count()
+
+        logger.error(
+            "Campo CEP não apareceu. "
+            "Inputs encontrados no bloco esperado: %d",
+            quantidade,
+        )
+
+        try:
+            await page.screenshot(
+                path="/tmp/erro-destinatario-cep.png",
+                full_page=True,
+            )
+
+            logger.error(
+                "Screenshot de diagnóstico salvo em "
+                "/tmp/erro-destinatario-cep.png"
+            )
+        except Exception as screenshot_exc:
+            logger.error(
+                "Não foi possível salvar screenshot do erro de CEP (%s).",
+                type(screenshot_exc).__name__,
+            )
+
+        raise RuntimeError(
+            "Campo CEP não ficou visível após o preenchimento "
+            "dos dados do destinatário."
+        ) from exc
 
     logger.info("Preenchendo CEP")
 
-    await cep.fill(destinatario.cep)
+    await cep.fill(
+        destinatario.cep
+    )
 
-    logger.info("CEP preenchido; aguardando dados automáticos do endereço")
+    logger.info(
+        "CEP preenchido; aguardando dados automáticos do endereço"
+    )
 
-    # IMPORTANTE:
-    #
+    # ================================================================
+    # DISPARA CONSULTA DO CEP
+    # ================================================================
+
     # Não usamos Enter aqui.
     #
-    # O comportamento observado indica que Enter pode estar submetendo
-    # o formulário e causando o "reload" que está fazendo a interface
-    # desaparecer/reaparecer.
+    # O comportamento observado indica que Enter pode submeter
+    # o formulário e provocar reload da interface.
     #
-    # O fluxo original utilizava Tab para sair do campo e disparar a
-    # atualização do CEP.
+    # O fluxo original utilizava Tab para sair do campo e disparar
+    # a atualização do CEP.
+
     await cep.press("Tab")
 
     logger.info(
@@ -551,15 +691,10 @@ async def preencher_destinatario(
         "#app > div.slds-align_absolute-center.loading"
     )
 
-    # Primeiro tentamos observar o início do carregamento.
-    #
-    # O timeout é curto de propósito: se a consulta for extremamente
-    # rápida e o loading já tiver desaparecido, não devemos considerar
-    # isso uma falha.
     try:
         await loading.wait_for(
             state="visible",
-            timeout=3000
+            timeout=3000,
         )
 
         logger.info(
@@ -567,30 +702,50 @@ async def preencher_destinatario(
         )
 
     except PlaywrightTimeoutError:
-        logger.info("Loading do CEP não chegou a ser observado")
+        logger.info(
+            "Loading do CEP não chegou a ser observado"
+        )
+
     else:
         try:
-            await loading.wait_for(state="hidden", timeout=15000)
+            await loading.wait_for(
+                state="hidden",
+                timeout=15000,
+            )
         except PlaywrightTimeoutError as exc:
-            raise RuntimeError("A consulta de CEP permaneceu carregando além do limite seguro.") from exc
-        logger.info("Loading do CEP desapareceu")
+            raise RuntimeError(
+                "A consulta de CEP permaneceu carregando "
+                "além do limite seguro."
+            ) from exc
+
+        logger.info(
+            "Loading do CEP desapareceu"
+        )
 
     # ================================================================
     # NÚMERO
     # ================================================================
 
-    # Localizamos o elemento NOVAMENTE.
-    #
-    # Isso é proposital: a aplicação pode recriar os inputs durante
-    # a consulta do CEP.
+    # Localizamos novamente porque a aplicação pode recriar
+    # os inputs durante a consulta do CEP.
+
     numero = page.locator(
         "#div-endereco input.slds-input"
     ).nth(2)
 
-    await numero.wait_for(
-        state="visible",
-        timeout=10000
+    logger.info(
+        "Destinatário: aguardando campo Número após consulta do CEP"
     )
+
+    try:
+        await numero.wait_for(
+            state="visible",
+            timeout=10000,
+        )
+    except PlaywrightTimeoutError as exc:
+        raise RuntimeError(
+            "Campo Número não ficou visível após processamento do CEP."
+        ) from exc
 
     logger.info(
         "Campo Número localizado após processamento do CEP"
@@ -600,23 +755,41 @@ async def preencher_destinatario(
         str(destinatario.numero_endereco)
     )
 
-    logger.info("Número do endereço preenchido")
+    logger.info(
+        "Número do endereço preenchido"
+    )
 
-    # Confirma explicitamente que o valor ainda está no campo.
+    # ================================================================
+    # CONFIRMAÇÃO DO NÚMERO
+    # ================================================================
+
     valor_numero = await numero.input_value()
 
-    logger.info("Número do endereço confirmado antes de avançar")
+    logger.info(
+        "Número do endereço confirmado antes de avançar"
+    )
 
-    if valor_numero != str(destinatario.numero_endereco):
+    if valor_numero != str(
+        destinatario.numero_endereco
+    ):
         raise RuntimeError(
-            "O número do endereço desapareceu ou foi alterado antes do Avançar."
+            "O número do endereço desapareceu ou foi alterado "
+            "antes do Avançar."
         )
+
+    # ================================================================
+    # AVANÇAR
+    # ================================================================
 
     logger.info(
         "Número confirmado no campo — clicando em Avançar"
     )
 
-    await clicar_avancar(page, logger)
+    await clicar_avancar(
+        page,
+        logger,
+    )
+
 
     # ================================================================
     # PRÓXIMA ETAPA
