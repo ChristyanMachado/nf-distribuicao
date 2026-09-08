@@ -205,7 +205,11 @@ describe("calcularKpisOperacionais", () => {
   it("usa a duração real de cada lote para calcular a economia", () => {
     const resultado = calcularKpisOperacionais([
       { id: "1", loteId: "l1", status: "EMITIDA", tentativas: 1, iniciadoEm: new Date("2026-08-26T10:00:00Z"), concluidoEm: new Date("2026-08-26T10:01:00Z") },
-      { id: "2", loteId: "l2", status: "EMITIDA", tentativas: 1, iniciadoEm: new Date("2026-08-26T11:00:00Z"), concluidoEm: new Date("2026-08-26T11:02:00Z") },
+      { id: "2", loteId: "l1", status: "EMITIDA", tentativas: 1, iniciadoEm: new Date("2026-08-26T10:00:00Z"), concluidoEm: new Date("2026-08-26T10:01:00Z") },
+      { id: "3", loteId: "l1", status: "EMITIDA", tentativas: 1, iniciadoEm: new Date("2026-08-26T10:00:00Z"), concluidoEm: new Date("2026-08-26T10:01:00Z") },
+      { id: "4", loteId: "l2", status: "EMITIDA", tentativas: 1, iniciadoEm: new Date("2026-08-26T11:00:00Z"), concluidoEm: new Date("2026-08-26T11:02:00Z") },
+      { id: "5", loteId: "l2", status: "EMITIDA", tentativas: 1, iniciadoEm: new Date("2026-08-26T11:00:00Z"), concluidoEm: new Date("2026-08-26T11:02:00Z") },
+      { id: "6", loteId: "l2", status: "EMITIDA", tentativas: 1, iniciadoEm: new Date("2026-08-26T11:00:00Z"), concluidoEm: new Date("2026-08-26T11:02:00Z") },
     ]);
 
     expect(resultado.tempoMedioLoteSegundos).toBe(90);
@@ -213,9 +217,55 @@ describe("calcularKpisOperacionais", () => {
     expect(resultado.distribuicoesMedidas).toBe(2);
   });
 
+  it("não extrapola o benchmark manual de três notas para um lote maior", () => {
+    const inicio = new Date("2026-09-08T10:00:00Z");
+    const fim = new Date("2026-09-08T10:05:00Z");
+    const resultado = calcularKpisOperacionais([
+      { id: "1", loteId: "lote-5", status: "EMITIDA", tentativas: 1, iniciadoEm: inicio, concluidoEm: fim },
+      { id: "2", loteId: "lote-5", status: "EMITIDA", tentativas: 1, iniciadoEm: inicio, concluidoEm: fim },
+      { id: "3", loteId: "lote-5", status: "EMITIDA", tentativas: 1, iniciadoEm: inicio, concluidoEm: fim },
+      { id: "4", loteId: "lote-5", status: "EMITIDA", tentativas: 1, iniciadoEm: inicio, concluidoEm: fim },
+      { id: "5", loteId: "lote-5", status: "EMITIDA", tentativas: 1, iniciadoEm: inicio, concluidoEm: fim },
+    ]);
+
+    expect(resultado.tempoMedioLoteSegundos).toBe(300);
+    expect(resultado.tempoMedioPorNotaSegundos).toBe(60);
+    expect(resultado.distribuicoesComparaveis).toBe(0);
+    expect(resultado.tempoEconomizadoSegundos).toBe(0);
+  });
+
+  it("mede itens sem confundir quantidade de produtos com notas", () => {
+    const inicio = new Date("2026-09-08T10:00:00Z");
+    const fim = new Date("2026-09-08T10:02:00Z");
+    const resultado = calcularKpisOperacionais([
+      { id: "1", loteId: "l1", status: "EMITIDA", quantidadeItens: 2, tentativas: 1, iniciadoEm: inicio, concluidoEm: fim },
+      { id: "2", loteId: "l1", status: "EMITIDA", quantidadeItens: 1, tentativas: 1, iniciadoEm: inicio, concluidoEm: fim },
+      { id: "3", loteId: "l1", status: "EMITIDA", quantidadeItens: 3, tentativas: 1, iniciadoEm: inicio, concluidoEm: fim },
+    ]);
+
+    expect(resultado.tempoMedioPorNotaSegundos).toBe(40);
+    expect(resultado.tempoMedioPorItemSegundos).toBe(20);
+  });
+
+  it("separa nota cancelada de falha técnica sem desfazer a tarefa concluída", () => {
+    const inicio = new Date("2026-09-08T10:00:00Z");
+    const fim = new Date("2026-09-08T10:01:00Z");
+    const resultado = calcularKpisOperacionais([
+      { id: "1", loteId: "l1", status: "EMITIDA", notaStatus: "CANCELADA", tentativas: 1, iniciadoEm: inicio, concluidoEm: fim },
+      { id: "2", loteId: "l2", status: "ERRO", tentativas: 1, iniciadoEm: inicio, concluidoEm: fim },
+    ]);
+
+    expect(resultado.notasProcessadas).toBe(1);
+    expect(resultado.emitidas).toBe(0);
+    expect(resultado.notasCanceladas).toBe(1);
+    expect(resultado.erros).toBe(1);
+  });
+
   it("exclui reprocessamentos da média porque o início preserva a primeira tentativa", () => {
     const resultado = calcularKpisOperacionais([
       { id: "1", loteId: "limpo", status: "EMITIDA", tentativas: 1, iniciadoEm: new Date("2026-09-05T11:00:00Z"), concluidoEm: new Date("2026-09-05T11:01:00Z") },
+      { id: "1b", loteId: "limpo", status: "EMITIDA", tentativas: 1, iniciadoEm: new Date("2026-09-05T11:00:00Z"), concluidoEm: new Date("2026-09-05T11:01:00Z") },
+      { id: "1c", loteId: "limpo", status: "EMITIDA", tentativas: 1, iniciadoEm: new Date("2026-09-05T11:00:00Z"), concluidoEm: new Date("2026-09-05T11:01:00Z") },
       { id: "2", loteId: "reprocessado", status: "EMITIDA", tentativas: 2, iniciadoEm: new Date("2026-09-05T10:00:00Z"), concluidoEm: new Date("2026-09-05T11:00:00Z") },
     ]);
 

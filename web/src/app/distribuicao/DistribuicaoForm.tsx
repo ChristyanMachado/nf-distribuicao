@@ -69,6 +69,7 @@ export default function DistribuicaoForm({
   const [produtoParaAdicionar, setProdutoParaAdicionar] = useState("");
   const [buscaProduto, setBuscaProduto] = useState("");
   const [seletorProdutoAberto, setSeletorProdutoAberto] = useState(false);
+  const [indiceProdutoAtivo, setIndiceProdutoAtivo] = useState(0);
   const [quantidadeParaAdicionar, setQuantidadeParaAdicionar] = useState("");
   const [status, setStatus] = useState<{ tipo: "ok" | "erro" | "aviso"; texto: string } | null>(null);
   const [enviando, setEnviando] = useState(false);
@@ -216,6 +217,19 @@ export default function DistribuicaoForm({
     setProdutoParaAdicionar(produto.id);
     setBuscaProduto(produto.descricao);
     setSeletorProdutoAberto(false);
+  }
+
+  function iniciarNovaDistribuicao() {
+    window.localStorage.removeItem(chaveRascunho);
+    setData(dataOperacionalBrasil());
+    setChaveIdempotencia(crypto.randomUUID());
+    setResultado(null);
+    setDestinos([]);
+    setProdutosDistribuicao([]);
+    setProdutoParaAdicionar("");
+    setBuscaProduto("");
+    setQuantidadeParaAdicionar("");
+    setStatus(null);
   }
 
   function descartarRascunho() {
@@ -612,17 +626,33 @@ export default function DistribuicaoForm({
               id="busca-produto"
               type="search"
               value={buscaProduto}
-              onFocus={() => setSeletorProdutoAberto(true)}
+              onFocus={() => {
+                setSeletorProdutoAberto(true);
+                setIndiceProdutoAtivo(0);
+              }}
               onBlur={() => window.setTimeout(() => setSeletorProdutoAberto(false), 120)}
               onChange={(event) => {
                 setBuscaProduto(event.target.value);
                 setProdutoParaAdicionar("");
                 setSeletorProdutoAberto(true);
+                setIndiceProdutoAtivo(0);
               }}
               onKeyDown={(event) => {
-                if (event.key === "Enter" && produtosFiltrados.length === 1) {
+                if (event.key === "ArrowDown" && produtosFiltrados.length > 0) {
                   event.preventDefault();
-                  selecionarProduto(produtosFiltrados[0]);
+                  setSeletorProdutoAberto(true);
+                  setIndiceProdutoAtivo((indice) => Math.min(indice + 1, produtosFiltrados.length - 1));
+                  return;
+                }
+                if (event.key === "ArrowUp" && produtosFiltrados.length > 0) {
+                  event.preventDefault();
+                  setSeletorProdutoAberto(true);
+                  setIndiceProdutoAtivo((indice) => Math.max(indice - 1, 0));
+                  return;
+                }
+                if (event.key === "Enter" && produtosFiltrados.length > 0) {
+                  event.preventDefault();
+                  selecionarProduto(produtosFiltrados[Math.min(indiceProdutoAtivo, produtosFiltrados.length - 1)]);
                 }
                 if (event.key === "Escape") setSeletorProdutoAberto(false);
               }}
@@ -632,6 +662,9 @@ export default function DistribuicaoForm({
               aria-haspopup="listbox"
               aria-controls="opcoes-produto"
               aria-expanded={seletorProdutoAberto}
+              aria-activedescendant={seletorProdutoAberto && produtosFiltrados.length > 0
+                ? `produto-opcao-${produtosFiltrados[Math.min(indiceProdutoAtivo, produtosFiltrados.length - 1)].id}`
+                : undefined}
               role="combobox"
               className="w-full"
             />
@@ -642,15 +675,21 @@ export default function DistribuicaoForm({
                 aria-label="Produtos disponíveis em ordem alfabética"
                 className="absolute z-20 mt-1 max-h-56 w-full overflow-y-auto rounded-[var(--radius-control)] border border-[var(--line-strong)] bg-[var(--paper-raised)] p-1 shadow-lg"
               >
-                {produtosFiltrados.length > 0 ? produtosFiltrados.map((produto) => (
+                {produtosFiltrados.length > 0 ? produtosFiltrados.map((produto, indice) => (
                   <button
                     key={produto.id}
+                    id={`produto-opcao-${produto.id}`}
                     type="button"
                     role="option"
                     aria-selected={produtoParaAdicionar === produto.id}
                     onMouseDown={(event) => event.preventDefault()}
+                    onMouseEnter={() => setIndiceProdutoAtivo(indice)}
                     onClick={() => selecionarProduto(produto)}
-                    className="tap-target flex min-h-10 w-full items-center rounded-[calc(var(--radius-control)-2px)] px-3 text-left text-sm text-[var(--ink)] hover:bg-[var(--field-tint)] focus:bg-[var(--field-tint)]"
+                    className={`tap-target flex min-h-10 w-full items-center rounded-[calc(var(--radius-control)-2px)] px-3 text-left text-sm text-[var(--ink)] hover:bg-[var(--field-tint)] focus:bg-[var(--field-tint)] ${
+                      indice === Math.min(indiceProdutoAtivo, produtosFiltrados.length - 1)
+                        ? "bg-[var(--field-tint)]"
+                        : ""
+                    }`}
                   >
                     {produto.descricao}
                   </button>
@@ -854,8 +893,31 @@ export default function DistribuicaoForm({
               if (!linhas.length) return null;
               return <div key={chaveDestino(destino)} className="py-3 text-sm">
                 <p className="font-semibold">{cliente?.nome} — {cliente?.emitentes.find((e) => e.id === destino.emitenteId)?.nome}</p>
-                {linhas.map((linha) => <p key={linha.produtoId} className="mt-1 text-[13px] text-[var(--ink-soft)]">{produtos.find((p) => p.id === linha.produtoId)?.descricao}: {linha.quantidadeDistribuida} {produtos.find((p) => p.id === linha.produtoId)?.unidade}{linha.quantidadeTroca > 0 ? ` · troca ${linha.quantidadeTroca}` : ""}</p>)}
-                <p className="mt-1 font-mono-tab font-semibold">{moeda.format(linhas.reduce((s, l) => s + l.subtotal, 0))}</p>
+                {linhas.map((linha) => {
+                  const produto = produtos.find((p) => p.id === linha.produtoId);
+                  const precoReferencia = produto
+                    ? Number(precoInicial(produto.id, destino.clienteId, produto.precoPadrao))
+                    : null;
+                  const precoDiferenteDoUltimo = precoReferencia !== null
+                    && Math.abs(linha.precoUnitario - precoReferencia) > 0.004;
+                  return (
+                    <div key={linha.produtoId} className="mt-2 text-[13px] text-[var(--ink-soft)]">
+                      <p>
+                        {produto?.descricao}: {linha.quantidadeDistribuida} {produto?.unidade}
+                        {linha.quantidadeTroca > 0 ? ` · troca ${linha.quantidadeTroca}` : ""}
+                      </p>
+                      <p className="font-mono-tab text-[12px]">
+                        {moeda.format(linha.precoUnitario)} por {produto?.unidade} · {moeda.format(linha.subtotal)}
+                      </p>
+                      {precoDiferenteDoUltimo && (
+                        <p className="mt-1 rounded bg-[var(--cream)] px-2 py-1 text-[11px] text-[var(--ink)]">
+                          Atenção: preço diferente do último preço usado para este mercado. Confira se é promoção ou ajuste.
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+                <p className="mt-2 font-mono-tab font-semibold">{moeda.format(linhas.reduce((s, l) => s + l.subtotal, 0))}</p>
               </div>;
             })}
           </div>
@@ -875,6 +937,13 @@ export default function DistribuicaoForm({
             <a href="/tarefas" className="tap-target flex items-center justify-center rounded-[var(--radius-control)] bg-[var(--field)] px-3 text-center font-semibold text-white">Acompanhar emissão</a>
             <a href={`/entregas?lote=${encodeURIComponent(resultado.loteId)}`} className="tap-target flex items-center justify-center rounded-[var(--radius-control)] border border-[var(--line-strong)] bg-[var(--paper)] px-3 text-center font-medium">Abrir roteiro</a>
           </div>
+          <button
+            type="button"
+            onClick={iniciarNovaDistribuicao}
+            className="tap-target mt-2 flex w-full items-center justify-center rounded-[var(--radius-control)] px-3 text-sm font-semibold text-[var(--field-strong)] underline decoration-[var(--line-strong)] underline-offset-4"
+          >
+            Iniciar nova distribuição
+          </button>
         </Card>
       )}
 

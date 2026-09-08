@@ -54,9 +54,11 @@ export default function NotaCard({ nota }: { nota: Nota }) {
     && nota.cancelamentoStatus !== "CONCLUIDO"
     && nota.cancelamentoStatus !== "AGUARDANDO_CONFERENCIA";
   const [cancelamentoAberto, setCancelamentoAberto] = useState(false);
+  const [mensagemCompartilhamento, setMensagemCompartilhamento] = useState<string | null>(null);
 
   async function compartilhar() {
     if (!pdfUrl) return;
+    setMensagemCompartilhamento(null);
     if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
       try {
         await navigator.share({
@@ -64,11 +66,20 @@ export default function NotaCard({ nota }: { nota: Nota }) {
           text: `Nota fiscal de ${nota.clienteNome}`,
           url: pdfUrl,
         });
-      } catch {
-        // usuário cancelou — sem ação necessária
+        setMensagemCompartilhamento("Link compartilhado.");
+      } catch (erro) {
+        // Cancelar a janela nativa não é erro operacional e não merece alerta.
+        if (!(erro instanceof DOMException && erro.name === "AbortError")) {
+          setMensagemCompartilhamento("Não foi possível compartilhar. Tente baixar o PDF.");
+        }
       }
     } else {
-      await navigator.clipboard.writeText(pdfUrl);
+      try {
+        await navigator.clipboard.writeText(pdfUrl);
+        setMensagemCompartilhamento("Link copiado para compartilhar.");
+      } catch {
+        setMensagemCompartilhamento("Não foi possível copiar o link. Tente baixar o PDF.");
+      }
     }
   }
 
@@ -145,6 +156,12 @@ export default function NotaCard({ nota }: { nota: Nota }) {
           </button>
         )}
       </div>}
+
+      {mensagemCompartilhamento && (
+        <p role="status" aria-live="polite" className="mt-2 text-[12px] text-[var(--field-strong)]">
+          {mensagemCompartilhamento}
+        </p>
+      )}
 
       {!documentosDisponiveis && recuperando && (
         <div

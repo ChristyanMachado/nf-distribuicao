@@ -1,5 +1,45 @@
 # Handoff — Estado Atual
 
+## Métricas de escala e conferência fiscal — 08/09/2026
+
+- A duração do Worker já é real por lote: primeira tarefa iniciada até última
+  concluída, sem reprocessamento. Porém, a economia anterior comparava todo
+  lote ao benchmark humano fixo de 337 s, obtido apenas em um lote de 3 notas.
+  Isso não é válido para lotes de 1, 5 ou mais notas.
+- A regra agora é conservadora: todos os lotes limpos alimentam `tempo médio
+  por nota` e por item, mas `tempo economizado estimado` só considera lotes
+  comparáveis de exatamente 3 notas. O relatório informa a amostra comparável,
+  em vez de extrapolar um ganho. Próximo passo analítico: quando houver
+  benchmarks manuais de outros tamanhos, versionar referência por notas/itens
+  sem reescrever o histórico.
+- O carregamento dos relatórios passa a usar o estado da **nota** quando ele
+  existir. Nota cancelada deixa de entrar em valor, rankings e nota fiscal
+  vigente; sua tarefa continua processada/concluída. O card distingue
+  cancelamentos posteriores de falhas técnicas do Worker.
+- A conferência final de `/distribuicao` não ganhou clique nem modal: cada item
+  agora mostra quantidade, troca, preço unitário e subtotal. Preço diferente do
+  último praticado para o mesmo produto/mercado recebe aviso discreto para
+  revisar promoção ou ajuste antes do único clique de processamento.
+- Validação local: 119 testes Web, TypeScript, build Next.js e `git diff --check`
+  aprovados. Sem migration, Worker, fila, banco remoto ou efeito fiscal. Ainda
+  pendente: validação visual no Vercel/celular antes de publicar.
+
+## Quick wins de operação Web — 08/09/2026
+
+- `/distribuicao`: a busca alfabética de produto agora aceita seta para cima,
+  seta para baixo e Enter, mantém opção ativa acessível no `combobox` e dispensa
+  um toque para escolher o item filtrado. Depois de concluir, o card oferece
+  `Iniciar nova distribuição`, limpando somente o estado local já enviado e
+  criando nova chave de idempotência.
+- `/notas`: Compartilhar agora confirma visualmente quando o link foi
+  compartilhado/copiado e orienta o usuário se o navegador não puder executar
+  a ação. Cancelar a janela nativa de compartilhamento continua silencioso.
+- Escopo: UI local apenas; sem mudança em banco, Worker, fila, cancelamento,
+  permissões ou documentos fiscais. Validação: TypeScript, 117 testes Web,
+  build Next.js e `git diff --check` aprovados. A automação visual local não
+  pôde rodar porque o executável `agent-browser` do plugin não está disponível
+  nesta instalação. Próximo gate: validação visual normal no Vercel/celular.
+
 ## Correção de leitura de situação no cancelamento — 08/09/2026
 
 - Incidente real em produção: depois de login, consulta por chave, registro,

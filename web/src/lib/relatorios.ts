@@ -33,6 +33,11 @@ export type TarefaOperacional = {
   tentativas: number;
   iniciadoEm: Date | null;
   concluidoEm: Date | null;
+  // A tarefa registra o resultado da emissão; a nota pode ser cancelada
+  // posteriormente sem desfazer esse histórico. Esse campo preserva as duas
+  // perspectivas no relatório.
+  notaStatus?: string | null;
+  quantidadeItens?: number;
 };
 
 export type Kpis = {
@@ -57,19 +62,25 @@ export type PontoSerie = {
 export type KpisOperacionais = {
   distribuicoes: number;
   distribuicoesConcluidas: number;
+  notasProcessadas: number;
   emitidas: number;
+  notasCanceladas: number;
   pendentes: number;
   emAndamento: number;
   erros: number;
   distribuicoesMedidas: number;
+  distribuicoesComparaveis: number;
   tempoEconomizadoSegundos: number;
   tempoMedioLoteSegundos: number | null;
+  tempoMedioPorNotaSegundos: number | null;
+  tempoMedioPorItemSegundos: number | null;
 };
 
-// Benchmark humano de 25/08/2026: uma distribuição com 3 notas levou 337 s.
-// O tempo automático não é constante: vem dos timestamps reais de cada lote.
-// Recalibrar o referencial manual quando houver uma amostra humana maior.
+// Benchmark humano de 25/08/2026: uma distribuição com EXATAMENTE 3 notas
+// levou 337 s. Não é uma estimativa por nota e não deve ser extrapolado para
+// lotes de tamanho diferente. O tempo automático vem dos timestamps reais.
 export const BENCHMARK_MANUAL_SEGUNDOS_POR_LOTE = 337;
+export const BENCHMARK_MANUAL_QUANTIDADE_NOTAS = 3;
 
 const STATUS_SUCESSO = new Set(["EMITIDA", "DOCUMENTOS_ARMAZENADOS"]);
 
@@ -81,7 +92,11 @@ function chaveDoLote(tarefa: TarefaOperacional): string {
 
 export function calcularKpisOperacionais(tarefas: TarefaOperacional[]): KpisOperacionais {
   const validas = tarefas.filter((t) => t.status !== "CANCELADA");
-  const emitidas = validas.filter((t) => STATUS_SUCESSO.has(t.status));
+  const notasProcessadas = validas.filter((t) => STATUS_SUCESSO.has(t.status));
+  const notasCanceladas = notasProcessadas.filter((t) => t.notaStatus === "CANCELADA");
+  // "Emitida" aqui significa fiscalmente ativa. A tarefa de uma nota
+  // cancelada continua concluída, mas não deve parecer uma nota vigente.
+  const emitidas = notasProcessadas.filter((t) => t.notaStatus !== "CANCELADA");
   const porLote = new Map<string, TarefaOperacional[]>();
 
   for (const tarefa of validas) {
@@ -101,30 +116,55 @@ export function calcularKpisOperacionais(tarefas: TarefaOperacional[]): KpisOper
   const lotesMensuraveis = lotesConcluidos.filter(
     (lote) => lote.every((tarefa) => tarefa.tentativas === 1)
   );
-  const duracoesDosLotes = lotesMensuraveis
+  const medicoesDosLotes = lotesMensuraveis
     .map((lote) => {
       const inicios = lote.map((t) => t.iniciadoEm?.getTime()).filter((v): v is number => v !== undefined);
       const conclusoes = lote.map((t) => t.concluidoEm?.getTime()).filter((v): v is number => v !== undefined);
       if (inicios.length !== lote.length || conclusoes.length !== lote.length) return null;
-      return (Math.max(...conclusoes) - Math.min(...inicios)) / 1000;
+      const segundos = (Math.max(...conclusoes) - Math.min(...inicios)) / 1000;
+      return segundos >= 0 && segundos <= 24 * 60 * 60
+        ? {
+            segundos,
+            notas: lote.length,
+            itens: lote.reduce((total, tarefa) => total + (tarefa.quantidadeItens ?? 0), 0),
+          }
+        : null;
     })
-    .filter((segundos): segundos is number => segundos !== null && segundos >= 0 && segundos <= 24 * 60 * 60);
-  const tempoEconomizadoSegundos = duracoesDosLotes.reduce(
-    (total, duracaoReal) => total + Math.max(0, BENCHMARK_MANUAL_SEGUNDOS_POR_LOTE - duracaoReal),
+    .filter((medicao): medicao is { segundos: number; notas: number; itens: number } => medicao !== null);
+  const medicoesComparaveis = medicoesDosLotes.filter(
+    (medicao) => medicao.notas === BENCHMARK_MANUAL_QUANTIDADE_NOTAS,
+  );
+  const tempoEconomizadoSegundos = medicoesComparaveis.reduce(
+    (total, medicao) => total + Math.max(0, BENCHMARK_MANUAL_SEGUNDOS_POR_LOTE - medicao.segundos),
     0
   );
 
   return {
     distribuicoes: porLote.size,
     distribuicoesConcluidas: lotesConcluidos.length,
+    notasProcessadas: notasProcessadas.length,
     emitidas: emitidas.length,
+    notasCanceladas: notasCanceladas.length,
     pendentes: validas.filter((t) => t.status === "PENDENTE").length,
     emAndamento: validas.filter((t) => ["PROCESSANDO", "AGUARDANDO_CONFERENCIA", "EMITINDO"].includes(t.status)).length,
     erros: validas.filter((t) => t.status === "ERRO").length,
-    distribuicoesMedidas: duracoesDosLotes.length,
+    distribuicoesMedidas: medicoesDosLotes.length,
+    distribuicoesComparaveis: medicoesComparaveis.length,
     tempoEconomizadoSegundos: Math.round(tempoEconomizadoSegundos),
-    tempoMedioLoteSegundos: duracoesDosLotes.length
-      ? Math.round(duracoesDosLotes.reduce((a, b) => a + b, 0) / duracoesDosLotes.length)
+    tempoMedioLoteSegundos: medicoesDosLotes.length
+      ? Math.round(medicoesDosLotes.reduce((total, medicao) => total + medicao.segundos, 0) / medicoesDosLotes.length)
+      : null,
+    tempoMedioPorNotaSegundos: medicoesDosLotes.length
+      ? Math.round(
+          medicoesDosLotes.reduce((total, medicao) => total + medicao.segundos, 0)
+          / medicoesDosLotes.reduce((total, medicao) => total + medicao.notas, 0),
+        )
+      : null,
+    tempoMedioPorItemSegundos: medicoesDosLotes.reduce((total, medicao) => total + medicao.itens, 0) > 0
+      ? Math.round(
+          medicoesDosLotes.reduce((total, medicao) => total + medicao.segundos, 0)
+          / medicoesDosLotes.reduce((total, medicao) => total + medicao.itens, 0),
+        )
       : null,
   };
 }

@@ -162,12 +162,12 @@ export default function RelatoriosView({
           <KpiOperacional
             titulo="Distribuições"
             valor={String(operacao.distribuicoes)}
-            detalhe={`${formatarQuantidade(operacao.distribuicoesConcluidas, "completa", "completas")} · ${formatarQuantidade(operacao.emitidas, "nota emitida", "notas emitidas")}`}
+            detalhe={`${formatarQuantidade(operacao.distribuicoesConcluidas, "completa", "completas")} · ${formatarQuantidade(operacao.notasProcessadas, "nota processada", "notas processadas")}`}
           />
           <KpiOperacional
             titulo="Tempo economizado estimado"
             valor={formatarDuracao(operacao.tempoEconomizadoSegundos)}
-            detalhe={`${formatarQuantidade(operacao.distribuicoesMedidas, "distribuição medida", "distribuições medidas")} sem reprocessamento · comparado ao manual`}
+            detalhe={`${formatarQuantidade(operacao.distribuicoesComparaveis, "lote comparável", "lotes comparáveis")} de 3 notas · comparado ao manual`}
             destaque
           />
           <KpiOperacional
@@ -178,31 +178,44 @@ export default function RelatoriosView({
           <KpiOperacional
             titulo="Erros"
             valor={String(operacao.erros)}
-            detalhe="tarefas que exigem atenção"
+            detalhe="falhas técnicas que exigem atenção"
             alerta={operacao.erros > 0}
           />
           <KpiOperacional
-            titulo="Tempo médio de processamento"
+            titulo="Tempo médio por nota"
             valor={
-              operacao.tempoMedioLoteSegundos === null
+              operacao.tempoMedioPorNotaSegundos === null
                 ? "—"
-                : formatarDuracao(operacao.tempoMedioLoteSegundos)
+                : formatarDuracao(operacao.tempoMedioPorNotaSegundos)
             }
-            detalhe={`${formatarQuantidade(operacao.distribuicoesMedidas, "distribuição medida", "distribuições medidas")} sem reprocessamento · do início da primeira ao fim da última nota`}
+            detalhe={`${formatarQuantidade(operacao.distribuicoesMedidas, "distribuição medida", "distribuições medidas")} sem reprocessamento · execução do Worker`}
+          />
+          <KpiOperacional
+            titulo="Tempo médio por item"
+            valor={
+              operacao.tempoMedioPorItemSegundos === null
+                ? "—"
+                : formatarDuracao(operacao.tempoMedioPorItemSegundos)
+            }
+            detalhe="inclui o preenchimento fiscal dos produtos do lote"
           />
           <KpiOperacional
             titulo="Taxa de notas concluídas"
             valor={
-              operacao.emitidas + operacao.erros === 0
+              operacao.notasProcessadas + operacao.erros === 0
                 ? "—"
-                : `${Math.round((operacao.emitidas / (operacao.emitidas + operacao.erros)) * 100)}%`
+                : `${Math.round((operacao.notasProcessadas / (operacao.notasProcessadas + operacao.erros)) * 100)}%`
             }
-            detalhe="emitidas entre resultados finais"
+            detalhe="processadas entre resultados técnicos finais"
           />
         </div>
+        {operacao.notasCanceladas > 0 && (
+          <p className="mt-2 rounded-[var(--radius-control)] border border-[var(--wheat)] bg-[var(--cream)] px-3 py-2 text-[12px] text-[var(--ink-soft)]">
+            {formatarQuantidade(operacao.notasCanceladas, "nota cancelada", "notas canceladas")} após emissão. Isso não entra como falha técnica do Worker.
+          </p>
+        )}
         <p className="mt-2 text-[11px] leading-relaxed text-[var(--ink-faint)]">
-          O tempo do sistema vem dos registros reais do Worker. A economia compara cada distribuição
-          medida e sem reprocessamento ao benchmark manual de 5min 37s, obtido no teste de 25/08/2026 com 3 notas.
+          O tempo do sistema vem dos registros reais do Worker, da primeira nota iniciada à última concluída. A economia usa o benchmark manual de 5min 37s somente para lotes comparáveis de 3 notas; lotes de outro tamanho continuam contribuindo para o tempo médio, sem extrapolação.
         </p>
 
       {/* Gráfico do valor bruto por dia */}

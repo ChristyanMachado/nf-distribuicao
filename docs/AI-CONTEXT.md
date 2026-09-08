@@ -14,6 +14,42 @@ O produto organiza distribuições diárias e automatiza NFP-e. O Web cadastra e
 gera tarefas; o banco mantém snapshots imutáveis e a fila; o Worker reserva e
 executa cada tarefa em um `BrowserContext` independente.
 
+## Métricas honestas por escala — 08/09/2026
+
+- O tempo do Worker por lote é calculado por timestamps reais: da primeira
+  tarefa iniciada à última concluída. Lotes reprocessados ficam fora da métrica
+  de velocidade porque `iniciado_em` preserva a primeira tentativa para
+  auditoria. Os novos KPIs adicionais são tempo médio por nota e por item,
+  ponderados pelas notas/itens de todos os lotes limpos.
+- O benchmark manual conhecido (337 s) representa somente uma distribuição de
+  3 notas em 25/08/2026. A economia estimada não pode ser extrapolada para
+  lotes de outro tamanho; portanto somente lotes com 3 notas entram nesse
+  acumulado. Lotes de 5 notas seguem medidos como tempo real, sem alegação de
+  economia até existir benchmark humano equivalente. Novos benchmarks devem
+  registrar tamanho do lote, itens, emitentes/clientes e versão da referência.
+- Cancelamento posterior muda `fiscal.notas.status`, não a tarefa concluída.
+  Relatórios usam o estado fiscal da nota quando disponível: nota cancelada não
+  compõe bruto/rankings/notas vigentes e é mostrada separadamente de `ERRO`, que
+  continua reservado a falha técnica do Worker. Não inferir culpa do sistema a
+  partir de cancelamento operacional.
+- A conferência final de distribuição agora expõe também preço unitário e
+  subtotal por item, com alerta visual não bloqueante se o preço divergir do
+  último praticado para produto/mercado. Não criou confirmação extra nem altera
+  snapshots, fila ou emissão.
+- Validação local: 119 testes Web, TypeScript e build Next.js aprovados. Falta
+  apenas validação visual humana no Vercel/celular; não houve mudança remota.
+
+## Quick wins Web — 08/09/2026
+
+- A pesquisa de produtos da distribuição aceita setas e Enter, e a confirmação
+  de envio permite iniciar uma nova distribuição sem navegar de volta. O
+  compartilhamento de documento passou a informar cópia/compartilhamento bem
+  sucedido ou falha operacional sem confundir o cancelamento nativo do usuário
+  com erro. Não há alteração de banco, Worker ou fluxo fiscal.
+- Validação local: TypeScript, 117 testes Web e build Next.js aprovados.
+  A checagem visual automática depende de `agent-browser`, indisponível nesta
+  estação; validar os três comportamentos no Vercel/celular antes do deploy.
+
 ## Incidente prioritário de cancelamento — 08/09/2026
 
 - Nova divergência em produção: o portal exibiu `<span>Autorizada</span>` para
