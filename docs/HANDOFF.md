@@ -21,12 +21,13 @@
   tolera espaços, quebras de linha, capitalização e acentos; a classificação
   permanece exata, sem correspondência parcial. Estados diferentes continuam
   bloqueando antes da ação fiscal.
-- Validação local: 31 testes de consulta e 278 testes do Worker aprovados;
+- Validação local: 31 testes de consulta e 279 testes do Worker aprovados;
   inclui status `AUTORIZADA` com espaços/quebras e verificação do diagnóstico.
-  Não houve deploy, atualização da VM, migration, escrita remota ou novo
-  cancelamento. Próximo gate: publicar Web/Worker (o Web não mudou nesta
-  correção), conferir o novo log em uma tentativa explicitamente autorizada e
-  parar imediatamente antes de qualquer confirmação fiscal real sem nova ordem.
+  A revisão `c394132` foi publicada no GitHub e instalada na VM Oracle; o
+  container foi reconstruído e voltou saudável. Não houve migration, escrita
+  remota ou novo cancelamento. Próximo gate: conferir o novo log em uma
+  tentativa explicitamente autorizada e parar imediatamente antes de qualquer
+  confirmação fiscal real sem nova ordem.
 
 ## Incidente real de cancelamento — correção local de 08/09/2026
 

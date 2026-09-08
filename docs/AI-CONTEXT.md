@@ -23,8 +23,9 @@ executa cada tarefa em um `BrowserContext` independente.
   texto encontrado. A correção local ancora status e ações na mesma linha que
   contém DANFE e XML, normaliza apenas diferenças de apresentação e registra
   bruto, normalizado e classificação. Estados não exatos continuam bloqueados.
-  Validação local: 278 testes Worker. A correção ainda aguarda publicação e
-  uma tentativa humana autorizada; não executar o cancelamento automaticamente.
+  Validação local: 279 testes Worker. A correção `c394132` foi publicada e
+  instalada na VM, cujo container voltou saudável; ainda aguarda uma tentativa
+  humana autorizada. Não executar o cancelamento automaticamente.
 
 - Uma nota real em produção permaneceu `Autorizada` depois de o Worker localizar
   a nota e preencher o motivo. A versão antiga apagou a exceção original, mas o
