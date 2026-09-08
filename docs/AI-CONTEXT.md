@@ -16,6 +16,16 @@ executa cada tarefa em um `BrowserContext` independente.
 
 ## Incidente prioritário de cancelamento — 08/09/2026
 
+- Nova divergência em produção: o portal exibiu `<span>Autorizada</span>` para
+  a nota localizada, mas o Worker recusou antes do clique. A leitura antiga
+  buscava a segunda célula de toda a página e escolhia a última ocorrência; não
+  havia garantia de vínculo com a linha dos documentos consultados nem log do
+  texto encontrado. A correção local ancora status e ações na mesma linha que
+  contém DANFE e XML, normaliza apenas diferenças de apresentação e registra
+  bruto, normalizado e classificação. Estados não exatos continuam bloqueados.
+  Validação local: 278 testes Worker. A correção ainda aguarda publicação e
+  uma tentativa humana autorizada; não executar o cancelamento automaticamente.
+
 - Uma nota real em produção permaneceu `Autorizada` depois de o Worker localizar
   a nota e preencher o motivo. A versão antiga apagou a exceção original, mas o
   intervalo de 0,3 s e a ordem do código provam que não houve confirmação do

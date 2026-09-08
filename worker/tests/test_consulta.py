@@ -34,6 +34,7 @@ from src.flows.consulta import (
     pesquisar_nota_por_chave,
     preparar_filtro_chave,
     localizar_xml_autorizado_mais_recente,
+    _normalizar_status_portal,
     selecionar_emitente_consulta,
     validar_chave_acesso,
 )
@@ -433,6 +434,48 @@ def test_cancelamento_conclui_na_tela_atual_com_mensagem_oficial() -> None:
     assert pagina.campo.valor == "Dados incorretos"
     assert pagina.confirmar.clicado is True
     assert pagina.recarregada is False
+
+
+@pytest.mark.parametrize(
+    ("texto", "esperado"),
+    [
+        (" Autorizada ", "autorizada"),
+        ("\nAUTORIZADA\t", "autorizada"),
+        ("Situação desconhecida", "situacao desconhecida"),
+    ],
+)
+def test_normaliza_status_do_portal_sem_correspondencia_parcial(
+    texto: str,
+    esperado: str,
+) -> None:
+    assert _normalizar_status_portal(texto) == esperado
+
+
+def test_cancelamento_aceita_autorizada_com_espacos_e_quebras_de_linha() -> None:
+    pagina = PaginaCancelamentoFalsa(status=" \n  AUTORIZADA\t ")
+
+    asyncio.run(cancelar_nota_consultada(
+        pagina, motivo="Dados incorretos", ambiente="teste", logger=_logger()
+    ))
+
+    assert pagina.confirmar.clicado is True
+
+
+def test_cancelamento_registra_status_bruto_normalizado_e_classificacao(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    logger = logging.getLogger("teste_status_cancelamento")
+    with caplog.at_level(logging.INFO, logger=logger.name):
+        asyncio.run(cancelar_nota_consultada(
+            PaginaCancelamentoFalsa(status="\n Autorizada \t"),
+            motivo="Dados incorretos",
+            ambiente="teste",
+            logger=logger,
+        ))
+
+    assert "bruto='\\n Autorizada \\t'" in caplog.text
+    assert "normalizado='autorizada'" in caplog.text
+    assert "classificação=AUTORIZADA" in caplog.text
 
 
 def test_cancelamento_ja_confirmado_nao_e_enviado_novamente() -> None:

@@ -9,6 +9,7 @@ import asyncio
 import logging
 import os
 import re
+import unicodedata
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -26,10 +27,25 @@ SELETOR_EMITENTE_CONSULTA = "article select.slds-select"
 SELETOR_FILTRO_CHAVE = 'article select.slds-select:has(option[value="1"])'
 SELETOR_CAMPO_CHAVE = "input.slds-input.slds-size_6-of-12:visible"
 SELETOR_CONTAGEM_RESULTADO = "p.VuePagination__count"
-SELETOR_DANFE_RESULTADO = '[title="DANFE"]:visible'
-SELETOR_XML_RESULTADO = '[title="Obter XML da nota"]:visible'
-SELETOR_CANCELAR_RESULTADO = 'table tbody tr:visible button:has(i[title="Cancelar"]):visible'
-SELETOR_STATUS_RESULTADO = "table tbody tr:visible td:nth-child(2):visible"
+# A tabela pode coexistir com outros componentes que também usam ``table``.
+# A linha fiscal é identificada pelos dois documentos que já provam que a
+# consulta retornou a nota pretendida. Assim, status e ações nunca devem ser
+# buscados globalmente nem escolhidos pelo último ``td`` da página.
+SELETOR_LINHA_RESULTADO = (
+    'div.table-responsive table tbody tr:visible'
+    ':has([title="DANFE"]):has([title="Obter XML da nota"])'
+)
+SELETOR_DANFE_RESULTADO = f'{SELETOR_LINHA_RESULTADO} [title="DANFE"]:visible'
+SELETOR_XML_RESULTADO = (
+    f'{SELETOR_LINHA_RESULTADO} [title="Obter XML da nota"]:visible'
+)
+SELETOR_CANCELAR_RESULTADO = (
+    f'{SELETOR_LINHA_RESULTADO} button:has(i[title="Cancelar"]):visible'
+)
+# Evidência observada no portal: a situação é a segunda célula da mesma linha
+# fiscal. O vínculo com ``SELETOR_LINHA_RESULTADO`` torna essa posição local à
+# nota encontrada, em vez de uma posição absoluta entre tabelas da SPA.
+SELETOR_STATUS_RESULTADO = f"{SELETOR_LINHA_RESULTADO} td:nth-child(2):visible"
 SELETOR_MOTIVO_CANCELAMENTO = "article textarea.slds-input.slds-size_12-of-12:visible"
 SELETOR_CONFIRMAR_CANCELAMENTO = (
     'article:has(textarea.slds-input.slds-size_12-of-12:visible) '
@@ -153,6 +169,28 @@ def _normalizar_motivo_cancelamento(motivo: str) -> str:
     return normalizado
 
 
+def _normalizar_status_portal(texto: str) -> str:
+    """Normaliza apenas diferenças de apresentação do status da Receita.
+
+    Espaços, quebras de linha, capitalização e acentos não alteram a
+    classificação. Não há correspondência parcial: somente os estados exatos
+    ``autorizada`` e ``cancelada`` recebem tratamento especial.
+    """
+
+    sem_acentos = "".join(
+        caractere
+        for caractere in unicodedata.normalize("NFKD", texto)
+        if not unicodedata.combining(caractere)
+    )
+    return re.sub(r"\s+", " ", sem_acentos).strip().casefold()
+
+
+def _resumir_status_para_log(texto: str) -> str:
+    """Mantém o diagnóstico útil e evita registrar texto inesperadamente longo."""
+
+    return texto[:120] + ("…" if len(texto) > 120 else "")
+
+
 async def cancelar_nota_consultada(
     page: Page,
     *,
@@ -175,22 +213,37 @@ async def cancelar_nota_consultada(
 
     logger.info("Cancelamento: conferindo a situação atual da nota")
     try:
-        status = page.locator(SELETOR_STATUS_RESULTADO).last
+        status = page.locator(SELETOR_STATUS_RESULTADO)
         await status.wait_for(state="visible", timeout=15_000)
-        texto_status = re.sub(
-            r"\s+", " ", await status.inner_text(timeout=5_000)
-        ).strip()
+        texto_status_bruto = await status.inner_text(timeout=5_000)
     except PlaywrightTimeoutError as exc:
         raise CancelamentoFiscalRecusado(
             "Não foi possível confirmar a situação atual da nota no portal fiscal. Tente novamente ou chame o suporte."
         ) from exc
 
-    if texto_status.casefold() == "cancelada":
+    texto_status = _normalizar_status_portal(texto_status_bruto)
+    classificacao = (
+        "CANCELADA"
+        if texto_status == "cancelada"
+        else "AUTORIZADA"
+        if texto_status == "autorizada"
+        else "DESCONHECIDA"
+    )
+    logger.info(
+        "Cancelamento: situação da linha fiscal lida "
+        "(seletor=%s, bruto=%r, normalizado=%r, classificação=%s)",
+        SELETOR_STATUS_RESULTADO,
+        _resumir_status_para_log(texto_status_bruto),
+        texto_status,
+        classificacao,
+    )
+
+    if texto_status == "cancelada":
         logger.info(
             "Nota já aparece como Cancelada no portal; cancelamento não será reenviado"
         )
         return
-    if texto_status.casefold() != "autorizada":
+    if texto_status != "autorizada":
         raise CancelamentoFiscalRecusado(
             "A nota não aparece como Autorizada no portal. Confira sua situação antes de tentar cancelar."
         )

@@ -1,5 +1,33 @@
 # Handoff — Estado Atual
 
+## Correção de leitura de situação no cancelamento — 08/09/2026
+
+- Incidente real em produção: depois de login, consulta por chave, registro,
+  DANFE e XML confirmados, o Worker recusou o cancelamento antes do clique ao
+  classificar a nota como diferente de `Autorizada`. A conferência humana da
+  mesma linha no portal mostrou `<span>Autorizada</span>`.
+- O código anterior usava o seletor global `table tbody tr td:nth-child(2)` e
+  aplicava `.last`, portanto não provava que a célula escolhida pertencia à
+  linha fiscal que continha os dois documentos da nota. Não foi inferida a
+  causa exata no DOM de produção sem um novo log; a fragilidade é concreta e a
+  nova instrumentação a tornará observável.
+- Correção local: DANFE, XML, cancelamento e situação são ancorados na única
+  linha visível de `div.table-responsive table tbody` que contém os ícones
+  DANFE e XML. A situação continua na segunda célula dessa mesma linha, conforme
+  evidência do portal. O Worker não usa mais `.last` para escolher silenciosamente
+  outra tabela/linha.
+- Status agora registra seletor/linha, texto bruto limitado, valor normalizado
+  e classificação (`AUTORIZADA`, `CANCELADA` ou `DESCONHECIDA`). A normalização
+  tolera espaços, quebras de linha, capitalização e acentos; a classificação
+  permanece exata, sem correspondência parcial. Estados diferentes continuam
+  bloqueando antes da ação fiscal.
+- Validação local: 31 testes de consulta e 278 testes do Worker aprovados;
+  inclui status `AUTORIZADA` com espaços/quebras e verificação do diagnóstico.
+  Não houve deploy, atualização da VM, migration, escrita remota ou novo
+  cancelamento. Próximo gate: publicar Web/Worker (o Web não mudou nesta
+  correção), conferir o novo log em uma tentativa explicitamente autorizada e
+  parar imediatamente antes de qualquer confirmação fiscal real sem nova ordem.
+
 ## Incidente real de cancelamento — correção local de 08/09/2026
 
 - Um pedido real chegou até a consulta da nota e o preenchimento do motivo,
