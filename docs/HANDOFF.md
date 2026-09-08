@@ -28,7 +28,10 @@
   de confirmar o diálogo. O Worker pesquisa de novo e, se encontrar
   `Cancelada`, apenas reconcilia o banco sem reenviar o comando.
 - Não houve migration, escrita remota, mudança no Ponto, deploy, atualização
-  da VM nem nova operação fiscal. A janela já convertia UTC explicitamente
+  da VM nem nova operação fiscal. Em seguida, a correção foi publicada no
+  GitHub como `adb82fa`, acionando o deploy do Web, e os quatro arquivos
+  alterados do Worker foram instalados e reconstruídos na VM Oracle; o
+  container voltou saudável. A janela já convertia UTC explicitamente
   para `America/Sao_Paulo`; o log, que dependia do fuso do container, agora
   também fixa São Paulo e inclui `-03:00`, sem alterar a regra operacional.
   Validação local: 274 testes Worker, 117 Web, TypeScript e build Next.js

@@ -37,9 +37,12 @@ executa cada tarefa em um `BrowserContext` independente.
   texto do log dependia do container. O formatador agora usa São Paulo e mostra
   o offset `-03:00`, sem alterar a regra de admissão de emissões.
 - Validação local: 274 testes Worker, 117 testes Web, TypeScript e build Next.js.
-  Não houve migration, deploy, atualização da VM, escrita remota nem novo
-  cancelamento. Próximo gate é publicar Web e Worker na mesma revisão e parar
-  antes da tentativa real até nova confirmação operacional.
+  A correção foi publicada no GitHub em `adb82fa`, acionando o deploy do Web,
+  e os quatro arquivos alterados do Worker foram instalados e reconstruídos na
+  VM Oracle em 08/09; o container voltou saudável. Não houve migration,
+  escrita remota nem novo cancelamento. Próximo gate é uma tentativa manual
+  controlada, somente após nova confirmação operacional de que a nota continua
+  Autorizada.
 
 ## Estado validado em 06/09/2026
 

@@ -71,9 +71,9 @@ banco de teste e passou no verificador de privilégios.
 4. Primeira operação legítima, documentos e valores reais conferidos.
    **Concluído.**
 5. Publicar a correção do cancelamento no Web e na VM, confirmar a mesma revisão
-   e acompanhar o novo log. A nova tentativa depende da declaração explícita de
-   que a nota continua Autorizada; nunca repetir automaticamente resultado
-   incerto.
+   e acompanhar o novo log. **Concluído em `adb82fa`; VM saudável.** A nova
+   tentativa depende da declaração explícita de que a nota continua Autorizada;
+   nunca repetir automaticamente resultado incerto.
 
 6. Validar no celular a confirmação persistente da distribuição, com número,
    quantidade de notas e atalhos para acompanhamento e roteiro.
