@@ -34,22 +34,23 @@ um portal autenticado, sem misturar autorização administrativa nesta entrega.
   emitentes/clientes, medir recursos sob carga e melhorar atualização da UI.
 - **Fase 6 — produção:** virada coordenada concluída em 06/09/2026. O Web foi
   redeployado com ambiente `normal` e o Worker está saudável na VM, também em
-  `normal`, com concorrência 1. Após zerar as filas, cancelamentos foram
-  habilitados somente sob pedido explícito no Web. A
-  consulta normal já foi validada em modo somente leitura no host real. Falta
-  concluir a primeira emissão real legítima. A primeira distribuição legítima
-  já foi criada, mas duas tentativas falharam com segurança antes do
-  destinatário e sem emissão. O diagnóstico comprovou uma corrida na
-  estabilização do emitente em produção; a correção mínima foi validada e
-  implantada de forma controlada na VM. Não será criada uma
-  operação fiscal artificial para teste. O estado correto até a prova final é
-  **preparada, ainda não validada ponta a ponta**.
+  `normal`, com concorrência 1. Emissões reais já produziram notas autorizadas
+  e documentos conferidos pelo operador. Cancelamentos são habilitados somente
+  sob pedido explícito no Web. A primeira tentativa real de cancelamento em
+  08/09 não confirmou o clique em Confirmar: a versão antiga ocultou a exceção,
+  mas havia uma guarda de rota incompatível com a transição do formulário e um
+  locator global sujeito a cópias responsivas. A falha pré-resposta foi
+  classificada incorretamente como incerta. A nota foi conferida manualmente e
+  continua Autorizada. A correção e a retomada manual protegida estão validadas
+  localmente; falta publicar Web/Worker e executar a nova tentativa somente com
+  confirmação operacional.
 
 Migrações `0001`–`0013` e `0015` estão ativas. A `0014` (restrição de RPC anônimo no
 sistema de ponto compartilhado) permanece preparada, fora do journal e
 explicitamente adiada. A `0015` fiscal foi aplicada isoladamente e auditada;
-Web e Worker já foram publicados com o cancelamento habilitado. Resta executar
-o primeiro cancelamento controlado em homologação.
+Web e Worker publicados ainda não contêm a correção do incidente real de
+08/09. O próximo gate é instalar a mesma nova revisão nos dois lados e, só
+depois, permitir a tentativa controlada da nota já conferida.
 Cliente, emitente e três produtos reais
 foram aceitos pelo portal. Uma espera por estado da tela-resumo corrigiu a
 corrida entre o Avançar do ICMS e o Avançar para Transporte, sem `sleep` fixo.
@@ -67,10 +68,12 @@ banco de teste e passou no verificador de privilégios.
 3. Implantar na VM a correção local da transição Emitente → Destinatário, com
    autorização e conferência prévia de que não existe outra tarefa em execução.
    **Concluído na revisão `cabf9a4`.**
-4. Reprocessar de forma controlada a primeira distribuição legítima e conferir
-   banco, XML, DANFE, portal e logs.
-5. Só depois ensaiar cancelamento real separado, iniciado e confirmado pelo
-   operador; nunca repetir resultado incerto.
+4. Primeira operação legítima, documentos e valores reais conferidos.
+   **Concluído.**
+5. Publicar a correção do cancelamento no Web e na VM, confirmar a mesma revisão
+   e acompanhar o novo log. A nova tentativa depende da declaração explícita de
+   que a nota continua Autorizada; nunca repetir automaticamente resultado
+   incerto.
 
 6. Validar no celular a confirmação persistente da distribuição, com número,
    quantidade de notas e atalhos para acompanhamento e roteiro.

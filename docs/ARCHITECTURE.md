@@ -157,6 +157,19 @@ de prova após o clique produz `AGUARDANDO_CONFERENCIA`, sem retry automático.
 Erros explícitos do portal são exibidos de forma sanitizada; nenhum prazo legal
 é codificado localmente. Antes do clique, o Worker lê a situação da única linha;
 se já estiver `Cancelada`, reconcilia o resultado sem reenviar a operação.
+
+A consulta exige a rota exata `/nfae/produtor/consulta`. Abrir o formulário de
+cancelamento pode mudar legitimamente o caminho da SPA; nessa etapa, a defesa
+revalida HTTPS, porta e host exato do ambiente e exige o formulário/botão
+esperados. Falha antes de iniciar o clique é `ERRO` com código
+`CANCELAMENTO_NAO_ENVIADO` e pode ser corrigida sem fingir incerteza. A partir
+do início do clique, falha de transporte ou ausência da prova oficial continua
+incerta e nunca volta à fila automaticamente.
+
+Uma linha em `AGUARDANDO_CONFERENCIA` só pode voltar a `PENDENTE` por ação
+explícita no Web: o operador declara que consultou a Receita e viu a nota como
+Autorizada. Isso não substitui a defesa do Worker, que consulta novamente a
+situação antes do efeito fiscal e não reenvia se já estiver Cancelada.
 Destaques:
 
 - `0001`: relação N:N e emitente por distribuição/tarefa;

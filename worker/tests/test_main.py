@@ -8,6 +8,8 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from main import (
+    _diagnostico_falha_cancelamento,
+    _diagnostico_tecnico_seguro,
     _diagnostico_falha_pre_emissao,
     _limpar_documentos_expirados,
     _processar_recuperacoes_documentos,
@@ -27,6 +29,7 @@ from src.flows.emissao import (
     FalhaConfirmacaoEmissao,
     Tarefa,
 )
+from src.flows.consulta import CancelamentoNaoEnviado, CancelamentoResultadoIncerto
 
 
 def test_diagnostico_especifico_quando_portal_nega_modulo():
@@ -36,6 +39,40 @@ def test_diagnostico_especifico_quando_portal_nega_modulo():
     ) == (
         "ACESSO_PORTAL_NEGADO",
         "A Receita negou acesso ao módulo seguinte antes da emissão.",
+    )
+
+
+def test_cancelamento_nao_enviado_permite_correcao_sem_fingir_incerteza():
+    erro = CancelamentoNaoEnviado("O cancelamento não foi enviado.")
+
+    assert _diagnostico_falha_cancelamento("cancelamento", erro) == (
+        "CANCELAMENTO_NAO_ENVIADO",
+        "O cancelamento não foi enviado.",
+        False,
+    )
+
+
+def test_cancelamento_incerto_exige_conferencia_e_nao_retry():
+    erro = CancelamentoResultadoIncerto("Confira a nota na Receita.")
+
+    assert _diagnostico_falha_cancelamento("cancelamento", erro) == (
+        "RESULTADO_CANCELAMENTO_INCERTO",
+        "Confira a nota na Receita.",
+        True,
+    )
+
+
+def test_diagnostico_tecnico_preserva_causa_e_oculta_chave():
+    try:
+        raise ValueError("falhou para 12345678901234567890123456789012345678901234")
+    except ValueError as causa:
+        erro = CancelamentoResultadoIncerto("incerto")
+        erro.__cause__ = causa
+
+    assert _diagnostico_tecnico_seguro(erro) == (
+        "ValueError",
+        "falhou para [CHAVE OMITIDA]",
+        False,
     )
 
 

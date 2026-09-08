@@ -11,13 +11,24 @@ from __future__ import annotations
 import logging
 import os
 import re
+from datetime import datetime
 from logging.handlers import RotatingFileHandler
+from zoneinfo import ZoneInfo
 
 
 LOG_MAX_BYTES_PADRAO = 5 * 1024 * 1024
 LOG_BACKUP_COUNT_PADRAO = 7
 _LOG_MAX_BYTES_LIMITE = 100 * 1024 * 1024
 _LOG_BACKUP_COUNT_LIMITE = 30
+_FUSO_OPERACIONAL = ZoneInfo("America/Sao_Paulo")
+
+
+class FormatadorHorarioOperacional(logging.Formatter):
+    """Registra data/hora de São Paulo com offset, sem depender do container."""
+
+    def formatTime(self, record: logging.LogRecord, datefmt: str | None = None) -> str:
+        instante = datetime.fromtimestamp(record.created, tz=_FUSO_OPERACIONAL)
+        return instante.isoformat(timespec="seconds")
 
 
 class SanitizarLogFilter(logging.Filter):
@@ -135,9 +146,7 @@ def configurar_logger(
         logger.removeHandler(handler_antigo)
         handler_antigo.close()
 
-    formato = logging.Formatter(
-        "%(asctime)s [%(levelname)s] %(message)s", datefmt="%H:%M:%S"
-    )
+    formato = FormatadorHorarioOperacional("%(asctime)s [%(levelname)s] %(message)s")
 
     handler_arquivo = _RotatingFileHandlerSeguro(
         caminho_log,

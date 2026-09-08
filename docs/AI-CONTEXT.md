@@ -14,6 +14,33 @@ O produto organiza distribuições diárias e automatiza NFP-e. O Web cadastra e
 gera tarefas; o banco mantém snapshots imutáveis e a fila; o Worker reserva e
 executa cada tarefa em um `BrowserContext` independente.
 
+## Incidente prioritário de cancelamento — 08/09/2026
+
+- Uma nota real em produção permaneceu `Autorizada` depois de o Worker localizar
+  a nota e preencher o motivo. A versão antiga apagou a exceção original, mas o
+  intervalo de 0,3 s e a ordem do código provam que não houve confirmação do
+  clique nem espera pela resposta. O defeito demonstrável era exigir novamente
+  o caminho `/consulta` depois que o formulário podia mudar a rota da SPA; o
+  locator global do botão também não excluía cópias responsivas. O teste falso
+  não simulava nenhum desses estados. A exceção pré-clique era encapsulada
+  incorretamente como resultado incerto.
+- A correção local mantém a rota exata para a pesquisa e, dentro do formulário,
+  valida HTTPS + host exato do ambiente + controles esperados, com o botão
+  ancorado ao formulário do motivo. Falhas certas
+  antes do clique viram `CANCELAMENTO_NAO_ENVIADO`; somente interrupção iniciada
+  no clique ou falta da mensagem oficial produz `AGUARDANDO_CONFERENCIA`.
+- O log preserva etapa, clique confirmado, causa original sanitizada e timeout.
+  O Web permite nova tentativa de um resultado incerto somente após o operador
+  declarar que conferiu a Receita e viu a nota Autorizada. Antes de reenviar, o
+  Worker pesquisa de novo e reconcilia `Cancelada` sem repetir o efeito fiscal.
+- A janela operacional já convertia UTC para `America/Sao_Paulo`; somente o
+  texto do log dependia do container. O formatador agora usa São Paulo e mostra
+  o offset `-03:00`, sem alterar a regra de admissão de emissões.
+- Validação local: 274 testes Worker, 117 testes Web, TypeScript e build Next.js.
+  Não houve migration, deploy, atualização da VM, escrita remota nem novo
+  cancelamento. Próximo gate é publicar Web e Worker na mesma revisão e parar
+  antes da tentativa real até nova confirmação operacional.
+
 ## Estado validado em 06/09/2026
 
 - A primeira distribuição legítima de produção foi criada, mas suas duas

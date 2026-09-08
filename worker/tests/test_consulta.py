@@ -13,11 +13,13 @@ from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 
 from src.flows.consulta import (
     CancelamentoFiscalRecusado,
+    CancelamentoNaoEnviado,
     CancelamentoResultadoIncerto,
     ConsultaFiscalInvalida,
     FalhaDownloadDocumento,
     NotaConsultaNaoEncontrada,
     SELETOR_CAMPO_CHAVE,
+    SELETOR_CONFIRMAR_CANCELAMENTO,
     SELETOR_CONTAGEM_RESULTADO,
     SELETOR_DANFE_RESULTADO,
     SELETOR_EMITENTE_CONSULTA,
@@ -323,9 +325,20 @@ def test_download_consulta_recusa_xml_de_outra_nota(tmp_path) -> None:
 
 
 class ElementoCancelamentoFalso:
-    def __init__(self, *, expirar: bool = False, texto: str = "") -> None:
+    def __init__(
+        self,
+        *,
+        expirar: bool = False,
+        texto: str = "",
+        habilitado: bool = True,
+        ao_clicar=None,
+        erro_clique: Exception | None = None,
+    ) -> None:
         self.expirar = expirar
         self.texto = texto
+        self.habilitado = habilitado
+        self.ao_clicar = ao_clicar
+        self.erro_clique = erro_clique
         self.valor = ""
         self.clicado = False
 
@@ -344,6 +357,14 @@ class ElementoCancelamentoFalso:
 
     async def click(self, *, timeout: int) -> None:
         self.clicado = True
+        if self.ao_clicar is not None:
+            self.ao_clicar()
+        if self.erro_clique is not None:
+            raise self.erro_clique
+
+    async def is_enabled(self, *, timeout: int) -> bool:
+        assert timeout == 5_000
+        return self.habilitado
 
     async def fill(self, valor: str) -> None:
         self.valor = valor
@@ -356,18 +377,27 @@ class ElementoCancelamentoFalso:
 
 
 class PaginaCancelamentoFalsa:
-    url = "https://homologacao.nfae.fazenda.pr.gov.br/nfae/produtor/consulta"
-
     def __init__(
         self,
         *,
         sucesso: bool = True,
         texto_erro: str = "",
         status: str = "Autorizada",
+        url_apos_acao: str = "https://homologacao.nfae.fazenda.pr.gov.br/nfae/produtor/cancelamento",
+        confirmar_expira: bool = False,
+        confirmar_habilitado: bool = True,
+        erro_clique_confirmar: Exception | None = None,
     ) -> None:
-        self.acao = ElementoCancelamentoFalso()
+        self.url = "https://homologacao.nfae.fazenda.pr.gov.br/nfae/produtor/consulta"
+        self.acao = ElementoCancelamentoFalso(
+            ao_clicar=lambda: setattr(self, "url", url_apos_acao)
+        )
         self.campo = ElementoCancelamentoFalso()
-        self.confirmar = ElementoCancelamentoFalso()
+        self.confirmar = ElementoCancelamentoFalso(
+            expirar=confirmar_expira,
+            habilitado=confirmar_habilitado,
+            erro_clique=erro_clique_confirmar,
+        )
         self.sucesso = ElementoCancelamentoFalso(expirar=not sucesso)
         self.body = ElementoCancelamentoFalso(texto=texto_erro)
         self.status = ElementoCancelamentoFalso(texto=status)
@@ -376,14 +406,11 @@ class PaginaCancelamentoFalsa:
     def locator(self, seletor: str):
         return {
             SELETOR_CANCELAR_RESULTADO: self.acao,
+            SELETOR_CONFIRMAR_CANCELAMENTO: self.confirmar,
             SELETOR_MOTIVO_CANCELAMENTO: self.campo,
             SELETOR_STATUS_RESULTADO: self.status,
             "body": self.body,
         }[seletor]
-
-    def get_by_role(self, papel: str, *, name: str, exact: bool):
-        assert (papel, name, exact) == ("button", "Confirmar", True)
-        return self.confirmar
 
     def get_by_text(self, texto: str, *, exact: bool):
         assert texto == TEXTO_SUCESSO_CANCELAMENTO
@@ -441,10 +468,71 @@ def test_cancelamento_sem_confirmacao_fica_incerto_e_nao_presume_sucesso() -> No
         ))
 
 
+def test_cancelamento_formulario_em_nova_rota_oficial_pode_confirmar() -> None:
+    pagina = PaginaCancelamentoFalsa(
+        url_apos_acao="https://homologacao.nfae.fazenda.pr.gov.br/nfae/produtor/evento/cancelar"
+    )
+
+    asyncio.run(cancelar_nota_consultada(
+        pagina, motivo="Dados incorretos", ambiente="teste", logger=_logger()
+    ))
+
+    assert pagina.confirmar.clicado is True
+
+
+def test_cancelamento_bloqueia_origem_inesperada_antes_de_confirmar() -> None:
+    pagina = PaginaCancelamentoFalsa(
+        url_apos_acao="https://nfae.fazenda.pr.gov.br.evil.example/cancelar"
+    )
+
+    with pytest.raises(CancelamentoNaoEnviado, match="não foi enviado"):
+        asyncio.run(cancelar_nota_consultada(
+            pagina, motivo="Dados incorretos", ambiente="teste", logger=_logger()
+        ))
+
+    assert pagina.confirmar.clicado is False
+
+
+def test_cancelamento_sem_botao_confirmar_e_falha_certa() -> None:
+    pagina = PaginaCancelamentoFalsa(confirmar_expira=True)
+
+    with pytest.raises(CancelamentoNaoEnviado, match="não foi enviado"):
+        asyncio.run(cancelar_nota_consultada(
+            pagina, motivo="Dados incorretos", ambiente="teste", logger=_logger()
+        ))
+
+    assert pagina.confirmar.clicado is False
+
+
+def test_cancelamento_erro_durante_clique_permanece_incerto() -> None:
+    pagina = PaginaCancelamentoFalsa(
+        erro_clique_confirmar=PlaywrightTimeoutError("resposta interrompida")
+    )
+
+    with pytest.raises(CancelamentoResultadoIncerto, match="Confira a nota"):
+        asyncio.run(cancelar_nota_consultada(
+            pagina, motivo="Dados incorretos", ambiente="teste", logger=_logger()
+        ))
+
+    assert pagina.confirmar.clicado is True
+
+
+def test_cancelamento_recusa_situacao_que_nao_seja_autorizada() -> None:
+    pagina = PaginaCancelamentoFalsa(status="Denegada")
+
+    with pytest.raises(CancelamentoFiscalRecusado, match="não aparece como Autorizada"):
+        asyncio.run(cancelar_nota_consultada(
+            pagina, motivo="Dados incorretos", ambiente="teste", logger=_logger()
+        ))
+
+    assert pagina.acao.clicado is False
+    assert pagina.confirmar.clicado is False
+
+
 def test_cancelamento_recusa_pagina_de_outro_ambiente_antes_do_clique() -> None:
     pagina = PaginaCancelamentoFalsa()
 
-    with pytest.raises(Exception, match="página e ambiente fiscal não correspondem"):
+    with pytest.raises(Exception, match="origem e o ambiente fiscal não correspondem"):
         asyncio.run(cancelar_nota_consultada(
             pagina, motivo="Dados incorretos", ambiente="normal", logger=_logger()
         ))

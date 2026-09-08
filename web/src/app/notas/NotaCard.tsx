@@ -10,7 +10,11 @@ import {
   type StatusRecuperacaoDocumento,
 } from "@/lib/documentos-nota";
 import { urlHttpsSegura } from "@/lib/urls";
-import { solicitarCancelamentoFiscal, solicitarRecuperacaoDocumento } from "./actions";
+import {
+  confirmarAutorizadaETentarCancelamento,
+  solicitarCancelamentoFiscal,
+  solicitarRecuperacaoDocumento,
+} from "./actions";
 
 const moeda = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 
@@ -209,9 +213,36 @@ export default function NotaCard({ nota }: { nota: Nota }) {
       )}
 
       {nota.cancelamentoStatus === "AGUARDANDO_CONFERENCIA" && (
-        <p role="alert" className="mt-3 rounded-[var(--radius-control)] border border-[var(--stamp)] bg-[var(--stamp-tint)] px-3 py-2 text-sm text-[var(--stamp)]">
-          {nota.cancelamentoMensagem ?? "O resultado do cancelamento precisa ser conferido na Receita. Chame o suporte."}
-        </p>
+        <div role="alert" className="mt-3 rounded-[var(--radius-control)] border border-[var(--stamp)] bg-[var(--stamp-tint)] px-3 py-3 text-sm text-[var(--stamp)]">
+          <p className="font-medium">Resultado precisa de conferência</p>
+          <p className="mt-1 text-[12px]">
+            {nota.cancelamentoMensagem ?? "Confira esta nota diretamente na Receita antes de permitir uma nova tentativa."}
+          </p>
+          <FormularioComFeedback
+            action={confirmarAutorizadaETentarCancelamento}
+            className="mt-3 space-y-2"
+            confirmMessage="Você conferiu esta nota diretamente na Receita e confirmou que ela continua AUTORIZADA?"
+          >
+            <input type="hidden" name="notaId" value={nota.id} />
+            <label className="flex items-start gap-2 rounded-[var(--radius-control)] bg-white/60 px-3 py-2 text-[12px] text-[var(--ink)]">
+              <input
+                type="checkbox"
+                name="confirmouAutorizada"
+                value="sim"
+                required
+                className="mt-0.5 h-4 w-4 shrink-0"
+              />
+              Conferi no portal da Receita e a nota continua Autorizada.
+            </label>
+            <PrimaryButton
+              type="submit"
+              pendingText="Liberando tentativa…"
+              className="w-full px-3 py-2.5 text-sm"
+            >
+              Tentar cancelamento novamente
+            </PrimaryButton>
+          </FormularioComFeedback>
+        </div>
       )}
 
       {podeAbrirCancelamento && cancelamentoAberto && (

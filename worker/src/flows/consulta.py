@@ -14,7 +14,7 @@ from pathlib import Path
 
 from playwright.async_api import Locator, Page, TimeoutError as PlaywrightTimeoutError
 
-from ..auth import AmbienteEmissao, exigir_pagina_consulta
+from ..auth import AmbienteEmissao, exigir_origem_fiscal, exigir_pagina_consulta
 from .emissao import (
     FalhaDownloadDocumento,
     baixar_documento_por_acao,
@@ -31,6 +31,10 @@ SELETOR_XML_RESULTADO = '[title="Obter XML da nota"]:visible'
 SELETOR_CANCELAR_RESULTADO = 'table tbody tr:visible button:has(i[title="Cancelar"]):visible'
 SELETOR_STATUS_RESULTADO = "table tbody tr:visible td:nth-child(2):visible"
 SELETOR_MOTIVO_CANCELAMENTO = "article textarea.slds-input.slds-size_12-of-12:visible"
+SELETOR_CONFIRMAR_CANCELAMENTO = (
+    'article:has(textarea.slds-input.slds-size_12-of-12:visible) '
+    'footer button:has-text("Confirmar"):visible'
+)
 TEXTO_SUCESSO_CANCELAMENTO = "Evento registrado e vinculado a NF-e"
 
 
@@ -52,6 +56,14 @@ class CancelamentoFiscalRecusado(RuntimeError):
 
 class CancelamentoResultadoIncerto(RuntimeError):
     """A confirmação foi enviada, mas o resultado oficial não foi provado."""
+
+
+class CancelamentoNaoEnviado(RuntimeError):
+    """O fluxo falhou com certeza antes do clique fiscal de confirmação."""
+
+    def __init__(self, mensagem_usuario: str) -> None:
+        super().__init__(mensagem_usuario)
+        self.mensagem_usuario = mensagem_usuario
 
 
 def _acao_da_linha_resultado(page: Page, seletor: str) -> Locator:
@@ -161,6 +173,7 @@ async def cancelar_nota_consultada(
     motivo_limpo = _normalizar_motivo_cancelamento(motivo)
     exigir_pagina_consulta(page.url, ambiente)
 
+    logger.info("Cancelamento: conferindo a situação atual da nota")
     try:
         status = page.locator(SELETOR_STATUS_RESULTADO).last
         await status.wait_for(state="visible", timeout=15_000)
@@ -177,11 +190,17 @@ async def cancelar_nota_consultada(
             "Nota já aparece como Cancelada no portal; cancelamento não será reenviado"
         )
         return
+    if texto_status.casefold() != "autorizada":
+        raise CancelamentoFiscalRecusado(
+            "A nota não aparece como Autorizada no portal. Confira sua situação antes de tentar cancelar."
+        )
 
     acao = page.locator(SELETOR_CANCELAR_RESULTADO).last
     try:
+        logger.info("Cancelamento: aguardando a ação da linha consultada")
         await acao.wait_for(state="visible", timeout=15_000)
         await acao.click(timeout=15_000)
+        logger.info("Cancelamento: formulário aberto; aguardando o campo de motivo")
         campo = page.locator(SELETOR_MOTIVO_CANCELAMENTO).last
         await campo.wait_for(state="visible", timeout=15_000)
         await campo.fill(motivo_limpo)
@@ -195,21 +214,44 @@ async def cancelar_nota_consultada(
             "A ação de cancelamento não ficou disponível no portal fiscal. A nota pode não permitir mais essa operação."
         ) from exc
 
-    # A partir do início deste clique, qualquer interrupção é ambígua: o portal
-    # pode ter recebido a confirmação mesmo sem responder ao navegador.
+    # Abrir o formulário pode trocar a rota da SPA. Exigir a rota /consulta
+    # neste ponto bloqueava uma transição legítima antes mesmo do clique. A
+    # proteção sensível permanece fechada sobre HTTPS + host fiscal exato.
     try:
-        # Revalidar imediatamente antes do primeiro efeito fiscal protege
-        # contra redirecionamentos ocorridos após a consulta da chave.
-        exigir_pagina_consulta(page.url, ambiente)
-        await page.get_by_role("button", name="Confirmar", exact=True).click(
-            timeout=15_000
+        exigir_origem_fiscal(page.url, ambiente)
+    except Exception as exc:
+        raise CancelamentoNaoEnviado(
+            "O formulário saiu da origem fiscal oficial antes da confirmação. O cancelamento não foi enviado."
+        ) from exc
+
+    # O botão fica ancorado ao mesmo article que contém o motivo. Um locator
+    # global por role pode colidir com outro "Confirmar" responsivo da SPA.
+    confirmar = page.locator(SELETOR_CONFIRMAR_CANCELAMENTO).last
+    try:
+        logger.info(
+            "Cancelamento: aguardando o botão Confirmar ficar visível e habilitado"
         )
+        await confirmar.wait_for(state="visible", timeout=15_000)
+        if not await confirmar.is_enabled(timeout=5_000):
+            raise CancelamentoNaoEnviado(
+                "O portal não habilitou a confirmação. O cancelamento não foi enviado."
+            )
+    except PlaywrightTimeoutError as exc:
+        raise CancelamentoNaoEnviado(
+            "O botão de confirmação não ficou disponível. O cancelamento não foi enviado."
+        ) from exc
+
+    # A partir do início deste clique, uma interrupção pode ser ambígua: o
+    # portal pode ter recebido o comando mesmo sem responder ao navegador.
+    logger.info("Cancelamento: enviando a confirmação fiscal")
+    try:
+        await confirmar.click(timeout=15_000)
     except Exception as exc:
         raise CancelamentoResultadoIncerto(
-            "A confirmação pode ter sido enviada, mas o resultado não foi recebido. Confira a nota diretamente na Receita antes de tentar novamente."
+            "O navegador iniciou a confirmação, mas não comprovou a conclusão do clique. Confira a nota diretamente na Receita antes de tentar novamente."
         ) from exc
     logger.info(
-        "Confirmação de cancelamento enviada; aguardando o resultado na tela atual"
+        "Cancelamento: clique em Confirmar concluído pelo navegador; aguardando a prova oficial na tela atual"
     )
 
     try:

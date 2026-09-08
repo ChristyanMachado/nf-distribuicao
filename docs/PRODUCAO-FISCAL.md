@@ -128,6 +128,14 @@ confirmação de cancelamento enviada, não reenfileirar e não repetir: conferi
 situação diretamente na Receita. Snapshots `normal` já criados não devem ser
 alterados para `teste`; ficam aguardando decisão operacional explícita.
 
+Para cancelamento em `AGUARDANDO_CONFERENCIA`, a retomada exige que o operador
+abra a nota no portal e confirme que ela ainda aparece como `Autorizada`. Só
+então ele marca essa declaração em `/notas` e confirma a nova tentativa. O
+Worker sempre consulta novamente antes do efeito fiscal: `Cancelada` apenas
+reconcilia o estado local; outro estado bloqueia o envio. Ausência do botão de
+confirmação é falha certa pré-clique; interrupção durante o clique ou ausência
+da mensagem oficial continua incerta e volta a exigir conferência.
+
 ## Evidência exigida para declarar concluído
 
 - testes automatizados e build aprovados;

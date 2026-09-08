@@ -9,18 +9,20 @@ from __future__ import annotations
 
 import asyncio
 import os
+import re
 import sys
 from time import perf_counter
 from dataclasses import replace
 from contextlib import suppress
 
-from playwright.async_api import BrowserContext
+from playwright.async_api import BrowserContext, TimeoutError as PlaywrightTimeoutError
 
 from src.auth import navegar_ate_consulta, navegar_ate_emissao, realizar_login
 from src.config import Config, carregar_config, carregar_credencial
 from src.flows import emissao as fluxo_emissao
 from src.flows.consulta import (
     CancelamentoFiscalRecusado,
+    CancelamentoNaoEnviado,
     CancelamentoResultadoIncerto,
     baixar_documentos_consulta,
     cancelar_nota_consultada,
@@ -590,6 +592,8 @@ def _diagnostico_falha_cancelamento(etapa: str, exc: Exception) -> tuple[str, st
 
     if isinstance(exc, CancelamentoFiscalRecusado):
         return "CANCELAMENTO_RECUSADO_PORTAL", exc.mensagem_usuario, False
+    if isinstance(exc, CancelamentoNaoEnviado):
+        return "CANCELAMENTO_NAO_ENVIADO", exc.mensagem_usuario, False
     if isinstance(exc, CancelamentoResultadoIncerto):
         return "RESULTADO_CANCELAMENTO_INCERTO", str(exc), True
     return {
@@ -618,6 +622,25 @@ def _diagnostico_falha_cancelamento(etapa: str, exc: Exception) -> tuple[str, st
         "O cancelamento foi interrompido com segurança. Tente novamente ou chame o suporte.",
         False,
     ))
+
+
+def _diagnostico_tecnico_seguro(exc: Exception) -> tuple[str, str, bool]:
+    """Preserva a causa original no log sem registrar identificadores fiscais."""
+
+    causa = exc
+    vistos: set[int] = set()
+    while id(causa) not in vistos:
+        vistos.add(id(causa))
+        proxima = causa.__cause__ or causa.__context__
+        if not isinstance(proxima, Exception):
+            break
+        causa = proxima
+    mensagem = re.sub(r"\s+", " ", str(causa)).strip()
+    mensagem = re.sub(r"(?<!\d)\d{44}(?!\d)", "[CHAVE OMITIDA]", mensagem)
+    mensagem = re.sub(r"(?<!\d)\d{11,14}(?!\d)", "[DOCUMENTO OMITIDO]", mensagem)
+    return type(causa).__name__, (mensagem[:400] or "sem mensagem"), isinstance(
+        causa, PlaywrightTimeoutError
+    )
 
 
 async def _processar_cancelamentos_fiscais(
@@ -683,6 +706,7 @@ async def _processar_cancelamentos_fiscais(
             logger.info("[%s] Cancelamento confirmado e registrado.", cancelamento.tarefa_id)
         except Exception as exc:
             codigo, mensagem, exige_conferencia = _diagnostico_falha_cancelamento(etapa, exc)
+            tipo_original, mensagem_original, houve_timeout = _diagnostico_tecnico_seguro(exc)
             try:
                 await fonte.registrar_falha_cancelamento(
                     cancelamento.cancelamento_id,
@@ -694,10 +718,13 @@ async def _processar_cancelamentos_fiscais(
             except FonteTarefasErro:
                 logger.error("[%s] Falha também ao registrar o cancelamento.", cancelamento.tarefa_id)
             logger.error(
-                "[%s] Cancelamento interrompido em %s (%s).",
+                "[%s] Cancelamento interrompido em %s (%s); causa=%s; timeout=%s; detalhe=%s",
                 cancelamento.tarefa_id,
                 etapa,
                 type(exc).__name__,
+                tipo_original,
+                "sim" if houve_timeout else "não",
+                mensagem_original,
             )
             raise RuntimeError("Cancelamento fiscal interrompido com segurança.") from None
         finally:

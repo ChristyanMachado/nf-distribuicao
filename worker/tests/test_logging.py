@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import logging
+import re
 from logging.handlers import RotatingFileHandler
 
 import pytest
@@ -55,6 +56,20 @@ def test_logger_usa_defaults_conservadores_e_arquivo_estavel(tmp_path, monkeypat
         assert handler.baseFilename.endswith("worker_defaults_teste.log")
     finally:
         _fechar_logger(logger)
+
+
+def test_logger_exibe_fuso_operacional_com_offset_explicito(tmp_path):
+    logger = configurar_logger(str(tmp_path), nome="worker_fuso_teste")
+    try:
+        logger.info("registro com horário operacional")
+    finally:
+        _fechar_logger(logger)
+
+    texto = (tmp_path / "worker_fuso_teste.log").read_text(encoding="utf-8")
+    assert re.match(
+        r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}-03:00 \[INFO\] ",
+        texto,
+    )
 
 
 def test_rotacao_limita_novos_logs_e_preserva_historico_existente(tmp_path):

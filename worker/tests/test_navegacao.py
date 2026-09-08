@@ -20,6 +20,7 @@ from src.auth import (
     URL_EMISSAO_TESTE,
     URL_CONSULTA_NORMAL,
     URL_CONSULTA_TESTE,
+    exigir_origem_fiscal,
     exigir_pagina_consulta,
     navegar_ate_consulta,
     navegar_ate_emissao,
@@ -238,8 +239,23 @@ def test_consulta_recusa_link_apontando_para_host_inesperado():
 
 
 def test_consulta_recusa_host_de_homologacao_em_contrato_normal():
-    with pytest.raises(FalhaNavegacaoConsulta, match="página e ambiente fiscal"):
+    with pytest.raises(FalhaNavegacaoConsulta, match="origem e o ambiente fiscal"):
         exigir_pagina_consulta(
             "https://homologacao.nfae.fazenda.pr.gov.br/nfae/produtor/consulta",
+            "normal",
+        )
+
+
+def test_origem_fiscal_aceita_rota_interna_do_cancelamento():
+    exigir_origem_fiscal(
+        "https://nfae.fazenda.pr.gov.br/nfae/produtor/evento/cancelar",
+        "normal",
+    )
+
+
+def test_origem_fiscal_recusa_host_parecido():
+    with pytest.raises(FalhaNavegacaoConsulta, match="origem e o ambiente fiscal"):
+        exigir_origem_fiscal(
+            "https://nfae.fazenda.pr.gov.br.evil.example/cancelar",
             "normal",
         )

@@ -102,8 +102,14 @@ class FalhaNavegacaoConsulta(Exception):
     """Levantada quando a consulta de homologação não é confirmada."""
 
 
-def exigir_pagina_consulta(url_atual: str, ambiente: AmbienteEmissao) -> None:
-    """Confere a origem da consulta antes de pesquisar ou alterar uma nota."""
+def exigir_origem_fiscal(url_atual: str, ambiente: AmbienteEmissao) -> None:
+    """Confere HTTPS e host fiscal antes de uma ação sensível no portal.
+
+    A SPA pode trocar legitimamente o caminho ao abrir o formulário de
+    cancelamento. Por isso, ações dentro desse formulário validam a origem
+    exata, enquanto a entrada/pesquisa continua exigindo também a rota de
+    consulta conhecida.
+    """
 
     hosts = {
         "teste": "homologacao.nfae.fazenda.pr.gov.br",
@@ -117,13 +123,26 @@ def exigir_pagina_consulta(url_atual: str, ambiente: AmbienteEmissao) -> None:
             and url.port in {None, 443}
             and url.username is None
             and url.password is None
-            and url.path.rstrip("/") == "/nfae/produtor/consulta"
         )
     except (TypeError, ValueError):
         valido = False
     if not valido:
         raise FalhaNavegacaoConsulta(
-            "A consulta foi bloqueada porque página e ambiente fiscal não correspondem."
+            "A operação foi bloqueada porque a origem e o ambiente fiscal não correspondem."
+        )
+
+
+def exigir_pagina_consulta(url_atual: str, ambiente: AmbienteEmissao) -> None:
+    """Confere a origem e a rota exata antes de pesquisar uma nota."""
+
+    exigir_origem_fiscal(url_atual, ambiente)
+    try:
+        caminho = urlsplit(url_atual).path.rstrip("/")
+    except (TypeError, ValueError):
+        caminho = ""
+    if caminho != "/nfae/produtor/consulta":
+        raise FalhaNavegacaoConsulta(
+            "A consulta foi bloqueada porque a rota fiscal não corresponde à tela esperada."
         )
 
 

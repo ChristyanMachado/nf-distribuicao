@@ -1,5 +1,42 @@
 # Handoff — Estado Atual
 
+## Incidente real de cancelamento — correção local de 08/09/2026
+
+- Um pedido real chegou até a consulta da nota e o preenchimento do motivo,
+  mas caiu em `CancelamentoResultadoIncerto` cerca de 0,3 s depois. A
+  conferência humana mostrou a nota ainda `Autorizada` no portal.
+- A versão implantada apagava a causa original. O que o log e a ordem do código
+  provam é que o clique não foi confirmado e a falha ocorreu antes de qualquer
+  espera de resposta. O primeiro defeito demonstrável é que, depois de abrir o
+  formulário, a SPA pode sair da rota `/consulta`, mas o Worker exigia de novo
+  esse caminho antes de `Confirmar`. O locator global do botão também podia
+  colidir com cópias responsivas. O teste falso mantinha a URL estática e só um
+  botão, portanto não representava esses estados reais. A Receita e a
+  conferência manual indicam que o comando não foi efetivado.
+- Correção local: a pesquisa continua exigindo host HTTPS e rota `/consulta`;
+  dentro do formulário, a fronteira fiscal revalida HTTPS e o host exato do
+  ambiente, além do campo e do botão esperados, sem presumir um caminho que o
+  portal não contratou. O botão é ancorado ao formulário que contém o motivo,
+  não ao documento inteiro. Ausência do botão ou botão desabilitado vira
+  `CANCELAMENTO_NAO_ENVIADO`; falha iniciada no clique ou ausência da prova
+  oficial continua `AGUARDANDO_CONFERENCIA`, sem retry automático.
+- O log agora registra subetapa, confirmação do clique, causa original
+  sanitizada e presença de timeout. Chaves de 44 dígitos e documentos de
+  11–14 dígitos são omitidos.
+- `/notas` ganhou retomada explícita para `AGUARDANDO_CONFERENCIA`: o operador
+  precisa marcar que conferiu no portal e que a nota continua Autorizada, além
+  de confirmar o diálogo. O Worker pesquisa de novo e, se encontrar
+  `Cancelada`, apenas reconcilia o banco sem reenviar o comando.
+- Não houve migration, escrita remota, mudança no Ponto, deploy, atualização
+  da VM nem nova operação fiscal. A janela já convertia UTC explicitamente
+  para `America/Sao_Paulo`; o log, que dependia do fuso do container, agora
+  também fixa São Paulo e inclui `-03:00`, sem alterar a regra operacional.
+  Validação local: 274 testes Worker, 117 Web, TypeScript e build Next.js
+  aprovados. Próximo gate: publicar Web
+  e Worker na mesma revisão; depois o responsável pode liberar uma tentativa
+  controlada da nota já conferida, acompanhando o novo log. Parar antes de
+  executar qualquer cancelamento real sem nova decisão operacional.
+
 ## Rascunho local e busca de produtos — 06/09/2026
 
 - `/distribuicao` agora restaura automaticamente um rascunho não enviado no

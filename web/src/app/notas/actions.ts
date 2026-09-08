@@ -211,3 +211,73 @@ export async function solicitarCancelamentoFiscal(
   revalidatePath("/notas");
   return {};
 }
+
+/**
+ * Libera uma única nova tentativa após o operador conferir no portal que a
+ * nota continua AUTORIZADA. O próprio Worker consulta a situação novamente e
+ * não reenvia o comando caso a Receita já informe Cancelada.
+ */
+export async function confirmarAutorizadaETentarCancelamento(
+  _estadoAnterior: EstadoFormulario,
+  formData: FormData,
+): Promise<EstadoFormulario> {
+  await exigirSessaoAdministrativa();
+  try {
+    const notaId = exigirUuid(String(formData.get("notaId") ?? ""), "Nota");
+    if (String(formData.get("confirmouAutorizada") ?? "") !== "sim") {
+      throw new ErroFormulario(
+        "Confirme que você consultou a Receita e que a nota continua Autorizada.",
+      );
+    }
+
+    await db.transaction(async (tx) => {
+      const [nota] = await tx
+        .select({ status: notas.status, chaveAcesso: notas.chaveAcesso })
+        .from(notas)
+        .where(eq(notas.id, notaId))
+        .for("update");
+      if (!nota) throw new ErroFormulario("Nota não encontrada.");
+      if (nota.status === "CANCELADA") {
+        throw new ErroFormulario("Esta nota já está cancelada no sistema.");
+      }
+      if (nota.status !== "AUTORIZADA" || !/^\d{44}$/.test(nota.chaveAcesso ?? "")) {
+        throw new ErroFormulario(
+          "A nota local não está autorizada com uma chave fiscal válida. Chame o suporte.",
+        );
+      }
+
+      const [reenfileirado] = await tx
+        .update(cancelamentosFiscais)
+        .set({
+          status: "PENDENTE",
+          reservadaPor: null,
+          reservaToken: null,
+          reservaExpiraEm: null,
+          mensagemStatus: "Nova tentativa autorizada após conferência manual na Receita.",
+          codigoErro: null,
+          solicitadaEm: new Date(),
+          iniciadaEm: null,
+          concluidaEm: null,
+          atualizadoEm: new Date(),
+        })
+        .where(and(
+          eq(cancelamentosFiscais.notaId, notaId),
+          eq(cancelamentosFiscais.status, "AGUARDANDO_CONFERENCIA"),
+        ))
+        .returning({ id: cancelamentosFiscais.id });
+      if (!reenfileirado) {
+        throw new ErroFormulario(
+          "O cancelamento não está aguardando conferência. Atualize a página antes de continuar.",
+        );
+      }
+    });
+  } catch (erro) {
+    return falhaFormulario(
+      erro,
+      "Não foi possível liberar a nova tentativa. Atualize a página e tente novamente.",
+    );
+  }
+
+  revalidatePath("/notas");
+  return {};
+}
