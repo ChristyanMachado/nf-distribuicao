@@ -1,5 +1,22 @@
 # Handoff — Estado Atual
 
+## Ambiente isolado e confirmação de trocas — 09/09/2026
+
+- Ver `HOMOLOGACAO.md`: novo projeto Supabase criado após escolha da organização
+  e confirmação de custo informado zero. Baseline fiscal aplicada sem 0014;
+  papel limitado e seed fictício executados. Nenhuma escrita no projeto de produção.
+- Runtime/preflight e launcher de QA bloqueiam mistura de projeto, login e ambiente
+  fiscal. Segredos próprios em arquivo ignorado; build separado do ambiente habitual.
+- Conexão do aplicativo bloqueada por DNS/tenant do pooler; endpoint correto ainda
+  precisa ser confirmado. Após bloqueio temporário da aprovação, consulta confirmou
+  5 clientes/2 emitentes/26 produtos/10 vínculos e zero notas/tarefas; papel limitado
+  sem reserva do Worker, advisor sem alertas. Não declarar integração aprovada.
+- Confirmação de sucesso agora foca o título; troca integral informa ausência de
+  nota e não mostra atalho para acompanhar emissão. Sem novo clique no envio.
+- 146 testes Web, 17 verificações de configuração e build de QA no diretório
+  separado aprovados. Gate visual/foco e integração real pendentes.
+- Sem publicação, operação fiscal, alteração de Worker ou reparo da VM/Docker.
+
 ## Continuidade: relatório verificado no banco — 09/09/2026
 
 - A navegação real detectou `42804`: `notas.status` é texto e `tarefas.status`

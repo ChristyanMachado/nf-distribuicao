@@ -33,6 +33,11 @@ não são gates futuros. Publicação não é consequência automática de alter
 
 ## Próximas unidades, em ordem
 
+Pré-requisito iniciado: ambiente separado em `HOMOLOGACAO.md`, com schema/seed
+e papel limitado já criados, mas conexão do aplicativo ainda pendente. Não testar
+envios no banco de produção. Confirmação de troca integral/foco implementada;
+146 testes Web e build de homologação aprovados, sem validação visual desse foco.
+
 1. **Alta:** completar ensaio em aparelho real, sessão autenticada e sucesso/foco
    em ambiente seguro. Conferência, sobra, edição após aceite e rascunho já foram
    conferidos no navegador local com viewport móvel, sem enviar distribuição.

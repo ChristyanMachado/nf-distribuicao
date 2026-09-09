@@ -16,6 +16,8 @@ const contentSecurityPolicy = [
 ].join("; ");
 
 const nextConfig: NextConfig = {
+  // Builds de QA não sobrescrevem os artefatos usados pelo ambiente habitual.
+  distDir: process.env.APP_ENVIRONMENT === "homologacao" ? ".next-homologacao" : ".next",
   poweredByHeader: false,
   async headers() {
     return [

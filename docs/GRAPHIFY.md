@@ -2,6 +2,10 @@
 
 ## Objetivo
 
+Após isolamento de homologação em 09/09: 23 fontes reextraídas, 157 em cache,
+1.590 nós, 3.711 relações e 122 comunidades. Somente code-only local; arquivos
+de credenciais e saída do índice continuam ignorados.
+
 Reavaliação de 09/09/2026: consulta ampla encontrou 363 nós (37 mostrados), com
 ruído; `explain processarDistribuicao()` trouxe 14 relações diretas úteis para
 autorização, cálculos, contrato e formulário. Linhas foram confirmadas no código.

@@ -2,6 +2,10 @@
 
 ## Revisão vigente de lapidação — 09/09/2026
 
+Prioridade vigente: `HOMOLOGACAO.md`. Projeto de QA criado e estrutura/seed
+preparados, conexão Web ainda pendente; não usar banco real para validar envio.
+Guardas de isolamento e confirmação pós-envio implementadas localmente.
+
 Continuação e validação analítica: `VALIDACAO-LAPIDACAO-2026-09-09.md`.
 143 testes Web/build aprovados; conferência móvel em navegador realizada sem
 envio. Rascunho e destinos só de trocas reforçados. Relatório por escala e cast

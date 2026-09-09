@@ -2,6 +2,16 @@
 
 ## Visão geral
 
+### Homologação isolada — decisão de 09/09/2026
+
+QA usa outro projeto Supabase (`szakgftippcqtuqwxsox`), sem compartilhar dados,
+fila ou segredos do projeto de produção/Ponto. Primeira fase: Web e Postgres,
+login administrativo de QA, nenhum Worker e nenhuma API de Storage. Guardas
+no runtime/preflight conferem projeto e configuração; launcher dedicado neutraliza
+variáveis herdadas. O ambiente fiscal `teste` sozinho não isola infraestrutura.
+Estado parcial, comandos e limitações em `HOMOLOGACAO.md`. Não houve mudança
+na arquitetura de execução do Worker nem publicação em produção.
+
 ```text
 Web Next.js → PostgreSQL/fila → Worker Playwright → Receita PR
         ↑         status/nota/metadados         ↓

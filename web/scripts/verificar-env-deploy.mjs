@@ -1,4 +1,5 @@
 import { pathToFileURL } from "node:url";
+import { validarIsolamentoHomologacao } from "./isolamento-homologacao.mjs";
 
 const texto = (ambiente, nome) => (ambiente[nome] ?? "").trim();
 
@@ -21,6 +22,7 @@ function urlSupabase(valor) {
 
 export function pendenciasEnvDeploy(ambiente) {
   const pendencias = [];
+  try { validarIsolamentoHomologacao(ambiente); } catch { pendencias.push("ISOLAMENTO_HOMOLOGACAO"); }
   const databaseUrl = texto(ambiente, "DATABASE_URL");
   const supabaseUrl = texto(ambiente, "SUPABASE_URL");
   const publicaUrl = texto(ambiente, "NEXT_PUBLIC_SUPABASE_URL");
@@ -36,7 +38,7 @@ export function pendenciasEnvDeploy(ambiente) {
   if (!urlSupabase(publicaUrl) || publicaUrl !== supabaseUrl) {
     pendencias.push("NEXT_PUBLIC_SUPABASE_URL");
   }
-  if (chaveServidor.length < 24 || !/^[!-~]+$/.test(chaveServidor)) {
+  if (ambiente.APP_ENVIRONMENT !== "homologacao" && (chaveServidor.length < 24 || !/^[!-~]+$/.test(chaveServidor))) {
     pendencias.push("SUPABASE_SECRET_KEY");
   }
   if (texto(ambiente, "SUPABASE_STORAGE_BUCKET") !== "documentos-fiscais") {

@@ -1,9 +1,11 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import * as schema from "./schema";
+import { validarIsolamentoHomologacao } from "../../scripts/isolamento-homologacao.mjs";
 
-// DATABASE_URL deve apontar para o mesmo projeto Supabase já usado
-// pelo sistema de ponto eletrônico (schema separado — ver README).
+validarIsolamentoHomologacao(process.env);
+
+// Cada ambiente usa seu próprio projeto; homologação nunca usa o banco do Ponto.
 const connectionString = process.env.DATABASE_URL;
 
 if (!connectionString) {

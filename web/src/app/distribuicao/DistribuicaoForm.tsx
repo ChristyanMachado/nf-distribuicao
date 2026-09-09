@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { mensagemConfirmacaoDistribuicao } from "@/lib/confirmacao-distribuicao";
 import Card from "@/components/Card";
 import { Label } from "@/components/Field";
 import PrimaryButton from "@/components/PrimaryButton";
@@ -78,6 +79,12 @@ export default function DistribuicaoForm({
   const [rascunhoCarregado, setRascunhoCarregado] = useState(false);
   const [falhaRascunho, setFalhaRascunho] = useState(false);
   const [sobrasConfirmadas, setSobrasConfirmadas] = useState("");
+  const tituloResultado = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    if (!resultado) return;
+    tituloResultado.current?.focus({ preventScroll: true });
+    tituloResultado.current?.scrollIntoView({ block: "center", behavior: "instant" });
+  }, [resultado]);
 
   const produtosDisponiveisParaAdicionar = useMemo(
     () => produtos.filter((p) => !produtosDistribuicao.some((pd) => pd.produtoId === p.id)),
@@ -1002,14 +1009,14 @@ export default function DistribuicaoForm({
       {resultado && (
         <Card role="status" aria-live="polite" className="mt-5 border-2 border-[var(--field)] bg-[var(--field-tint)] p-4 shadow-sm">
           <p className="font-mono-tab text-[11px] font-bold uppercase tracking-widest text-[var(--field-strong)]">Distribuição enviada</p>
-          <h2 className="mt-1 text-xl font-semibold text-[var(--ink)]">
+          <h2 ref={tituloResultado} tabIndex={-1} className="mt-1 text-xl font-semibold text-[var(--ink)]">
             Distribuição {resultado.numero ? String(resultado.numero).padStart(6, "0") : "registrada"}
           </h2>
           <p className="mt-1 text-sm text-[var(--ink-soft)]">
-            {resultado.tarefas} {resultado.tarefas === 1 ? "nota entrou" : "notas entraram"} na fila. Você pode acompanhar o andamento ou abrir o roteiro agora.
+            {mensagemConfirmacaoDistribuicao(resultado.tarefas)}
           </p>
           <div className="mt-3 grid grid-cols-1 gap-2 min-[380px]:grid-cols-2 text-sm">
-            <a href="/tarefas" className="tap-target flex items-center justify-center rounded-[var(--radius-control)] bg-[var(--field)] px-3 text-center font-semibold text-white">Acompanhar emissão</a>
+            {resultado.tarefas > 0 && <a href="/tarefas" className="tap-target flex items-center justify-center rounded-[var(--radius-control)] bg-[var(--field)] px-3 text-center font-semibold text-white">Acompanhar emissão</a>}
             <a href={`/entregas?lote=${encodeURIComponent(resultado.loteId)}`} className="tap-target flex items-center justify-center rounded-[var(--radius-control)] border border-[var(--line-strong)] bg-[var(--paper)] px-3 text-center font-medium">Abrir roteiro</a>
           </div>
           <button

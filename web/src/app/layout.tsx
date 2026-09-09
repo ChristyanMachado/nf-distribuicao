@@ -75,6 +75,7 @@ export default function RootLayout({
   return (
     <html lang="pt-BR">
       <body>
+        {process.env.APP_ENVIRONMENT === "homologacao" && <div role="status" className="border-b border-amber-300 bg-amber-100 px-4 py-2 text-center text-sm font-semibold text-amber-950">HOMOLOGAÇÃO · Dados fictícios · Worker fiscal desligado</div>}
         {autenticacaoConfigurada && <IdleLock />}
         <div className="app-shell flex min-h-dvh flex-col md:flex-row">
           {/* Desktop: rail lateral fixo */}
