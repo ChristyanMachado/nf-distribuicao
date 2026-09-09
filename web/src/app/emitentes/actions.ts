@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { emitentes, tarefas } from "@/db/schema";
 import { exigirSessaoAdministrativa } from "@/lib/auth-server";
@@ -40,7 +40,7 @@ export async function listarEmitentes() {
       criadoEm: emitentes.criadoEm,
     })
     .from(emitentes)
-    .orderBy(desc(emitentes.criadoEm));
+    .orderBy(asc(emitentes.nome), asc(emitentes.id));
 }
 
 function lerDadosEmitente(formData: FormData) {

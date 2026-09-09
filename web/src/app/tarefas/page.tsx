@@ -60,6 +60,7 @@ export default async function TarefasPage({
       <p className="mt-1 text-[15px] text-[var(--ink-soft)]">
         Acompanhe cada rodada de distribuição e abra apenas a nota que precisa revisar.
       </p>
+      <p className="mt-1 text-[12px] text-[var(--ink-faint)]">Exibimos as 100 tarefas mais recentes e todas as pendências, inclusive antigas. As contagens abaixo correspondem a esse recorte.</p>
       <AtualizacaoAutomatica ativa={temTarefaAtiva} />
       <Card className="mt-4 p-4">
         <p className="text-sm font-semibold">{processando ? "Worker com tarefa em execução" : "Acompanhamento do Worker"}</p>

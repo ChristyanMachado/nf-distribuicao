@@ -1,5 +1,12 @@
 # Segurança — NF Distribuição
 
+Revisão documental de 09/09/2026: controles abaixo descrevem código e auditorias
+datadas, não uma nova verificação ao vivo de infraestrutura. Riscos e limites da
+lapidação constam em `AUDITORIA-LAPIDACAO-2026-09-09.md`. Antes de ampliar usuários,
+rever revogação da sessão local e isolamento; revisar também vínculos de destinos
+só de troca com testes transacionais. Não foram alteradas políticas, grants ou
+autenticação nesta rodada.
+
 ## Controles implementados
 
 ### Web
@@ -59,22 +66,23 @@ substitui identidade multiusuário, papéis, tenant e RLS.
 ### Worker
 
 - somente Playwright Async e contextos isolados;
-- host HTTPS de homologação revalidado no clique fiscal;
+- host HTTPS do ambiente fiscal configurado revalidado no clique fiscal;
 - credenciais resolvidas por referência fora do Web;
 - logs sanitizados, rotacionados e sem dados fiscais brutos;
 - mensagens de banco limitadas e sem CR/LF;
 - códigos de erro limitados a formato estável e sem dados fiscais; retry usa
   lista fechada e transição atômica apenas a partir de `ERRO` pré-emissão;
-- `AGUARDANDO_CONFERENCIA` nunca recebe botão de nova tentativa;
+- incerteza de emissão não admite retry automático; cancelamento tem retomada
+  humana protegida conforme correção documentada no HANDOFF, não retry irrestrito;
 - XML e PDF validados antes de sucesso;
 - diretório/arquivos privados e recusa de link simbólico;
 - configuração não revela URL do banco em `repr`.
-- serviço persistente recusa produção, modo visível, Inspector, pausa e
+- serviço persistente exige ambiente fiscal explícito e recusa modo visível, Inspector, pausa e
   configuração parcial; o papel PostgreSQL é auditado antes do primeiro ciclo;
 - container sem porta pública, com raiz somente leitura, capabilities removidas,
   `no-new-privileges`, volumes explícitos e healthcheck sanitizado.
 
-## Riscos que ainda bloqueiam produção
+## Riscos pendentes e gates para ampliar o piloto
 
 0. O projeto Supabase também hospeda o sistema de ponto. A auditoria ao vivo
    de 04/09 encontrou

@@ -169,6 +169,28 @@ describe("intervaloDoPreset", () => {
 });
 
 describe("calcularKpisOperacionais", () => {
+  it("desconta lotes mais lentos do saldo em vez de ocultar perdas", () => {
+    const inicio = new Date("2026-09-08T10:00:00Z");
+    const tarefas = [300, 400].flatMap((segundos, lote) =>
+      [1, 2, 3].map((nota) => ({ id: `${lote}-${nota}`, loteId: String(lote),
+        status: "EMITIDA", tentativas: 1, iniciadoEm: inicio,
+        concluidoEm: new Date(inicio.getTime() + segundos * 1000) })));
+    expect(calcularKpisOperacionais(tarefas).tempoEconomizadoSegundos).toBe(-26);
+  });
+
+  it("usa a mesma amostra de duração e itens e rejeita cronologia inválida", () => {
+    const inicio = new Date("2026-09-08T10:00:00Z");
+    const base = { status: "EMITIDA", tentativas: 1, iniciadoEm: inicio,
+      concluidoEm: new Date(inicio.getTime() + 60000) };
+    const resultado = calcularKpisOperacionais([
+      { ...base, id: "1", loteId: "1", quantidadeItens: 2 },
+      { ...base, id: "2", loteId: "2" },
+      { ...base, id: "3", loteId: "3", concluidoEm: new Date(inicio.getTime() - 1000) },
+    ]);
+    expect(resultado.tempoMedioPorItemSegundos).toBe(30);
+    expect(resultado.distribuicoesMedidas).toBe(2);
+  });
+
   it("conta a economia uma vez por lote completo, nunca uma vez por nota", () => {
     const inicio = new Date("2026-08-26T10:00:00Z");
     const fim = new Date("2026-08-26T10:00:42Z");

@@ -1,5 +1,24 @@
 # Handoff — Estado Atual
 
+## Lapidação reconciliada — 09/09/2026
+
+- Resultado e checklist por origem/evidência em `AUDITORIA-LAPIDACAO-2026-09-09.md`.
+- Saldo frente ao teste manual agora preserva diferenças negativas; três notas
+  não bastam para afirmar equivalência. Datas inconsistentes e contagem incompleta
+  de itens não contaminam as médias. Não houve edição de históricos.
+- Resumo mostra quantidade faturável e confirma somente sobras, com guarda no
+  servidor. Listas alfabéticas; pendências antigas preservadas na tela de tarefas.
+- Motivo de cancelamento vazio por padrão; causa não inferida do estado fiscal.
+- 123 testes Web e build de produção concluídos. Navegador local abriu navegação
+  e estado de indisponibilidade dos dados; isso não valida telas com dados nem
+  distribuição. Gate visual em celular continua pendente.
+- Sem publicação, migration, alteração do Worker ou ação fiscal nesta rodada.
+- Próximas unidades: validação transacional de destinos só de trocas, paginação
+  de Notas antes de assinar arquivos e telemetria de etapas/tentativas.
+
+A expressão “comparáveis” na seção histórica de 08/09 abaixo significa somente
+mesma quantidade de notas; a auditoria de 09/09 registra as limitações restantes.
+
 ## Métricas de escala e conferência fiscal — 08/09/2026
 
 - A duração do Worker já é real por lote: primeira tarefa iniciada até última

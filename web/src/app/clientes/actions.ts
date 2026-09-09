@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { clientes, emitentes, clienteEmitentes, tarefas } from "@/db/schema";
 import { exigirSessaoAdministrativa } from "@/lib/auth-server";
@@ -29,7 +29,7 @@ const STATUS_TAREFA_ABERTA = [
 
 export async function listarClientes() {
   await exigirSessaoAdministrativa();
-  return db.select().from(clientes).orderBy(desc(clientes.criadoEm));
+  return db.select().from(clientes).orderBy(asc(clientes.nome), asc(clientes.id));
 }
 
 export async function listarEmitentes() {
@@ -40,7 +40,7 @@ export async function listarEmitentes() {
     .select({ id: emitentes.id, nome: emitentes.nome, cnpj: emitentes.cnpj })
     .from(emitentes)
     .where(eq(emitentes.ativo, true))
-    .orderBy(desc(emitentes.criadoEm));
+    .orderBy(asc(emitentes.nome), asc(emitentes.id));
 }
 
 function lerDadosCliente(formData: FormData) {

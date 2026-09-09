@@ -118,6 +118,9 @@ export function calcularKpisOperacionais(tarefas: TarefaOperacional[]): KpisOper
   );
   const medicoesDosLotes = lotesMensuraveis
     .map((lote) => {
+      if (lote.some((t) => !t.iniciadoEm || !t.concluidoEm
+        || !Number.isFinite(t.iniciadoEm.getTime()) || !Number.isFinite(t.concluidoEm.getTime())
+        || t.concluidoEm.getTime() < t.iniciadoEm.getTime())) return null;
       const inicios = lote.map((t) => t.iniciadoEm?.getTime()).filter((v): v is number => v !== undefined);
       const conclusoes = lote.map((t) => t.concluidoEm?.getTime()).filter((v): v is number => v !== undefined);
       if (inicios.length !== lote.length || conclusoes.length !== lote.length) return null;
@@ -126,7 +129,8 @@ export function calcularKpisOperacionais(tarefas: TarefaOperacional[]): KpisOper
         ? {
             segundos,
             notas: lote.length,
-            itens: lote.reduce((total, tarefa) => total + (tarefa.quantidadeItens ?? 0), 0),
+            itens: lote.every((t) => Number.isInteger(t.quantidadeItens) && (t.quantidadeItens ?? 0) > 0)
+              ? lote.reduce((total, tarefa) => total + tarefa.quantidadeItens!, 0) : 0,
           }
         : null;
     })
@@ -135,9 +139,10 @@ export function calcularKpisOperacionais(tarefas: TarefaOperacional[]): KpisOper
     (medicao) => medicao.notas === BENCHMARK_MANUAL_QUANTIDADE_NOTAS,
   );
   const tempoEconomizadoSegundos = medicoesComparaveis.reduce(
-    (total, medicao) => total + Math.max(0, BENCHMARK_MANUAL_SEGUNDOS_POR_LOTE - medicao.segundos),
+    (total, medicao) => total + BENCHMARK_MANUAL_SEGUNDOS_POR_LOTE - medicao.segundos,
     0
   );
+  const medicoesComItens = medicoesDosLotes.filter((m) => m.itens > 0);
 
   return {
     distribuicoes: porLote.size,
@@ -160,10 +165,10 @@ export function calcularKpisOperacionais(tarefas: TarefaOperacional[]): KpisOper
           / medicoesDosLotes.reduce((total, medicao) => total + medicao.notas, 0),
         )
       : null,
-    tempoMedioPorItemSegundos: medicoesDosLotes.reduce((total, medicao) => total + medicao.itens, 0) > 0
+    tempoMedioPorItemSegundos: medicoesComItens.length > 0
       ? Math.round(
-          medicoesDosLotes.reduce((total, medicao) => total + medicao.segundos, 0)
-          / medicoesDosLotes.reduce((total, medicao) => total + medicao.itens, 0),
+          medicoesComItens.reduce((total, medicao) => total + medicao.segundos, 0)
+          / medicoesComItens.reduce((total, medicao) => total + medicao.itens, 0),
         )
       : null,
   };

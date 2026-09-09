@@ -75,6 +75,7 @@ export default function DistribuicaoForm({
   const [status, setStatus] = useState<{ tipo: "ok" | "erro" | "aviso"; texto: string } | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [rascunhoCarregado, setRascunhoCarregado] = useState(false);
+  const [sobrasConfirmadas, setSobrasConfirmadas] = useState("");
 
   const produtosDisponiveisParaAdicionar = useMemo(
     () => produtos.filter((p) => !produtosDistribuicao.some((pd) => pd.produtoId === p.id)),
@@ -429,6 +430,9 @@ export default function DistribuicaoForm({
   }, [produtosDistribuicao]);
 
   const totalGeral = previewPorProduto.reduce((s, p) => s + p.subtotalProduto, 0);
+  const sobras = previewPorProduto.filter((p) => p.validacao.sobra > 0);
+  const assinaturaSobras = JSON.stringify(produtosDistribuicao);
+  const confirmouSobras = sobras.length === 0 || sobrasConfirmadas === assinaturaSobras;
   const temErro = previewPorProduto.some(
     (p) => p.resultados.some((r) => r.erro) || !p.validacao.valido
   );
@@ -438,6 +442,7 @@ export default function DistribuicaoForm({
   const podeEnviar = produtosDistribuicao.length > 0 && destinos.length > 0 && algumaLinhaPreenchida && !temErro && !enviando;
 
   async function handleSubmit() {
+    if (!podeEnviar || !confirmouSobras) return;
     setEnviando(true);
     setStatus(null);
     setResultado(null);
@@ -445,6 +450,7 @@ export default function DistribuicaoForm({
       const processado = await processarDistribuicao({
         chaveIdempotencia,
         data,
+        confirmouSobras,
         produtos: produtosDistribuicao.map((p) => ({
           produtoId: p.produtoId,
           quantidadeTotal: Number(p.quantidadeTotal || 0),
@@ -920,7 +926,12 @@ export default function DistribuicaoForm({
       {podeEnviar && (
         <Card className="mt-5 border-[var(--field)] p-4">
           <h2 className="text-sm font-semibold">Confira antes de distribuir</h2>
-          <p className="mt-1 text-[12px] text-[var(--ink-soft)]">Cada mercado e emitente abaixo receberá uma nota separada.</p>
+          {sobras.length > 0 && <div className="mt-2 rounded border border-[var(--wheat)] p-3 text-sm">
+            <p className="font-medium">Quantidades que ficarão sem distribuir:</p>
+            {sobras.map((p) => { const produto = produtos.find((item) => item.id === p.produtoId); return <p key={p.produtoId}>{produto?.descricao}: {p.validacao.sobra} {produto?.unidade}</p>; })}
+            <label className="mt-2 flex min-h-11 items-center gap-2"><input type="checkbox" checked={confirmouSobras} onChange={(e) => setSobrasConfirmadas(e.target.checked ? assinaturaSobras : "")} />Conferi e quero manter essas sobras.</label>
+          </div>}
+          <p className="mt-1 text-[12px] text-[var(--ink-soft)]">Cada mercado e emitente com quantidade faturável receberá uma nota. Destinos somente com trocas não geram nota.</p>
           <div className="mt-3 divide-y divide-[var(--line)]">
             {destinos.map((destino) => {
               const cliente = clientes.find((c) => c.id === destino.clienteId);
@@ -942,6 +953,7 @@ export default function DistribuicaoForm({
                       <p>
                         {produto?.descricao}: {linha.quantidadeDistribuida} {produto?.unidade}
                         {linha.quantidadeTroca > 0 ? ` · troca ${linha.quantidadeTroca}` : ""}
+                        {linha.quantidadeTroca > 0 ? ` · na nota: ${linha.quantidadeFaturavel} ${produto?.unidade ?? ""}` : ""}
                       </p>
                       <p className="font-mono-tab text-[12px]">
                         {moeda.format(linha.precoUnitario)} por {produto?.unidade} · {moeda.format(linha.subtotal)}
@@ -953,7 +965,7 @@ export default function DistribuicaoForm({
                       )}
                       {precoDiferenteDoUltimo && (
                         <p className="mt-1 rounded bg-[var(--cream)] px-2 py-1 text-[11px] text-[var(--ink)]">
-                          Atenção: preço diferente do último preço usado para este mercado. Confira se é promoção ou ajuste.
+                          Preço diferente da referência de {moeda.format(precoReferencia!)}. Confira o valor antes de enviar.
                         </p>
                       )}
                     </div>
@@ -998,7 +1010,7 @@ export default function DistribuicaoForm({
               {moeda.format(totalGeral)}
             </span>
           </div>
-          <PrimaryButton onClick={handleSubmit} disabled={!podeEnviar} className="px-6 py-2.5">
+          <PrimaryButton onClick={handleSubmit} disabled={!podeEnviar || !confirmouSobras} className="px-6 py-2.5">
             {enviando ? "Processando…" : "Processar distribuição"}
           </PrimaryButton>
         </div>

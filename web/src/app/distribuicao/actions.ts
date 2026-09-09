@@ -31,7 +31,7 @@ import { exigirSessaoAdministrativa } from "@/lib/auth-server";
 export async function carregarDadosDistribuicao() {
   await exigirSessaoAdministrativa();
   const [listaClientes, listaProdutos, listaPrecos, relacoes, lotesRecentes] = await Promise.all([
-    db.select().from(clientes).where(eq(clientes.ativo, true)),
+    db.select().from(clientes).where(eq(clientes.ativo, true)).orderBy(asc(clientes.nome)),
     db.select().from(produtos).where(eq(produtos.ativo, true)).orderBy(asc(produtos.descricao)),
     db.select().from(precosCliente),
     db
@@ -44,7 +44,7 @@ export async function carregarDadosDistribuicao() {
       })
       .from(clienteEmitentes)
       .innerJoin(emitentes, eq(clienteEmitentes.emitenteId, emitentes.id))
-      .where(eq(emitentes.ativo, true)),
+      .where(eq(emitentes.ativo, true)).orderBy(asc(emitentes.nome)),
     // O atalho diario considera somente um lote que ainda possa ser repetido
     // com os cadastros atuais. Clientes, produtos e emitentes desativados (ou
     // uma relacao cliente-emitente removida) nunca voltam selecionados.
@@ -235,6 +235,7 @@ export async function processarDistribuicao(input: {
   chaveIdempotencia: string;
   data: string;
   produtos: ProdutoDistribuicao[];
+  confirmouSobras?: boolean;
 }) {
   await exigirSessaoAdministrativa();
   exigirUuid(input?.chaveIdempotencia, "Identificador do envio");
@@ -280,6 +281,9 @@ export async function processarDistribuicao(input: {
       }
     }
     const validacao = validarDistribuicaoTotal(produto.quantidadeTotal, produto.linhas);
+    if (validacao.sobra > 0 && input.confirmouSobras !== true) {
+      throw new Error("Confira e confirme as quantidades que ficarão sem distribuir antes de enviar.");
+    }
     if (!validacao.valido) {
       throw new Error(
         `Distribuição do produto excede a disponibilidade (${validacao.totalDistribuido} > ${produto.quantidadeTotal}).`
@@ -374,6 +378,8 @@ export async function processarDistribuicao(input: {
           and(
             inArray(clienteEmitentes.clienteId, clientesFaturaveis),
             inArray(clienteEmitentes.emitenteId, emitentesFaturaveis),
+            eq(clientes.ativo, true),
+            eq(emitentes.ativo, true),
           ),
         );
       const chavesValidas = new Set(

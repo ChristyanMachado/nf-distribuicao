@@ -280,8 +280,8 @@ avança quando o número observado diverge do snapshot da tarefa.
 - Web: Vercel, com raiz do projeto em `web/` e preflight de variáveis antes do
   build;
 - PostgreSQL/Storage: serviço gerenciado;
-- Worker: container persistente em VM Linux (Oracle é candidata para o piloto,
-  ainda não implantada), com a imagem oficial do Playwright fixada na mesma
+- Worker: container persistente em VM Linux (Oracle implantada no piloto,
+  conforme histórico do HANDOFF), com a imagem oficial do Playwright fixada na mesma
   versão da biblioteca Python.
 
 O container usa filesystem raiz somente leitura, capabilities removidas,

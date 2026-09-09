@@ -165,9 +165,9 @@ export default function RelatoriosView({
             detalhe={`${formatarQuantidade(operacao.distribuicoesConcluidas, "completa", "completas")} · ${formatarQuantidade(operacao.notasProcessadas, "nota processada", "notas processadas")}`}
           />
           <KpiOperacional
-            titulo="Tempo economizado estimado"
-            valor={formatarDuracao(operacao.tempoEconomizadoSegundos)}
-            detalhe={`${formatarQuantidade(operacao.distribuicoesComparaveis, "lote comparável", "lotes comparáveis")} de 3 notas · comparado ao manual`}
+            titulo="Saldo frente ao teste manual"
+            valor={operacao.distribuicoesComparaveis === 0 ? "—" : `${operacao.tempoEconomizadoSegundos < 0 ? "−" : ""}${formatarDuracao(Math.abs(operacao.tempoEconomizadoSegundos))}`}
+            detalhe={`${formatarQuantidade(operacao.distribuicoesComparaveis, "lote", "lotes")} de 3 notas · positivo: menos tempo; negativo: mais tempo`}
             destaque
           />
           <KpiOperacional
@@ -178,7 +178,7 @@ export default function RelatoriosView({
           <KpiOperacional
             titulo="Erros"
             valor={String(operacao.erros)}
-            detalhe="falhas técnicas que exigem atenção"
+            detalhe="tarefas com falha; a causa exige diagnóstico"
             alerta={operacao.erros > 0}
           />
           <KpiOperacional
@@ -197,7 +197,7 @@ export default function RelatoriosView({
                 ? "—"
                 : formatarDuracao(operacao.tempoMedioPorItemSegundos)
             }
-            detalhe="inclui o preenchimento fiscal dos produtos do lote"
+            detalhe="duração do lote dividida pelas linhas de itens; inclui esperas entre tarefas"
           />
           <KpiOperacional
             titulo="Taxa de notas concluídas"
@@ -211,11 +211,11 @@ export default function RelatoriosView({
         </div>
         {operacao.notasCanceladas > 0 && (
           <p className="mt-2 rounded-[var(--radius-control)] border border-[var(--wheat)] bg-[var(--cream)] px-3 py-2 text-[12px] text-[var(--ink-soft)]">
-            {formatarQuantidade(operacao.notasCanceladas, "nota cancelada", "notas canceladas")} após emissão. Isso não entra como falha técnica do Worker.
+            {formatarQuantidade(operacao.notasCanceladas, "nota cancelada", "notas canceladas")} após emissão. O cancelamento não muda o resultado da tarefa; sua causa precisa ser confirmada.
           </p>
         )}
         <p className="mt-2 text-[11px] leading-relaxed text-[var(--ink-faint)]">
-          O tempo do sistema vem dos registros reais do Worker, da primeira nota iniciada à última concluída. A economia usa o benchmark manual de 5min 37s somente para lotes comparáveis de 3 notas; lotes de outro tamanho continuam contribuindo para o tempo médio, sem extrapolação.
+          Duração medida da primeira tarefa iniciada à última autorização registrada, somente em lotes concluídos na primeira tentativa. Não inclui montagem da distribuição, espera inicial na fila ou armazenamento posterior dos documentos. O teste manual de 5min 37s é uma referência exploratória para 3 notas: igualar o número de notas não garante itens e preparação equivalentes. Lotes mais lentos reduzem o saldo; outros tamanhos não recebem estimativa de economia.
         </p>
 
       {/* Gráfico do valor bruto por dia */}

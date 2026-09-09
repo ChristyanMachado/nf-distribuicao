@@ -37,7 +37,7 @@ const DIAGNOSTICOS: Record<string, Omit<DiagnosticoTarefa, "podeTentarNovamente"
   ACESSO_PORTAL_NEGADO: {
     titulo: "A Receita bloqueou a próxima etapa",
     descricao: "O login funcionou, mas o portal recusou o acesso ao módulo seguinte antes da emissão.",
-    orientacao: "Entre manualmente no ambiente de testes com o mesmo usuário e confira se ele consegue abrir Transporte. Se a mensagem continuar, chame o suporte técnico ou a Receita; não repita esta tarefa.",
+    orientacao: "Confira com o suporte o acesso ao mesmo ambiente fiscal desta tarefa. Se a recusa continuar, consulte a Receita; não repita esta tarefa.",
     deveCriarNovaDistribuicao: false,
   },
   EMITENTE_DIVERGENTE: {

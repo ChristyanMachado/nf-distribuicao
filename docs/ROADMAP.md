@@ -1,156 +1,63 @@
-# Roadmap de entrega — NF Distribuição
+# Roadmap — NF Distribuição
 
-## Resultado combinado
+Atualizado em 09/09/2026. Reconciliação, evidências e limitações em
+[Auditoria de lapidação](AUDITORIA-LAPIDACAO-2026-09-09.md).
+O histórico de implantação permanece no HANDOFF e no Git; tarefas já concluídas
+não são gates futuros. Publicação não é consequência automática de alteração local.
 
-O usuário prepara uma distribuição pelo celular; o Web cria tarefas fiscais
-imutáveis; um Worker persistente as processa com segurança na Receita PR; e o
-Web mostra estado, nota e documentos. O roteiro de entrega sai por lote, sem
-valores monetários. A fase posterior adicionará financeiro/auditoria e RH sob
-um portal autenticado, sem misturar autorização administrativa nesta entrega.
+## Entregue anteriormente
 
-## Onde estamos
+- Fluxo fiscal conectado, snapshot/idempotência, reserva e token fencing.
+- VM e papel exclusivo; piloto em produção com concorrência 1.
+- Storage privado, recuperação por fila própria e cancelamento protegido.
+- Correção do incidente de cancelamento, conforme registro `adb82fa` no HANDOFF;
+  não reabrir nem repetir cancelamento sem nova evidência e autorização.
+- Rascunho, pesquisa de produtos, repetição, resumo pré-envio, preço promocional,
+  notas por distribuição, confirmação persistente e impressão compacta.
+- Limpeza autorizada de homologação e retirada da exceção para excluir fictícios.
 
-- **Fase 1 — borda fiscal:** concluída em homologação para login,
-  preenchimento, autorização e download XML/DANFE.
-- **Fase 2 — contrato:** concluída em código e banco com payload v1, snapshot,
-  hash, idempotência, token fencing e estados.
-- **Fase 3 — integração:** implementada em código; canal TLS, papel mínimo,
-  reserva, snapshot e retorno de erros ao Web foram verificados.
-- **Fase 4 — homologação conectada:** concluída com as distribuições
-  000010–000012 autorizadas. A 000012 comprovou o ciclo automático completo,
-  incluindo XML/DANFE e retorno `EMITIDA` ao banco.
-- **Fase 5 — operação persistente:** a VM piloto Oracle está criada e recebeu
-  swap, Docker/Compose, firewall, fuso e atualizações automáticas por bootstrap
-  reproduzível. A janela editável no Web já separa recuperações 24h do início
-  de novas emissões; distribuições iniciadas antes do corte agora continuam
-  até esgotar suas tarefas pendentes. A 0013
-  foi aplicada, identidade exclusiva instalada e polling iniciado na VM;
-  auditorias e healthcheck passaram. Falta ensaio fiscal de ponta a ponta
-  nessa máquina e medição de recursos sob carga. O ensaio com concorrência 2
-  falhou nos menus da Receita antes da emissão; a terceira tarefa sequencial
-  concluiu. A VM voltou para concorrência 1, configuração aprovada para o piloto.
-  **Atualização:** emissão autorizada e recuperação histórica já foram
-  concluídas pela VM com retorno ao Web. Resta ampliar o piloto para outros
-  emitentes/clientes, medir recursos sob carga e melhorar atualização da UI.
-- **Fase 6 — produção:** virada coordenada concluída em 06/09/2026. O Web foi
-  redeployado com ambiente `normal` e o Worker está saudável na VM, também em
-  `normal`, com concorrência 1. Emissões reais já produziram notas autorizadas
-  e documentos conferidos pelo operador. Cancelamentos são habilitados somente
-  sob pedido explícito no Web. A primeira tentativa real de cancelamento em
-  08/09 não confirmou o clique em Confirmar: a versão antiga ocultou a exceção,
-  mas havia uma guarda de rota incompatível com a transição do formulário e um
-  locator global sujeito a cópias responsivas. A falha pré-resposta foi
-  classificada incorretamente como incerta. A nota foi conferida manualmente e
-  continua Autorizada. A correção e a retomada manual protegida estão validadas
-  localmente; falta publicar Web/Worker e executar a nova tentativa somente com
-  confirmação operacional.
+## Unidade local de lapidação — implementada, ainda não publicada
 
-Migrações `0001`–`0013` e `0015` estão ativas. A `0014` (restrição de RPC anônimo no
-sistema de ponto compartilhado) permanece preparada, fora do journal e
-explicitamente adiada. A `0015` fiscal foi aplicada isoladamente e auditada;
-Web e Worker publicados ainda não contêm a correção do incidente real de
-08/09. O próximo gate é instalar a mesma nova revisão nos dois lados e, só
-depois, permitir a tentativa controlada da nota já conferida.
-Cliente, emitente e três produtos reais
-foram aceitos pelo portal. Uma espera por estado da tela-resumo corrigiu a
-corrida entre o Avançar do ICMS e o Avançar para Transporte, sem `sleep` fixo.
+- Saldo de tempo preserva perdas; datas e denominadores inválidos não distorcem médias.
+- Benchmark de três notas identificado como comparação exploratória, não prova
+  de economia nas demais escalas ou em lotes com produtos diferentes.
+- Conferência explicita quantidade faturável e sobra; aceite só quando houver sobra,
+  também validado no servidor.
+- Ordenação alfabética consistente; tarefas antigas não terminais não desaparecem
+  no corte de 100 recentes; recorte das contagens explícito.
+- Motivo fiscal sem causa pré-preenchida e mensagem de canceladas corrigida.
+- 123 testes Web e build de produção aprovados; sem novo efeito fiscal.
 
-O Web já indica quais cadastros impedem o teste e bloqueia o formulário antes
-de o usuário montar um lote inviável. O papel mínimo do Worker foi criado no
-banco de teste e passou no verificador de privilégios.
+## Próximas unidades, em ordem
 
-## Meta imediata — piloto fiscal de produção
+1. **Alta:** validar transacionalmente destinos só de troca (vínculo e atividade),
+   mantendo separada a exigência de cadastro fiscal para valores faturáveis.
+2. **Alta:** ensaiar conferência, sobra e edição após aceite em desktop/celular;
+   verificar rascunho e foco no sucesso. Publicar somente depois do gate visual.
+3. **Média:** paginar Notas por lote no servidor antes de assinar documentos;
+   adicionar pesquisa objetiva e preservar filtros/retorno. Não carregar histórico
+   inteiro à medida que cresce.
+4. **Alta, analítica:** instrumentar tempos por tentativa e limites de preparação,
+   fila, autorização e documentos; coletar referências manuais equivalentes por
+   notas/linhas. Não extrapolar 337 segundos para tamanhos diferentes.
+5. **Média:** classificação de causa confirmada separada do estado fiscal, com
+   evidência e autoria; causa desconhecida por padrão, sem culpabilização automática.
+6. **Média:** ensaiar expiração/recuperação e backup/restauração em ambiente seguro;
+   medir recursos da VM sob carga real antes de aumentar concorrência.
 
-0. Publicar Web e Worker com o mesmo código fiscal. **Concluído.**
-1. Rota normal de Consulta validada sem pesquisar nem alterar nota. **Concluído.**
-2. Fazer a virada coordenada Web/Worker e confirmar visualmente o selo
-   Produção após login. **Concluído.**
-3. Implantar na VM a correção local da transição Emitente → Destinatário, com
-   autorização e conferência prévia de que não existe outra tarefa em execução.
-   **Concluído na revisão `cabf9a4`.**
-4. Primeira operação legítima, documentos e valores reais conferidos.
-   **Concluído.**
-5. Publicar a correção do cancelamento no Web e na VM, confirmar a mesma revisão
-   e acompanhar o novo log. **Concluído em `adb82fa`; VM saudável.** A nova
-   tentativa depende da declaração explícita de que a nota continua Autorizada;
-   nunca repetir automaticamente resultado incerto.
+## Condicionais / fora desta lapidação
 
-6. Validar no celular a confirmação persistente da distribuição, com número,
-   quantidade de notas e atalhos para acompanhamento e roteiro.
-7. Pedir confirmação explícita quando houver quantidade não distribuída,
-   preservando o bloqueio de excesso no cliente e no servidor.
-8. Validar Notas agrupadas por distribuição, rótulos explícitos dos relatórios
-   e a densidade da nova impressão compacta em PC e celular.
-9. Ensaiar a limpeza da migration `0011`; depois retomar container/VM e operação
-   persistente. O Web já está publicado e o ciclo conectado foi comprovado.
-10. Limpeza controlada do histórico de homologação concluída com autorização;
-   `precos_cliente` e todos os cadastros foram preservados. **Concluído.**
-11. Excluir manualmente os dois produtos e o cliente fictício usando a ação
-    temporária; depois desligar a flag e remover definitivamente essa exceção.
-    **Concluído:** o responsável removeu manualmente os cadastros fictícios e
-    a exceção temporária foi retirada do Web. O comportamento definitivo é
-    ativo/inativo.
+- Multiempresa: decidir isolamento por implantação ou tenant, revisar autorização,
+  revogação de sessão, auditoria e limites distribuídos antes de ampliar acesso.
+- Migration `0014` do ponto compartilhado continua adiada, fora do journal; exige
+  coordenação própria. Não misturar com alterações fiscais.
+- Heartbeat global do Worker apenas se a espera sem diagnóstico justificar.
+  Lease indica tarefa ativa, não disponibilidade geral.
+- Importação de planilha, redesign, novas confirmações generalizadas e refatoração
+  do Worker sem evidência de ganho: não implementar agora.
 
-## Próximas entregas de código
+## Gate para esta revisão
 
-- Conferir visualmente em celular e PC o rascunho de `/distribuicao`: iniciar
-  uma distribuição, sair/voltar, confirmar restauração, descartar e confirmar
-  limpeza. Validar também busca por parte do nome e ordem alfabética dos
-  produtos antes de publicar a melhoria.
-
-### Storage e retorno ao celular
-
-- bucket privado, upload, referências internas e URL assinada estão validados;
-- recuperação de upload interrompido está implementada por manifesto local
-  persistente e testes; falta validá-la no container/VM;
-- retenção operacional definida em **30 dias** para novos documentos;
-  limpeza física idempotente está implementada e protegida por flag, reserva e
-  lease. A migration `0011` foi aplicada e o papel mínimo auditado; antes de
-  ativá-la na VM, validar um documento vencido no ambiente de teste. A exclusão usa a
-  API do Storage, nunca SQL direto;
-- recuperação histórica sob demanda usa fila própria por nota e nunca reabre
-  a emissão. O XML é validado antes do DANFE; após o reenvio, o par recuperado
-  fica disponível por 7 dias. Migration `0012` aplicada; duas recuperações
-  conectadas foram validadas ao vivo em 02/09.
-
-### Operação persistente
-
-- construir e validar na VM a imagem preparada com Chromium e supervisão;
-- medir o piloto Micro com 1 GB físico + 4 GB de swap e concorrência 1; não
-  promover esse dimensionamento para produção sem prova de estabilidade;
-- papel PostgreSQL exclusivo do Worker com privilégios mínimos;
-- validar na VM a janela configurada no Web, mantendo recuperações disponíveis
-  24h e comprovando que o corte conclui o lote iniciado sem começar outro;
-- healthcheck, métricas, alertas e recuperação segura;
-- nunca repetir automaticamente resultado fiscal incerto.
-
-O template e o auditor do papel já estão prontos; a criação do papel só deve
-ocorrer quando a credencial dedicada puder ser guardada fora do repositório.
-
-### Segurança para comercialização
-
-- autenticação multiusuário e autorização por papel/empresa;
-- decisão formal entre isolamento por implantação ou tenant + RLS;
-- remover colunas legadas de credencial do banco;
-- rate limit distribuído/WAF, auditoria e gestão de segredos;
-- revisão de dependências, backup, restauração e resposta a incidentes.
-
-### Polimento do produto
-
-- validar em celulares reais os fluxos Distribuir, Tarefas, Notas e Entregas;
-- adaptar Adicionar produto a descrições longas sem cortar quantidade ou ação;
-- mostrar descrição + unidade sempre que apresentações do mesmo produto possam
-  ser confundidas;
-- confirmar sobras antes do processamento e levar foco ao resumo de sucesso;
-- manter tarefas frequentes em poucos cliques e alvos de toque adequados;
-- consolidar KPIs de notas e tempo economizado por lote concluído, distinguindo
-  valor comprometido de nota efetivamente emitida;
-- importar produtos por planilha validada;
-- finalizar documentação RF, UML, implantação, operação e manual do usuário.
-
-## Gate de produção
-
-Produção não é continuação automática da homologação. Exige ciclo conectado
-comprovado, Storage privado, autenticação/autorização definitiva, papel de
-banco mínimo, scheduler supervisionado, backup, plano de reversão e aprovação
-humana para o piloto de baixo volume.
+Revisar diff, testes, build, telas autenticadas e aparelho real; preservar rascunho,
+promoção, trocas e idempotência. Não emitir/cancelar para demonstrar UX. Manter
+separados: código local validado, publicação e confirmação operacional em produção.

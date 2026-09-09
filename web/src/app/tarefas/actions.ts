@@ -10,7 +10,7 @@ import {
   tarefaItens,
   tarefas,
 } from "@/db/schema";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, notInArray, or } from "drizzle-orm";
 import { exigirUuid } from "@/lib/validacao";
 import { exigirSessaoAdministrativa } from "@/lib/auth-server";
 import { CODIGOS_REPROCESSAVEIS } from "@/lib/erros-tarefa";
@@ -37,8 +37,12 @@ export async function listarTarefasComItens() {
     .innerJoin(clientes, eq(tarefas.clienteId, clientes.id))
     .innerJoin(emitentes, eq(tarefas.emitenteId, emitentes.id))
     .leftJoin(lotesDistribuicao, eq(tarefas.loteId, lotesDistribuicao.id))
-    .orderBy(desc(tarefas.criadoEm))
-    .limit(100);
+    .where(or(
+      notInArray(tarefas.status, ["EMITIDA", "DOCUMENTOS_ARMAZENADOS", "CANCELADA"]),
+      inArray(tarefas.id, db.select({ id: tarefas.id }).from(tarefas)
+        .orderBy(desc(tarefas.criadoEm), desc(tarefas.id)).limit(100)),
+    ))
+    .orderBy(desc(tarefas.criadoEm), desc(tarefas.id));
 
   if (listaTarefas.length === 0) return [];
 

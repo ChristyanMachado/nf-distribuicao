@@ -1,5 +1,13 @@
 # AI Context — NF Distribuição
 
+## Revisão vigente de lapidação — 09/09/2026
+
+Consultar `AUDITORIA-LAPIDACAO-2026-09-09.md` e o ROADMAP reconciliado.
+Métricas de 3 notas são comparação exploratória, não economia comprovada por
+equivalência de itens/preparação. Código local desta rodada ainda não publicado;
+histórico abaixo conserva os contextos originais. Não inferir validação visual
+ou fiscal a partir de build/testes.
+
 ## Objetivo
 
 Preferência do responsável: recomendar modelo e intensidade ao iniciar cada

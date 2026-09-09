@@ -204,7 +204,7 @@ export default function NotaCard({ nota }: { nota: Nota }) {
         </FormularioComFeedback>
       )}
 
-      {!documentosDisponiveis && !recuperando && !nota.podeRecuperar && (
+      {!documentosDisponiveis && !recuperando && !nota.podeRecuperar && nota.status !== "CANCELADA" && (
         <p className="mt-2 text-[12px] text-[var(--stamp)]">
           A chave fiscal desta nota não está disponível. Chame o suporte para conferir.
         </p>
@@ -284,7 +284,8 @@ export default function NotaCard({ nota }: { nota: Nota }) {
             <textarea
               id={`motivo-${nota.id}`}
               name="motivo"
-              defaultValue={nota.cancelamentoMotivo ?? "Dados incorretos"}
+              defaultValue={nota.cancelamentoMotivo ?? ""}
+              placeholder="Descreva o motivo real do cancelamento"
               maxLength={255}
               required
               rows={3}
