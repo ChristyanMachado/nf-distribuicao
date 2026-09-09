@@ -4,8 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import Card from "@/components/Card";
 import { Label } from "@/components/Field";
 import PrimaryButton from "@/components/PrimaryButton";
-import { calcularFaturavel, validarDistribuicaoTotal } from "@/lib/calculos";
+import { calcularFaturavel, validarDisponibilidadePreview } from "@/lib/calculos";
 import { processarDistribuicao } from "./actions";
+import { lerRascunhoLocal, gravarRascunhoLocal } from "@/lib/armazenamento-rascunho";
 import { dataOperacionalBrasil } from "@/lib/datas";
 import {
   chaveDestino,
@@ -75,6 +76,7 @@ export default function DistribuicaoForm({
   const [status, setStatus] = useState<{ tipo: "ok" | "erro" | "aviso"; texto: string } | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [rascunhoCarregado, setRascunhoCarregado] = useState(false);
+  const [falhaRascunho, setFalhaRascunho] = useState(false);
   const [sobrasConfirmadas, setSobrasConfirmadas] = useState("");
 
   const produtosDisponiveisParaAdicionar = useMemo(
@@ -102,8 +104,10 @@ export default function DistribuicaoForm({
   );
 
   useEffect(() => {
+    const leitura = lerRascunhoLocal(chaveRascunho);
+    setFalhaRascunho(!leitura.ok);
     const rascunho = restaurarRascunhoDistribuicao(
-      window.localStorage.getItem(chaveRascunho),
+      leitura.valor,
       {
         produtoIds: produtos.map((produto) => produto.id),
         destinosPermitidos: clientes.flatMap((cliente) =>
@@ -136,9 +140,9 @@ export default function DistribuicaoForm({
       produtos: produtosDistribuicao,
     };
     if (temConteudoRascunho(rascunho)) {
-      window.localStorage.setItem(chaveRascunho, JSON.stringify(rascunho));
+      setFalhaRascunho(!gravarRascunhoLocal(chaveRascunho, JSON.stringify(rascunho)));
     } else {
-      window.localStorage.removeItem(chaveRascunho);
+      setFalhaRascunho(!gravarRascunhoLocal(chaveRascunho, null));
     }
   }, [chaveIdempotencia, chaveRascunho, data, destinos, produtosDistribuicao, rascunhoCarregado, resultado]);
 
@@ -223,7 +227,7 @@ export default function DistribuicaoForm({
   }
 
   function iniciarNovaDistribuicao() {
-    window.localStorage.removeItem(chaveRascunho);
+    setFalhaRascunho(!gravarRascunhoLocal(chaveRascunho, null));
     setData(dataOperacionalBrasil());
     setChaveIdempotencia(crypto.randomUUID());
     setResultado(null);
@@ -236,7 +240,7 @@ export default function DistribuicaoForm({
   }
 
   function descartarRascunho() {
-    window.localStorage.removeItem(chaveRascunho);
+    setFalhaRascunho(!gravarRascunhoLocal(chaveRascunho, null));
     setData(dataOperacionalBrasil());
     setDestinos([]);
     setProdutosDistribuicao([]);
@@ -413,7 +417,7 @@ export default function DistribuicaoForm({
         }
       });
 
-      const validacao = validarDistribuicaoTotal(
+      const validacao = validarDisponibilidadePreview(
         Number(p.quantidadeTotal || 0),
         linhasAtivas.map((l) => ({
           clienteId: l.clienteId,
@@ -466,7 +470,7 @@ export default function DistribuicaoForm({
       });
       setStatus({ tipo: "ok", texto: processado.reutilizada ? "Esta distribuição já havia sido registrada — nenhum dado foi duplicado." : "Distribuição registrada com segurança." });
       setResultado({ loteId: processado.loteId, numero: processado.numeroDistribuicao, tarefas: processado.tarefasCriadas });
-      window.localStorage.removeItem(chaveRascunho);
+      setFalhaRascunho(!gravarRascunhoLocal(chaveRascunho, null));
       setDestinos([]);
       setProdutosDistribuicao([]);
       setProdutoParaAdicionar("");
@@ -482,12 +486,17 @@ export default function DistribuicaoForm({
 
   return (
     <div className="pb-28 md:pb-6">
+      {falhaRascunho && <p role="status" className="mt-4 rounded border border-[var(--wheat)] p-3 text-sm">
+        Não foi possível atualizar o rascunho neste navegador. {resultado
+          ? "A distribuição foi registrada. Um rascunho antigo pode reaparecer; confira as tarefas antes de reenviar."
+          : "Você pode continuar, mas alterações podem se perder ao sair. Confira os dados se um rascunho antigo reaparecer."}
+      </p>}
       {rascunhoCarregado && !resultado && temConteudoRascunho({ destinos, produtos: produtosDistribuicao }) && (
         <Card className="mt-5 flex flex-col gap-3 border-[var(--wheat)] bg-[var(--wheat-tint)] p-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-sm font-semibold text-[var(--ink)]">Rascunho salvo neste dispositivo</p>
+            <p className="text-sm font-semibold text-[var(--ink)]">{falhaRascunho ? "Preenchimento ainda aberto" : "Rascunho salvo neste dispositivo"}</p>
             <p className="mt-1 text-[12px] leading-5 text-[var(--ink-soft)]">
-              As alterações ficam disponíveis apenas nesta conta e neste navegador até você processar ou descartar.
+              {falhaRascunho ? "O salvamento local não está confirmado." : "As alterações ficam disponíveis apenas nesta conta e neste navegador até você processar ou descartar."}
             </p>
           </div>
           <button
@@ -718,7 +727,7 @@ export default function DistribuicaoForm({
                         : ""
                     }`}
                   >
-                    {produto.descricao}
+                    {produto.descricao} · {produto.unidade}
                   </button>
                 )) : (
                   <p className="px-3 py-2 text-sm text-[var(--ink-soft)]">Nenhum produto encontrado.</p>
@@ -730,6 +739,8 @@ export default function DistribuicaoForm({
             type="number"
             inputMode="decimal"
             value={quantidadeParaAdicionar}
+            aria-label="Quantidade disponível do produto a adicionar"
+            min="0"
             onChange={(e) => setQuantidadeParaAdicionar(e.target.value)}
             placeholder="Qtd. total"
             className="font-mono-tab w-full sm:w-28"
@@ -764,25 +775,29 @@ export default function DistribuicaoForm({
                 </button>
               </div>
 
-              <div className="mt-2 flex items-center gap-2 text-[13px] text-[var(--ink-soft)]">
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-[13px] text-[var(--ink-soft)]">
                 <span>Total disponível:</span>
                 <input
                   type="number"
                   inputMode="decimal"
                   value={p.quantidadeTotal}
+                  min="0"
+                  aria-label={`Total disponível de ${produto.descricao}`}
+                  aria-invalid={Boolean(preview.validacao.erro)}
                   onChange={(e) => atualizarQuantidadeTotal(p.produtoId, e.target.value)}
                   className="font-mono-tab h-9! min-h-0! w-24 text-right"
                 />
                 <span>{produto.unidade}</span>
                 <span className="ml-auto">
-                  Distribuído: {preview.validacao.totalDistribuido} · Sobra:{" "}
+                  Distribuído: {preview.validacao.erro ? "—" : preview.validacao.totalDistribuido} · Sobra:{" "}
                   <span className={preview.validacao.valido ? "" : "text-[var(--stamp)]"}>
-                    {preview.validacao.sobra}
+                    {preview.validacao.erro ? "—" : preview.validacao.sobra}
                   </span>
                 </span>
               </div>
 
               <div className="mt-3 space-y-2">
+                {preview.validacao.erro && <p role="alert" className="text-sm text-[var(--stamp)]">{preview.validacao.erro}</p>}
                 {p.linhas.map((linha) => {
                     const cliente = clientes.find((c) => c.id === linha.clienteId)!;
                     const emitente = cliente.emitentes.find((item) => item.id === linha.emitenteId)!;
@@ -823,6 +838,8 @@ export default function DistribuicaoForm({
                             type="number"
                             inputMode="decimal"
                             value={linha.quantidadeDistribuida}
+                            aria-label={`Quantidade de ${produto.descricao} para ${cliente.nome} — ${emitente.nome}`}
+                            min="0"
                             onChange={(e) =>
                               atualizarLinha(p.produtoId, linha, "quantidadeDistribuida", e.target.value)
                             }
@@ -855,6 +872,8 @@ export default function DistribuicaoForm({
                                 type="number"
                                 inputMode="decimal"
                                 value={linha.quantidadeTroca}
+                                aria-label={`Troca de ${produto.descricao} para ${cliente.nome} — ${emitente.nome}`}
+                                min="0"
                                 onChange={(e) =>
                                   atualizarLinha(p.produtoId, linha, "quantidadeTroca", e.target.value)
                                 }
@@ -869,6 +888,8 @@ export default function DistribuicaoForm({
                               step="0.01"
                               inputMode="decimal"
                               value={linha.precoUnitario}
+                              aria-label={`Preço de ${produto.descricao} para ${cliente.nome} — ${emitente.nome}`}
+                              min="0"
                               onChange={(e) =>
                                 atualizarLinha(p.produtoId, linha, "precoUnitario", e.target.value)
                               }

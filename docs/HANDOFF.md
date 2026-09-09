@@ -1,5 +1,20 @@
 # Handoff — Estado Atual
 
+## Continuidade: rascunho e conferência — 09/09/2026
+
+- Acesso/gravação/remoção do rascunho local não propagam exceção: bloqueio do
+  navegador ou quota excedida geram aviso separado, nunca falsa falha de envio
+  depois de uma transação confirmada. A interface não afirma salvamento nesses casos.
+- Disponibilidade negativa/inválida gera erro no cartão, preservando o formulário;
+  validação estrita do servidor mantida. Campos quantitativos ganharam nomes
+  acessíveis por produto/destino; seletor mostra unidade; total permite quebra móvel.
+- Navegador local com leitura de dados, viewport 390×844: seleção, busca sem
+  resultado, adição, sobra, aceite, invalidação após editar, troca integral,
+  disponibilidade negativa, restauração e descarte do rascunho de QA conferidos.
+  Nenhum clique em Processar, cancelamento, recuperação ou compartilhamento.
+- Sucesso pós-envio/foco, aparelho físico e bloqueio real de Storage ainda exigem
+  ensaio dedicado; falhas de Storage têm testes unitários sem rede.
+
 ## Continuidade: destinos só de trocas — 09/09/2026
 
 - Servidor valida vínculo/atividade de todo destino com entrega, inclusive só

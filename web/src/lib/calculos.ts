@@ -74,6 +74,16 @@ export function validarDistribuicaoTotal(
   };
 }
 
+/** Preview editável: entrada incompleta/inválida vira mensagem, não tela de erro. */
+export function validarDisponibilidadePreview(quantidade: number, itens: ItemDistribuicao[]) {
+  try {
+    return { ...validarDistribuicaoTotal(quantidade, itens), erro: null as string | null };
+  } catch (erro) {
+    return { valido: false, totalDistribuido: 0, sobra: 0,
+      erro: erro instanceof Error ? erro.message : "Confira a quantidade disponível." };
+  }
+}
+
 /**
  * RF11 — agrupa os itens faturáveis por cliente, no formato que vira uma
  * tarefa de emissão (um cliente pode ter vários produtos no mesmo dia).
