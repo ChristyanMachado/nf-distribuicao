@@ -169,6 +169,21 @@ describe("intervaloDoPreset", () => {
 });
 
 describe("calcularKpisOperacionais", () => {
+  it("separa escalas sem extrapolar e informa somente amostras medidas", () => {
+    const inicio = new Date("2026-09-09T10:00:00Z");
+    const tarefas = [[1, 60], [1, 80], [3, 180], [5, 250]].flatMap(([notas, segundos], lote) =>
+      Array.from({ length: notas }, (_, i) => ({ id: `${lote}-${i}`, loteId: String(lote),
+        status: "EMITIDA", tentativas: 1, iniciadoEm: inicio,
+        concluidoEm: new Date(inicio.getTime() + segundos * 1000) })));
+    const resultado = calcularKpisOperacionais(tarefas);
+    expect(resultado.desempenhoPorEscala).toEqual([
+      { notasPorLote: 1, lotes: 2, segundosTotais: 140, mediaLoteSegundos: 70, mediaNotaSegundos: 70 },
+      { notasPorLote: 3, lotes: 1, segundosTotais: 180, mediaLoteSegundos: 180, mediaNotaSegundos: 60 },
+      { notasPorLote: 5, lotes: 1, segundosTotais: 250, mediaLoteSegundos: 250, mediaNotaSegundos: 50 },
+    ]);
+    expect(resultado.tempoEconomizadoSegundos).toBe(157);
+    expect(calcularKpisOperacionais([]).desempenhoPorEscala).toEqual([]);
+  });
   it("desconta lotes mais lentos do saldo em vez de ocultar perdas", () => {
     const inicio = new Date("2026-09-08T10:00:00Z");
     const tarefas = [300, 400].flatMap((segundos, lote) =>

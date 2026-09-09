@@ -74,6 +74,8 @@ export type KpisOperacionais = {
   tempoMedioLoteSegundos: number | null;
   tempoMedioPorNotaSegundos: number | null;
   tempoMedioPorItemSegundos: number | null;
+  desempenhoPorEscala: { notasPorLote: number; lotes: number; segundosTotais: number;
+    mediaLoteSegundos: number; mediaNotaSegundos: number }[];
 };
 
 // Benchmark humano de 25/08/2026: uma distribuição com EXATAMENTE 3 notas
@@ -143,8 +145,20 @@ export function calcularKpisOperacionais(tarefas: TarefaOperacional[]): KpisOper
     0
   );
   const medicoesComItens = medicoesDosLotes.filter((m) => m.itens > 0);
+  const porEscala = new Map<number, { lotes: number; segundos: number }>();
+  for (const medicao of medicoesDosLotes) {
+    const atual = porEscala.get(medicao.notas) ?? { lotes: 0, segundos: 0 };
+    atual.lotes += 1;
+    atual.segundos += medicao.segundos;
+    porEscala.set(medicao.notas, atual);
+  }
 
   return {
+    desempenhoPorEscala: [...porEscala].sort(([a], [b]) => a - b).map(([notasPorLote, m]) => ({
+      notasPorLote, lotes: m.lotes, segundosTotais: Math.round(m.segundos),
+      mediaLoteSegundos: Math.round(m.segundos / m.lotes),
+      mediaNotaSegundos: Math.round(m.segundos / (m.lotes * notasPorLote)),
+    })),
     distribuicoes: porLote.size,
     distribuicoesConcluidas: lotesConcluidos.length,
     notasProcessadas: notasProcessadas.length,

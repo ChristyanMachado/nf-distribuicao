@@ -309,13 +309,13 @@ export default async function DashboardPage() {
               Icon={IconReceipt}
             />
             <Indicador
-              rotulo="Tempo recuperado hoje"
-              valor={formatarDuracao(operacaoHoje.tempoEconomizadoSegundos)}
+              rotulo="Saldo frente ao teste manual hoje"
+              valor={operacaoHoje.distribuicoesComparaveis === 0 ? "—" : `${operacaoHoje.tempoEconomizadoSegundos < 0 ? "−" : ""}${formatarDuracao(Math.abs(operacaoHoje.tempoEconomizadoSegundos))}`}
               destaque
             />
           </div>
           <p className="mt-4 border-t border-[var(--line)] pt-3 text-[11px] leading-relaxed text-[var(--ink-faint)]">
-            Tempo estimado somente para distribuições concluídas, usando o benchmark operacional já validado. Não representa faturamento ou lucro.
+            Comparação exploratória com um teste manual de 3 notas. Saldo positivo indica menos tempo; negativo, mais tempo. Sem amostra aparece “—”. Produtos e preparação podem diferir; consulte a metodologia em Relatórios.
           </p>
         </Card>
 

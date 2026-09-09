@@ -27,7 +27,7 @@ export async function carregarRelatorio(
       // Nota cancelada é um evento posterior à tarefa concluída. Para valores
       // e rankings, a situação fiscal da nota prevalece sobre o status técnico
       // da tarefa, sem alterar nem reclassificar a tarefa original.
-      status: sql<string>`coalesce(${notas.status}, ${tarefas.status})`,
+      status: sql<string>`coalesce(${notas.status}::text, ${tarefas.status}::text)`,
       clienteId: tarefas.clienteId,
       clienteNome: clientes.nome,
       produtoId: tarefaItens.produtoId,
@@ -45,7 +45,7 @@ export async function carregarRelatorio(
   const consultaTrocas = db
     .select({
       data: disponibilidades.data,
-      status: sql<string>`coalesce(${notas.status}, ${tarefas.status})`,
+      status: sql<string>`coalesce(${notas.status}::text, ${tarefas.status}::text)`,
       clienteId: distribuicoes.clienteId,
       clienteNome: clientes.nome,
       produtoId: disponibilidades.produtoId,

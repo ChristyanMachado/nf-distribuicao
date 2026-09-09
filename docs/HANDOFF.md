@@ -1,5 +1,18 @@
 # Handoff — Estado Atual
 
+## Continuidade: relatório verificado no banco — 09/09/2026
+
+- A navegação real detectou `42804`: `notas.status` é texto e `tarefas.status`
+  é enum; `coalesce` sem cast falhava, apesar de build/testes puros aprovados.
+  Corrigidas as duas consultas para `::text`, com teste da expressão SQL gerada.
+- Consulta remota somente leitura confirmou 5 autorizadas e 1 cancelada. Relatório
+  local abriu depois do ajuste; 3 lotes elegíveis em 4, escalas 1 e 3 notas, médias
+  por lote de 70 e 184 s. Filtro Hoje sem amostra foi conferido na interface.
+- Tabela por escala usa somente tempos observados, sem nova consulta e sem
+  extrapolar benchmark. Home e Relatórios usam saldo exploratório/ausência de
+  amostra; taxa final não promete sucesso na primeira tentativa.
+- 143 testes Web e build concluídos. Sem publicação nem alteração de histórico.
+
 ## Continuidade: rascunho e conferência — 09/09/2026
 
 - Acesso/gravação/remoção do rascunho local não propagam exceção: bloqueio do

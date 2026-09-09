@@ -200,13 +200,13 @@ export default function RelatoriosView({
             detalhe="duração do lote dividida pelas linhas de itens; inclui esperas entre tarefas"
           />
           <KpiOperacional
-            titulo="Taxa de notas concluídas"
+            titulo="Tarefas concluídas entre resultados finais"
             valor={
               operacao.notasProcessadas + operacao.erros === 0
                 ? "—"
                 : `${Math.round((operacao.notasProcessadas / (operacao.notasProcessadas + operacao.erros)) * 100)}%`
             }
-            detalhe="processadas entre resultados técnicos finais"
+            detalhe="estado atual; não mede sucesso na primeira tentativa nem ausência de incidentes"
           />
         </div>
         {operacao.notasCanceladas > 0 && (
@@ -217,6 +217,30 @@ export default function RelatoriosView({
         <p className="mt-2 text-[11px] leading-relaxed text-[var(--ink-faint)]">
           Duração medida da primeira tarefa iniciada à última autorização registrada, somente em lotes concluídos na primeira tentativa. Não inclui montagem da distribuição, espera inicial na fila ou armazenamento posterior dos documentos. O teste manual de 5min 37s é uma referência exploratória para 3 notas: igualar o número de notas não garante itens e preparação equivalentes. Lotes mais lentos reduzem o saldo; outros tamanhos não recebem estimativa de economia.
         </p>
+
+        <Card className="mt-4 p-4">
+          <h3 className="text-sm font-semibold">Tempo observado por tamanho de lote</h3>
+          <p className="mt-1 text-[12px] text-[var(--ink-soft)]">
+            {operacao.distribuicoesMedidas} de {operacao.distribuicoes} distribuições consideradas têm medição elegível.
+            Reprocessamentos, lotes incompletos e datas ausentes/inválidas ou duração acima de 24h ficam fora.
+            Diferenças de produtos e condições não são controladas; amostra pequena não prova ganho de escala.
+          </p>
+          {operacao.desempenhoPorEscala.length === 0 ? <p className="mt-3 text-sm">Ainda sem lotes elegíveis neste período.</p> : (
+            <div className="mt-3 overflow-x-auto">
+              <table className="w-full text-left text-[12px] font-mono-tab">
+                <caption className="sr-only">Durações medidas, sem extrapolação do teste manual</caption>
+                <thead><tr>{["Notas/lote", "Lotes medidos", "Tempo somado", "Média/lote", "Média/nota"].map((titulo) => <th key={titulo} scope="col" className="px-2 py-2 font-medium">{titulo}</th>)}</tr></thead>
+                <tbody>{operacao.desempenhoPorEscala.map((escala) => <tr key={escala.notasPorLote} className="border-t border-[var(--line)]">
+                  <th scope="row" className="px-2 py-2 font-normal">{escala.notasPorLote}</th>
+                  <td className="px-2 py-2">{escala.lotes}</td>
+                  <td className="px-2 py-2 whitespace-nowrap">{formatarDuracao(escala.segundosTotais)}</td>
+                  <td className="px-2 py-2 whitespace-nowrap">{formatarDuracao(escala.mediaLoteSegundos)}</td>
+                  <td className="px-2 py-2 whitespace-nowrap">{formatarDuracao(escala.mediaNotaSegundos)}</td>
+                </tr>)}</tbody>
+              </table>
+            </div>
+          )}
+        </Card>
 
       {/* Gráfico do valor bruto por dia */}
       {serie.length > 0 && (
