@@ -20,7 +20,12 @@
   agora mostra quantidade, troca, preço unitário e subtotal. Preço diferente do
   último praticado para o mesmo produto/mercado recebe aviso discreto para
   revisar promoção ou ajuste antes do único clique de processamento.
-- Validação local: 119 testes Web, TypeScript, build Next.js e `git diff --check`
+- O campo já existente de preço promocional agora é efetivo: o controle aparece
+  somente quando o valor diverge da sugestão e é opcional. Marcá-lo mantém o
+  preço no snapshot do lote, mas impede que uma promoção temporária se torne a
+  referência da próxima distribuição. Isso reduz repetição de valor excepcional
+  sem inserir confirmação ou etapa obrigatória.
+- Validação local: 121 testes Web, TypeScript, build Next.js e `git diff --check`
   aprovados. Sem migration, Worker, fila, banco remoto ou efeito fiscal. Ainda
   pendente: validação visual no Vercel/celular antes de publicar.
 

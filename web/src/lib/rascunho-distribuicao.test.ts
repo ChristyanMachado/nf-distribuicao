@@ -53,6 +53,43 @@ describe("rascunho de distribuição", () => {
       destinosPermitidos: [{ clienteId: cliente, emitenteId: emitente }],
     })).toBeNull();
   });
+
+  it("preserva a marcação promocional sem invalidar rascunhos anteriores", () => {
+    const base = {
+      versao: 1,
+      data: "2026-09-06",
+      chaveIdempotencia: chave,
+      destinos: [{ clienteId: cliente, emitenteId: emitente }],
+      produtos: [{
+        produtoId: produto,
+        quantidadeTotal: "20",
+        linhas: [{
+          clienteId: cliente,
+          emitenteId: emitente,
+          quantidadeDistribuida: "20",
+          quantidadeTroca: "0",
+          precoUnitario: "2.5",
+          trocaAberta: false,
+        }],
+      }],
+    };
+    const catalogo = {
+      produtoIds: [produto],
+      destinosPermitidos: [{ clienteId: cliente, emitenteId: emitente }],
+    };
+
+    expect(restaurarRascunhoDistribuicao(JSON.stringify(base), catalogo)?.produtos[0].linhas[0].precoPromocional)
+      .toBe(false);
+    const promocao = {
+      ...base,
+      produtos: [{
+        ...base.produtos[0],
+        linhas: [{ ...base.produtos[0].linhas[0], precoPromocional: true }],
+      }],
+    };
+    expect(restaurarRascunhoDistribuicao(JSON.stringify(promocao), catalogo)?.produtos[0].linhas[0].precoPromocional)
+      .toBe(true);
+  });
 });
 
 describe("busca de produtos", () => {

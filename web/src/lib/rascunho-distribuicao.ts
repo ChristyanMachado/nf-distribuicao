@@ -7,6 +7,8 @@ export type LinhaRascunho = DestinoRascunho & {
   quantidadeDistribuida: string;
   quantidadeTroca: string;
   precoUnitario: string;
+  // Preço excepcional não substitui o preço sugerido para a próxima rodada.
+  precoPromocional: boolean;
   trocaAberta: boolean;
 };
 
@@ -147,6 +149,8 @@ export function restaurarRascunhoDistribuicao(
         quantidadeDistribuida: linha.quantidadeDistribuida,
         quantidadeTroca: linha.quantidadeTroca,
         precoUnitario: linha.precoUnitario,
+        // Rascunhos anteriores à marcação continuam válidos e seguros.
+        precoPromocional: linha.precoPromocional === true,
         trocaAberta: linha.trocaAberta === true,
       });
       totalLinhas += 1;

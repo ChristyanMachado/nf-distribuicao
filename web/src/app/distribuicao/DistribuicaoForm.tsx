@@ -42,6 +42,7 @@ type UltimaDistribuicao = {
       quantidadeDistribuida: string;
       quantidadeTroca: string;
       precoUnitario: string;
+      precoPromocional: boolean;
     }[];
   }[];
 };
@@ -191,6 +192,7 @@ export default function DistribuicaoForm({
       quantidadeDistribuida: "",
       quantidadeTroca: "0",
       precoUnitario: precoInicial(produtoId, destino.clienteId, produto.precoPadrao),
+      precoPromocional: false,
       trocaAberta: false,
     };
   }
@@ -257,15 +259,31 @@ export default function DistribuicaoForm({
 
   function atualizarLinha(produtoId: string, destino: DestinoFiscal, campo: keyof Linha, valor: string | boolean) {
     const chave = chaveDestino(destino);
+    const produto = produtos.find((item) => item.id === produtoId);
+    const precoReferencia = produto
+      ? Number(precoInicial(produtoId, destino.clienteId, produto.precoPadrao))
+      : null;
     setProdutosDistribuicao((atual) =>
       atual.map((p) =>
         p.produtoId !== produtoId
           ? p
           : {
               ...p,
-              linhas: p.linhas.map((l) =>
-                chaveDestino(l) === chave ? { ...l, [campo]: valor } : l
-              ),
+              linhas: p.linhas.map((l) => {
+                if (chaveDestino(l) !== chave) return l;
+                const proxima = { ...l, [campo]: valor };
+                // Ao voltar ao preço de referência, não manter uma promoção
+                // marcada por engano no rascunho.
+                if (
+                  campo === "precoUnitario"
+                  && precoReferencia !== null
+                  && Number.isFinite(Number(valor))
+                  && Math.abs(Number(valor) - precoReferencia) <= 0.004
+                ) {
+                  return { ...proxima, precoPromocional: false };
+                }
+                return proxima;
+              }),
             }
       )
     );
@@ -333,6 +351,7 @@ export default function DistribuicaoForm({
             quantidadeTroca: anterior?.quantidadeTroca ?? "0",
             precoUnitario: anterior?.precoUnitario
               ?? precoInicial(produtoAnterior.produtoId, cliente.id, produtoAtual.precoPadrao),
+            precoPromocional: anterior?.precoPromocional ?? false,
             trocaAberta: Number(anterior?.quantidadeTroca ?? 0) > 0,
           };
         }),
@@ -377,7 +396,7 @@ export default function DistribuicaoForm({
             quantidadeTroca: troca,
             precoUnitario: preco,
           });
-          return { ...r, erro: null as string | null };
+          return { ...r, precoPromocional: l.precoPromocional, erro: null as string | null };
         } catch (e) {
           return {
             clienteId: l.clienteId,
@@ -387,6 +406,7 @@ export default function DistribuicaoForm({
             precoUnitario: preco,
             quantidadeFaturavel: 0,
             subtotal: 0,
+            precoPromocional: l.precoPromocional,
             erro: e instanceof Error ? e.message : "Erro",
           };
         }
@@ -434,6 +454,7 @@ export default function DistribuicaoForm({
               quantidadeDistribuida: Number(l.quantidadeDistribuida || 0),
               quantidadeTroca: Number(l.quantidadeTroca || 0),
               precoUnitario: Number(l.precoUnitario || 0),
+              precoPromocional: l.precoPromocional,
             })),
         })),
       });
@@ -763,6 +784,9 @@ export default function DistribuicaoForm({
                       (r) => r.clienteId === linha.clienteId && r.emitenteId === linha.emitenteId
                     )!;
                     const preenchido = Number(linha.quantidadeDistribuida || 0) > 0;
+                    const precoReferencia = Number(precoInicial(p.produtoId, cliente.id, produto.precoPadrao));
+                    const precoAlterado = Number.isFinite(precoReferencia)
+                      && Math.abs(Number(linha.precoUnitario || 0) - precoReferencia) > 0.004;
 
                     return (
                       <div
@@ -846,6 +870,19 @@ export default function DistribuicaoForm({
                             />
                           </div>
                         </div>
+                        {precoAlterado && (
+                          <label className="mt-1.5 flex items-center gap-2 text-[12px] text-[var(--ink-soft)]">
+                            <input
+                              type="checkbox"
+                              checked={linha.precoPromocional}
+                              onChange={(e) =>
+                                atualizarLinha(p.produtoId, linha, "precoPromocional", e.target.checked)
+                              }
+                              className="h-4 w-4 shrink-0"
+                            />
+                            Preço promocional — não usar como sugestão na próxima distribuição.
+                          </label>
+                        )}
                         {resultado.erro && (
                           <p className="mt-1 text-[12px] text-[var(--stamp)]">{resultado.erro}</p>
                         )}
@@ -909,6 +946,11 @@ export default function DistribuicaoForm({
                       <p className="font-mono-tab text-[12px]">
                         {moeda.format(linha.precoUnitario)} por {produto?.unidade} · {moeda.format(linha.subtotal)}
                       </p>
+                      {linha.precoPromocional && (
+                        <p className="mt-1 text-[11px] text-[var(--field-strong)]">
+                          Preço promocional — não altera a sugestão futura.
+                        </p>
+                      )}
                       {precoDiferenteDoUltimo && (
                         <p className="mt-1 rounded bg-[var(--cream)] px-2 py-1 text-[11px] text-[var(--ink)]">
                           Atenção: preço diferente do último preço usado para este mercado. Confira se é promoção ou ajuste.

@@ -87,6 +87,7 @@ export async function carregarDadosDistribuicao() {
           quantidadeDistribuida: distribuicoes.quantidadeDistribuida,
           quantidadeTroca: distribuicoes.quantidadeTroca,
           precoUnitario: distribuicoes.precoUnitario,
+          precoPromocional: distribuicoes.precoPromocional,
         })
         .from(disponibilidades)
         .innerJoin(produtos, and(
@@ -140,6 +141,7 @@ export async function carregarDadosDistribuicao() {
         quantidadeDistribuida: string;
         quantidadeTroca: string;
         precoUnitario: string;
+        precoPromocional: boolean;
       }[];
     }
   >();
@@ -159,6 +161,7 @@ export async function carregarDadosDistribuicao() {
       quantidadeDistribuida: linha.quantidadeDistribuida,
       quantidadeTroca: linha.quantidadeTroca,
       precoUnitario: linha.precoUnitario,
+      precoPromocional: linha.precoPromocional,
     });
   }
 
@@ -205,6 +208,7 @@ type LinhaDistribuicao = {
   quantidadeDistribuida: number;
   quantidadeTroca: number;
   precoUnitario: number;
+  precoPromocional: boolean;
 };
 
 type ProdutoDistribuicao = {
@@ -271,6 +275,9 @@ export async function processarDistribuicao(input: {
       exigirNumeroFinito(linha.quantidadeDistribuida, "Quantidade distribuída");
       exigirNumeroFinito(linha.quantidadeTroca, "Quantidade de troca");
       exigirNumeroFinito(linha.precoUnitario, "Preço unitário");
+      if (typeof linha.precoPromocional !== "boolean") {
+        throw new Error("A marcação de preço promocional é inválida.");
+      }
     }
     const validacao = validarDistribuicaoTotal(produto.quantidadeTotal, produto.linhas);
     if (!validacao.valido) {
@@ -425,20 +432,24 @@ export async function processarDistribuicao(input: {
           quantidadeTroca: String(linha.quantidadeTroca),
           quantidadeFaturavel: String(faturavel.quantidadeFaturavel),
           precoUnitario: String(linha.precoUnitario),
+          precoPromocional: linha.precoPromocional,
         });
 
-        // Aprende o preço praticado pra esse par produto+cliente (upsert).
-        await tx
-          .insert(precosCliente)
-          .values({
-            produtoId: produto.produtoId,
-            clienteId: linha.clienteId,
-            preco: String(linha.precoUnitario),
-          })
-          .onConflictDoUpdate({
-            target: [precosCliente.produtoId, precosCliente.clienteId],
-            set: { preco: String(linha.precoUnitario), atualizadoEm: new Date() },
-          });
+        // Preço promocional é histórico do lote, não referência para o
+        // preenchimento seguinte. Isso evita repetir um valor temporário.
+        if (!linha.precoPromocional) {
+          await tx
+            .insert(precosCliente)
+            .values({
+              produtoId: produto.produtoId,
+              clienteId: linha.clienteId,
+              preco: String(linha.precoUnitario),
+            })
+            .onConflictDoUpdate({
+              target: [precosCliente.produtoId, precosCliente.clienteId],
+              set: { preco: String(linha.precoUnitario), atualizadoEm: new Date() },
+            });
+        }
 
         if (faturavel.quantidadeFaturavel <= 0) continue;
 

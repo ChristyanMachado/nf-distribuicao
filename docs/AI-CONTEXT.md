@@ -36,7 +36,12 @@ executa cada tarefa em um `BrowserContext` independente.
   subtotal por item, com alerta visual não bloqueante se o preço divergir do
   último praticado para produto/mercado. Não criou confirmação extra nem altera
   snapshots, fila ou emissão.
-- Validação local: 119 testes Web, TypeScript e build Next.js aprovados. Falta
+- O campo histórico `distribuicoes.preco_promocional`, já existente no schema,
+  passou a ser utilizado: quando o operador marca um preço divergente como
+  promocional, o valor permanece no snapshot fiscal, mas não substitui a
+  sugestão de preço normal da próxima distribuição. A marcação só aparece para
+  preço alterado e é opcional; voltar ao preço de referência a remove.
+- Validação local: 121 testes Web, TypeScript e build Next.js aprovados. Falta
   apenas validação visual humana no Vercel/celular; não houve mudança remota.
 
 ## Quick wins Web — 08/09/2026
