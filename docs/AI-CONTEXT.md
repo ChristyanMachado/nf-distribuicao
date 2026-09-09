@@ -2,6 +2,12 @@
 
 ## Revisão vigente de lapidação — 09/09/2026
 
+Continuação e validação analítica: `VALIDACAO-LAPIDACAO-2026-09-09.md`.
+143 testes Web/build aprovados; conferência móvel em navegador realizada sem
+envio. Rascunho e destinos só de trocas reforçados. Relatório por escala e cast
+de status corrigidos localmente. Produção consultada ainda em `7e6c318`.
+Data Analytics disponível; não confundir instalação com novos dados manuais.
+
 Consultar `AUDITORIA-LAPIDACAO-2026-09-09.md` e o ROADMAP reconciliado.
 Métricas de 3 notas são comparação exploratória, não economia comprovada por
 equivalência de itens/preparação. Código local desta rodada ainda não publicado;

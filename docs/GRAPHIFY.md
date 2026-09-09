@@ -2,6 +2,15 @@
 
 ## Objetivo
 
+Reavaliação de 09/09/2026: consulta ampla encontrou 363 nós (37 mostrados), com
+ruído; `explain processarDistribuicao()` trouxe 14 relações diretas úteis para
+autorização, cálculos, contrato e formulário. Linhas foram confirmadas no código.
+Atualização incremental local: 32 fontes reextraídas, 137 em cache, 2 removidas;
+1.555 nós, 3.661 relações e 120 comunidades após agrupamento sem rótulos.
+Não houve comparação controlada de produtividade: o fator 5,7 abaixo é estimativa
+histórica da ferramenta, não ganho medido desta revisão. Preferir símbolo exato;
+não atualizar por edição exclusivamente documental.
+
 O Graphify é um índice local auxiliar para localizar símbolos e relações entre
 Web, migrações e Worker sem reler o repositório inteiro. Ele não substitui
 `AI-CONTEXT.md`, `ARCHITECTURE.md`, `HANDOFF.md`, o código real, o diff ou os

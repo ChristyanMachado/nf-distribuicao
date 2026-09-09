@@ -26,17 +26,22 @@ não são gates futuros. Publicação não é consequência automática de alter
 - Ordenação alfabética consistente; tarefas antigas não terminais não desaparecem
   no corte de 100 recentes; recorte das contagens explícito.
 - Motivo fiscal sem causa pré-preenchida e mensagem de canceladas corrigida.
-- 123 testes Web e build de produção aprovados; sem novo efeito fiscal.
+- Destinos só de trocas validam vínculo/atividade sem exigir cadastro fiscal.
+- Rascunho tolera indisponibilidade do armazenamento; número inválido não derruba formulário.
+- Relatório corrige incompatibilidade texto/enum e mostra tempos observados por escala.
+- 143 testes Web e build de produção aprovados; sem novo efeito fiscal.
 
 ## Próximas unidades, em ordem
 
-1. **Alta:** validar transacionalmente destinos só de troca (vínculo e atividade),
-   mantendo separada a exigência de cadastro fiscal para valores faturáveis.
-2. **Alta:** ensaiar conferência, sobra e edição após aceite em desktop/celular;
-   verificar rascunho e foco no sucesso. Publicar somente depois do gate visual.
+1. **Alta:** completar ensaio em aparelho real, sessão autenticada e sucesso/foco
+   em ambiente seguro. Conferência, sobra, edição após aceite e rascunho já foram
+   conferidos no navegador local com viewport móvel, sem enviar distribuição.
+2. **Alta:** complementar testes simulados de destinos só de troca com rollback
+   real em banco de teste isolado; não criar tarefas no banco de produção para QA.
 3. **Média:** paginar Notas por lote no servidor antes de assinar documentos;
    adicionar pesquisa objetiva e preservar filtros/retorno. Não carregar histórico
-   inteiro à medida que cresce.
+   inteiro à medida que cresce. Adiada nesta unidade: recorte consultado tem
+   apenas 6 notas em 4 lotes; preparar antes do crescimento, sem urgência artificial.
 4. **Alta, analítica:** instrumentar tempos por tentativa e limites de preparação,
    fila, autorização e documentos; coletar referências manuais equivalentes por
    notas/linhas. Não extrapolar 337 segundos para tamanhos diferentes.
