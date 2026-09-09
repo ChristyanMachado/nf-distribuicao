@@ -1,5 +1,17 @@
 # Handoff — Estado Atual
 
+## Continuidade: destinos só de trocas — 09/09/2026
+
+- Servidor valida vínculo/atividade de todo destino com entrega, inclusive só
+  trocas, sem exigir cadastro fiscal de quem não gera nota. Pares extras retornados
+  pelo filtro de IDs não recebem exigências fiscais indevidas.
+- Troca maior que entrega é rejeitada antes de abrir transação, inclusive em
+  linhas zeradas. Idempotência e ausência de tarefa para troca integral preservadas.
+- 133 testes Web e TypeScript aprovados. Dez testes novos exercitam a ação com
+  banco simulado e fronteira transacional; não equivalem a ensaio de rollback no
+  Postgres real. Consulta remota somente leitura não encontrou destinos históricos
+  sem vínculo ativo. Sem migration, mudança de grants, publicação ou efeito fiscal.
+
 ## Lapidação reconciliada — 09/09/2026
 
 - Resultado e checklist por origem/evidência em `AUDITORIA-LAPIDACAO-2026-09-09.md`.

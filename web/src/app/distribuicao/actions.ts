@@ -276,6 +276,8 @@ export async function processarDistribuicao(input: {
       exigirNumeroFinito(linha.quantidadeDistribuida, "Quantidade distribuída");
       exigirNumeroFinito(linha.quantidadeTroca, "Quantidade de troca");
       exigirNumeroFinito(linha.precoUnitario, "Preço unitário");
+      // Valida também linhas zeradas/sem faturamento antes de qualquer escrita.
+      calcularFaturavel(linha);
       if (typeof linha.precoPromocional !== "boolean") {
         throw new Error("A marcação de preço promocional é inválida.");
       }
@@ -342,21 +344,23 @@ export async function processarDistribuicao(input: {
       if (!regrasDosProdutos.has(produtoId)) throw new Error("Produto não encontrado ou inativo.");
     }
 
-    const paresComFaturamento = new Map<string, LinhaDistribuicao>();
+    const paresDistribuidos = new Map<string, LinhaDistribuicao>();
+    const paresComFaturamento = new Set<string>();
     for (const produto of input.produtos) {
       for (const linha of produto.linhas) {
-        if (linha.quantidadeDistribuida <= linha.quantidadeTroca) continue;
-        if (!linha.emitenteId) {
-          throw new Error("Selecione o emitente de cada cliente com quantidade faturável.");
+        if (linha.quantidadeDistribuida <= 0) continue;
+        const chave = `${linha.clienteId}:${linha.emitenteId}`;
+        paresDistribuidos.set(chave, linha);
+        if (linha.quantidadeDistribuida > linha.quantidadeTroca) {
+          paresComFaturamento.add(chave);
         }
-        paresComFaturamento.set(`${linha.clienteId}:${linha.emitenteId}`, linha);
       }
     }
 
-    if (paresComFaturamento.size > 0) {
-      const linhasFaturaveis = [...paresComFaturamento.values()];
-      const clientesFaturaveis = [...new Set(linhasFaturaveis.map((linha) => linha.clienteId))];
-      const emitentesFaturaveis = [...new Set(linhasFaturaveis.map((linha) => linha.emitenteId))];
+    if (paresDistribuidos.size > 0) {
+      const linhasDistribuidas = [...paresDistribuidos.values()];
+      const clientesDistribuidos = [...new Set(linhasDistribuidas.map((linha) => linha.clienteId))];
+      const emitentesDistribuidos = [...new Set(linhasDistribuidas.map((linha) => linha.emitenteId))];
       const relacoesValidas = await tx
         .select({
           clienteId: clienteEmitentes.clienteId,
@@ -376,8 +380,8 @@ export async function processarDistribuicao(input: {
         .innerJoin(emitentes, eq(clienteEmitentes.emitenteId, emitentes.id))
         .where(
           and(
-            inArray(clienteEmitentes.clienteId, clientesFaturaveis),
-            inArray(clienteEmitentes.emitenteId, emitentesFaturaveis),
+            inArray(clienteEmitentes.clienteId, clientesDistribuidos),
+            inArray(clienteEmitentes.emitenteId, emitentesDistribuidos),
             eq(clientes.ativo, true),
             eq(emitentes.ativo, true),
           ),
@@ -385,10 +389,13 @@ export async function processarDistribuicao(input: {
       const chavesValidas = new Set(
         relacoesValidas.map((relacao) => `${relacao.clienteId}:${relacao.emitenteId}`),
       );
-      if ([...paresComFaturamento.keys()].some((chave) => !chavesValidas.has(chave))) {
-        throw new Error("O emitente escolhido não está habilitado para um dos clientes.");
+      if ([...paresDistribuidos.keys()].some((chave) => !chavesValidas.has(chave))) {
+        throw new Error("Um cliente ou emitente está inativo, ou o vínculo escolhido não está habilitado. Atualize a distribuição.");
       }
       for (const cadastro of relacoesValidas) {
+        // O filtro por dois conjuntos de IDs pode trazer pares não selecionados.
+        // Exigências fiscais só se aplicam aos pares que realmente gerarão nota.
+        if (!paresComFaturamento.has(`${cadastro.clienteId}:${cadastro.emitenteId}`)) continue;
         exigirCnpj(cadastro.cnpj ?? "");
         exigirCep(cadastro.cep ?? "");
         if (
