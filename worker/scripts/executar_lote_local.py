@@ -16,6 +16,8 @@ from urllib.parse import urlsplit
 
 from dotenv import dotenv_values
 
+CHAVE_TRAVA_CONTINGENCIA = (713247, 20260910)
+
 
 def configurar_ambiente(env_file: str) -> None:
     valores = dotenv_values(env_file)
@@ -50,8 +52,79 @@ def validar_selecao(linhas, esperadas, lote_id):
         raise RuntimeError("Lote alterado ou já iniciado; conferência obrigatória.")
 
 
+async def consultar_fila(env_file: str) -> dict[str, object]:
+    """Retorna somente metadados operacionais, sem reservar ou expor dados fiscais."""
+    configurar_ambiente(env_file)
+    import asyncpg
+
+    conexao = await asyncpg.connect(
+        os.environ["WORKER_DATABASE_URL"], timeout=15, command_timeout=30,
+        ssl="require", statement_cache_size=0,
+    )
+    try:
+        estado = await conexao.fetchrow(
+            """SELECT
+                 (SELECT rolcanlogin FROM pg_roles WHERE rolname='nf_worker_vm') AS vm_login,
+                 (SELECT count(*) FROM pg_stat_activity WHERE usename='nf_worker_vm') AS vm_sessoes,
+                 (SELECT count(*) FROM fiscal.tarefas
+                   WHERE status IN ('PROCESSANDO','EMITINDO')) AS tarefas_ativas"""
+        )
+        linhas = await conexao.fetch(
+            """WITH lote_prioritario AS (
+                   SELECT lote_id,min(criado_em) AS primeiro
+                   FROM fiscal.tarefas
+                   WHERE status='PENDENTE' AND lote_id IS NOT NULL
+                   GROUP BY lote_id ORDER BY primeiro,lote_id LIMIT 1
+               )
+               SELECT t.id,t.lote_id,t.tentativas,
+                      t.payload_worker->'tarefa'->>'numeroDistribuicao' AS numero
+               FROM fiscal.tarefas t JOIN lote_prioritario l ON l.lote_id=t.lote_id
+               WHERE t.status='PENDENTE'
+               ORDER BY t.criado_em,t.id"""
+        )
+        return {
+            "vmIsolada": estado["vm_login"] is False and estado["vm_sessoes"] == 0,
+            "tarefasAtivas": estado["tarefas_ativas"],
+            "loteId": str(linhas[0]["lote_id"]) if linhas else None,
+            "numero": linhas[0]["numero"] if linhas else None,
+            "quantidade": len(linhas),
+            "tarefaIds": [str(linha["id"]) for linha in linhas],
+            "primeiraTentativa": bool(linhas) and all(linha["tentativas"] == 0 for linha in linhas),
+        }
+    finally:
+        await conexao.close()
+
+
+async def verificar_trava_global(env_file: str) -> bool:
+    configurar_ambiente(env_file)
+    import asyncpg
+
+    conexao = await asyncpg.connect(
+        os.environ["WORKER_DATABASE_URL"], timeout=15, command_timeout=30,
+        ssl="require", statement_cache_size=0,
+    )
+    adquiriu = False
+    try:
+        adquiriu = bool(await conexao.fetchval(
+            "SELECT pg_try_advisory_lock($1,$2)", *CHAVE_TRAVA_CONTINGENCIA
+        ))
+        return adquiriu
+    finally:
+        if adquiriu:
+            await conexao.fetchval(
+                "SELECT pg_advisory_unlock($1,$2)", *CHAVE_TRAVA_CONTINGENCIA
+            )
+        await conexao.close()
+
+
 async def executar(args):
     configurar_ambiente(args.env_file)
+    if args.verificar_trava:
+        print(json.dumps({"travaDisponivel": await verificar_trava_global(args.env_file)}), flush=True)
+        return 0
+    if args.listar:
+        print(json.dumps(await consultar_fila(args.env_file), ensure_ascii=False), flush=True)
+        return 0
     import main as worker
     from src.config import carregar_config
     from src.contrato_tarefa import carregar_contrato_tarefa
@@ -60,8 +133,11 @@ async def executar(args):
 
     config = carregar_config()
     esperadas = set(args.tarefa)
-    if len(esperadas) != 3 or len(args.tarefa) != 3:
-        raise RuntimeError("Esta contingência está limitada a exatamente três tarefas explícitas.")
+    if not 1 <= len(esperadas) <= 20 or len(esperadas) != len(args.tarefa):
+        raise RuntimeError("A contingência exige de uma a vinte tarefas explícitas, sem repetição.")
+    if args.lote_id is None:
+        raise RuntimeError("O lote explícito é obrigatório para executar.")
+    quantidade_inicial = len(esperadas)
     async with FontePostgresTarefas(config.worker_database_url, config.worker_id) as fonte:
         async with fonte._conexao() as con:
             if await con.fetchval("SELECT current_user") != "nf_worker_local":
@@ -73,7 +149,7 @@ async def executar(args):
                     raise RuntimeError("Hash do snapshot divergente.")
                 contratada = carregar_contrato_tarefa(json.loads(r["payload"]))
                 worker._validar_preparacao_reserva(TarefaReservada(contratada, "preflight-sem-reserva"), config)
-            print("PRECHECK_OK: três snapshots e credenciais validados; nenhuma reserva.", flush=True)
+            print(f"PRECHECK_OK: {quantidade_inicial} snapshot(s) e credencial(is) validados; nenhuma reserva.", flush=True)
     if not args.executar:
         return 0
 
@@ -98,19 +174,38 @@ async def executar(args):
 
     worker.FontePostgresTarefas = FonteLimitada
     logger = configurar_logger(config.log_dir)
-    for _ in range(3):
-        if await worker.executar_fila_banco(config, logger) != 0:
-            print("INTERROMPIDO: conferir resultado; não haverá repetição automática.", flush=True)
-            return 1
-    print("EXECUCAO_ENCERRADA: conferir três autorizações e documentos no banco.", flush=True)
+    import asyncpg
+    trava = await asyncpg.connect(
+        config.worker_database_url, timeout=15, command_timeout=30,
+        ssl="require", statement_cache_size=0,
+    )
+    try:
+        if not await trava.fetchval(
+            "SELECT pg_try_advisory_lock($1,$2)", *CHAVE_TRAVA_CONTINGENCIA
+        ):
+            raise RuntimeError("Outra contingência local já está em execução.")
+        for _ in range(quantidade_inicial):
+            if await worker.executar_fila_banco(config, logger) != 0:
+                print("INTERROMPIDO: conferir resultado; não haverá repetição automática.", flush=True)
+                return 1
+    finally:
+        try:
+            await trava.fetchval(
+                "SELECT pg_advisory_unlock($1,$2)", *CHAVE_TRAVA_CONTINGENCIA
+            )
+        finally:
+            await trava.close()
+    print(f"EXECUCAO_ENCERRADA: conferir {quantidade_inicial} autorização(ões) e documentos no banco.", flush=True)
     return 0
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--env-file", default=".env")
-    parser.add_argument("--lote-id", type=UUID, required=True)
-    parser.add_argument("--tarefa", type=UUID, action="append", required=True)
+    parser.add_argument("--listar", action="store_true")
+    parser.add_argument("--verificar-trava", action="store_true")
+    parser.add_argument("--lote-id", type=UUID)
+    parser.add_argument("--tarefa", type=UUID, action="append", default=[])
     parser.add_argument("--executar", action="store_true")
     try:
         raise SystemExit(asyncio.run(executar(parser.parse_args())))

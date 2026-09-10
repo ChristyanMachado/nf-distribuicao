@@ -1,5 +1,20 @@
 # Handoff — Estado Atual
 
+## Contingência operável no Windows — 10/09/2026
+
+- Interface simples preparada em `worker/operador/app.py`: mostra lote/quantidade,
+  exige uma confirmação e acompanha o mesmo fluxo fiscal em processo separado.
+- Execução bloqueia se VM não estiver isolada, houver sessão/tarefa ativa ou
+  tentativa anterior. Somente o lote e IDs consultados podem ser reservados.
+- Instalador cria ambiente, baixa Chromium e atalho; pacote exclui todos os
+  segredos. Decisão e limites em `OPERADOR-WINDOWS.md`.
+- Validação local: 284 testes Worker, compileall, sintaxe dos dois scripts
+  PowerShell, importação pelo conteúdo empacotado e consulta real somente leitura
+  aprovados. ZIP auditado com 42 entradas, um exemplo vazio e nenhum `.env` real,
+  log, download, teste ou metadado Git. Papel local adquiriu/liberou a trava global.
+- Ainda falta validar instalação limpa em outro Windows e configurar segredos por
+  canal seguro. Isso não cria serviço local automático nem restaura `nf_worker_vm`.
+
 ## Incidente prioritário — 10/09/2026
 
 Ver `INCIDENTE-WORKER-2026-09-10.md`. Contingência local do lote 7 autorizada;

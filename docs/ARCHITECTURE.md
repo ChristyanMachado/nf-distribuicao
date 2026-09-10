@@ -74,6 +74,17 @@ tarefa fiscal já preparada.
 
 ## Worker fiscal
 
+### Contingência manual no Windows
+
+Existe uma embalagem operacional local, documentada em `OPERADOR-WINDOWS.md`,
+para executar conscientemente um único lote quando o Worker remoto estiver
+administrativamente isolado. Ela não é persistente nem agendada, não usa Docker
+e não amplia privilégios. A UI apenas consulta metadados da fila e chama o mesmo
+fluxo Playwright Async em processo separado, com concorrência 1. As reservas,
+tokens, hashes, hosts e regras de resultado incerto permanecem os mesmos.
+Uma trava consultiva de sessão serializa o lote manual entre computadores e é
+liberada automaticamente se a conexão terminar.
+
 ```text
 1 Chromium
   ├─ BrowserContext tarefa A → Page A

@@ -1,5 +1,13 @@
 # AI Context — NF Distribuição
 
+## Contingência operável no Windows — 10/09/2026
+
+Modo operador local preparado, sem Docker e sem agendamento: consulta o lote,
+confirma uma vez e chama o Worker existente com concorrência 1. Bloqueia VM
+habilitada/sessão/tarefa ativa/tentativa anterior e aceita apenas IDs exibidos.
+Segredos ficam fora do pacote. Ver `OPERADOR-WINDOWS.md`. Ainda exige ensaio de
+instalação limpa; `nf_worker_vm` permanece NOLOGIN.
+
 ## Incidente prioritário — 10/09/2026
 
 Contingência local do lote 7 concluída: três notas autorizadas na primeira

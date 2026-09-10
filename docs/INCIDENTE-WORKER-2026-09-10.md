@@ -29,8 +29,8 @@ consultado ainda em 7e6c318; versão efetiva da VM inacessível não foi confirm
 ## Executor local
 
 `worker/scripts/executar_lote_local.py` é ferramenta avulsa supervisionada,
-não substitui o serviço. Por padrão faz apenas leitura de três tarefas explícitas:
-exige mesmo lote, PENDENTE, tentativa zero, hash íntegro e credencial compatível.
+não substitui o serviço. Na execução deste incidente recebeu as três tarefas
+explícitas; exige mesmo lote, PENDENTE, tentativa zero, hash íntegro e credencial compatível.
 `--executar` habilita os efeitos reais já autorizados. Usa exclusivamente o papel
 local, concorrência 1, fluxo fiscal existente e Storage privado. Cancelamentos,
 limpeza, consulta histórica e serviço persistente ficam desligados.

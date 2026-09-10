@@ -34,6 +34,15 @@ Copie `.env.example` para `.env`, preencha localmente e nunca versione esse
 arquivo. Os roteiros controlados e todas as travas estão em
 `../docs/HANDOFF.md` e `../docs/DEPLOYMENT.md`.
 
+## Contingência manual no Windows
+
+O pacote para um operador sem VS Code é gerado por
+`../scripts/Criar-Pacote-Operador.ps1`. Depois de extrair, `INSTALAR.cmd`
+prepara o navegador e cria o atalho **Graalyst Worker Local**. A janela consulta
+e executa somente um lote novo, com confirmação única e concorrência 1. Ela não
+agenda o Worker e bloqueia enquanto o servidor remoto não estiver isolado.
+Consulte `../docs/OPERADOR-WINDOWS.md` antes de entregar ou configurar segredos.
+
 ## Serviço persistente em VM/container
 
 O `Dockerfile` usa a imagem oficial Playwright 1.48.0 Noble, fixada na mesma
