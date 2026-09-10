@@ -1,5 +1,14 @@
 # Handoff — Estado Atual
 
+## Incidente prioritário — 10/09/2026
+
+Ver `INCIDENTE-WORKER-2026-09-10.md`. Contingência local do lote 7 autorizada;
+concluída às 06:53:45 -03:00: três notas AUTORIZADA, primeira tentativa,
+XML/DANFE armazenados, processo local encerrado. Não há serviço local agendado.
+`nf_worker_vm` está NOLOGIN por isolamento deliberado. Não restaurar o acesso
+sem encerrar a execução local e conferir fila e saúde da VM. SSH indisponível,
+causa não confirmada. Nenhuma melhoria Web publicada nesta contingência.
+
 ## Ambiente isolado e confirmação de trocas — 09/09/2026
 
 - Ver `HOMOLOGACAO.md`: novo projeto Supabase criado após escolha da organização

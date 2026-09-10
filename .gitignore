@@ -12,6 +12,7 @@ node_modules/
 __pycache__/
 *.pyc
 .pytest_cache/
+.pytest-emergencia-*/
 
 # Índice local auxiliar (Graphify); revisar antes de qualquer compartilhamento.
 graphify-out/

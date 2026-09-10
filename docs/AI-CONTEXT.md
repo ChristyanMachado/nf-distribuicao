@@ -1,5 +1,13 @@
 # AI Context — NF Distribuição
 
+## Incidente prioritário — 10/09/2026
+
+Contingência local do lote 7 concluída: três notas autorizadas na primeira
+tentativa, XML/DANFE armazenados e processo encerrado. Atenção: papel
+`nf_worker_vm` permanece NOLOGIN para isolamento; não existe serviço local
+agendado. Recuperar operação da madrugada exige handoff explícito e diagnóstico
+da VM inacessível por SSH. Ver `INCIDENTE-WORKER-2026-09-10.md`.
+
 ## Revisão vigente de lapidação — 09/09/2026
 
 Prioridade vigente: `HOMOLOGACAO.md`. Projeto de QA criado e estrutura/seed
