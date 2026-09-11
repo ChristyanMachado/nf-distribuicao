@@ -2,6 +2,10 @@
 
 ## Objetivo
 
+Após coordenação/launcher em 11/09: 28 fontes reextraídas, 173 em cache,
+1.742 nós, 4.012 relações e 129 comunidades. Extração incremental code-only local,
+seguida de cluster sem rótulos. O índice não certifica a migration/testes pendentes.
+
 Após isolamento de homologação em 09/09: 23 fontes reextraídas, 157 em cache,
 1.590 nós, 3.711 relações e 122 comunidades. Somente code-only local; arquivos
 de credenciais e saída do índice continuam ignorados.

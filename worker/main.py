@@ -33,6 +33,7 @@ from src.flows.consulta import (
 )
 from src.flows.emissao import Emitente, Tarefa
 from src.fonte_tarefas import FontePostgresTarefas, FonteTarefasErro
+from src.executor_contexto import executor_atual
 from src.janela_emissao import JanelaEmissao
 from src.storage_documentos import (
     armazenar_documentos,
@@ -617,6 +618,11 @@ def _diagnostico_falha_cancelamento(etapa: str, exc: Exception) -> tuple[str, st
             "O cancelamento não foi confirmado pela Receita. Revise a nota ou chame o suporte.",
             False,
         ),
+        "persistencia": (
+            "RESULTADO_CANCELAMENTO_INCERTO",
+            "O portal confirmou o cancelamento, mas o registro local não foi confirmado. Confira antes de repetir.",
+            True,
+        ),
     }.get(etapa, (
         "FALHA_TECNICA_CANCELAMENTO",
         "O cancelamento foi interrompido com segurança. Tente novamente ou chame o suporte.",
@@ -696,12 +702,17 @@ async def _processar_cancelamentos_fiscais(
                 page, cancelamento.chave_acesso, logger, pausar_apos_clique=False
             )
             etapa = "cancelamento"
+            protecao = {}
+            if executor_atual.get() is not None:
+                protecao["antes_confirmar"] = lambda: fonte.iniciar_efeito_cancelamento(cancelamento)
             await cancelar_nota_consultada(
                 page,
                 motivo=cancelamento.motivo,
                 ambiente=cancelamento.contratada.ambiente,
                 logger=logger,
+                **protecao,
             )
+            etapa = "persistencia"
             await fonte.concluir_cancelamento_fiscal(cancelamento)
             logger.info("[%s] Cancelamento confirmado e registrado.", cancelamento.tarefa_id)
         except Exception as exc:
@@ -740,6 +751,8 @@ async def _processar_cancelamentos_fiscais(
         logger=logger,
         headless=config.headless,
         max_concorrencia=limite,
+        **({"grupos_sessao": {id_: r.contratada.credencial_referencia for id_, r in por_id.items()}}
+           if executor_atual.get() is not None else {}),
     )
     return True, houve_falha or any(not resultado.sucesso for resultado in resultados)
 
@@ -885,6 +898,8 @@ async def _processar_recuperacoes_documentos(
         logger=logger,
         headless=config.headless,
         max_concorrencia=limite,
+        **({"grupos_sessao": {id_: r.contratada.credencial_referencia for id_, r in por_id.items()}}
+           if executor_atual.get() is not None else {}),
     )
     return houve_falha or any(not resultado.sucesso for resultado in resultados)
 
@@ -911,6 +926,8 @@ async def executar_fila_banco(
             config.worker_database_url,
             config.worker_id,
         ) as fonte:
+            if executor_atual.get() is not None and not await fonte.pode_reservar():
+                return 0
             await _limpar_documentos_expirados(fonte, config, logger)
             if not await _recuperar_uploads_pendentes(fonte, config, logger):
                 logger.error("Fila fiscal adiada até recuperar os documentos pendentes.")
@@ -1085,11 +1102,11 @@ async def executar_fila_banco(
                             tarefa_id,
                         )
                 except Exception as exc:
-                    logger.exception(
-                        "[%s] Falha original na etapa=%s: %s",
+                    logger.error(
+                        "[%s] Falha na etapa=%s (%s)",
                         tarefa_id,
                         etapa,
-                        exc,
+                        type(exc).__name__,
                     )
                     if autorizacao_registrada:
                         logger.error(
@@ -1171,6 +1188,8 @@ async def executar_fila_banco(
                 logger=logger,
                 headless=config.headless,
                 max_concorrencia=limite,
+                **({"grupos_sessao": {id_: r.contratada.credencial_referencia for id_, r in por_id.items()}}
+                   if executor_atual.get() is not None else {}),
             )
             houve_falha = bool(
                 falha_recuperacao

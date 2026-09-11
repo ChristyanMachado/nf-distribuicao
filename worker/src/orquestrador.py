@@ -49,6 +49,7 @@ async def _processar_uma_tarefa(
     processar_tarefa: ProcessarTarefa,
     logger: logging.Logger,
     semaphore: asyncio.Semaphore | None = None,
+    sessao: asyncio.Semaphore | None = None,
 ) -> ResultadoProcessamento:
 
     context: BrowserContext | None = None
@@ -59,7 +60,7 @@ async def _processar_uma_tarefa(
     # tarefas têm um BrowserContext aberto ao mesmo tempo — as demais
     # esperam a vez, sem serem canceladas nem perder isolamento (RF24).
     # Sem configurar nada, o comportamento é idêntico ao de antes (sem limite).
-    async with (semaphore if semaphore is not None else nullcontext()):
+    async with (sessao if sessao is not None else nullcontext()), (semaphore if semaphore is not None else nullcontext()):
         try:
             logger.info(
                 "[%s] Criando contexto independente",
@@ -129,12 +130,14 @@ async def processar_tarefas_em_paralelo_async(
     logger: logging.Logger,
     headless: bool = False,
     max_concorrencia: int | None = None,
+    grupos_sessao: dict[str, str] | None = None,
 ) -> list[ResultadoProcessamento]:
 
     if not tarefas_ids:
         return []
 
     semaphore = asyncio.Semaphore(max_concorrencia) if max_concorrencia else None
+    sessoes = {grupo: asyncio.Semaphore(1) for grupo in (grupos_sessao or {}).values()}
     if max_concorrencia:
         logger.info("Concorrência limitada a %d contexto(s) simultâneo(s)", max_concorrencia)
 
@@ -158,6 +161,7 @@ async def processar_tarefas_em_paralelo_async(
                         processar_tarefa=processar_tarefa,
                         logger=logger,
                         semaphore=semaphore,
+                        sessao=sessoes.get((grupos_sessao or {}).get(tarefa_id)),
                     )
                     for tarefa_id in tarefas_ids
                 )

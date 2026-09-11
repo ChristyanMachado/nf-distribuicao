@@ -3,14 +3,14 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useTransition } from "react";
 
-const INTERVALO_MS = 10_000;
-
 export default function AtualizacaoAutomatica({
   ativa,
   descricao = "Acompanhando atualizações automaticamente",
+  intervaloMs = 10_000,
 }: {
   ativa: boolean;
   descricao?: string;
+  intervaloMs?: 10_000 | 30_000;
 }) {
   const router = useRouter();
   const [atualizando, iniciarAtualizacao] = useTransition();
@@ -22,13 +22,13 @@ export default function AtualizacaoAutomatica({
       if (document.visibilityState !== "visible" || !navigator.onLine || atualizando) return;
       iniciarAtualizacao(() => router.refresh());
     };
-    const intervalo = window.setInterval(atualizar, INTERVALO_MS);
+    const intervalo = window.setInterval(atualizar, intervaloMs);
     document.addEventListener("visibilitychange", atualizar);
     return () => {
       window.clearInterval(intervalo);
       document.removeEventListener("visibilitychange", atualizar);
     };
-  }, [ativa, router, atualizando]);
+  }, [ativa, router, atualizando, intervaloMs]);
 
   if (!ativa) return null;
 

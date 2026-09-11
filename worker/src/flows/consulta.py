@@ -12,6 +12,7 @@ import re
 import unicodedata
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Awaitable, Callable
 
 from playwright.async_api import Locator, Page, TimeoutError as PlaywrightTimeoutError
 
@@ -197,6 +198,7 @@ async def cancelar_nota_consultada(
     motivo: str,
     ambiente: AmbienteEmissao,
     logger: logging.Logger,
+    antes_confirmar: Callable[[], Awaitable[None]] | None = None,
 ) -> None:
     """Cancela a única nota consultada e exige a prova na resposta atual.
 
@@ -293,6 +295,14 @@ async def cancelar_nota_consultada(
         raise CancelamentoNaoEnviado(
             "O botão de confirmação não ficou disponível. O cancelamento não foi enviado."
         ) from exc
+
+    if antes_confirmar is not None:
+        try:
+            await antes_confirmar()
+        except Exception as exc:
+            raise CancelamentoNaoEnviado(
+                "A posse da tarefa não pôde ser confirmada. O cancelamento não foi enviado."
+            ) from exc
 
     # A partir do início deste clique, uma interrupção pode ser ambígua: o
     # portal pode ter recebido o comando mesmo sem responder ao navegador.

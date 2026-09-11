@@ -41,7 +41,7 @@ def _inteiro_env(nome: str, padrao: int, minimo: int, maximo: int) -> int:
     return valor
 
 
-def _gravar_saude(caminho: Path, *, estado: str, codigo_saida: int) -> None:
+def _gravar_saude(caminho: Path, *, estado: str, codigo_saida: int, detalhes: dict | None = None) -> None:
     """Publica apenas estado operacional; nenhuma configuração entra no arquivo."""
 
     caminho.parent.mkdir(parents=True, exist_ok=True)
@@ -52,6 +52,7 @@ def _gravar_saude(caminho: Path, *, estado: str, codigo_saida: int) -> None:
                 "estado": estado,
                 "codigo_saida": codigo_saida,
                 "atualizado_em": datetime.now(timezone.utc).isoformat(),
+                **(detalhes or {}),
             },
             separators=(",", ":"),
         ),
@@ -67,8 +68,11 @@ def _instalar_sinais(evento: asyncio.Event) -> None:
         try:
             loop.add_signal_handler(sinal, evento.set)
         except (NotImplementedError, RuntimeError):
-            # Windows não implementa add_signal_handler; o container Linux sim.
-            pass
+            # Windows não implementa add_signal_handler.
+            try:
+                signal.signal(sinal, lambda *_: loop.call_soon_threadsafe(evento.set))
+            except (ValueError, OSError):
+                pass
 
 
 async def executar_servico(
@@ -80,6 +84,10 @@ async def executar_servico(
 ) -> int:
     if not config.worker_persistente:
         raise RuntimeError("O serviço exige WORKER_PERSISTENTE=true.")
+
+    if getattr(config, "worker_coordenado", False):
+        from .servico_coordenado import executar_coordenado
+        return await executar_coordenado(config, logger, executor=executor, max_ciclos=max_ciclos)
 
     intervalo = _inteiro_env("WORKER_POLL_SECONDS", 15, 5, 300)
     recuo_erro = _inteiro_env("WORKER_ERROR_BACKOFF_SECONDS", 30, 5, 600)

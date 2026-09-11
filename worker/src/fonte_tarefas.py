@@ -12,6 +12,7 @@ from uuid import UUID, uuid4
 
 from .contrato_tarefa import ContratoTarefaInvalido, TarefaContratada, carregar_contrato_tarefa
 from .storage_documentos import caminho_storage_valido
+from .executor_contexto import executor_atual, admissao_local_bloqueada
 
 
 class FonteTarefasErro(RuntimeError):
@@ -170,7 +171,8 @@ class FontePostgresTarefas:
 
         if self._pool is not None:
             async with self._pool.acquire() as conexao:
-                yield conexao
+                async with self._identificar_conexao(conexao):
+                    yield conexao
             return
 
         conexao = await asyncpg.connect(
@@ -181,11 +183,46 @@ class FontePostgresTarefas:
             statement_cache_size=0,
         )
         try:
-            yield conexao
+            async with self._identificar_conexao(conexao):
+                yield conexao
         finally:
             await conexao.close()
 
+    @asynccontextmanager
+    async def _identificar_conexao(self, conexao):
+        identidade = executor_atual.get()
+        if identidade is None:
+            yield
+            return
+        if identidade.worker_id != self.worker_id:
+            raise FonteTarefasErro("A identidade do executor diverge da conexão.")
+        # SET LOCAL é descartado no commit/rollback, inclusive no pooler transacional.
+        async with conexao.transaction():
+            await conexao.execute(
+                "SELECT set_config('fiscal.worker_id',$1,true), "
+                "set_config('fiscal.worker_run_id',$2,true)",
+                identidade.worker_id, identidade.boot_id,
+            )
+            yield
+
+    async def pode_reservar(self) -> bool:
+        identidade = executor_atual.get()
+        if identidade is None:
+            return True
+        if admissao_local_bloqueada():
+            return False
+        try:
+            async with self._conexao() as conexao:
+                return bool(await conexao.fetchval(
+                    "SELECT fiscal.worker_admission($1,$2::uuid)",
+                    self.worker_id, identidade.boot_id,
+                ))
+        except Exception as exc:
+            raise FonteTarefasErro("Não foi possível verificar a admissão do executor.") from exc
+
     async def reservar(self, limite: int = 1) -> list[TarefaReservada]:
+        if not await self.pode_reservar():
+            return []
         try:
             async with self._conexao() as conexao:
                 reservas = await conexao.fetch(
@@ -208,6 +245,8 @@ class FontePostgresTarefas:
 
         if not 1 <= limite <= 20:
             raise FonteTarefasErro("Limite de continuação é inválido.")
+        if not await self.pode_reservar():
+            return []
         try:
             async with self._conexao() as conexao:
                 async with conexao.transaction():
@@ -646,6 +685,8 @@ class FontePostgresTarefas:
             raise FonteTarefasErro("Limite de recuperação é inválido.")
         if not 60 <= lease_segundos <= 3600:
             raise FonteTarefasErro("Lease de recuperação é inválido.")
+        if not await self.pode_reservar():
+            return []
         token = str(uuid4())
         try:
             async with self._conexao() as conexao:
@@ -860,6 +901,8 @@ class FontePostgresTarefas:
             raise FonteTarefasErro("Limite de cancelamentos é inválido.")
         if not 60 <= lease_segundos <= 3600:
             raise FonteTarefasErro("Lease de cancelamento é inválido.")
+        if not await self.pode_reservar():
+            return []
         token = str(uuid4())
         try:
             async with self._conexao() as conexao:
@@ -869,10 +912,7 @@ class FontePostgresTarefas:
                                SELECT c.id
                                FROM fiscal.cancelamentos_fiscais c
                                JOIN fiscal.notas n ON n.id=c.nota_id
-                               WHERE (
-                                   c.status='PENDENTE'
-                                   OR (c.status='PROCESSANDO' AND c.reserva_expira_em<now())
-                                 )
+                               WHERE c.status='PENDENTE'
                                  AND n.status='AUTORIZADA'
                                  AND n.chave_acesso ~ '^[0-9]{44}$'
                                  AND NOT EXISTS (
@@ -950,6 +990,27 @@ class FontePostgresTarefas:
                 reserva_token=reserva_token,
             ))
         return resultado
+
+    async def iniciar_efeito_cancelamento(self, cancelamento: CancelamentoFiscalReservado) -> None:
+        """Grava a fronteira irreversível ANTES de permitir o clique no portal."""
+        if executor_atual.get() is None:
+            return
+        try:
+            async with self._conexao() as conexao:
+                resultado = await conexao.execute(
+                    """UPDATE fiscal.cancelamentos_fiscais
+                       SET external_started_at=now(),atualizado_em=now()
+                       WHERE id=$1::uuid AND reserva_token=$2::uuid
+                         AND status='PROCESSANDO' AND reserva_expira_em>now()
+                         AND external_started_at IS NULL""",
+                    cancelamento.cancelamento_id, cancelamento.reserva_token,
+                )
+                if resultado != "UPDATE 1":
+                    raise FonteTarefasErro("A reserva não permite confirmar o cancelamento.")
+        except FonteTarefasErro:
+            raise
+        except Exception as exc:
+            raise FonteTarefasErro("Não foi possível proteger a confirmação fiscal.") from exc
 
     async def concluir_cancelamento_fiscal(
         self,
@@ -1044,6 +1105,8 @@ class FontePostgresTarefas:
             raise FonteTarefasErro("Limite de limpeza de documentos é inválido.")
         if not 30 <= lease_segundos <= 3600:
             raise FonteTarefasErro("Lease de limpeza de documentos é inválido.")
+        if not await self.pode_reservar():
+            return []
         token = str(uuid4())
         try:
             async with self._conexao() as conexao:

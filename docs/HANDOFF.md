@@ -1,5 +1,59 @@
 # Handoff — Estado Atual
 
+## Contingência concluída e gates de coordenação — 11/09/2026
+
+- Lote 9 emitido com autorização do responsável, versão anterior `dda2227`
+  conferida no pacote isolado: quatro notas AUTORIZADA, quatro pares PDF/XML,
+  tentativa 1, processo encerrado. Nenhuma credencial foi redigitada/alterada.
+  Evidência e limites: `CONTINGENCIA-LOTE-9-2026-09-11.md`.
+- Revisão independente do SQL concluída: corrigidas, apenas localmente, a exigência
+  incorreta de EMITINDO no INSERT da nota (o fluxo já atualizou para EMITIDA),
+  retomada/idempotência de DOCUMENTOS_ARMAZENADOS, contador de concluídas, estados
+  terminais/lease NULL/token e apropriação de limpeza viva. Teste de rollback
+  ampliado para refletir a ordem real, reboot antes de upload e casos negativos.
+- Versão ampliada do teste SQL **aprovada** no QA com rollback integral. A primeira
+  chamada foi bloqueada por limite da revisão automática; após confirmar por
+  leitura o QA vazio, nova chamada pelo mesmo mecanismo foi autorizada e passou.
+  Checagem posterior: zero tarefas/notas, sem tabela ou papel de teste persistidos.
+  Nenhuma conexão ao portal/Storage ou teste da coordenação em produção.
+- Windows: corrigido prefixo de SID numérica exigido pelo icacls; launcher força
+  também ausência de pausa de transporte. Teste com credenciais fictícias comprova
+  que preparar o processo não altera o arquivo e gera boot novo, com dados fora
+  da release. 310 testes Python, compileall e parser PowerShell passaram.
+- Revisão Windows independente interrompida por limite após parser/13 testes;
+  não alegar revisão completa nem instalação real. Sem serviço automático neste PC.
+- 150 testes Web e TypeScript aprovados; build isolado de QA já aprovado na rodada
+  de 10/09, sem alteração posterior dos componentes. Invocação avulsa inicial de
+  testes com tsx falhou na resolução do usuário do Windows; suíte oficial Vitest
+  concluiu sem esse problema. Isso não é evidência de falha fiscal.
+- Prévia gerada em `dist/worker-servidor-preview-20260911.zip`: 34 arquivos de
+  código/configuração vazia mais manifesto; `deployable=false`, sem segredos,
+  instalador a recusa. SHA-256
+  `29f8363158729631df0647781ae553451c770f22292d5050569396c55ead7401`.
+- Graphify incremental code-only atualizado: 28 fontes reextraídas, 173 em cache,
+  1.742 nós, 4.012 relações, 129 comunidades; saída permanece ignorada.
+- Próximo gate: ensaio com conexões autenticadas distintas e instalação/reboot/update/
+  rollback no Windows alvo. VM permanece NOLOGIN; gate coordenado não aplicado.
+
+## PC principal e executores coordenados — 10/09/2026
+
+- Implementação local opt-in na branch `codex/christyan-workers-coordenados`;
+  decisão e limitações em `WORKERS-COORDENADOS.md`.
+- Cadastro privado por papel PostgreSQL, UUID por processo, heartbeat 30s/120s,
+  preferência estável por prioridade e guardas de capacidade/posse no banco.
+- Reaproveitados snapshots, SKIP LOCKED e tokens. Marco externo preserva
+  conferência em emissão/cancelamento incerto. Removida a seleção direta de
+  cancelamento PROCESSANDO vencido, que podia repetir uma confirmação fiscal.
+- Serviço coordenado suporta espera, manutenção, drenagem e supervisão de ciclo;
+  Windows preparado com conta dedicada/tarefa no boot e versões independentes.
+- `/tarefas` recebe painel sanitizado dos executores com atualização mesmo ocioso.
+- Testes SQL executados no QA autorizado dentro de rollback; produção não alterada.
+  Instalação limpa, reboot real, duas conexões/máquinas concorrentes, atualização
+  e rollback operacionais permanecem gates antes de promover.
+- Subagentes e consulta ao pacote de Postgres local foram interrompidos pelo
+  limite de uso; implementação continuou no agente principal. Não inferir revisão
+  independente completa nem teste de Docker local a partir desta rodada.
+
 ## Contingência operável no Windows — 10/09/2026
 
 - Interface simples preparada em `worker/operador/app.py`: mostra lote/quantidade,

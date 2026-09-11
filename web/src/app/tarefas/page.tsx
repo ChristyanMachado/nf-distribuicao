@@ -12,6 +12,9 @@ import TarefaCard from "./TarefaCard";
 import { listarTarefasComItens } from "./actions";
 import { obterConfiguracaoOperacional } from "../configuracoes/actions";
 import { descreverJanela } from "@/lib/janela-operacional";
+import { carregarWorkers } from "@/lib/workers.server";
+import { intervaloAtualizacaoWorkers } from "@/lib/workers-visao";
+import PainelWorkers from "./PainelWorkers";
 
 const ABAS: { id: VisaoTarefas; label: string }[] = [
   { id: "pendentes", label: "Pendentes" },
@@ -26,10 +29,11 @@ export default async function TarefasPage({
 }: {
   searchParams: Promise<{ visao?: string }>;
 }) {
-  const [lista, parametros, janela] = await Promise.all([
+  const [lista, parametros, janela, workers] = await Promise.all([
     listarTarefasComItens(),
     searchParams,
     obterConfiguracaoOperacional(),
+    carregarWorkers(),
   ]);
   const visao = normalizarVisaoTarefas(parametros.visao);
   const contagens = Object.fromEntries(
@@ -61,14 +65,8 @@ export default async function TarefasPage({
         Acompanhe cada rodada de distribuição e abra apenas a nota que precisa revisar.
       </p>
       <p className="mt-1 text-[12px] text-[var(--ink-faint)]">Exibimos as 100 tarefas mais recentes e todas as pendências, inclusive antigas. As contagens abaixo correspondem a esse recorte.</p>
-      <AtualizacaoAutomatica ativa={temTarefaAtiva} />
-      <Card className="mt-4 p-4">
-        <p className="text-sm font-semibold">{processando ? "Worker com tarefa em execução" : "Acompanhamento do Worker"}</p>
-        <p className="mt-1 text-[13px] text-[var(--ink-soft)]">
-          Novas emissões: {descreverJanela(janela)} · São Paulo. Notas já iniciadas continuam até terminar.
-        </p>
-        {!processando && <p className="mt-1 text-[12px] text-[var(--ink-faint)]">Sem execução confirmada agora. Isso não significa que o serviço esteja desconectado.</p>}
-      </Card>
+      <AtualizacaoAutomatica ativa intervaloMs={intervaloAtualizacaoWorkers(temTarefaAtiva)} descricao="Acompanhando tarefas e servidores automaticamente" />
+      <PainelWorkers dados={workers} janela={descreverJanela(janela)} execucaoLegada={processando} />
       {ultima?.numeroDistribuicao && (
         <Card className={`mt-4 p-4 ${problemas ? "border-[var(--stamp)] bg-[var(--stamp-tint)]" : "border-[var(--field)] bg-[var(--field-tint)]"}`}>
           <div role="status" aria-live="polite">

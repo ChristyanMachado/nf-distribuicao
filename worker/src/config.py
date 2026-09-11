@@ -112,6 +112,7 @@ class Config:
         default=None,
         repr=False,
     )
+    worker_coordenado: bool = False
 
 
 def carregar_config() -> Config:
@@ -220,6 +221,9 @@ def carregar_config() -> Config:
     worker_persistente = (
         os.getenv("WORKER_PERSISTENTE", "false").lower() == "true"
     )
+    worker_coordenado = os.getenv("WORKER_COORDENADO", "false").lower() == "true"
+    if worker_coordenado and not worker_persistente:
+        raise RuntimeError("WORKER_COORDENADO exige WORKER_PERSISTENTE=true.")
     if testar_emissao_homologacao:
         if not testar_preenchimento_completo:
             raise RuntimeError(
@@ -291,7 +295,9 @@ def carregar_config() -> Config:
             raise RuntimeError(
                 "Produção fiscal exige MODO_OPERACAO=automatico."
             )
-        if max_concorrencia != 1:
+        if max_concorrencia != 1 and not (
+            worker_coordenado and max_concorrencia in {2, 3}
+        ):
             raise RuntimeError(
                 "O piloto de produção exige MAX_CONCORRENCIA=1 até nova validação de capacidade."
             )
@@ -415,6 +421,7 @@ def carregar_config() -> Config:
         processar_recuperacoes_documentos=processar_recuperacoes_documentos,
         processar_cancelamentos_fiscais=processar_cancelamentos_fiscais,
         storage_documentos=storage_documentos,
+        worker_coordenado=worker_coordenado,
     )
 
 

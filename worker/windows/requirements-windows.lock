@@ -1,0 +1,8 @@
+# Dependências diretas e transitivas do runtime validado; atualizar com teste.
+playwright==1.48.0
+python-dotenv==1.0.1
+asyncpg==0.30.0
+tzdata==2026.3
+greenlet==3.1.1
+pyee==12.0.0
+typing-extensions==4.16.0

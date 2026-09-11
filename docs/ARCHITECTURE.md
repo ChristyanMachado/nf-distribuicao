@@ -2,6 +2,18 @@
 
 ## Visão geral
 
+### Executores coordenados — decisão de 10/09/2026
+
+Preparado modo opt-in `WORKER_COORDENADO`: PC principal (prioridade 10), segundo
+PC (20) e VM (100), com cadastro/papel individual, UUID por processo e heartbeat
+30 s/lease 120 s no Postgres. Gatilhos validam prioridade, capacidade e posse;
+reservas existentes continuam por token. O marco externo impede retries fiscais
+cegos. A migration 0016 nasce desativada; 0014 permanece fora do journal.
+Windows usa tarefa no boot com conta dedicada e atualização por releases com
+drenagem/saúde/rollback. Ver `WORKERS-COORDENADOS.md` e
+`WORKER-WINDOWS-SERVIDOR.md` para contrato, segurança, corte e gates pendentes.
+Produção e infraestrutura existentes não foram promovidas nesta implementação.
+
 ### Homologação isolada — decisão de 09/09/2026
 
 QA usa outro projeto Supabase (`szakgftippcqtuqwxsox`), sem compartilhar dados,

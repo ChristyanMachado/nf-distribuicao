@@ -1,5 +1,30 @@
 # AI Context — NF Distribuição
 
+## Contingência e revisão final — 11/09/2026
+
+Emissão urgente do lote 9 concluída pela versão anterior `dda2227`, isolada em
+`dist/graalyst-worker-local`: quatro AUTORIZADA, primeira tentativa, PDF/XML
+armazenados. Credenciais existentes reutilizadas sem alteração; processo encerrado,
+sem serviço agendado. Ver `CONTINGENCIA-LOTE-9-2026-09-11.md`. VM continua NOLOGIN.
+
+A revisão independente encontrou incompatibilidades na migration coordenada ainda
+não publicada: ordem real de persistência da autorização, estado final dos documentos,
+transições com lease NULL e posse da limpeza. Corrigidas localmente; roteiro SQL
+ampliado aprovado no QA com rollback integral em 11/09, após bloqueio temporário
+de permissão. 310 testes Python, 150 Web, TypeScript e parser PowerShell passaram.
+**Não promover antes do ensaio Windows/múltiplos executores autenticados.**
+SET ROLE em uma transação de QA não comprova concorrência real entre máquinas.
+
+## Executores físicos com fallback — 10/09/2026
+
+Implementação local em curso na branch `codex/christyan-workers-coordenados`.
+Contrato/validação em `WORKERS-COORDENADOS.md`; instalação em
+`WORKER-WINDOWS-SERVIDOR.md`. Modo opt-in, registry autenticado por papel individual,
+heartbeat 30s/validade 120s, prioridade PC > PC2 > VM, fencing de boot e token,
+fronteira externa persistida e parada/atualização controlada no Windows.
+Não ativado em produção; não instalar serviço fiscal na estação de desenvolvimento.
+Testes SQL em QA usam rollback e não equivalem a ensaio concorrente entre PCs.
+
 ## Contingência operável no Windows — 10/09/2026
 
 Modo operador local preparado, sem Docker e sem agendamento: consulta o lote,

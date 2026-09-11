@@ -52,6 +52,27 @@ def test_processa_tarefa_com_sucesso_e_fecha_contexto():
     assert browser.contextos[0].fechado is True
 
 
+def test_mesma_credencial_nao_abre_contextos_simultaneos():
+    async def scenario():
+        browser = BrowserFalso()
+        sessao = asyncio.Semaphore(1)
+        ativos = 0
+        pico = 0
+        async def tarefa(*_):
+            nonlocal ativos, pico
+            ativos += 1
+            pico = max(pico, ativos)
+            await asyncio.sleep(0.005)
+            ativos -= 1
+        await asyncio.gather(*[
+            _processar_uma_tarefa(str(i),browser,tarefa,_logger_silencioso(),sessao=sessao)
+            for i in range(3)
+        ])
+        assert pico == 1
+        assert all(c.fechado for c in browser.contextos)
+    asyncio.run(scenario())
+
+
 def test_falha_da_tarefa_retorna_resultado_e_fecha_contexto():
     async def tarefa_com_falha(tarefa_id: str, context: ContextoFalso) -> None:
         raise RuntimeError("login falhou")

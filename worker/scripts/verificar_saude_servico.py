@@ -19,7 +19,7 @@ def main() -> int:
         instante = datetime.fromisoformat(dados["atualizado_em"])
         idade = (datetime.now(timezone.utc) - instante).total_seconds()
         return int(
-            dados.get("estado") not in {"ok", "processando"}
+            dados.get("estado") not in {"ok", "processando", "espera", "manutencao", "drenando"}
             or not 0 <= idade <= limite
         )
     except (OSError, ValueError, TypeError, KeyError, json.JSONDecodeError):
