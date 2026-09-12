@@ -763,176 +763,67 @@ export default function DistribuicaoForm({
         </div>
       </Card>
 
-      {/* Produtos adicionados, cada um com distribuição por cliente */}
+      {/* Primeiro define-se o total físico de cada produto; o preenchimento
+          operacional abaixo acontece por mercado. O estado e as regras fiscais
+          continuam os mesmos, apenas a ordem de trabalho muda. */}
+      {produtosDistribuicao.length > 0 && (
+        <Card className="mt-4 p-4">
+          <p className="font-medium">Produtos da distribuição</p>
+          <p className="mt-1 text-[12px] text-[var(--ink-soft)]">Informe o total carregado de cada produto antes de separar os mercados.</p>
+          <div className="mt-3 space-y-2">
+            {produtosDistribuicao.map((p) => {
+              const produto = produtos.find((item) => item.id === p.produtoId)!;
+              const preview = previewPorProduto.find((item) => item.produtoId === p.produtoId)!;
+              return <div key={p.produtoId} className="flex flex-wrap items-center gap-2 rounded-[var(--radius-control)] border border-[var(--line)] px-3 py-2 text-sm">
+                <span className="min-w-0 flex-1 font-medium">{produto.descricao}</span>
+                <input type="number" inputMode="decimal" value={p.quantidadeTotal} min="0" aria-label={`Total disponível de ${produto.descricao}`} aria-invalid={Boolean(preview.validacao.erro)} onChange={(e) => atualizarQuantidadeTotal(p.produtoId, e.target.value)} className="font-mono-tab h-9! min-h-0! w-20 text-right" />
+                <span className="text-[var(--ink-soft)]">{produto.unidade}</span>
+                <button type="button" onClick={() => removerProduto(p.produtoId)} className="text-[13px] text-[var(--stamp)]">Remover</button>
+              </div>;
+            })}
+          </div>
+        </Card>
+      )}
+
+      {/* O mercado é a unidade de trabalho: conclua todos os produtos dele e
+          avance para o próximo, sem alterar o agrupamento fiscal por emitente. */}
       <div className="mt-4 space-y-4">
-        {produtosDistribuicao.map((p) => {
-          const produto = produtos.find((pr) => pr.id === p.produtoId)!;
-          const preview = previewPorProduto.find((pv) => pv.produtoId === p.produtoId)!;
-
-          return (
-            <Card key={p.produtoId} className="p-4">
-              <div className="flex items-center justify-between">
-                <p className="font-medium">{produto.descricao}</p>
-                <button
-                  type="button"
-                  onClick={() => removerProduto(p.produtoId)}
-                  className="text-[13px] text-[var(--stamp)]"
-                >
-                  Remover
-                </button>
-              </div>
-
-              <div className="mt-2 flex flex-wrap items-center gap-2 text-[13px] text-[var(--ink-soft)]">
-                <span>Total disponível:</span>
-                <input
-                  type="number"
-                  inputMode="decimal"
-                  value={p.quantidadeTotal}
-                  min="0"
-                  aria-label={`Total disponível de ${produto.descricao}`}
-                  aria-invalid={Boolean(preview.validacao.erro)}
-                  onChange={(e) => atualizarQuantidadeTotal(p.produtoId, e.target.value)}
-                  className="font-mono-tab h-9! min-h-0! w-24 text-right"
-                />
-                <span>{produto.unidade}</span>
-                <span className="ml-auto">
-                  Distribuído: {preview.validacao.erro ? "—" : preview.validacao.totalDistribuido} · Sobra:{" "}
-                  <span className={preview.validacao.valido ? "" : "text-[var(--stamp)]"}>
-                    {preview.validacao.erro ? "—" : preview.validacao.sobra}
-                  </span>
-                </span>
-              </div>
-
-              <div className="mt-3 space-y-2">
-                {preview.validacao.erro && <p role="alert" className="text-sm text-[var(--stamp)]">{preview.validacao.erro}</p>}
-                {p.linhas.map((linha) => {
-                    const cliente = clientes.find((c) => c.id === linha.clienteId)!;
+        {clientes.filter((cliente) => mercadosSelecionados.has(cliente.id)).map((cliente, indiceMercado) => {
+          return <Card key={cliente.id} className="p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div><p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[var(--field-strong)]">Mercado {indiceMercado + 1} de {mercadosSelecionados.size}</p><h2 className="mt-1 text-lg font-medium">{cliente.nome}</h2></div>
+              <span className="rounded-full bg-[var(--field-tint)] px-2 py-1 text-[11px] font-medium text-[var(--field-strong)]">{produtosDistribuicao.length} produto(s)</span>
+            </div>
+            {produtosDistribuicao.length > 0 ? <div className="mt-4 space-y-3">
+              {produtosDistribuicao.map((p) => {
+                const produto = produtos.find((item) => item.id === p.produtoId)!;
+                const preview = previewPorProduto.find((item) => item.produtoId === p.produtoId)!;
+                const linhas = p.linhas.filter((linha) => linha.clienteId === cliente.id);
+                return <div key={p.produtoId} className="rounded-[var(--radius-control)] border border-[var(--line)] p-3">
+                  <div className="flex items-center justify-between gap-2"><span className="font-medium">{produto.descricao}</span><span className="text-[12px] text-[var(--ink-soft)]">Disponível: {p.quantidadeTotal || "0"} {produto.unidade}</span></div>
+                  {preview.validacao.erro && <p role="alert" className="mt-1 text-[12px] text-[var(--stamp)]">{preview.validacao.erro}</p>}
+                  <div className="mt-2 space-y-2">{linhas.map((linha) => {
                     const emitente = cliente.emitentes.find((item) => item.id === linha.emitenteId)!;
-                    const resultado = preview.resultados.find(
-                      (r) => r.clienteId === linha.clienteId && r.emitenteId === linha.emitenteId
-                    )!;
+                    const resultadoLinha = preview.resultados.find((item) => item.clienteId === linha.clienteId && item.emitenteId === linha.emitenteId)!;
                     const preenchido = Number(linha.quantidadeDistribuida || 0) > 0;
                     const precoReferencia = Number(precoInicial(p.produtoId, cliente.id, produto.precoPadrao));
-                    const precoAlterado = Number.isFinite(precoReferencia)
-                      && Math.abs(Number(linha.precoUnitario || 0) - precoReferencia) > 0.004;
-
-                    return (
-                      <div
-                        key={chaveDestino(linha)}
-                        className={`rounded-[var(--radius-control)] border p-2.5 ${
-                          preenchido ? "border-[var(--field)]" : "border-[var(--line)]"
-                        }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm">{cliente.nome} — {emitente.nome}</span>
-                          {preenchido && !resultado.erro && (
-                            <span className="font-mono-tab text-[13px] text-[var(--wheat)]">
-                              {moeda.format(resultado.subtotal)}
-                            </span>
-                          )}
-                        </div>
-
-                        <div className="mt-1.5 flex items-center gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => ajustarQuantidade(p.produtoId, linha, -1)}
-                            aria-label="Diminuir"
-                            className="w-9 shrink-0 rounded-[var(--radius-control)] border border-[var(--line-strong)] text-[var(--ink-soft)] active:bg-[var(--field-tint)]"
-                          >
-                            −
-                          </button>
-                          <input
-                            type="number"
-                            inputMode="decimal"
-                            value={linha.quantidadeDistribuida}
-                            aria-label={`Quantidade de ${produto.descricao} para ${cliente.nome} — ${emitente.nome}`}
-                            min="0"
-                            onChange={(e) =>
-                              atualizarLinha(p.produtoId, linha, "quantidadeDistribuida", e.target.value)
-                            }
-                            placeholder="0"
-                            className="font-mono-tab h-10! min-h-0! w-full text-center"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => ajustarQuantidade(p.produtoId, linha, 1)}
-                            aria-label="Aumentar"
-                            className="w-9 shrink-0 rounded-[var(--radius-control)] border border-[var(--line-strong)] text-[var(--ink-soft)] active:bg-[var(--field-tint)]"
-                          >
-                            +
-                          </button>
-                        </div>
-
-                        <div className="mt-1.5 flex items-center justify-between text-[12px]">
-                          {!linha.trocaAberta ? (
-                            <button
-                              type="button"
-                              onClick={() => atualizarLinha(p.produtoId, linha, "trocaAberta", true)}
-                              className="text-[var(--ink-faint)] underline decoration-dotted underline-offset-2"
-                            >
-                              + troca?
-                            </button>
-                          ) : (
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-[var(--ink-soft)]">Troca:</span>
-                              <input
-                                type="number"
-                                inputMode="decimal"
-                                value={linha.quantidadeTroca}
-                                aria-label={`Troca de ${produto.descricao} para ${cliente.nome} — ${emitente.nome}`}
-                                min="0"
-                                onChange={(e) =>
-                                  atualizarLinha(p.produtoId, linha, "quantidadeTroca", e.target.value)
-                                }
-                                className="font-mono-tab h-8! min-h-0! w-16 text-right text-[12px]"
-                              />
-                            </div>
-                          )}
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-[var(--ink-soft)]">R$/un:</span>
-                            <input
-                              type="number"
-                              step="0.01"
-                              inputMode="decimal"
-                              value={linha.precoUnitario}
-                              aria-label={`Preço de ${produto.descricao} para ${cliente.nome} — ${emitente.nome}`}
-                              min="0"
-                              onChange={(e) =>
-                                atualizarLinha(p.produtoId, linha, "precoUnitario", e.target.value)
-                              }
-                              className="font-mono-tab h-8! min-h-0! w-20 text-right text-[12px]"
-                            />
-                          </div>
-                        </div>
-                        {precoAlterado && (
-                          <label className="mt-1.5 flex items-center gap-2 text-[12px] text-[var(--ink-soft)]">
-                            <input
-                              type="checkbox"
-                              checked={linha.precoPromocional}
-                              onChange={(e) =>
-                                atualizarLinha(p.produtoId, linha, "precoPromocional", e.target.checked)
-                              }
-                              className="h-4 w-4 shrink-0"
-                            />
-                            Preço promocional — não usar como sugestão na próxima distribuição.
-                          </label>
-                        )}
-                        {resultado.erro && (
-                          <p className="mt-1 text-[12px] text-[var(--stamp)]">{resultado.erro}</p>
-                        )}
-                      </div>
-                    );
-                  })}
-              </div>
-            </Card>
-          );
+                    const precoAlterado = Number.isFinite(precoReferencia) && Math.abs(Number(linha.precoUnitario || 0) - precoReferencia) > 0.004;
+                    return <div key={chaveDestino(linha)} className={`rounded-[var(--radius-control)] border p-2.5 ${preenchido ? "border-[var(--field)]" : "border-[var(--line)]"}`}>
+                      {linhas.length > 1 && <p className="mb-2 text-[12px] text-[var(--ink-soft)]">Emitente: {emitente.nome}</p>}
+                      <div className="grid grid-cols-[1fr_auto] items-center gap-2"><Label>Quantidade normal</Label>{preenchido && !resultadoLinha.erro && <span className="font-mono-tab text-[13px] text-[var(--wheat)]">{moeda.format(resultadoLinha.subtotal)}</span>}</div>
+                      <div className="mt-1 flex items-center gap-1.5"><button type="button" onClick={() => ajustarQuantidade(p.produtoId, linha, -1)} aria-label={`Diminuir ${produto.descricao}`} className="w-9 shrink-0 rounded-[var(--radius-control)] border border-[var(--line-strong)] text-[var(--ink-soft)] active:bg-[var(--field-tint)]">−</button><input type="number" inputMode="decimal" value={linha.quantidadeDistribuida} aria-label={`Quantidade normal de ${produto.descricao} para ${cliente.nome} — ${emitente.nome}`} min="0" onChange={(e) => atualizarLinha(p.produtoId, linha, "quantidadeDistribuida", e.target.value)} placeholder="0" className="font-mono-tab h-10! min-h-0! w-full text-center" /><button type="button" onClick={() => ajustarQuantidade(p.produtoId, linha, 1)} aria-label={`Aumentar ${produto.descricao}`} className="w-9 shrink-0 rounded-[var(--radius-control)] border border-[var(--line-strong)] text-[var(--ink-soft)] active:bg-[var(--field-tint)]">+</button></div>
+                      {!linha.trocaAberta ? <button type="button" onClick={() => atualizarLinha(p.produtoId, linha, "trocaAberta", true)} className="mt-2 text-[12px] text-[var(--ink-faint)] underline decoration-dotted underline-offset-2">+ informar troca</button> : <div className="mt-2 grid grid-cols-[1fr_auto] items-center gap-2 rounded border border-[var(--wheat)] bg-[var(--cream)] px-2 py-1.5"><Label>Troca nesta entrega</Label><input type="number" inputMode="decimal" value={linha.quantidadeTroca} aria-label={`Troca de ${produto.descricao} para ${cliente.nome} — ${emitente.nome}`} min="0" onChange={(e) => atualizarLinha(p.produtoId, linha, "quantidadeTroca", e.target.value)} className="font-mono-tab h-8! min-h-0! w-16 text-right text-[12px]" /></div>}
+                      <div className="mt-2 flex items-center justify-end gap-1.5 text-[12px]"><span className="text-[var(--ink-soft)]">R$/un:</span><input type="number" step="0.01" inputMode="decimal" value={linha.precoUnitario} aria-label={`Preço de ${produto.descricao} para ${cliente.nome} — ${emitente.nome}`} min="0" onChange={(e) => atualizarLinha(p.produtoId, linha, "precoUnitario", e.target.value)} className="font-mono-tab h-8! min-h-0! w-20 text-right text-[12px]" /></div>
+                      {precoAlterado && <label className="mt-2 flex items-center gap-2 text-[12px] text-[var(--ink-soft)]"><input type="checkbox" checked={linha.precoPromocional} onChange={(e) => atualizarLinha(p.produtoId, linha, "precoPromocional", e.target.checked)} className="h-4 w-4 shrink-0" />Preço promocional — não usar como sugestão na próxima distribuição.</label>}
+                      {resultadoLinha.erro && <p className="mt-1 text-[12px] text-[var(--stamp)]">{resultadoLinha.erro}</p>}
+                    </div>;
+                  })}</div>
+                </div>;
+              })}
+            </div> : <p className="mt-3 text-[13px] text-[var(--ink-faint)]">Adicione os produtos da rota para preencher este mercado.</p>}
+          </Card>;
         })}
-
-        {produtosDistribuicao.length === 0 && (
-          <p className="px-1 text-[13px] text-[var(--ink-faint)]">
-            Nenhum produto adicionado ainda — use o campo acima.
-          </p>
-        )}
+        {produtosDistribuicao.length === 0 && <p className="px-1 text-[13px] text-[var(--ink-faint)]">Nenhum produto adicionado ainda — use o campo acima.</p>}
       </div>
 
       {status && !resultado && (

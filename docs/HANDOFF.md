@@ -1,5 +1,28 @@
 # Handoff — Estado Atual
 
+## Distribuição 10 e reorganização por mercado — 12/09/2026
+
+- Contingência local autorizada concluiu o lote 10 com quatro tarefas: as quatro
+  notas foram autorizadas na primeira tentativa e seus XML/DANFE foram confirmados
+  no Storage privado. A VM permaneceu isolada (`NOLOGIN`), não havia tarefa ativa
+  antes da reserva e a execução local terminou sem fila pendente ou tarefa ativa.
+- O formulário de distribuição foi reorganizado localmente para manter os totais
+  físicos dos produtos no topo e preencher, em seguida, todos os produtos de cada
+  mercado. A persistência, o contrato do Worker e o cálculo fiscal não mudaram.
+  A quantidade normal e a troca da entrega agora têm campos visualmente separados.
+- A base atual já registra `quantidadeTroca` por produto/destino no lote e calcula
+  `quantidadeFaturavel = quantidadeDistribuida - quantidadeTroca`; isso preserva
+  a quantidade física normal, mas **não** mantém um saldo pré-cadastrado de troca.
+  Não existe ainda uma tabela de saldo por mercado/produto.
+- Antes de criar essa nova persistência, confirmar a regra material: uma troca
+  deve ser sempre vinculada a produto + mercado e o uso parcial deve baixar o
+  saldo disponível, preservando o restante para a próxima distribuição? Também
+  falta definir se o entregador receberá um link autenticado, um arquivo baixado
+  ou uma visualização pública limitada para o relatório mobile.
+- Validação local da reorganização: 22 testes de cálculos/actions de distribuição
+  e TypeScript passaram. Não houve migration, deploy, alteração no Worker ou
+  efeito fiscal decorrente da mudança visual.
+
 ## Contingência concluída e gates de coordenação — 11/09/2026
 
 - Lote 9 emitido com autorização do responsável, versão anterior `dda2227`

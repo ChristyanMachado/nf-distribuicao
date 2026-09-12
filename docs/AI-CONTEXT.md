@@ -1,5 +1,23 @@
 # AI Context — NF Distribuição
 
+## Lote 10 e próximo refinamento operacional — 12/09/2026
+
+Uma contingência local autorizada processou a distribuição 10: quatro notas
+AUTORIZADA em primeira tentativa, com XML/DANFE confirmados no Storage privado.
+VM continuou `NOLOGIN`; a fila terminou sem tarefas pendentes ou ativas.
+
+O próximo objetivo de UX é orientar o formulário por mercado, não por produto.
+Há uma reorganização visual local em `DistribuicaoForm.tsx`: totais físicos de
+produto primeiro, depois cartões de mercado contendo os produtos e campos
+separados de quantidade normal/troca. Não houve mudança no contrato/Worker.
+
+Trocas já existem somente no histórico de cada distribuição (`quantidadeTroca`)
+e seguem o cálculo fiscal `quantidadeFaturavel = quantidadeDistribuida -
+quantidadeTroca`; não há saldo persistente prévio por mercado/produto. Não criar
+ledger/migration sem decidir vínculo, baixa parcial, reversão e consulta do saldo.
+Relatório mobile também depende de escolher se o motorista acessará link
+autenticado, artefato para baixar ou uma visualização pública limitada.
+
 ## Contingência e revisão final — 11/09/2026
 
 Emissão urgente do lote 9 concluída pela versão anterior `dda2227`, isolada em
