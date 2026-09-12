@@ -1,5 +1,29 @@
 # Handoff — Estado Atual
 
+## Saldos de troca por mercado e produto — 12/09/2026
+
+- Regra material confirmada: a troca pertence ao par **produto + mercado**,
+  não ao emitente. Uma baixa parcial preserva o saldo restante para a próxima
+  distribuição; se o mesmo mercado tiver mais de um emitente, seus usos são
+  somados antes da baixa.
+- Implementação local: tabela `fiscal.trocas_mercado`, tela `/trocas` para
+  adicionar devoluções físicas ao saldo e formulário de distribuição mostrando
+  o saldo que restará. A baixa usa `UPDATE ... quantidade_disponivel >= uso`
+  dentro da transação do lote, impedindo consumo concorrente ou saldo negativo.
+  Repetir uma distribuição passa a iniciar troca em zero, pois a anterior já
+  foi baixada.
+- Migration local criada pelo modo personalizado do Drizzle:
+  `web/src/db/migrations/0016_trocas_mercado.sql`. **Não foi aplicada ao
+  Supabase, não houve deploy nem mudança no Worker.** O nome compartilha o
+  prefixo com uma migration manual anterior porque o snapshot histórico do
+  Drizzle está desatualizado; o runtime lê o journal/tags. Não usar
+  `db:generate` normal até reconciliar esse histórico: ele tentou recriar
+  objetos já existentes e seu resultado foi descartado.
+- Testes: 151 Web passaram e `tsc --noEmit` passou. Graphify incremental:
+  1.751 nós, 4.051 relações e 128 comunidades. Falta autorização explícita
+  para aplicar a migration e então validar o saldo no banco real; não publicar
+  antes disso.
+
 ## Distribuição 10 e reorganização por mercado — 12/09/2026
 
 - Contingência local autorizada concluiu o lote 10 com quatro tarefas: as quatro
@@ -10,15 +34,12 @@
   físicos dos produtos no topo e preencher, em seguida, todos os produtos de cada
   mercado. A persistência, o contrato do Worker e o cálculo fiscal não mudaram.
   A quantidade normal e a troca da entrega agora têm campos visualmente separados.
-- A base atual já registra `quantidadeTroca` por produto/destino no lote e calcula
-  `quantidadeFaturavel = quantidadeDistribuida - quantidadeTroca`; isso preserva
-  a quantidade física normal, mas **não** mantém um saldo pré-cadastrado de troca.
-  Não existe ainda uma tabela de saldo por mercado/produto.
-- Antes de criar essa nova persistência, confirmar a regra material: uma troca
-  deve ser sempre vinculada a produto + mercado e o uso parcial deve baixar o
-  saldo disponível, preservando o restante para a próxima distribuição? Também
-  falta definir se o entregador receberá um link autenticado, um arquivo baixado
-  ou uma visualização pública limitada para o relatório mobile.
+- A base histórica preserva `quantidadeTroca` por produto/destino e calcula
+  `quantidadeFaturavel = quantidadeDistribuida - quantidadeTroca`. O novo
+  saldo pré-cadastrado de troca está localmente implementado na seção acima,
+  mas ainda não existe no banco remoto até aplicar a migration.
+- Ainda falta decidir se o entregador receberá um link autenticado, um arquivo
+  baixado ou uma visualização pública limitada para o relatório mobile.
 - Validação local da reorganização: 22 testes de cálculos/actions de distribuição
   e TypeScript passaram. Não houve migration, deploy, alteração no Worker ou
   efeito fiscal decorrente da mudança visual.

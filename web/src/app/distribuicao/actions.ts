@@ -8,6 +8,7 @@ import {
   clienteEmitentes,
   produtos,
   precosCliente,
+  trocasMercado,
   disponibilidades,
   distribuicoes,
   tarefas,
@@ -30,10 +31,11 @@ import { exigirSessaoAdministrativa } from "@/lib/auth-server";
 
 export async function carregarDadosDistribuicao() {
   await exigirSessaoAdministrativa();
-  const [listaClientes, listaProdutos, listaPrecos, relacoes, lotesRecentes] = await Promise.all([
+  const [listaClientes, listaProdutos, listaPrecos, listaTrocas, relacoes, lotesRecentes] = await Promise.all([
     db.select().from(clientes).where(eq(clientes.ativo, true)).orderBy(asc(clientes.nome)),
     db.select().from(produtos).where(eq(produtos.ativo, true)).orderBy(asc(produtos.descricao)),
     db.select().from(precosCliente),
+    db.select().from(trocasMercado),
     db
       .select({
         clienteId: clienteEmitentes.clienteId,
@@ -117,6 +119,12 @@ export async function carregarDadosDistribuicao() {
     precos[`${p.produtoId}:${p.clienteId}`] = p.preco;
   }
 
+  // Chave produto:mercado. O emitente não participa do saldo físico.
+  const trocasDisponiveis: Record<string, string> = {};
+  for (const troca of listaTrocas) {
+    trocasDisponiveis[`${troca.produtoId}:${troca.clienteId}`] = troca.quantidadeDisponivel;
+  }
+
   const emitentesPorCliente: Record<string, { id: string; nome: string }[]> = {};
   for (const relacao of relacoes) {
     if (
@@ -192,6 +200,7 @@ export async function carregarDadosDistribuicao() {
       (produto) => Boolean(produto.codigoFiscal?.trim() && produto.regraFiscalId),
     ),
     precos,
+    trocasDisponiveis,
     ultimaDistribuicao: ultimoLote && produtosUltimoLote.size > 0
       ? {
           loteId: ultimoLote.id,
@@ -418,6 +427,44 @@ export async function processarDistribuicao(input: {
         ) {
           throw new Error("Um emitente selecionado ainda não está pronto para o Worker.");
         }
+      }
+    }
+
+    // Agrupa a troca por produto + mercado antes da baixa. Isso é essencial
+    // quando o mesmo mercado possui dois emitentes no mesmo lote: o saldo
+    // físico é único e não pode ser consumido duas vezes.
+    const trocasSolicitadas = new Map<string, {
+      clienteId: string;
+      produtoId: string;
+      quantidade: number;
+    }>();
+    for (const produto of input.produtos) {
+      for (const linha of produto.linhas) {
+        if (linha.quantidadeTroca <= 0) continue;
+        const chave = `${produto.produtoId}:${linha.clienteId}`;
+        const anterior = trocasSolicitadas.get(chave);
+        trocasSolicitadas.set(chave, {
+          clienteId: linha.clienteId,
+          produtoId: produto.produtoId,
+          quantidade: (anterior?.quantidade ?? 0) + linha.quantidadeTroca,
+        });
+      }
+    }
+    for (const troca of trocasSolicitadas.values()) {
+      const atualizadas = await tx
+        .update(trocasMercado)
+        .set({
+          quantidadeDisponivel: sql`${trocasMercado.quantidadeDisponivel} - ${String(troca.quantidade)}`,
+          atualizadoEm: new Date(),
+        })
+        .where(and(
+          eq(trocasMercado.clienteId, troca.clienteId),
+          eq(trocasMercado.produtoId, troca.produtoId),
+          sql`${trocasMercado.quantidadeDisponivel} >= ${String(troca.quantidade)}`,
+        ))
+        .returning({ id: trocasMercado.id });
+      if (atualizadas.length !== 1) {
+        throw new Error("Saldo de troca insuficiente para este mercado e produto. Registre ou confira a troca antes de distribuir.");
       }
     }
 

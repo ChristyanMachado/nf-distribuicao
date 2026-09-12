@@ -1,5 +1,24 @@
 # AI Context — NF Distribuição
 
+## Saldo de trocas confirmado, local e não publicado — 12/09/2026
+
+Troca é saldo físico por **produto + mercado**, compartilhado entre emitentes
+habilitados para aquele mercado. Usar parte da troca reduz somente a parcela
+usada e preserva o restante. A implementação local acrescenta
+`fiscal.trocas_mercado`, tela `/trocas` para somar devoluções físicas ao saldo,
+consulta no formulário e baixa atômica no `processarDistribuicao`; uma tentativa
+com saldo insuficiente faz a transação inteira falhar. Repetição de lote não
+repete trocas já baixadas. Migration local: `0016_trocas_mercado.sql`; ela não
+foi aplicada, não houve deploy nem escrita no Supabase/Worker. Não aplicar sem
+autorização explícita. 151 testes Web e TypeScript passaram.
+
+O snapshot do Drizzle não acompanha todas as migrations manuais históricas:
+`db:generate` normal tentou recriar objetos existentes e foi descartado. A
+migration foi criada com o modo `--custom` do próprio Drizzle. Não regenerar
+automaticamente até reconciliar snapshots/journal; o runtime de migration usa
+o journal e o SQL local. Graphify incremental atualizado: 1.751 nós, 4.051
+relações, 128 comunidades.
+
 ## Lote 10 e próximo refinamento operacional — 12/09/2026
 
 Uma contingência local autorizada processou a distribuição 10: quatro notas
@@ -11,11 +30,10 @@ Há uma reorganização visual local em `DistribuicaoForm.tsx`: totais físicos 
 produto primeiro, depois cartões de mercado contendo os produtos e campos
 separados de quantidade normal/troca. Não houve mudança no contrato/Worker.
 
-Trocas já existem somente no histórico de cada distribuição (`quantidadeTroca`)
-e seguem o cálculo fiscal `quantidadeFaturavel = quantidadeDistribuida -
-quantidadeTroca`; não há saldo persistente prévio por mercado/produto. Não criar
-ledger/migration sem decidir vínculo, baixa parcial, reversão e consulta do saldo.
-Relatório mobile também depende de escolher se o motorista acessará link
+Trocas históricas seguem o cálculo fiscal `quantidadeFaturavel =
+quantidadeDistribuida - quantidadeTroca`; o saldo prévio está localmente
+implementado conforme a seção acima, mas aguarda migration remota. Relatório
+mobile também depende de escolher se o motorista acessará link
 autenticado, artefato para baixar ou uma visualização pública limitada.
 
 ## Contingência e revisão final — 11/09/2026

@@ -10,7 +10,7 @@ export default async function DistribuicaoPage() {
     carregarDadosDistribuicao(),
     escopoRascunhoDistribuicao(),
   ]);
-  const { clientes, produtos, precos, ultimaDistribuicao } = dados;
+  const { clientes, produtos, precos, trocasDisponiveis, ultimaDistribuicao } = dados;
   const clientesProntos = clientes.filter((cliente) => cliente.prontoParaEmissao);
 
   if (produtos.length === 0 || clientes.length === 0) {
@@ -56,6 +56,7 @@ export default async function DistribuicaoPage() {
         clientes={clientes}
         produtos={produtos}
         precos={precos}
+        trocasDisponiveis={trocasDisponiveis}
         ultimaDistribuicao={ultimaDistribuicao}
         escopoRascunho={escopoRascunho}
       />

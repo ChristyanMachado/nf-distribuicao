@@ -7,7 +7,7 @@ vi.mock("@/lib/auth-server", () => ({ exigirSessaoAdministrativa: mocks.auth }))
 vi.mock("@/server/contrato-tarefa", () => ({ gerarContratoTarefaPendente: mocks.contrato }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 import { processarDistribuicao } from "./actions";
-import { clienteEmitentes, disponibilidades, distribuicoes, lotesDistribuicao, produtos, tarefas } from "@/db/schema";
+import { clienteEmitentes, disponibilidades, distribuicoes, lotesDistribuicao, produtos, tarefas, trocasMercado } from "@/db/schema";
 
 const produtoId = "10000000-0000-4000-8000-000000000001";
 const clienteId = "20000000-0000-4000-8000-000000000001";
@@ -17,8 +17,9 @@ const input = () => ({ chaveIdempotencia: "40000000-0000-4000-8000-000000000001"
     quantidadeDistribuida: 2, quantidadeTroca: 2, precoUnitario: 5, precoPromocional: false }] }] });
 
 // Simula a fronteira transacional; não acessa o banco nem cria tarefa real.
-function banco(relacoes: Record<string, unknown>[], reutilizado = false) {
+function banco(relacoes: Record<string, unknown>[], reutilizado = false, saldoTroca = true) {
   const escritas: unknown[] = [];
+  const baixasTroca: unknown[] = [];
   const filtros: string[] = [];
   let confirmado = false;
   const tx = {
@@ -39,12 +40,18 @@ function banco(relacoes: Record<string, unknown>[], reutilizado = false) {
         then: (resolve: (r: unknown) => unknown) => Promise.resolve().then(resolve) };
       return query;
     } }),
+    update: (tabela: unknown) => ({ set: (valores: unknown) => {
+      if (tabela === trocasMercado) baixasTroca.push(valores);
+      return { where: () => ({ returning: () => Promise.resolve(
+        tabela === trocasMercado && saldoTroca ? [{ id: "troca" }] : [],
+      ) }) };
+    } }),
   };
   mocks.transaction.mockImplementation(async (fn) => {
     try { const resultado = await fn(tx); confirmado = true; return resultado; }
     catch (erro) { escritas.length = 0; throw erro; }
   });
-  return { escritas, filtros, confirmou: () => confirmado };
+  return { escritas, filtros, baixasTroca, confirmou: () => confirmado };
 }
 
 beforeEach(() => vi.resetAllMocks());
@@ -55,6 +62,7 @@ describe("distribuição só de trocas no servidor", () => {
     expect(db.escritas).toContain(distribuicoes);
     expect(db.escritas).toContain(disponibilidades);
     expect(db.escritas).not.toContain(tarefas);
+    expect(db.baixasTroca).toHaveLength(1);
     expect(db.confirmou()).toBe(true);
     expect(mocks.contrato).not.toHaveBeenCalled();
     expect(db.filtros[0]).toContain('"clientes"."ativo"');
@@ -93,6 +101,12 @@ describe("distribuição só de trocas no servidor", () => {
     const dados = input(); dados.produtos[0].linhas[0].quantidadeTroca = 3;
     await expect(processarDistribuicao(dados)).rejects.toThrow("maior");
     expect(mocks.transaction).not.toHaveBeenCalled();
+  });
+  it("desfaz o lote quando o saldo físico da troca não é suficiente", async () => {
+    const db = banco([{ clienteId, emitenteId }], false, false);
+    await expect(processarDistribuicao(input())).rejects.toThrow("Saldo de troca insuficiente");
+    expect(db.escritas).toEqual([]);
+    expect(db.confirmou()).toBe(false);
   });
   it("rejeita sobra sem aceite antes de abrir transação", async () => {
     const dados = input(); dados.produtos[0].quantidadeTotal = 3;

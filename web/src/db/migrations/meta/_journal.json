@@ -113,6 +113,13 @@
       "when": 1789056000000,
       "tag": "0016_workers_coordenados",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1789185225385,
+      "tag": "0016_trocas_mercado",
+      "breakpoints": true
     }
   ]
 }

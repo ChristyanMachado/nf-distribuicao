@@ -55,12 +55,14 @@ export default function DistribuicaoForm({
   clientes,
   produtos,
   precos,
+  trocasDisponiveis,
   ultimaDistribuicao,
   escopoRascunho,
 }: {
   clientes: Cliente[];
   produtos: Produto[];
   precos: Record<string, string>;
+  trocasDisponiveis: Record<string, string>;
   ultimaDistribuicao: UltimaDistribuicao | null;
   escopoRascunho: string;
 }) {
@@ -360,11 +362,12 @@ export default function DistribuicaoForm({
           return {
             ...destino,
             quantidadeDistribuida: anterior?.quantidadeDistribuida ?? "",
-            quantidadeTroca: anterior?.quantidadeTroca ?? "0",
+            // Uma troca já usada foi baixada do saldo físico no lote anterior.
+            quantidadeTroca: "0",
             precoUnitario: anterior?.precoUnitario
               ?? precoInicial(produtoAnterior.produtoId, cliente.id, produtoAtual.precoPadrao),
             precoPromocional: anterior?.precoPromocional ?? false,
-            trocaAberta: Number(anterior?.quantidadeTroca ?? 0) > 0,
+            trocaAberta: false,
           };
         }),
       }];
@@ -441,10 +444,22 @@ export default function DistribuicaoForm({
   }, [produtosDistribuicao]);
 
   const totalGeral = previewPorProduto.reduce((s, p) => s + p.subtotalProduto, 0);
+  const saldoTrocaDoMercado = (produtoId: string, clienteId: string) => {
+    const produto = produtosDistribuicao.find((item) => item.produtoId === produtoId);
+    const usado = produto?.linhas
+      .filter((linha) => linha.clienteId === clienteId)
+      .reduce((total, linha) => total + Number(linha.quantidadeTroca || 0), 0) ?? 0;
+    return Number(trocasDisponiveis[`${produtoId}:${clienteId}`] ?? 0) - usado;
+  };
+  const temErroSaldoTroca = produtosDistribuicao.some((produto) =>
+    [...new Set(produto.linhas.map((linha) => linha.clienteId))].some(
+      (clienteId) => saldoTrocaDoMercado(produto.produtoId, clienteId) < -0.0005,
+    ),
+  );
   const sobras = previewPorProduto.filter((p) => p.validacao.sobra > 0);
   const assinaturaSobras = JSON.stringify(produtosDistribuicao);
   const confirmouSobras = sobras.length === 0 || sobrasConfirmadas === assinaturaSobras;
-  const temErro = previewPorProduto.some(
+  const temErro = temErroSaldoTroca || previewPorProduto.some(
     (p) => p.resultados.some((r) => r.erro) || !p.validacao.valido
   );
   const algumaLinhaPreenchida = previewPorProduto.some((p) =>
@@ -808,11 +823,14 @@ export default function DistribuicaoForm({
                     const preenchido = Number(linha.quantidadeDistribuida || 0) > 0;
                     const precoReferencia = Number(precoInicial(p.produtoId, cliente.id, produto.precoPadrao));
                     const precoAlterado = Number.isFinite(precoReferencia) && Math.abs(Number(linha.precoUnitario || 0) - precoReferencia) > 0.004;
+                    const saldoInicialTroca = Number(trocasDisponiveis[`${p.produtoId}:${cliente.id}`] ?? 0);
+                    const saldoRestanteTroca = saldoTrocaDoMercado(p.produtoId, cliente.id);
+                    const maximoNestaLinha = Math.max(0, saldoRestanteTroca + Number(linha.quantidadeTroca || 0));
                     return <div key={chaveDestino(linha)} className={`rounded-[var(--radius-control)] border p-2.5 ${preenchido ? "border-[var(--field)]" : "border-[var(--line)]"}`}>
                       {linhas.length > 1 && <p className="mb-2 text-[12px] text-[var(--ink-soft)]">Emitente: {emitente.nome}</p>}
                       <div className="grid grid-cols-[1fr_auto] items-center gap-2"><Label>Quantidade normal</Label>{preenchido && !resultadoLinha.erro && <span className="font-mono-tab text-[13px] text-[var(--wheat)]">{moeda.format(resultadoLinha.subtotal)}</span>}</div>
                       <div className="mt-1 flex items-center gap-1.5"><button type="button" onClick={() => ajustarQuantidade(p.produtoId, linha, -1)} aria-label={`Diminuir ${produto.descricao}`} className="w-9 shrink-0 rounded-[var(--radius-control)] border border-[var(--line-strong)] text-[var(--ink-soft)] active:bg-[var(--field-tint)]">−</button><input type="number" inputMode="decimal" value={linha.quantidadeDistribuida} aria-label={`Quantidade normal de ${produto.descricao} para ${cliente.nome} — ${emitente.nome}`} min="0" onChange={(e) => atualizarLinha(p.produtoId, linha, "quantidadeDistribuida", e.target.value)} placeholder="0" className="font-mono-tab h-10! min-h-0! w-full text-center" /><button type="button" onClick={() => ajustarQuantidade(p.produtoId, linha, 1)} aria-label={`Aumentar ${produto.descricao}`} className="w-9 shrink-0 rounded-[var(--radius-control)] border border-[var(--line-strong)] text-[var(--ink-soft)] active:bg-[var(--field-tint)]">+</button></div>
-                      {!linha.trocaAberta ? <button type="button" onClick={() => atualizarLinha(p.produtoId, linha, "trocaAberta", true)} className="mt-2 text-[12px] text-[var(--ink-faint)] underline decoration-dotted underline-offset-2">+ informar troca</button> : <div className="mt-2 grid grid-cols-[1fr_auto] items-center gap-2 rounded border border-[var(--wheat)] bg-[var(--cream)] px-2 py-1.5"><Label>Troca nesta entrega</Label><input type="number" inputMode="decimal" value={linha.quantidadeTroca} aria-label={`Troca de ${produto.descricao} para ${cliente.nome} — ${emitente.nome}`} min="0" onChange={(e) => atualizarLinha(p.produtoId, linha, "quantidadeTroca", e.target.value)} className="font-mono-tab h-8! min-h-0! w-16 text-right text-[12px]" /></div>}
+                      {saldoInicialTroca > 0 || linha.trocaAberta ? <div className="mt-2 rounded border border-[var(--wheat)] bg-[var(--cream)] px-2 py-1.5"><div className="grid grid-cols-[1fr_auto] items-center gap-2"><Label>Troca nesta entrega</Label><input type="number" inputMode="decimal" value={linha.quantidadeTroca} aria-label={`Troca de ${produto.descricao} para ${cliente.nome} — ${emitente.nome}`} min="0" max={maximoNestaLinha} onChange={(e) => atualizarLinha(p.produtoId, linha, "quantidadeTroca", e.target.value)} className="font-mono-tab h-8! min-h-0! w-16 text-right text-[12px]" /></div><p className={`mt-1 text-[11px] ${saldoRestanteTroca < -0.0005 ? "text-[var(--stamp)]" : "text-[var(--ink-soft)]"}`}>{saldoRestanteTroca < -0.0005 ? `Excede o saldo registrado em ${Math.abs(saldoRestanteTroca)} ${produto.unidade}.` : `Saldo após esta distribuição: ${saldoRestanteTroca} ${produto.unidade}.`}</p></div> : <a href="/trocas" className="mt-2 inline-block text-[12px] text-[var(--ink-faint)] underline decoration-dotted underline-offset-2">Sem troca registrada · adicionar saldo</a>}
                       <div className="mt-2 flex items-center justify-end gap-1.5 text-[12px]"><span className="text-[var(--ink-soft)]">R$/un:</span><input type="number" step="0.01" inputMode="decimal" value={linha.precoUnitario} aria-label={`Preço de ${produto.descricao} para ${cliente.nome} — ${emitente.nome}`} min="0" onChange={(e) => atualizarLinha(p.produtoId, linha, "precoUnitario", e.target.value)} className="font-mono-tab h-8! min-h-0! w-20 text-right text-[12px]" /></div>
                       {precoAlterado && <label className="mt-2 flex items-center gap-2 text-[12px] text-[var(--ink-soft)]"><input type="checkbox" checked={linha.precoPromocional} onChange={(e) => atualizarLinha(p.produtoId, linha, "precoPromocional", e.target.checked)} className="h-4 w-4 shrink-0" />Preço promocional — não usar como sugestão na próxima distribuição.</label>}
                       {resultadoLinha.erro && <p className="mt-1 text-[12px] text-[var(--stamp)]">{resultadoLinha.erro}</p>}

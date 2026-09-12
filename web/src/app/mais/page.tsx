@@ -6,6 +6,7 @@ const opcoes = [
   { href: "/entregas", titulo: "Roteiros de entrega", descricao: "Folha diária profissional para o motorista.", Icon: IconReceipt },
   { href: "/clientes", titulo: "Clientes", descricao: "Mercados e dados fiscais de destinatário.", Icon: IconUsers },
   { href: "/produtos", titulo: "Produtos", descricao: "Catálogo, preços e regra fiscal reutilizável.", Icon: IconCrate },
+  { href: "/trocas", titulo: "Trocas", descricao: "Saldo físico por mercado e produto.", Icon: IconCrate },
   { href: "/emitentes", titulo: "Emitentes", descricao: "Empresas emissoras e integração com o Worker.", Icon: IconBuilding },
   { href: "/configuracoes", titulo: "Horário de emissão", descricao: "Quando o Worker pode começar novas notas.", Icon: IconMore },
 ];

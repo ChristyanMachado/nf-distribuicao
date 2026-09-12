@@ -350,6 +350,30 @@ export const recuperacoesDocumentos = fiscalSchema.table(
   ],
 );
 
+// Saldo físico de trocas por mercado e produto. Não pertence ao emitente:
+// quando um mercado pode ser atendido por mais de um emitente, todos consomem
+// o mesmo saldo físico. As baixas acontecem na transação da distribuição.
+export const trocasMercado = fiscalSchema.table(
+  "trocas_mercado",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    clienteId: uuid("cliente_id").notNull().references(() => clientes.id),
+    produtoId: uuid("produto_id").notNull().references(() => produtos.id),
+    quantidadeDisponivel: numeric("quantidade_disponivel", {
+      precision: 12,
+      scale: 3,
+    }).notNull().default("0"),
+    criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
+    atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("trocas_mercado_cliente_produto_idx").on(
+      table.clienteId,
+      table.produtoId,
+    ),
+  ],
+);
+
 // RF23 — pedido auditável de cancelamento de uma nota já autorizada. A Web
 // apenas enfileira; somente o Worker, usando a sessão fiscal do emitente
 // original, interage com a Receita. Uma linha por nota evita cliques duplicados.
