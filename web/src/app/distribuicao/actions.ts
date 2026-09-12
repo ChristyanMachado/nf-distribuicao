@@ -14,6 +14,7 @@ import {
   tarefas,
   tarefaItens,
   lotesDistribuicao,
+  impressoesRoteiro,
 } from "@/db/schema";
 import { calcularFaturavel, validarDistribuicaoTotal } from "@/lib/calculos";
 import {
@@ -584,6 +585,11 @@ export async function processarDistribuicao(input: {
           )`,
         })
         .where(eq(tarefas.id, tarefaId));
+    }
+    // Só lotes que realmente geram NFP-e entram na fila. O Worker ainda
+    // confirma cada autorização antes de enviar qualquer página à impressora.
+    if (tarefasDoLote.size > 0) {
+      await tx.insert(impressoesRoteiro).values({ loteId: lote.id }).onConflictDoNothing();
     }
 
     return { loteId: lote.id, numeroDistribuicao: lote.numero, tarefasCriadas: tarefasDoLote.size, reutilizada: false, tarefaIds: [...tarefasDoLote] };

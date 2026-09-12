@@ -944,6 +944,13 @@ async def executar_fila_banco(
                 logger,
                 limite,
             )
+            # Impressão é independente da emissão: somente uma reserva SQL que
+            # revalida todo o lote pode chegar ao spool local.
+            if getattr(config, "impressao_roteiro", None) is not None:
+                from src.impressao_roteiro import processar_uma_impressao
+                await processar_uma_impressao(
+                    fonte, config.impressao_roteiro, config.download_dir, logger
+                )
             # O serviço fica disponível 24h para recuperações, mas consulta a
             # preferência do Web antes de reservar uma nova emissão. A decisão
             # acontece uma única vez: trabalho reservado continua até terminar.

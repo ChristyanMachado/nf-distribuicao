@@ -1,5 +1,16 @@
 # AI Context — NF Distribuição
 
+## Fila de impressão automática preparada localmente — 12/09/2026
+
+O Worker terá uma fila separada de impressão de roteiro por distribuição. A
+implementação local só reserva lote cujas tarefas e notas estejam integralmente
+autorizadas; qualquer resultado incompleto bloqueia a impressão. Depois do
+marco de envio à impressora, uma falha não recebe retry automático: vai para
+conferência humana, para não duplicar papel em reboot. A impressora pode ser
+local ou de rede pelo nome Windows. A migration `0017_impressao_roteiros.sql`
+foi aplicada no Supabase com grants mínimos (sem leitura/execução para anon);
+o endpoint e Worker ainda aguardam publicação/instalação e ensaio de impressora.
+
 ## Refinamento local de trocas e roteiro — 12/09/2026
 
 - O único roteiro em `/entregas` foi ajustado para leitura e compartilhamento

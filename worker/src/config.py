@@ -16,6 +16,7 @@ from urllib.parse import urlsplit
 from dotenv import load_dotenv
 
 from .storage_documentos import ConfigStorageDocumentos
+from .impressao_roteiro import ConfigImpressaoRoteiro, carregar_config_impressao
 
 load_dotenv()
 
@@ -113,6 +114,7 @@ class Config:
         repr=False,
     )
     worker_coordenado: bool = False
+    impressao_roteiro: ConfigImpressaoRoteiro | None = field(default=None, repr=False)
 
 
 def carregar_config() -> Config:
@@ -335,6 +337,11 @@ def carregar_config() -> Config:
     processar_cancelamentos_fiscais = (
         os.getenv("PROCESSAR_CANCELAMENTOS_FISCAIS", "false").lower() == "true"
     )
+    impressao_roteiro = carregar_config_impressao()
+    if impressao_roteiro is not None and (
+        fonte_tarefas != "banco" or not worker_persistente or not processar_fila_banco
+    ):
+        raise RuntimeError("IMPRIMIR_ROTEIROS=true exige Worker persistente usando a fila do banco.")
     if storage_documentos is not None and fonte_tarefas != "banco":
         raise RuntimeError("ARMAZENAR_DOCUMENTOS=true exige FONTE_TAREFAS=banco.")
     if limpar_documentos_expirados and (
@@ -422,6 +429,7 @@ def carregar_config() -> Config:
         processar_cancelamentos_fiscais=processar_cancelamentos_fiscais,
         storage_documentos=storage_documentos,
         worker_coordenado=worker_coordenado,
+        impressao_roteiro=impressao_roteiro,
     )
 
 

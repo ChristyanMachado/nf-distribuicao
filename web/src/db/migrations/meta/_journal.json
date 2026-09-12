@@ -120,6 +120,13 @@
       "when": 1789185225385,
       "tag": "0016_trocas_mercado",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1789232400000,
+      "tag": "0017_impressao_roteiros",
+      "breakpoints": true
     }
   ]
 }

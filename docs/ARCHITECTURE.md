@@ -359,3 +359,12 @@ para o mesmo cliente, desde que os emitentes sejam diferentes. Cada par gera
 uma tarefa fiscal independente; produtos diferentes destinados ao mesmo par no
 mesmo lote são agrupados na mesma tarefa. A relação precisa existir em
 `cliente_emitentes`, e cliente e emitente devem estar ativos e completos.
+# Roteiro automático (preparado localmente)
+
+O Web continua dono da distribuição e do roteiro visual. Cada lote com tarefas
+recebe no mesmo commit um pedido em `fiscal.impressoes_roteiro`; o Worker nunca
+aceita o pedido diretamente por HTTP. Ele pede uma reserva ao banco, que
+revalida tarefas finalizadas e notas `AUTORIZADA`, baixa um HTML temporário
+autenticado por token de lease, renderiza-o isolado e o envia à fila de impressão
+local. Essa separação evita o navegador administrativo virar uma ponte para a
+impressora e preserva o mesmo roteiro para uso humano e automático.

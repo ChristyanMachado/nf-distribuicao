@@ -374,6 +374,22 @@ export const trocasMercado = fiscalSchema.table(
   ],
 );
 
+// Pedido durável de impressão; a confirmação fiscal é revalidada no banco pelo
+// Worker imediatamente antes do spool da impressora.
+export const impressoesRoteiro = fiscalSchema.table("impressoes_roteiro", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  loteId: uuid("lote_id").notNull().references(() => lotesDistribuicao.id),
+  status: text("status").notNull().default("PENDENTE"),
+  reservaToken: uuid("reserva_token"),
+  reservadaPor: text("reservada_por"),
+  reservaExpiraEm: timestamp("reserva_expira_em", { withTimezone: true }),
+  solicitadoEm: timestamp("solicitado_em", { withTimezone: true }).notNull().defaultNow(),
+  iniciadoEm: timestamp("iniciado_em", { withTimezone: true }),
+  enviadoEm: timestamp("enviado_em", { withTimezone: true }),
+  mensagemErro: text("mensagem_erro"),
+  atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [uniqueIndex("impressoes_roteiro_lote_unica_idx").on(table.loteId)]);
+
 // RF23 — pedido auditável de cancelamento de uma nota já autorizada. A Web
 // apenas enfileira; somente o Worker, usando a sessão fiscal do emitente
 // original, interage com a Receita. Uma linha por nota evita cliques duplicados.

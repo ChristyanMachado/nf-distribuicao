@@ -1555,3 +1555,31 @@ nota e mantêm agrupamento por distribuição. A nota cancelada conserva PDF/XML
 enquanto disponíveis, chave, número, protocolo e vínculo histórico. A tarefa
 original continua na aba `Concluídas` de `/tarefas`. Relatórios atuais continuam
 operacionais; o futuro financeiro deve consultar também o estado fiscal da nota.
+# Automação segura de roteiro para PC Worker — 12/09/2026 (local, não implantada)
+
+- A nova migration local `web/src/db/migrations/0017_impressao_roteiros.sql`
+  cria uma fila privada por lote. Ela não expõe a tabela na API pública e só
+  concede execução das três funções privadas ao Worker dedicado. O Web cria um
+  pedido apenas para lotes que geram NFP-e; a função de reserva ainda exige que
+  **todas** as tarefas tenham acabado e que cada uma possua nota
+  `AUTORIZADA`. Lote pendente, rejeitado ou sem nota não imprime.
+- Estados são deliberadamente conservadores: `PENDENTE → RESERVADA →
+  ENVIANDO → ENVIADA`. Uma reserva vencida antes do spool pode voltar a
+  `PENDENTE`; uma interrupção depois de `ENVIANDO` vai para `CONFERIR` e nunca
+  é reenviada automaticamente. `ENVIADA` significa somente que a fila local da
+  impressora aceitou o PDF, não prova de papel físico.
+- O endpoint interno `/api/worker/roteiros/:id` exige token temporário de
+  reserva, devolve HTML estático sem valores monetários, scripts ou recursos
+  externos. O Worker renderiza PDF com JavaScript e rede bloqueados e chama o
+  SumatraPDF por argumentos, sem shell, para impressora local ou de rede pelo
+  nome configurado.
+- A funcionalidade é opt-in. Em `worker.env`, manter `IMPRIMIR_ROTEIROS=false`
+  até configurar impressora e informar uma data/hora ISO com fuso em
+  `IMPRIMIR_ROTEIROS_DESDE`; essa barreira impede imprimir histórico ao ligar a
+  função. `IMPRESSAO_WEB_URL` aceita apenas origem HTTPS e
+  `SUMATRA_PDF_EXE` deve ser arquivo absoluto existente.
+- A migration foi aplicada e conferida no Supabase em 12/09/2026: a tabela
+  existe, `anon` não possui leitura/execução e `nf_worker_local` possui apenas
+  execução das funções de fila. Ainda falta configurar uma impressora de teste
+  no PC servidor e executar um ensaio sem emissão fiscal. Não houve impressão
+  real ou mudança em notas/tarefas nesta etapa.
