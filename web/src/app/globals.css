@@ -120,15 +120,19 @@ select:focus {
 
   .print-sheet {
     margin-top: 0 !important;
+    max-width: none !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
     font-size: 11px;
     line-height: 1.25;
   }
 
-  .print-route-header { padding-bottom: 7px !important; }
+  .print-route-header { padding: 0 0 7px !important; }
   .print-route-header h2 { margin-top: 2px !important; font-size: 20px !important; line-height: 1.15 !important; }
   .print-route-header > p { margin-top: 2px !important; font-size: 10px !important; }
   .print-route-header > div { margin-top: 6px !important; gap: 5px 24px !important; font-size: 10px !important; }
-  .print-route-list { margin-top: 8px !important; display: grid; gap: 7px !important; }
+  .print-route-list { margin: 8px 0 0 !important; padding: 0 !important; display: grid; gap: 7px !important; }
 
   .print-card {
     break-inside: avoid;
@@ -148,4 +152,4 @@ select:focus {
   * { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
 }
 
-@page { margin: 8mm; }
+@page { size: 105mm 190mm; margin: 8mm; }

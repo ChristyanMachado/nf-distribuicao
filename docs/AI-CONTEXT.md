@@ -1,5 +1,24 @@
 # AI Context — NF Distribuição
 
+## Refinamento local de trocas e roteiro — 12/09/2026
+
+- O único roteiro em `/entregas` foi ajustado para leitura e compartilhamento
+  por celular. O botão continua usando a impressão nativa para imprimir **ou
+  salvar PDF**; não há segunda versão nem biblioteca de PDF. O documento usa
+  cartões por mercado e mantém `Normal` e `Troca` em colunas separadas. No CSS
+  de impressão, o PDF segue o mesmo formato estreito (`105 mm × 190 mm`).
+- `quantidadeDistribuida` é a quantidade **total** da entrega, incluindo troca;
+  a quantidade faturável é o total menos a troca. O formulário passou a usar
+  esse rótulo e explica a regra no próprio campo.
+- Trocas são validadas e agregadas em milésimos no servidor. A soma `0,1 + 0,2`
+  chega ao SQL como `0,300`, sem erro de ponto flutuante. O cadastro também
+  persiste a quantidade com três casas.
+- Limitação conhecida: registrar troca é aditivo e ainda não possui lançamento
+  idempotente/auditável. Após uma falha de rede, conferir o saldo antes de
+  enviar de novo. Isso exige decisão de modelo para lançamento, não uma trava
+  visual. Validação local: 153 testes Web e `tsc --noEmit` passaram.
+- Nenhum deploy, alteração remota, Worker ou efeito fiscal ocorreu nesta rodada.
+
 ## Saldo de trocas confirmado, local e não publicado — 12/09/2026
 
 Troca é saldo físico por **produto + mercado**, compartilhado entre emitentes

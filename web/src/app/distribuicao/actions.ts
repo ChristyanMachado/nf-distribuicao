@@ -28,6 +28,7 @@ import {
 import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { gerarContratoTarefaPendente } from "@/server/contrato-tarefa";
 import { exigirSessaoAdministrativa } from "@/lib/auth-server";
+import { deMilesimos, emMilesimos } from "@/lib/quantidades";
 
 export async function carregarDadosDistribuicao() {
   await exigirSessaoAdministrativa();
@@ -284,6 +285,7 @@ export async function processarDistribuicao(input: {
       destinosRecebidos.add(destino);
       exigirNumeroFinito(linha.quantidadeDistribuida, "Quantidade distribuída");
       exigirNumeroFinito(linha.quantidadeTroca, "Quantidade de troca");
+      emMilesimos(linha.quantidadeTroca, "Quantidade de troca");
       exigirNumeroFinito(linha.precoUnitario, "Preço unitário");
       // Valida também linhas zeradas/sem faturamento antes de qualquer escrita.
       calcularFaturavel(linha);
@@ -436,7 +438,7 @@ export async function processarDistribuicao(input: {
     const trocasSolicitadas = new Map<string, {
       clienteId: string;
       produtoId: string;
-      quantidade: number;
+      quantidadeMilesimos: number;
     }>();
     for (const produto of input.produtos) {
       for (const linha of produto.linhas) {
@@ -446,7 +448,7 @@ export async function processarDistribuicao(input: {
         trocasSolicitadas.set(chave, {
           clienteId: linha.clienteId,
           produtoId: produto.produtoId,
-          quantidade: (anterior?.quantidade ?? 0) + linha.quantidadeTroca,
+          quantidadeMilesimos: (anterior?.quantidadeMilesimos ?? 0) + emMilesimos(linha.quantidadeTroca, "Quantidade de troca"),
         });
       }
     }
@@ -454,13 +456,13 @@ export async function processarDistribuicao(input: {
       const atualizadas = await tx
         .update(trocasMercado)
         .set({
-          quantidadeDisponivel: sql`${trocasMercado.quantidadeDisponivel} - ${String(troca.quantidade)}`,
+          quantidadeDisponivel: sql`${trocasMercado.quantidadeDisponivel} - ${deMilesimos(troca.quantidadeMilesimos)}`,
           atualizadoEm: new Date(),
         })
         .where(and(
           eq(trocasMercado.clienteId, troca.clienteId),
           eq(trocasMercado.produtoId, troca.produtoId),
-          sql`${trocasMercado.quantidadeDisponivel} >= ${String(troca.quantidade)}`,
+          sql`${trocasMercado.quantidadeDisponivel} >= ${deMilesimos(troca.quantidadeMilesimos)}`,
         ))
         .returning({ id: trocasMercado.id });
       if (atualizadas.length !== 1) {

@@ -1,5 +1,21 @@
 # Handoff — Estado Atual
 
+## Refinamento local de trocas e roteiro — 12/09/2026
+
+- `/entregas` mantém um único roteiro. Ele foi adaptado para tela de celular e
+  para a impressão/salvamento em PDF no mesmo formato estreito, sem criar uma
+  segunda versão ou adicionar dependência. Cada mercado é um cartão; as colunas
+  `Normal` e `Troca` não se misturam. Valores continuam excluídos por padrão.
+- No formulário, o primeiro campo se chama **Quantidade total** porque inclui
+  a troca. A nota mantém a regra `faturável = total - troca`.
+- A baixa de saldo agora agrega em milésimos e serializa três casas antes do
+  SQL; evita rejeição falsa de um saldo `0,300` quando a soma é `0,1 + 0,2`.
+  O cadastro também normaliza o valor a três casas.
+- Pendente antes de publicar: validar visualmente o roteiro em celular e decidir
+  se o saldo aditivo precisa de uma tabela de lançamentos idempotentes. Não houve
+  deploy, banco remoto, Worker ou efeito fiscal nesta rodada. Validação: 153
+  testes Web passaram, além de `tsc --noEmit`.
+
 ## Saldos de troca por mercado e produto — 12/09/2026
 
 - Regra material confirmada: a troca pertence ao par **produto + mercado**,

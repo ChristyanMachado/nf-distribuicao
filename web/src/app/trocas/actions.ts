@@ -8,6 +8,7 @@ import { clientes, produtos, trocasMercado } from "@/db/schema";
 import { exigirSessaoAdministrativa } from "@/lib/auth-server";
 import { ErroFormulario, falhaFormulario, type EstadoFormulario } from "@/lib/formularios";
 import { exigirNumeroFinito, exigirUuid } from "@/lib/validacao";
+import { deMilesimos, emMilesimos } from "@/lib/quantidades";
 
 export async function carregarTrocasMercado() {
   await exigirSessaoAdministrativa();
@@ -53,6 +54,7 @@ export async function adicionarTrocaMercado(
       "Quantidade de troca",
       { minimo: 0.001 },
     );
+    const quantidadeNormalizada = deMilesimos(emMilesimos(quantidade, "Quantidade de troca"));
 
     const [cadastro] = await db
       .select({ clienteId: clientes.id, produtoId: produtos.id })
@@ -64,11 +66,11 @@ export async function adicionarTrocaMercado(
 
     await db
       .insert(trocasMercado)
-      .values({ clienteId, produtoId, quantidadeDisponivel: String(quantidade) })
+      .values({ clienteId, produtoId, quantidadeDisponivel: quantidadeNormalizada })
       .onConflictDoUpdate({
         target: [trocasMercado.clienteId, trocasMercado.produtoId],
         set: {
-          quantidadeDisponivel: sql`${trocasMercado.quantidadeDisponivel} + ${String(quantidade)}`,
+          quantidadeDisponivel: sql`${trocasMercado.quantidadeDisponivel} + ${quantidadeNormalizada}`,
           atualizadoEm: new Date(),
         },
       });
