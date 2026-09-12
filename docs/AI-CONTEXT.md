@@ -8,9 +8,10 @@ usada e preserva o restante. A implementação local acrescenta
 `fiscal.trocas_mercado`, tela `/trocas` para somar devoluções físicas ao saldo,
 consulta no formulário e baixa atômica no `processarDistribuicao`; uma tentativa
 com saldo insuficiente faz a transação inteira falhar. Repetição de lote não
-repete trocas já baixadas. Migration local: `0016_trocas_mercado.sql`; ela não
-foi aplicada, não houve deploy nem escrita no Supabase/Worker. Não aplicar sem
-autorização explícita. 151 testes Web e TypeScript passaram.
+repete trocas já baixadas. A migration `0016_trocas_mercado.sql` foi aplicada
+com autorização explícita ao Supabase em 12/09/2026. Verificação: tabela
+presente, sem SELECT para `anon`, `authenticated` ou `nf_worker_vm`. Não houve
+deploy nem escrita no Worker. 151 testes Web e TypeScript passaram.
 
 O snapshot do Drizzle não acompanha todas as migrations manuais históricas:
 `db:generate` normal tentou recriar objetos existentes e foi descartado. A

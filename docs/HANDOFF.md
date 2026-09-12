@@ -13,16 +13,19 @@
   Repetir uma distribuição passa a iniciar troca em zero, pois a anterior já
   foi baixada.
 - Migration local criada pelo modo personalizado do Drizzle:
-  `web/src/db/migrations/0016_trocas_mercado.sql`. **Não foi aplicada ao
-  Supabase, não houve deploy nem mudança no Worker.** O nome compartilha o
+  `web/src/db/migrations/0016_trocas_mercado.sql`. Ela foi aplicada com
+  autorização explícita ao projeto Supabase `kcukzbszakwrfhbsiihw` em
+  12/09/2026. Verificação pós-migration: tabela presente; `anon`,
+  `authenticated` e `nf_worker_vm` não têm `SELECT`. Não houve deploy nem
+  mudança no Worker. O nome compartilha o
   prefixo com uma migration manual anterior porque o snapshot histórico do
   Drizzle está desatualizado; o runtime lê o journal/tags. Não usar
   `db:generate` normal até reconciliar esse histórico: ele tentou recriar
   objetos já existentes e seu resultado foi descartado.
 - Testes: 151 Web passaram e `tsc --noEmit` passou. Graphify incremental:
-  1.751 nós, 4.051 relações e 128 comunidades. Falta autorização explícita
-  para aplicar a migration e então validar o saldo no banco real; não publicar
-  antes disso.
+  1.751 nós, 4.051 relações e 128 comunidades. Falta publicar o Web e validar
+  manualmente o primeiro registro/baixa de saldo; não há necessidade de mudar
+  Worker para essa etapa.
 
 ## Distribuição 10 e reorganização por mercado — 12/09/2026
 
