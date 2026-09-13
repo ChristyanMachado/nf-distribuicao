@@ -1654,3 +1654,8 @@ operacionais; o futuro financeiro deve consultar também o estado fiscal da nota
 
 - O relatório agora consulta `tarefas.criado_em` e calcula a espera como criação do lote até o primeiro início do Worker. Ela é exibida separadamente da duração de emissão, sem contaminar o benchmark fiscal.
 - Registros legados sem `criado_em` continuam presentes nos demais KPIs, mas ficam fora desta nova média. Foi incluído teste unitário para uma espera de 120s e emissão de 60s.
+
+## Histórico de notas paginado — 13/09/2026
+
+- `/notas` passou a buscar no servidor somente 50 registros por página, respeitando a aba Ativas/Canceladas e, quando existente, o filtro de distribuição.
+- As contagens das abas são calculadas no banco; assinaturas de PDF/XML são geradas apenas para a página visível. Assim, o crescimento do histórico não aumenta linearmente a carga da tela.

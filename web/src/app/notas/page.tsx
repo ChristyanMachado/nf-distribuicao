@@ -10,7 +10,7 @@ import {
   recuperacoesDocumentos,
   cancelamentosFiscais,
 } from "@/db/schema";
-import { desc, eq } from "drizzle-orm";
+import { and, count, desc, eq, ne } from "drizzle-orm";
 import Link from "next/link";
 import Card from "@/components/Card";
 import AtualizacaoAutomatica from "@/components/AtualizacaoAutomatica";
@@ -34,10 +34,19 @@ const ABAS: { id: VisaoNotas; label: string }[] = [
 export default async function NotasPage({
   searchParams,
 }: {
-  searchParams: Promise<{ visao?: string; lote?: string }>;
+  searchParams: Promise<{ visao?: string; lote?: string; pagina?: string }>;
 }) {
   const parametros = await searchParams;
-  const lista = await db.select({
+  const visao = normalizarVisaoNotas(parametros.visao);
+  const paginaSolicitada = Number(parametros.pagina ?? "1");
+  const pagina = Number.isInteger(paginaSolicitada) && paginaSolicitada > 0 ? paginaSolicitada : 1;
+  const POR_PAGINA = 50;
+  const filtroLote = parametros.lote ? eq(tarefas.loteId, parametros.lote) : undefined;
+  const filtroVisao = visao === "canceladas"
+    ? eq(notas.status, "CANCELADA")
+    : ne(notas.status, "CANCELADA");
+  const filtros = filtroLote ? and(filtroLote, filtroVisao) : filtroVisao;
+  const consultaNotas = db.select({
       id: notas.id,
       numero: notas.numero,
       status: notas.status,
@@ -65,16 +74,24 @@ export default async function NotasPage({
       .leftJoin(lotesDistribuicao, eq(tarefas.loteId, lotesDistribuicao.id))
       .leftJoin(recuperacoesDocumentos, eq(recuperacoesDocumentos.notaId, notas.id))
       .leftJoin(cancelamentosFiscais, eq(cancelamentosFiscais.notaId, notas.id))
-      .where(parametros.lote ? eq(tarefas.loteId, parametros.lote) : undefined)
-      .orderBy(desc(notas.criadoEm));
-  const visao = normalizarVisaoNotas(parametros.visao);
-  const contagens = Object.fromEntries(
-    ABAS.map((aba) => [
-      aba.id,
-      lista.filter((nota) => visaoDaNota(nota.status) === aba.id).length,
-    ]),
-  ) as Record<VisaoNotas, number>;
-  const notasVisiveis = lista.filter((nota) => visaoDaNota(nota.status) === visao);
+      .where(filtros)
+      .orderBy(desc(notas.criadoEm))
+      .limit(POR_PAGINA)
+      .offset((pagina - 1) * POR_PAGINA);
+  const consultaContagens = db
+    .select({ status: notas.status, total: count() })
+    .from(notas)
+    .innerJoin(tarefas, eq(notas.tarefaId, tarefas.id))
+    .where(filtroLote)
+    .groupBy(notas.status);
+  const [lista, contagensBrutas] = await Promise.all([consultaNotas, consultaContagens]);
+  const contagens: Record<VisaoNotas, number> = { ativas: 0, canceladas: 0 };
+  for (const linha of contagensBrutas) {
+    contagens[visaoDaNota(linha.status)] += Number(linha.total);
+  }
+  const totalVisao = contagens[visao];
+  const totalPaginas = Math.max(1, Math.ceil(totalVisao / POR_PAGINA));
+  const notasVisiveis = lista;
   const agora = new Date();
   const temOperacaoAtiva = lista.some((nota) =>
     nota.recuperacaoStatus === "PENDENTE" || nota.recuperacaoStatus === "PROCESSANDO"
@@ -115,6 +132,13 @@ export default async function NotasPage({
     }),
   );
   const grupos = agruparNotasPorDistribuicao(notasVisiveis);
+  function hrefPagina(destino: number) {
+    const busca = new URLSearchParams();
+    if (visao !== "ativas") busca.set("visao", visao);
+    if (parametros.lote) busca.set("lote", parametros.lote);
+    if (destino > 1) busca.set("pagina", String(destino));
+    return busca.size ? `/notas?${busca.toString()}` : "/notas";
+  }
 
   return (
     <div>
@@ -196,7 +220,7 @@ export default async function NotasPage({
         ))}
         {notasVisiveis.length === 0 && (
           <Card className="px-4 py-10 text-center text-sm text-[var(--ink-faint)]">
-            {lista.length === 0
+            {contagens.ativas + contagens.canceladas === 0
               ? "Nenhuma nota emitida ainda."
               : visao === "canceladas"
                 ? "Nenhuma nota cancelada."
@@ -204,6 +228,13 @@ export default async function NotasPage({
           </Card>
         )}
       </div>
+      {totalPaginas > 1 && (
+        <nav className="mt-5 flex items-center justify-between gap-3 text-sm" aria-label="Paginação das notas">
+          {pagina > 1 ? <Link className="tap-target underline" href={hrefPagina(pagina - 1)}>← Anterior</Link> : <span />}
+          <span className="font-mono-tab text-[12px] text-[var(--ink-faint)]">Página {pagina} de {totalPaginas}</span>
+          {pagina < totalPaginas ? <Link className="tap-target underline" href={hrefPagina(pagina + 1)}>Próxima →</Link> : <span />}
+        </nav>
+      )}
     </div>
   );
 }
