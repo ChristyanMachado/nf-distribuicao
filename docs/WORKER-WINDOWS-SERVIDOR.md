@@ -109,8 +109,13 @@ por canal privado e executa o mesmo comando, sem editar código no servidor.
 
 ## Preparação pelo técnico
 
-Ler [WORKERS-COORDENADOS.md](WORKERS-COORDENADOS.md). Aplicar a migration em
-homologação, provisionar papel individual e testar antes do corte em produção.
+Ler [WORKERS-COORDENADOS.md](WORKERS-COORDENADOS.md). A base de coordenação
+(`0016_workers_coordenados.sql`) já está aplicada em produção, mas permanece
+**desligada**: ela não permite que uma máquina nova processe tarefas. Antes do
+corte, o técnico deve provisionar um papel individual, entregar a senha apenas
+no arquivo privado de configuração e realizar o ensaio em manutenção. A
+ativação global só ocorre depois do heartbeat e das provas físicas descritas
+neste guia.
 O exemplo vazio fica em `worker/windows/worker.env.example`. O arquivo preenchido
 fica fora do pacote e a conta dedicada recebe apenas leitura; suas pastas de
 estado/logs/downloads/temp recebem escrita. Administradores locais continuam
