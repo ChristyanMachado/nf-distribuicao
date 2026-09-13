@@ -53,8 +53,8 @@ durante emissão, salvo emergência física.
 Pacote atual:
 
 ```text
-G:\Downloads\nf-distribuicao\dist\worker-servidor-f76fc9f.zip
-SHA-256: 74545923400275B8F65AB2D9AA2925F5B5DD5A68F086DE0638414EBA669AD457
+G:\Downloads\nf-distribuicao\dist\worker-servidor-528676d.zip
+SHA-256: D982701FBD38A67F6DD5483DCE6233B12FC2D33F4CA41F058150B233D5740AF0
 ```
 
 Pré-requisitos: Windows 10/11 x64, administrador, internet, Python 3.13.7 x64
@@ -88,7 +88,7 @@ Copiar o ZIP para `C:\Pacotes\` e a configuração para
 `C:\ConfiguracaoPrivada\worker.env`. No PowerShell como administrador:
 
 ```powershell
-Get-FileHash 'C:\Pacotes\worker-servidor-f76fc9f.zip' -Algorithm SHA256
+Get-FileHash 'C:\Pacotes\worker-servidor-528676d.zip' -Algorithm SHA256
 ```
 
 O resultado deve ser o hash deste guia. Então, na pasta extraída do pacote:
@@ -96,8 +96,8 @@ O resultado deve ser o hash deste guia. Então, na pasta extraída do pacote:
 ```powershell
 .\windows\Gerenciar-Worker.ps1 -Action Install `
   -PythonExe 'C:\Program Files\Python313\python.exe' `
-  -Package 'C:\Pacotes\worker-servidor-f76fc9f.zip' `
-  -Sha256 '74545923400275B8F65AB2D9AA2925F5B5DD5A68F086DE0638414EBA669AD457' `
+  -Package 'C:\Pacotes\worker-servidor-528676d.zip' `
+  -Sha256 'D982701FBD38A67F6DD5483DCE6233B12FC2D33F4CA41F058150B233D5740AF0' `
   -ConfigFile 'C:\ConfiguracaoPrivada\worker.env'
 ```
 

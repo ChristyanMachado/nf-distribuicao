@@ -1613,7 +1613,7 @@ operacionais; o futuro financeiro deve consultar também o estado fiscal da nota
 - O próximo passo exige uma decisão física: criar um **papel Postgres exclusivo
   do PC servidor**, com senha entregue por canal privado, e preencher o
   `worker.env` fora do Git. Não criar senha de banco em código, commit, log ou
-  chat. Depois instalar o ZIP `dist/worker-servidor-f76fc9f.zip` em manutenção,
+  chat. Depois instalar o ZIP `dist/worker-servidor-528676d.zip` em manutenção,
   reiniciar sem login e conferir o heartbeat antes de ativar o gate.
 
 ## Impressão do roteiro ajustada — 12/09/2026
@@ -1659,3 +1659,15 @@ operacionais; o futuro financeiro deve consultar também o estado fiscal da nota
 
 - `/notas` passou a buscar no servidor somente 50 registros por página, respeitando a aba Ativas/Canceladas e, quando existente, o filtro de distribuição.
 - As contagens das abas são calculadas no banco; assinaturas de PDF/XML são geradas apenas para a página visível. Assim, o crescimento do histórico não aumenta linearmente a carga da tela.
+
+## Pacote atual do Worker Windows — 13/09/2026
+
+- O pacote instalável do commit limpo `528676d4949555a919fec1334b7812baafaba325`
+  foi gerado em `dist/worker-servidor-528676d.zip` (ignorado pelo Git), com
+  SHA-256 `D982701FBD38A67F6DD5483DCE6233B12FC2D33F4CA41F058150B233D5740AF0`.
+  O empacotador confirmou `deployable=true` e a compilação Python dos arquivos
+  enviados passou. Ele ainda deve ser instalado inicialmente em manutenção.
+- O próximo bloqueio deliberado é externo ao código: provisionar no Supabase
+  o papel exclusivo `nf_executor_pc_temporario`, cadastrar o `WORKER_ID`
+  `pc-servidor-temporario` e entregar a configuração privada ao PC. Não usar
+  `nf_worker_local`, `nf_worker_vm` ou a conexão proprietária do Web.
