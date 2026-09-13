@@ -1609,3 +1609,16 @@ operacionais; o futuro financeiro deve consultar também o estado fiscal da nota
   automatizada não pôde ser executada porque o comando `agent-browser` não está
   instalado neste ambiente; validar no Chrome usando casos sem troca, troca de
   1 dígito e troca de 3 dígitos antes do próximo deploy.
+
+## Guia operacional de contingência e servidores — 12/09/2026
+
+- `GUIA-OPERACIONAL-WORKER-WINDOWS.md` consolida os comandos reais do pacote
+  local de contingência e do pacote Windows de servidor. Nenhuma credencial,
+  papel, serviço ou gate foi criado nesta documentação.
+- A contingência correta é `dist/graalyst-worker-local`: operação manual,
+  sequencial e protegida pelo papel `nf_worker_local`; não usar `main.py`
+  diretamente para a emissão noturna.
+- O serviço coordenado isola contextos, reserva por token/lease e serializa
+  credenciais iguais, mas 2 tarefas só serão ensaiadas em homologação após uma
+  execução individual saudável. A tentativa anterior na VM Micro falhou nos
+  menus da Receita; produção continua em 1 até evidência no novo PC.
