@@ -70,6 +70,32 @@ export async function listarTarefasComItens() {
   }));
 }
 
+/** A faixa principal é limitada por desempenho; este resumo não pode inferir
+ * a conclusão do último lote a partir desse recorte. */
+export async function carregarResumoUltimaDistribuicao() {
+  await exigirSessaoAdministrativa();
+  const [lote] = await db
+    .select({ id: lotesDistribuicao.id, numero: lotesDistribuicao.numero, data: lotesDistribuicao.data })
+    .from(lotesDistribuicao)
+    .orderBy(desc(lotesDistribuicao.numero), desc(lotesDistribuicao.criadoEm))
+    .limit(1);
+  if (!lote) return null;
+
+  const itens = await db
+    .select({ status: tarefas.status })
+    .from(tarefas)
+    .where(eq(tarefas.loteId, lote.id));
+  const emitidas = itens.filter((item) => ["EMITIDA", "DOCUMENTOS_ARMAZENADOS"].includes(item.status)).length;
+  const problemas = itens.filter((item) => ["ERRO", "AGUARDANDO_CONFERENCIA"].includes(item.status)).length;
+  return {
+    ...lote,
+    total: itens.length,
+    emitidas,
+    problemas,
+    concluida: itens.length > 0 && emitidas === itens.length,
+  };
+}
+
 export async function cancelarTarefa(tarefaId: string) {
   await exigirSessaoAdministrativa();
   try {

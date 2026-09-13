@@ -203,6 +203,10 @@ export const lotesDistribuicao = fiscalSchema.table(
     // Número sequencial visível ao usuário: Distribuição 000001, 000002...
     numero: bigint("numero", { mode: "number" }),
     chaveIdempotencia: uuid("chave_idempotencia"),
+    // Assinatura semântica do conteúdo enviado. A chave protege reenvios do
+    // mesmo formulário; esta assinatura também impede que uma chave antiga
+    // seja reutilizada acidentalmente para outro lote.
+    payloadHash: text("payload_hash"),
     data: text("data").notNull(),
     criadoEm: timestamp("criado_em").notNull().defaultNow(),
   },
@@ -371,6 +375,24 @@ export const trocasMercado = fiscalSchema.table(
       table.clienteId,
       table.produtoId,
     ),
+  ],
+);
+
+// Livro de lançamentos: o saldo continua sendo a projeção rápida usada na
+// tela, enquanto cada inclusão preserva uma chave idempotente auditável.
+export const trocasLancamentos = fiscalSchema.table(
+  "trocas_lancamentos",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    chaveIdempotencia: uuid("chave_idempotencia").notNull(),
+    clienteId: uuid("cliente_id").notNull().references(() => clientes.id),
+    produtoId: uuid("produto_id").notNull().references(() => produtos.id),
+    quantidade: numeric("quantidade", { precision: 12, scale: 3 }).notNull(),
+    criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("trocas_lancamentos_chave_idempotencia_idx").on(table.chaveIdempotencia),
+    index("trocas_lancamentos_cliente_produto_idx").on(table.clienteId, table.produtoId),
   ],
 );
 

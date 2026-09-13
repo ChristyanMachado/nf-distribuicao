@@ -5,6 +5,7 @@ import { Label } from "@/components/Field";
 import FormularioComFeedback from "@/components/FormularioComFeedback";
 import PrimaryButton from "@/components/PrimaryButton";
 import { adicionarTrocaMercado, carregarTrocasMercado } from "./actions";
+import ChaveIdempotenciaTroca from "./ChaveIdempotenciaTroca";
 
 export default async function TrocasPage({
   searchParams,
@@ -23,13 +24,16 @@ export default async function TrocasPage({
         Registre a mercadoria física devolvida por cada mercado. O saldo é por
         produto e mercado; ao usar uma parte na distribuição, o restante fica disponível.
       </p>
-      {parametros.salvo === "troca-registrada" && (
+      {["troca-registrada", "troca-reutilizada"].includes(parametros.salvo ?? "") && (
         <p role="status" className="mt-5 rounded-[var(--radius-control)] border border-[var(--field)] bg-[var(--field-tint)] px-4 py-3 text-sm">
-          Troca adicionada ao saldo do mercado.
+          {parametros.salvo === "troca-reutilizada"
+            ? "Este lançamento já havia sido registrado; o saldo não foi somado novamente."
+            : "Troca adicionada ao saldo do mercado."}
         </p>
       )}
       <Card className="mt-5 p-4">
         <FormularioComFeedback action={adicionarTrocaMercado} className="grid gap-4 sm:grid-cols-3 sm:items-end">
+          <ChaveIdempotenciaTroca />
           <div><Label htmlFor="troca-mercado" required>Mercado</Label><select id="troca-mercado" name="clienteId" required defaultValue="" className="w-full"><option value="" disabled>Selecione</option>{clientes.map((cliente) => <option key={cliente.id} value={cliente.id}>{cliente.nome}</option>)}</select></div>
           <div><Label htmlFor="troca-produto" required>Produto</Label><select id="troca-produto" name="produtoId" required defaultValue="" className="w-full"><option value="" disabled>Selecione</option>{produtos.map((produto) => <option key={produto.id} value={produto.id}>{produto.descricao} · {produto.unidade}</option>)}</select></div>
           <div><Label htmlFor="troca-quantidade" required>Quantidade recebida</Label><input id="troca-quantidade" name="quantidade" type="number" required min="0.001" max="1000000000" step="0.001" inputMode="decimal" placeholder="0" className="font-mono-tab w-full" /></div>

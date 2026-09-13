@@ -135,15 +135,14 @@ select:focus {
   .print-route-list { margin: 16px 0 0 !important; padding: 0 !important; display: grid; gap: 12px !important; }
 
   .print-card {
-    break-inside: avoid;
     border-color: #bbb !important;
   }
 
-  .print-stop-header { gap: 10px !important; padding: 9px 12px !important; }
+  .print-stop-header { break-after: avoid; gap: 10px !important; padding: 9px 12px !important; }
   .print-stop-header > span { width: 28px !important; height: 28px !important; font-size: 12px !important; }
   .print-stop-header h3 { font-size: 16px !important; line-height: 1.25 !important; }
   .print-stop-header p { margin-top: 2px !important; font-size: 11px !important; }
-  .print-item { gap: 10px !important; padding: 8px 12px !important; font-size: 12px !important; }
+  .print-item { break-inside: avoid; gap: 10px !important; padding: 8px 12px !important; font-size: 12px !important; }
   .print-item > span { font-size: 12px !important; }
   .print-check { padding: 9px 12px !important; font-size: 11px !important; }
   .print-check > div { gap: 6px 20px !important; }

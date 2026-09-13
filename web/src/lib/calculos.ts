@@ -32,24 +32,37 @@ export function calcularFaturavel(item: ItemDistribuicao): ItemFaturavel {
   ) {
     throw new DistribuicaoInvalidaError("Quantidade e preço precisam ser números válidos.");
   }
-  if (item.quantidadeDistribuida < 0 || item.quantidadeTroca < 0) {
+  let quantidadeDistribuidaMilesimos: number;
+  let quantidadeTrocaMilesimos: number;
+  try {
+    quantidadeDistribuidaMilesimos = emMilesimos(item.quantidadeDistribuida, "Quantidade distribuída");
+    quantidadeTrocaMilesimos = emMilesimos(item.quantidadeTroca, "Quantidade de troca");
+  } catch (erro) {
     throw new DistribuicaoInvalidaError(
-      "Quantidades não podem ser negativas."
+      erro instanceof Error ? erro.message : "Quantidades não podem ser negativas.",
     );
   }
   if (item.precoUnitario < 0) {
     throw new DistribuicaoInvalidaError("Preço não pode ser negativo.");
   }
-  if (item.quantidadeTroca > item.quantidadeDistribuida) {
+  if (quantidadeTrocaMilesimos > quantidadeDistribuidaMilesimos) {
     throw new DistribuicaoInvalidaError(
       `Troca (${item.quantidadeTroca}) não pode ser maior que a quantidade distribuída (${item.quantidadeDistribuida}).`
     );
   }
 
-  const quantidadeFaturavel = item.quantidadeDistribuida - item.quantidadeTroca;
+  const quantidadeFaturavel = numeroDeMilesimos(
+    quantidadeDistribuidaMilesimos - quantidadeTrocaMilesimos,
+  );
   const subtotal = arredondarMoeda(quantidadeFaturavel * item.precoUnitario);
 
-  return { ...item, quantidadeFaturavel, subtotal };
+  return {
+    ...item,
+    quantidadeDistribuida: numeroDeMilesimos(quantidadeDistribuidaMilesimos),
+    quantidadeTroca: numeroDeMilesimos(quantidadeTrocaMilesimos),
+    quantidadeFaturavel,
+    subtotal,
+  };
 }
 
 /**
@@ -63,14 +76,23 @@ export function validarDistribuicaoTotal(
   if (!Number.isFinite(quantidadeDisponivel) || quantidadeDisponivel < 0) {
     throw new DistribuicaoInvalidaError("Quantidade disponível precisa ser um número válido.");
   }
-  const totalDistribuido = itens.reduce(
-    (soma, item) => soma + item.quantidadeDistribuida,
-    0
-  );
+  let quantidadeDisponivelMilesimos: number;
+  let totalDistribuidoMilesimos: number;
+  try {
+    quantidadeDisponivelMilesimos = emMilesimos(quantidadeDisponivel, "Quantidade disponível");
+    totalDistribuidoMilesimos = itens.reduce(
+      (soma, item) => soma + emMilesimos(item.quantidadeDistribuida, "Quantidade distribuída"),
+      0,
+    );
+  } catch (erro) {
+    throw new DistribuicaoInvalidaError(
+      erro instanceof Error ? erro.message : "Quantidade disponível precisa ser um número válido.",
+    );
+  }
   return {
-    valido: totalDistribuido <= quantidadeDisponivel,
-    totalDistribuido,
-    sobra: arredondarQuantidade(quantidadeDisponivel - totalDistribuido),
+    valido: totalDistribuidoMilesimos <= quantidadeDisponivelMilesimos,
+    totalDistribuido: numeroDeMilesimos(totalDistribuidoMilesimos),
+    sobra: numeroDeMilesimos(quantidadeDisponivelMilesimos - totalDistribuidoMilesimos),
   };
 }
 
@@ -148,6 +170,4 @@ function arredondarMoeda(valor: number): number {
   return Math.round(valor * 100) / 100;
 }
 
-function arredondarQuantidade(valor: number): number {
-  return Math.round(valor * 1000) / 1000;
-}
+import { emMilesimos, numeroDeMilesimos } from "./quantidades";

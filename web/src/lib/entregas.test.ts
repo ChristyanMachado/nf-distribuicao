@@ -27,4 +27,13 @@ describe("agruparRoteiroEntrega", () => {
       expect.objectContaining({ quantidadeDistribuida: 15, quantidadeTroca: 1, subtotal: 33 }),
     ]);
   });
+
+  it("agrega frações sem expor imprecisão binária no roteiro", () => {
+    const base = { clienteId: "c1", clienteNome: "Cooperativa", numeroEndereco: "1", cep: "80000-000", produtoId: "p1", produtoDescricao: "Salsinha", unidade: "UN", quantidadeFaturavel: 0.3, precoUnitario: 1 };
+    const roteiro = agruparRoteiroEntrega([
+      { ...base, quantidadeDistribuida: 0.1, quantidadeTroca: 0.1 },
+      { ...base, quantidadeDistribuida: 0.2, quantidadeTroca: 0.2 },
+    ]);
+    expect(roteiro[0].itens[0]).toMatchObject({ quantidadeDistribuida: 0.3, quantidadeTroca: 0.3 });
+  });
 });

@@ -34,11 +34,10 @@ const ABAS: { id: VisaoNotas; label: string }[] = [
 export default async function NotasPage({
   searchParams,
 }: {
-  searchParams: Promise<{ visao?: string }>;
+  searchParams: Promise<{ visao?: string; lote?: string }>;
 }) {
-  const [parametros, lista] = await Promise.all([
-    searchParams,
-    db.select({
+  const parametros = await searchParams;
+  const lista = await db.select({
       id: notas.id,
       numero: notas.numero,
       status: notas.status,
@@ -66,8 +65,8 @@ export default async function NotasPage({
       .leftJoin(lotesDistribuicao, eq(tarefas.loteId, lotesDistribuicao.id))
       .leftJoin(recuperacoesDocumentos, eq(recuperacoesDocumentos.notaId, notas.id))
       .leftJoin(cancelamentosFiscais, eq(cancelamentosFiscais.notaId, notas.id))
-      .orderBy(desc(notas.criadoEm)),
-  ]);
+      .where(parametros.lote ? eq(tarefas.loteId, parametros.lote) : undefined)
+      .orderBy(desc(notas.criadoEm));
   const visao = normalizarVisaoNotas(parametros.visao);
   const contagens = Object.fromEntries(
     ABAS.map((aba) => [
@@ -135,10 +134,14 @@ export default async function NotasPage({
       >
         {ABAS.map((aba) => {
           const ativa = aba.id === visao;
+          const busca = new URLSearchParams();
+          if (aba.id !== "ativas") busca.set("visao", aba.id);
+          if (parametros.lote) busca.set("lote", parametros.lote);
+          const href = busca.size ? `/notas?${busca.toString()}` : "/notas";
           return (
             <Link
               key={aba.id}
-              href={aba.id === "ativas" ? "/notas" : "/notas?visao=canceladas"}
+              href={href}
               aria-current={ativa ? "page" : undefined}
               className={`tap-target flex min-h-11 items-center justify-center gap-2 rounded-[calc(var(--radius-control)-3px)] px-3 text-sm font-medium ${
                 ativa
@@ -152,6 +155,12 @@ export default async function NotasPage({
           );
         })}
       </nav>
+
+      {parametros.lote && (
+        <p className="mt-3 text-sm text-[var(--ink-soft)]">
+          Exibindo somente os documentos desta distribuição. <Link className="font-medium underline" href={visao === "ativas" ? "/notas" : "/notas?visao=canceladas"}>Ver todas</Link>
+        </p>
+      )}
 
       <div className="mt-5 space-y-4">
         {grupos.map((grupo) => (

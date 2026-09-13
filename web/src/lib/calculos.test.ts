@@ -87,6 +87,20 @@ describe("validarDistribuicaoTotal", () => {
     ]);
     expect(resultado.sobra).toBe(30);
   });
+
+  it("aceita frações fiscais equivalentes sem artefato binário", () => {
+    const resultado = validarDistribuicaoTotal(0.3, [
+      { clienteId: "a", quantidadeDistribuida: 0.1, quantidadeTroca: 0, precoUnitario: 1 },
+      { clienteId: "b", quantidadeDistribuida: 0.2, quantidadeTroca: 0, precoUnitario: 1 },
+    ]);
+    expect(resultado).toEqual({ valido: true, totalDistribuido: 0.3, sobra: 0 });
+  });
+
+  it("rejeita quantidade com mais de três casas decimais", () => {
+    expect(() => validarDistribuicaoTotal(1, [
+      { clienteId: "a", quantidadeDistribuida: 0.0001, quantidadeTroca: 0, precoUnitario: 1 },
+    ])).toThrow("três casas decimais");
+  });
 });
 
 describe("agruparEmTarefas", () => {

@@ -17,6 +17,17 @@ export function deMilesimos(valor: number): string {
   return (valor / 1000).toFixed(3);
 }
 
+/** Converte milésimos de volta para número apenas para cálculos/props de UI.
+ * A conversão só ocorre depois que toda a aritmética foi feita em inteiros. */
+export function numeroDeMilesimos(valor: number): number {
+  return Number(deMilesimos(valor));
+}
+
+/** Exibição fiscal estável: nunca deixa vazar 0.30000000000000004 na tela. */
+export function formatarQuantidade(valor: number, campo = "Quantidade"): string {
+  return deMilesimos(emMilesimos(valor, campo)).replace(/\.?(?:0+)$/, "");
+}
+
 export function somarMilesimos(valores: number[], campo = "Quantidade"): number {
   return valores.reduce((total, valor) => total + emMilesimos(valor, campo), 0);
 }

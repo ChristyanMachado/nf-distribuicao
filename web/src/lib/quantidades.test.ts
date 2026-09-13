@@ -1,13 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { deMilesimos, emMilesimos, somarMilesimos } from "./quantidades";
+import { emMilesimos, formatarQuantidade, numeroDeMilesimos } from "./quantidades";
 
-describe("quantidades em milésimos", () => {
-  it("preserva uma soma decimal que seria imprecisa em ponto flutuante", () => {
-    expect(somarMilesimos([0.1, 0.2])).toBe(300);
-    expect(deMilesimos(300)).toBe("0.300");
+describe("quantidades fiscais em milésimos", () => {
+  it("normaliza o clássico 0,1 + 0,2 sem resíduo binário", () => {
+    const total = emMilesimos(0.1) + emMilesimos(0.2);
+    expect(numeroDeMilesimos(total)).toBe(0.3);
+    expect(formatarQuantidade(numeroDeMilesimos(total))).toBe("0.3");
   });
 
-  it("rejeita precisão maior que a aceita pelo saldo físico", () => {
-    expect(() => emMilesimos(0.0001, "Troca")).toThrow("três casas decimais");
+  it("recusa mais de três casas decimais", () => {
+    expect(() => emMilesimos(1.0001)).toThrow("no máximo três casas decimais");
   });
 });

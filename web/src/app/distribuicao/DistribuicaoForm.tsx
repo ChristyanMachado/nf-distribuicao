@@ -6,6 +6,7 @@ import Card from "@/components/Card";
 import { Label } from "@/components/Field";
 import PrimaryButton from "@/components/PrimaryButton";
 import { calcularFaturavel, validarDisponibilidadePreview } from "@/lib/calculos";
+import { emMilesimos, formatarQuantidade, numeroDeMilesimos } from "@/lib/quantidades";
 import { processarDistribuicao } from "./actions";
 import { lerRascunhoLocal, gravarRascunhoLocal } from "@/lib/armazenamento-rascunho";
 import { dataOperacionalBrasil } from "@/lib/datas";
@@ -67,7 +68,9 @@ export default function DistribuicaoForm({
   escopoRascunho: string;
 }) {
   const [data, setData] = useState(() => dataOperacionalBrasil());
-  const [chaveIdempotencia, setChaveIdempotencia] = useState(() => crypto.randomUUID());
+  // Explicitar `string` evita que TypeScript infira o subtipo template-literal
+  // de crypto.randomUUID(), pois rascunhos restaurados chegam como string.
+  const [chaveIdempotencia, setChaveIdempotencia] = useState<string>(() => crypto.randomUUID());
   const [resultado, setResultado] = useState<{ loteId: string; numero: number | null; tarefas: number } | null>(null);
   const [destinos, setDestinos] = useState<DestinoFiscal[]>([]);
   const [produtosDistribuicao, setProdutosDistribuicao] = useState<ProdutoNaDistribuicao[]>([]);
@@ -82,6 +85,8 @@ export default function DistribuicaoForm({
   const [falhaRascunho, setFalhaRascunho] = useState(false);
   const [sobrasConfirmadas, setSobrasConfirmadas] = useState("");
   const tituloResultado = useRef<HTMLHeadingElement>(null);
+  const buscaProdutoRef = useRef<HTMLInputElement>(null);
+  const quantidadeProdutoRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
     if (!resultado) return;
     tituloResultado.current?.focus({ preventScroll: true });
@@ -160,6 +165,7 @@ export default function DistribuicaoForm({
   }
 
   function adicionarDestino(clienteId: string, emitenteId?: string) {
+    if (enviando) return;
     const cliente = clientes.find((item) => item.id === clienteId);
     const escolhido = emitenteId ?? cliente?.emitentes.find(
       (emitente) => !destinos.some(
@@ -177,9 +183,14 @@ export default function DistribuicaoForm({
   }
 
   function alternarMercado(clienteId: string) {
+    if (enviando) return;
     const cliente = clientes.find((item) => item.id === clienteId);
     if (!cliente?.prontoParaEmissao) return;
     if (mercadosSelecionados.has(clienteId)) {
+      const possuiDados = produtosDistribuicao.some((produto) =>
+        produto.linhas.some((linha) => linha.clienteId === clienteId && linha.quantidadeDistribuida !== ""),
+      );
+      if (possuiDados && !window.confirm(`Remover ${cliente.nome} apagará as quantidades já preenchidas para este mercado. Continuar?`)) return;
       setDestinos((atual) => atual.filter((destino) => destino.clienteId !== clienteId));
       setProdutosDistribuicao((atual) => atual.map((produto) => ({
         ...produto,
@@ -191,7 +202,12 @@ export default function DistribuicaoForm({
   }
 
   function removerDestino(destino: DestinoFiscal) {
+    if (enviando) return;
     const chave = chaveDestino(destino);
+    const possuiDados = produtosDistribuicao.some((produto) =>
+      produto.linhas.some((linha) => chaveDestino(linha) === chave && linha.quantidadeDistribuida !== ""),
+    );
+    if (possuiDados && !window.confirm("Remover este emitente apagará as quantidades já preenchidas para ele. Continuar?")) return;
     setDestinos((atual) => atual.filter((item) => chaveDestino(item) !== chave));
     setProdutosDistribuicao((atual) => atual.map((produto) => ({
       ...produto,
@@ -212,6 +228,7 @@ export default function DistribuicaoForm({
   }
 
   function adicionarProduto() {
+    if (enviando) return;
     if (!produtoParaAdicionar || !quantidadeParaAdicionar) return;
     const produto = produtos.find((p) => p.id === produtoParaAdicionar);
     if (!produto) return;
@@ -227,15 +244,18 @@ export default function DistribuicaoForm({
     setProdutoParaAdicionar("");
     setBuscaProduto("");
     setQuantidadeParaAdicionar("");
+    window.setTimeout(() => buscaProdutoRef.current?.focus(), 0);
   }
 
   function selecionarProduto(produto: Produto) {
+    if (enviando) return;
     setProdutoParaAdicionar(produto.id);
     setBuscaProduto(produto.descricao);
     setSeletorProdutoAberto(false);
   }
 
   function iniciarNovaDistribuicao() {
+    if (enviando) return;
     setFalhaRascunho(!gravarRascunhoLocal(chaveRascunho, null));
     setData(dataOperacionalBrasil());
     setChaveIdempotencia(crypto.randomUUID());
@@ -249,6 +269,8 @@ export default function DistribuicaoForm({
   }
 
   function descartarRascunho() {
+    if (enviando) return;
+    if (temConteudoRascunho({ destinos, produtos: produtosDistribuicao }) && !window.confirm("Descartar este rascunho? As quantidades preenchidas não serão enviadas e não poderão ser recuperadas.")) return;
     setFalhaRascunho(!gravarRascunhoLocal(chaveRascunho, null));
     setData(dataOperacionalBrasil());
     setDestinos([]);
@@ -262,16 +284,21 @@ export default function DistribuicaoForm({
   }
 
   function removerProduto(produtoId: string) {
+    if (enviando) return;
+    const produto = produtosDistribuicao.find((item) => item.produtoId === produtoId);
+    if (produto && (produto.quantidadeTotal !== "" || produto.linhas.some((linha) => linha.quantidadeDistribuida !== "")) && !window.confirm("Remover este produto apagará suas quantidades preenchidas. Continuar?")) return;
     setProdutosDistribuicao((atual) => atual.filter((p) => p.produtoId !== produtoId));
   }
 
   function atualizarQuantidadeTotal(produtoId: string, valor: string) {
+    if (enviando) return;
     setProdutosDistribuicao((atual) =>
       atual.map((p) => (p.produtoId === produtoId ? { ...p, quantidadeTotal: valor } : p))
     );
   }
 
   function atualizarLinha(produtoId: string, destino: DestinoFiscal, campo: keyof Linha, valor: string | boolean) {
+    if (enviando) return;
     const chave = chaveDestino(destino);
     const produto = produtos.find((item) => item.id === produtoId);
     const precoReferencia = produto
@@ -304,6 +331,7 @@ export default function DistribuicaoForm({
   }
 
   function ajustarQuantidade(produtoId: string, destino: DestinoFiscal, delta: number) {
+    if (enviando) return;
     const chave = chaveDestino(destino);
     setProdutosDistribuicao((atual) =>
       atual.map((p) =>
@@ -322,7 +350,9 @@ export default function DistribuicaoForm({
   }
 
   function repetirUltimaDistribuicao() {
+    if (enviando) return;
     if (!ultimaDistribuicao) return;
+    if (temConteudoRascunho({ destinos, produtos: produtosDistribuicao }) && !window.confirm("Substituir o rascunho atual pela última distribuição? Os dados atuais não serão enviados.")) return;
 
     const clientesAtuais = new Map(clientes.map((cliente) => [cliente.id, cliente]));
     const produtosAtuais = new Map(produtos.map((produto) => [produto.id, produto]));
@@ -446,10 +476,12 @@ export default function DistribuicaoForm({
   const totalGeral = previewPorProduto.reduce((s, p) => s + p.subtotalProduto, 0);
   const saldoTrocaDoMercado = (produtoId: string, clienteId: string) => {
     const produto = produtosDistribuicao.find((item) => item.produtoId === produtoId);
-    const usado = produto?.linhas
+    const usadoMilesimos = produto?.linhas
       .filter((linha) => linha.clienteId === clienteId)
-      .reduce((total, linha) => total + Number(linha.quantidadeTroca || 0), 0) ?? 0;
-    return Number(trocasDisponiveis[`${produtoId}:${clienteId}`] ?? 0) - usado;
+      .reduce((total, linha) => total + emMilesimos(Number(linha.quantidadeTroca || 0), "Quantidade de troca"), 0) ?? 0;
+    return numeroDeMilesimos(
+      emMilesimos(Number(trocasDisponiveis[`${produtoId}:${clienteId}`] ?? 0), "Saldo de troca") - usadoMilesimos,
+    );
   };
   const temErroSaldoTroca = produtosDistribuicao.some((produto) =>
     [...new Set(produto.linhas.map((linha) => linha.clienteId))].some(
@@ -469,27 +501,28 @@ export default function DistribuicaoForm({
 
   async function handleSubmit() {
     if (!podeEnviar || !confirmouSobras) return;
+    const envio = {
+      chaveIdempotencia,
+      data,
+      confirmouSobras,
+      produtos: produtosDistribuicao.map((p) => ({
+        produtoId: p.produtoId,
+        quantidadeTotal: Number(p.quantidadeTotal || 0),
+        linhas: p.linhas.map((l) => ({
+          clienteId: l.clienteId,
+          emitenteId: l.emitenteId,
+          quantidadeDistribuida: Number(l.quantidadeDistribuida || 0),
+          quantidadeTroca: Number(l.quantidadeTroca || 0),
+          precoUnitario: Number(l.precoUnitario || 0),
+          precoPromocional: l.precoPromocional,
+        })),
+      })),
+    };
     setEnviando(true);
     setStatus(null);
     setResultado(null);
     try {
-      const processado = await processarDistribuicao({
-        chaveIdempotencia,
-        data,
-        confirmouSobras,
-        produtos: produtosDistribuicao.map((p) => ({
-          produtoId: p.produtoId,
-          quantidadeTotal: Number(p.quantidadeTotal || 0),
-          linhas: p.linhas.map((l) => ({
-              clienteId: l.clienteId,
-              emitenteId: l.emitenteId,
-              quantidadeDistribuida: Number(l.quantidadeDistribuida || 0),
-              quantidadeTroca: Number(l.quantidadeTroca || 0),
-              precoUnitario: Number(l.precoUnitario || 0),
-              precoPromocional: l.precoPromocional,
-            })),
-        })),
-      });
+      const processado = await processarDistribuicao(envio);
       setStatus({ tipo: "ok", texto: processado.reutilizada ? "Esta distribuição já havia sido registrada — nenhum dado foi duplicado." : "Distribuição registrada com segurança." });
       setResultado({ loteId: processado.loteId, numero: processado.numeroDistribuicao, tarefas: processado.tarefasCriadas });
       setFalhaRascunho(!gravarRascunhoLocal(chaveRascunho, null));
@@ -507,7 +540,9 @@ export default function DistribuicaoForm({
   }
 
   return (
-    <div className="pb-28 md:pb-6">
+    <div className="pb-28 md:pb-6" aria-busy={enviando}>
+      {enviando && <p role="status" aria-live="polite" className="mt-4 rounded-[var(--radius-control)] border border-[var(--field)] bg-[var(--field-tint)] px-4 py-3 text-sm text-[var(--field-strong)]">Enviando a conferência atual. Os campos ficam bloqueados até recebermos o resultado.</p>}
+      <div inert={enviando ? true : undefined} className={enviando ? "pointer-events-none select-none opacity-70" : undefined}>
       {falhaRascunho && <p role="status" className="mt-4 rounded border border-[var(--wheat)] p-3 text-sm">
         Não foi possível atualizar o rascunho neste navegador. {resultado
           ? "A distribuição foi registrada. Um rascunho antigo pode reaparecer; confira as tarefas antes de reenviar."
@@ -682,6 +717,7 @@ export default function DistribuicaoForm({
           <div className="relative flex-1">
             <input
               id="busca-produto"
+              ref={buscaProdutoRef}
               type="search"
               value={buscaProduto}
               onFocus={() => {
@@ -711,6 +747,7 @@ export default function DistribuicaoForm({
                 if (event.key === "Enter" && produtosFiltrados.length > 0) {
                   event.preventDefault();
                   selecionarProduto(produtosFiltrados[Math.min(indiceProdutoAtivo, produtosFiltrados.length - 1)]);
+                  window.setTimeout(() => quantidadeProdutoRef.current?.focus(), 0);
                 }
                 if (event.key === "Escape") setSeletorProdutoAberto(false);
               }}
@@ -758,12 +795,19 @@ export default function DistribuicaoForm({
             )}
           </div>
           <input
+            ref={quantidadeProdutoRef}
             type="number"
             inputMode="decimal"
             value={quantidadeParaAdicionar}
             aria-label="Quantidade disponível do produto a adicionar"
             min="0"
             onChange={(e) => setQuantidadeParaAdicionar(e.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && produtoParaAdicionar && quantidadeParaAdicionar && destinos.length > 0) {
+                event.preventDefault();
+                adicionarProduto();
+              }
+            }}
             placeholder="Qtd. total"
             className="font-mono-tab w-full sm:w-28"
           />
@@ -804,10 +848,18 @@ export default function DistribuicaoForm({
           avance para o próximo, sem alterar o agrupamento fiscal por emitente. */}
       <div className="mt-4 space-y-4">
         {clientes.filter((cliente) => mercadosSelecionados.has(cliente.id)).map((cliente, indiceMercado) => {
+          const produtosConferidos = produtosDistribuicao.filter((produto) => {
+            const linhas = produto.linhas.filter((linha) => linha.clienteId === cliente.id);
+            return linhas.length > 0 && linhas.every((linha) => linha.quantidadeDistribuida !== "");
+          }).length;
+          const primeiraPendencia = produtosDistribuicao.flatMap((produto) => produto.linhas
+            .filter((linha) => linha.clienteId === cliente.id && linha.quantidadeDistribuida === "")
+            .map((linha) => ({ produtoId: produto.produtoId, linha })),
+          )[0];
           return <Card key={cliente.id} className="p-4">
             <div className="flex items-start justify-between gap-3">
               <div><p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[var(--field-strong)]">Mercado {indiceMercado + 1} de {mercadosSelecionados.size}</p><h2 className="mt-1 text-lg font-medium">{cliente.nome}</h2></div>
-              <span className="rounded-full bg-[var(--field-tint)] px-2 py-1 text-[11px] font-medium text-[var(--field-strong)]">{produtosDistribuicao.length} produto(s)</span>
+              <button type="button" onClick={() => primeiraPendencia && document.getElementById(`quantidade-${primeiraPendencia.produtoId}-${chaveDestino(primeiraPendencia.linha)}`)?.focus()} className={`rounded-full px-2 py-1 text-[11px] font-medium ${produtosConferidos === produtosDistribuicao.length ? "bg-[var(--field-tint)] text-[var(--field-strong)]" : "bg-[var(--cream)] text-[var(--ink-soft)]"}`}>{produtosConferidos} de {produtosDistribuicao.length} conferidos</button>
             </div>
             {produtosDistribuicao.length > 0 ? <div className="mt-4 space-y-3">
               {produtosDistribuicao.map((p) => {
@@ -829,9 +881,9 @@ export default function DistribuicaoForm({
                     return <div key={chaveDestino(linha)} className={`rounded-[var(--radius-control)] border p-2.5 ${preenchido ? "border-[var(--field)]" : "border-[var(--line)]"}`}>
                       {linhas.length > 1 && <p className="mb-2 text-[12px] text-[var(--ink-soft)]">Emitente: {emitente.nome}</p>}
                       <div className="grid grid-cols-[1fr_auto] items-center gap-2"><Label>Quantidade total</Label>{preenchido && !resultadoLinha.erro && <span className="font-mono-tab text-[13px] text-[var(--wheat)]">{moeda.format(resultadoLinha.subtotal)}</span>}</div>
-                      <div className="mt-1 flex items-center gap-1.5"><button type="button" onClick={() => ajustarQuantidade(p.produtoId, linha, -1)} aria-label={`Diminuir ${produto.descricao}`} className="w-9 shrink-0 rounded-[var(--radius-control)] border border-[var(--line-strong)] text-[var(--ink-soft)] active:bg-[var(--field-tint)]">−</button><input type="number" inputMode="decimal" value={linha.quantidadeDistribuida} aria-label={`Quantidade total de ${produto.descricao} para ${cliente.nome} — ${emitente.nome}`} min="0" onChange={(e) => atualizarLinha(p.produtoId, linha, "quantidadeDistribuida", e.target.value)} placeholder="0" className="font-mono-tab h-10! min-h-0! w-full text-center" /><button type="button" onClick={() => ajustarQuantidade(p.produtoId, linha, 1)} aria-label={`Aumentar ${produto.descricao}`} className="w-9 shrink-0 rounded-[var(--radius-control)] border border-[var(--line-strong)] text-[var(--ink-soft)] active:bg-[var(--field-tint)]">+</button></div>
+                      <div className="mt-1 flex items-center gap-1.5"><button type="button" onClick={() => ajustarQuantidade(p.produtoId, linha, -1)} aria-label={`Diminuir ${produto.descricao}`} className="w-9 shrink-0 rounded-[var(--radius-control)] border border-[var(--line-strong)] text-[var(--ink-soft)] active:bg-[var(--field-tint)]">−</button><input id={`quantidade-${p.produtoId}-${chaveDestino(linha)}`} type="number" inputMode="decimal" value={linha.quantidadeDistribuida} aria-label={`Quantidade total de ${produto.descricao} para ${cliente.nome} — ${emitente.nome}`} min="0" onChange={(e) => atualizarLinha(p.produtoId, linha, "quantidadeDistribuida", e.target.value)} placeholder="0" className="font-mono-tab h-10! min-h-0! w-full text-center" /><button type="button" onClick={() => ajustarQuantidade(p.produtoId, linha, 1)} aria-label={`Aumentar ${produto.descricao}`} className="w-9 shrink-0 rounded-[var(--radius-control)] border border-[var(--line-strong)] text-[var(--ink-soft)] active:bg-[var(--field-tint)]">+</button></div>
                       <p className="mt-1 text-[11px] text-[var(--ink-faint)]">Inclui as unidades de troca desta entrega.</p>
-                      {saldoInicialTroca > 0 || linha.trocaAberta ? <div className="mt-2 rounded border border-[var(--wheat)] bg-[var(--cream)] px-2 py-1.5"><div className="grid grid-cols-[1fr_auto] items-center gap-2"><Label>Troca nesta entrega</Label><input type="number" inputMode="decimal" value={linha.quantidadeTroca} aria-label={`Troca de ${produto.descricao} para ${cliente.nome} — ${emitente.nome}`} min="0" max={maximoNestaLinha} onChange={(e) => atualizarLinha(p.produtoId, linha, "quantidadeTroca", e.target.value)} className="font-mono-tab h-8! min-h-0! w-16 text-right text-[12px]" /></div><p className={`mt-1 text-[11px] ${saldoRestanteTroca < -0.0005 ? "text-[var(--stamp)]" : "text-[var(--ink-soft)]"}`}>{saldoRestanteTroca < -0.0005 ? `Excede o saldo registrado em ${Math.abs(saldoRestanteTroca)} ${produto.unidade}.` : `Saldo após esta distribuição: ${saldoRestanteTroca} ${produto.unidade}.`}</p></div> : <a href="/trocas" className="mt-2 inline-block text-[12px] text-[var(--ink-faint)] underline decoration-dotted underline-offset-2">Sem troca registrada · adicionar saldo</a>}
+                      {saldoInicialTroca > 0 || linha.trocaAberta ? <div className="mt-2 rounded border border-[var(--wheat)] bg-[var(--cream)] px-2 py-1.5"><div className="grid grid-cols-[1fr_auto] items-center gap-2"><Label>Troca nesta entrega</Label><input type="number" inputMode="decimal" value={linha.quantidadeTroca} aria-label={`Troca de ${produto.descricao} para ${cliente.nome} — ${emitente.nome}`} min="0" max={maximoNestaLinha} onChange={(e) => atualizarLinha(p.produtoId, linha, "quantidadeTroca", e.target.value)} className="font-mono-tab h-8! min-h-0! w-16 text-right text-[12px]" /></div><p className={`mt-1 text-[11px] ${saldoRestanteTroca < -0.0005 ? "text-[var(--stamp)]" : "text-[var(--ink-soft)]"}`}>{saldoRestanteTroca < -0.0005 ? `Excede o saldo registrado em ${formatarQuantidade(Math.abs(saldoRestanteTroca))} ${produto.unidade}.` : `Saldo após esta distribuição: ${formatarQuantidade(saldoRestanteTroca)} ${produto.unidade}.`}</p></div> : <a href="/trocas" className="mt-2 inline-block text-[12px] text-[var(--ink-faint)] underline decoration-dotted underline-offset-2">Sem troca registrada · adicionar saldo</a>}
                       <div className="mt-2 flex items-center justify-end gap-1.5 text-[12px]"><span className="text-[var(--ink-soft)]">R$/un:</span><input type="number" step="0.01" inputMode="decimal" value={linha.precoUnitario} aria-label={`Preço de ${produto.descricao} para ${cliente.nome} — ${emitente.nome}`} min="0" onChange={(e) => atualizarLinha(p.produtoId, linha, "precoUnitario", e.target.value)} className="font-mono-tab h-8! min-h-0! w-20 text-right text-[12px]" /></div>
                       {precoAlterado && <label className="mt-2 flex items-center gap-2 text-[12px] text-[var(--ink-soft)]"><input type="checkbox" checked={linha.precoPromocional} onChange={(e) => atualizarLinha(p.produtoId, linha, "precoPromocional", e.target.checked)} className="h-4 w-4 shrink-0" />Preço promocional — não usar como sugestão na próxima distribuição.</label>}
                       {resultadoLinha.erro && <p className="mt-1 text-[12px] text-[var(--stamp)]">{resultadoLinha.erro}</p>}
@@ -926,7 +978,7 @@ export default function DistribuicaoForm({
             {mensagemConfirmacaoDistribuicao(resultado.tarefas)}
           </p>
           <div className="mt-3 grid grid-cols-1 gap-2 min-[380px]:grid-cols-2 text-sm">
-            {resultado.tarefas > 0 && <a href="/tarefas" className="tap-target flex items-center justify-center rounded-[var(--radius-control)] bg-[var(--field)] px-3 text-center font-semibold text-white">Acompanhar emissão</a>}
+            {resultado.tarefas > 0 && <a href={`/tarefas?lote=${encodeURIComponent(resultado.loteId)}`} className="tap-target flex items-center justify-center rounded-[var(--radius-control)] bg-[var(--field)] px-3 text-center font-semibold text-white">Acompanhar emissão</a>}
             <a href={`/entregas?lote=${encodeURIComponent(resultado.loteId)}`} className="tap-target flex items-center justify-center rounded-[var(--radius-control)] border border-[var(--line-strong)] bg-[var(--paper)] px-3 text-center font-medium">Abrir roteiro</a>
           </div>
           <button
@@ -952,6 +1004,7 @@ export default function DistribuicaoForm({
             {enviando ? "Processando…" : "Processar distribuição"}
           </PrimaryButton>
         </div>
+      </div>
       </div>
     </div>
   );

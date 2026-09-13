@@ -176,6 +176,12 @@ export default function RelatoriosView({
             detalhe={`${formatarQuantidade(operacao.pendentes, "pendente", "pendentes")} · ${operacao.emAndamento} em curso`}
           />
           <KpiOperacional
+            titulo="Atenção"
+            valor={String(operacao.atencao)}
+            detalhe="tarefas que exigem conferência antes de qualquer nova ação"
+            alerta={operacao.atencao > 0}
+          />
+          <KpiOperacional
             titulo="Erros"
             valor={String(operacao.erros)}
             detalhe="tarefas com falha; a causa exige diagnóstico"

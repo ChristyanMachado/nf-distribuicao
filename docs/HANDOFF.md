@@ -1,5 +1,24 @@
 # Handoff — Estado Atual
 
+## Auditoria operacional e de UX — 13/09/2026
+
+- Auditoria concluída sem alterar Web, banco, Worker, Vercel ou operação fiscal.
+  Plano completo: `AUDITORIA-UX-OPERACIONAL-2026-09-13.md`.
+- Prioridade imediata: normalizar quantidades em milésimos de ponta a ponta,
+  congelar um snapshot do formulário durante o envio e alinhar
+  `AGUARDANDO_CONFERENCIA` como Atenção em Home/relatórios.
+- Risco confirmado e reproduzível: disponibilidade `0,3` com linhas `0,1 + 0,2`
+  é rejeitada pela soma binária atual, embora a sobra exibida seja zero.
+- Depois: proteger rascunho contra substituição acidental, atalhos por teclado,
+  abrir diretamente o lote recém-enviado e consultar a conclusão do último lote
+  sem inferi-la do recorte global de 100 tarefas.
+- Idempotência semântica de lotes e entrada aditiva de trocas exige desenho/teste
+  transacional; qualquer migration remota permanece condicionada a autorização.
+- Base do mesmo commit: 153 testes Web em 29 arquivos aprovados. Validação visual
+  autenticada em desktop/celular continua pendente. Nada desta auditoria depende
+  do PC servidor; instalação, concorrência real e impressão física continuam no
+  roteiro separado.
+
 ## Refinamento local de trocas e roteiro — 12/09/2026
 
 - `/entregas` mantém um único roteiro. Ele foi adaptado para tela de celular e
@@ -1622,3 +1641,11 @@ operacionais; o futuro financeiro deve consultar também o estado fiscal da nota
   credenciais iguais, mas 2 tarefas só serão ensaiadas em homologação após uma
   execução individual saudável. A tentativa anterior na VM Micro falhou nos
   menus da Receita; produção continua em 1 até evidência no novo PC.
+# Atualização operacional — 13/09/2026 (lote de robustez local)
+
+- Foram preparados dois reforços de idempotência que **dependem das migrations locais** `0018_idempotencia_semantica_lotes.sql` e `0019_livro_idempotente_trocas.sql` antes de qualquer deploy do Web:
+  - o lote de distribuição agora recebe `payload_hash`, impedindo reutilizar a mesma UUID com conteúdo diferente;
+  - uma entrada de troca é registrada primeiro em `trocas_lancamentos`, com UUID única, e só então projeta o saldo em `trocas_mercado`.
+- Essas migrations **não foram aplicadas no Supabase remoto nesta rodada**. Aplicar exige autorização explícita do responsável, seguida de `npm run db:migrate:runtime` no diretório `web` com o `.env` correto. A migration `0014` do Ponto permanece fora de escopo.
+- Também foram corrigidos cálculo em milésimos, bloqueio do rascunho enquanto envia, foco de teclado nos produtos, preservação de filtros por distribuição, preferências do roteiro e indicadores de atenção.
+- Validação desta rodada: `git diff --check` e o JSON do journal passaram. A suíte Web/build deve ser reexecutada em um checkout com `node_modules` completo: neste worktree o `npm ci` não materializou as dependências de desenvolvimento e o runtime `tsx` externo falhou antes de carregar os testes (`uv_os_get_passwd ... ENOMEM`). Não interpretar isso como teste aprovado.

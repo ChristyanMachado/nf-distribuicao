@@ -127,6 +127,20 @@
       "when": 1789232400000,
       "tag": "0017_impressao_roteiros",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1789318800000,
+      "tag": "0018_idempotencia_semantica_lotes",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1789318860000,
+      "tag": "0019_livro_idempotente_trocas",
+      "breakpoints": true
     }
   ]
 }

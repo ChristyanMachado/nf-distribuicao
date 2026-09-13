@@ -41,16 +41,20 @@ export function agruparRoteiroEntrega(linhas: LinhaEntrega[]): ParadaEntrega[] {
     const itemExistente = parada.itens.find((item) => item.produtoId === linha.produtoId);
     const subtotal = linha.quantidadeFaturavel * linha.precoUnitario;
     if (itemExistente) {
-      itemExistente.quantidadeDistribuida += linha.quantidadeDistribuida;
-      itemExistente.quantidadeTroca += linha.quantidadeTroca;
+      itemExistente.quantidadeDistribuida = numeroDeMilesimos(
+        emMilesimos(itemExistente.quantidadeDistribuida) + emMilesimos(linha.quantidadeDistribuida),
+      );
+      itemExistente.quantidadeTroca = numeroDeMilesimos(
+        emMilesimos(itemExistente.quantidadeTroca) + emMilesimos(linha.quantidadeTroca),
+      );
       itemExistente.subtotal += subtotal;
     } else {
       parada.itens.push({
         produtoId: linha.produtoId,
         produtoDescricao: linha.produtoDescricao,
         unidade: linha.unidade,
-        quantidadeDistribuida: linha.quantidadeDistribuida,
-        quantidadeTroca: linha.quantidadeTroca,
+        quantidadeDistribuida: numeroDeMilesimos(emMilesimos(linha.quantidadeDistribuida)),
+        quantidadeTroca: numeroDeMilesimos(emMilesimos(linha.quantidadeTroca)),
         subtotal,
       });
     }
@@ -58,3 +62,4 @@ export function agruparRoteiroEntrega(linhas: LinhaEntrega[]): ParadaEntrega[] {
   }
   return [...porCliente.values()];
 }
+import { emMilesimos, numeroDeMilesimos } from "./quantidades";

@@ -187,7 +187,7 @@ export default async function DashboardPage() {
   const { hoje, totalDistribuicoes, totalNotas, operacaoHoje, prontidao } =
     await carregarResumoOperacional();
   const tarefasAbertas = operacaoHoje.pendentes + operacaoHoje.emAndamento;
-  const existeAtencao = operacaoHoje.erros > 0;
+  const existeAtencao = operacaoHoje.erros + operacaoHoje.atencao > 0;
 
   return (
     <div>
@@ -244,8 +244,8 @@ export default async function DashboardPage() {
                 tom="progresso"
               />
               <StatusItem
-                rotulo="Erros"
-                valor={operacaoHoje.erros}
+                rotulo="Atenção"
+                valor={operacaoHoje.erros + operacaoHoje.atencao}
                 tom={existeAtencao ? "alerta" : "sucesso"}
               />
             </div>
@@ -258,7 +258,7 @@ export default async function DashboardPage() {
             >
               <span className="font-medium">
                 {existeAtencao
-                  ? `${operacaoHoje.erros} tarefa(s) precisa(m) de atenção`
+                  ? `${operacaoHoje.erros + operacaoHoje.atencao} tarefa(s) precisa(m) de atenção`
                   : tarefasAbertas > 0
                     ? `${tarefasAbertas} tarefa(s) em andamento na operação`
                     : "Nenhuma pendência ou erro hoje"}

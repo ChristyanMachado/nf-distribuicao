@@ -67,6 +67,7 @@ export type KpisOperacionais = {
   notasCanceladas: number;
   pendentes: number;
   emAndamento: number;
+  atencao: number;
   erros: number;
   distribuicoesMedidas: number;
   distribuicoesComparaveis: number;
@@ -165,7 +166,8 @@ export function calcularKpisOperacionais(tarefas: TarefaOperacional[]): KpisOper
     emitidas: emitidas.length,
     notasCanceladas: notasCanceladas.length,
     pendentes: validas.filter((t) => t.status === "PENDENTE").length,
-    emAndamento: validas.filter((t) => ["PROCESSANDO", "AGUARDANDO_CONFERENCIA", "EMITINDO"].includes(t.status)).length,
+    emAndamento: validas.filter((t) => ["PROCESSANDO", "EMITINDO"].includes(t.status)).length,
+    atencao: validas.filter((t) => t.status === "AGUARDANDO_CONFERENCIA").length,
     erros: validas.filter((t) => t.status === "ERRO").length,
     distribuicoesMedidas: medicoesDosLotes.length,
     distribuicoesComparaveis: medicoesComparaveis.length,

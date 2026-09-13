@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Card from "@/components/Card";
 import PrimaryButton from "@/components/PrimaryButton";
 import type { ParadaEntrega } from "@/lib/entregas";
 import { dataIsoParaBrasil } from "@/lib/datas";
+import { formatarQuantidade } from "@/lib/quantidades";
 
 type Lote = { id: string; numero: number | null; data: string; criadoEm: string };
 
@@ -31,6 +32,27 @@ export default function RoteiroEntregaView({
   const [mostrarTrocas, setMostrarTrocas] = useState(true);
   const [mostrarValores, setMostrarValores] = useState(false);
   const [mostrarConferencia, setMostrarConferencia] = useState(true);
+  const [preferenciasCarregadas, setPreferenciasCarregadas] = useState(false);
+
+  useEffect(() => {
+    try {
+      const salvo = window.localStorage.getItem("graalyst:roteiro-opcoes:v1");
+      if (!salvo) return;
+      const opcoes = JSON.parse(salvo) as Partial<Record<"endereco" | "trocas" | "valores" | "conferencia", boolean>>;
+      if (typeof opcoes.endereco === "boolean") setMostrarEndereco(opcoes.endereco);
+      if (typeof opcoes.trocas === "boolean") setMostrarTrocas(opcoes.trocas);
+      if (typeof opcoes.valores === "boolean") setMostrarValores(opcoes.valores);
+      if (typeof opcoes.conferencia === "boolean") setMostrarConferencia(opcoes.conferencia);
+    } catch { /* preferência local é opcional */ }
+    finally { setPreferenciasCarregadas(true); }
+  }, []);
+
+  useEffect(() => {
+    if (!preferenciasCarregadas) return;
+    try {
+      window.localStorage.setItem("graalyst:roteiro-opcoes:v1", JSON.stringify({ endereco: mostrarEndereco, trocas: mostrarTrocas, valores: mostrarValores, conferencia: mostrarConferencia }));
+    } catch { /* não impedir a impressão se o navegador bloquear storage */ }
+  }, [mostrarEndereco, mostrarTrocas, mostrarValores, mostrarConferencia, preferenciasCarregadas]);
 
   const totalRoteiro = roteiro.reduce(
     (total, parada) => total + parada.itens.reduce((subtotal, item) => subtotal + item.subtotal, 0),
@@ -54,7 +76,7 @@ export default function RoteiroEntregaView({
   }
 
   function quantidadeNormal(quantidadeDistribuida: number, quantidadeTroca: number) {
-    return Number(Math.max(0, quantidadeDistribuida - quantidadeTroca).toFixed(3));
+    return formatarQuantidade(Math.max(0, quantidadeDistribuida - quantidadeTroca));
   }
 
   return (
@@ -138,7 +160,7 @@ export default function RoteiroEntregaView({
                       <div key={`${parada.clienteId}-${item.produtoId}`} className={`print-item grid ${gradeItens} items-center gap-x-3 gap-y-1 px-4 py-3`}>
                         <span className="min-w-0 font-medium leading-snug">{item.produtoDescricao}</span>
                         <span className="font-mono-tab text-right text-base font-bold">{quantidadeNormal(item.quantidadeDistribuida, item.quantidadeTroca)} {item.unidade}</span>
-                        {mostrarTrocas && <span className="font-mono-tab text-right text-base font-bold text-[var(--stamp)]">{item.quantidadeTroca > 0 ? `${item.quantidadeTroca} ${item.unidade}` : "—"}</span>}
+                        {mostrarTrocas && <span className="font-mono-tab text-right text-base font-bold text-[var(--stamp)]">{item.quantidadeTroca > 0 ? `${formatarQuantidade(item.quantidadeTroca)} ${item.unidade}` : "—"}</span>}
                         {mostrarValores && <span className={`text-right text-sm font-semibold ${mostrarTrocas ? "col-span-3" : "col-span-2"}`}>{moeda.format(item.subtotal)}</span>}
                       </div>
                     ))}

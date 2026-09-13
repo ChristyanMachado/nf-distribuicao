@@ -1,5 +1,6 @@
 "use server";
 
+import { createHash } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import {
@@ -228,6 +229,39 @@ type ProdutoDistribuicao = {
   linhas: LinhaDistribuicao[];
 };
 
+/**
+ * Produz uma representação estável do lote. Ela não contém credenciais nem
+ * dados fora do próprio formulário e não substitui a UUID idempotente: serve
+ * para detectar o caso perigoso de a mesma UUID ser enviada com outro conteúdo.
+ */
+function hashSemanticoDistribuicao(input: {
+  data: string;
+  confirmouSobras?: boolean;
+  produtos: ProdutoDistribuicao[];
+}): string {
+  const canonico = {
+    data: input.data,
+    confirmouSobras: input.confirmouSobras === true,
+    produtos: input.produtos
+      .map((produto) => ({
+        produtoId: produto.produtoId,
+        quantidadeTotal: deMilesimos(emMilesimos(produto.quantidadeTotal, "Quantidade disponível")),
+        linhas: produto.linhas
+          .map((linha) => ({
+            clienteId: linha.clienteId,
+            emitenteId: linha.emitenteId,
+            quantidadeDistribuida: deMilesimos(emMilesimos(linha.quantidadeDistribuida, "Quantidade distribuída")),
+            quantidadeTroca: deMilesimos(emMilesimos(linha.quantidadeTroca, "Quantidade de troca")),
+            precoUnitarioCentavos: Math.round(linha.precoUnitario * 100),
+            precoPromocional: linha.precoPromocional,
+          }))
+          .sort((a, b) => `${a.clienteId}:${a.emitenteId}`.localeCompare(`${b.clienteId}:${b.emitenteId}`)),
+      }))
+      .sort((a, b) => a.produtoId.localeCompare(b.produtoId)),
+  };
+  return createHash("sha256").update(JSON.stringify(canonico)).digest("hex");
+}
+
 // Protege a Server Action contra payloads artificiais muito maiores que a
 // interface consegue produzir. O teto não limita a operação esperada (hoje
 // são poucos clientes/produtos), mas impede milhões de validações/inserts em
@@ -286,6 +320,7 @@ export async function processarDistribuicao(input: {
       destinosRecebidos.add(destino);
       exigirNumeroFinito(linha.quantidadeDistribuida, "Quantidade distribuída");
       exigirNumeroFinito(linha.quantidadeTroca, "Quantidade de troca");
+      emMilesimos(linha.quantidadeDistribuida, "Quantidade distribuída");
       emMilesimos(linha.quantidadeTroca, "Quantidade de troca");
       exigirNumeroFinito(linha.precoUnitario, "Preço unitário");
       // Valida também linhas zeradas/sem faturamento antes de qualquer escrita.
@@ -305,16 +340,24 @@ export async function processarDistribuicao(input: {
     }
   }
 
+  const payloadHash = hashSemanticoDistribuicao(input);
+
   const resultado = await db.transaction(async (tx) => {
     const [lote] = await tx
       .insert(lotesDistribuicao)
-      .values({ data: input.data, chaveIdempotencia: input.chaveIdempotencia })
+      .values({ data: input.data, chaveIdempotencia: input.chaveIdempotencia, payloadHash })
       .onConflictDoNothing({ target: lotesDistribuicao.chaveIdempotencia })
       .returning();
     if (!lote) {
-      const [existente] = await tx.select({ id: lotesDistribuicao.id, numero: lotesDistribuicao.numero })
+      const [existente] = await tx.select({ id: lotesDistribuicao.id, numero: lotesDistribuicao.numero, payloadHash: lotesDistribuicao.payloadHash })
         .from(lotesDistribuicao).where(eq(lotesDistribuicao.chaveIdempotencia, input.chaveIdempotencia)).limit(1);
       if (!existente) throw new Error("Não foi possível recuperar a distribuição já processada.");
+      if (!existente.payloadHash) {
+        throw new Error("Esta distribuição foi criada por uma versão anterior e não pode ser reutilizada com segurança. Inicie uma nova distribuição.");
+      }
+      if (existente.payloadHash !== payloadHash) {
+        throw new Error("Este envio já foi usado para outra distribuição. Revise o formulário e inicie uma nova distribuição.");
+      }
       const tarefasExistentes = await tx.select({ id: tarefas.id }).from(tarefas).where(eq(tarefas.loteId, existente.id));
       for (const tarefa of tarefasExistentes) {
         const [semSnapshot] = await tx

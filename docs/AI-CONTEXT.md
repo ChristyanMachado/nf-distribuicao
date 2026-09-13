@@ -1,5 +1,23 @@
 # AI Context — NF Distribuição
 
+## Próxima sequência após auditoria operacional — 13/09/2026
+
+Não iniciar uma refatoração ampla. Executar em unidades pequenas o plano de
+`AUDITORIA-UX-OPERACIONAL-2026-09-13.md`. Primeiro: (1) quantidades em milésimos
+em cálculo/preview/roteiro, pois `0,1 + 0,2` ainda pode rejeitar total `0,3`; (2)
+snapshot imutável e controles bloqueados durante o envio; (3) tratar
+`AGUARDANDO_CONFERENCIA` como Atenção também nos KPIs. Depois proteger rascunho,
+adicionar Enter/foco no cadastro de produto, direcionar os links ao lote criado
+e corrigir a conclusão do último lote quando o histórico alcança 100 tarefas.
+
+Preservar o fluxo por mercado, o resumo final no mesmo formulário, repetição com
+trocas zeradas e o desenho aprovado de Normal/Troca. Não criar confirmação extra
+em todas as distribuições. Idempotência semântica do lote e registro de trocas
+podem exigir migrations: preparar e testar localmente, mas não aplicar ao banco
+remoto sem autorização. Itens do PC servidor (instalação, duas execuções reais e
+impressora) não bloqueiam os quick wins Web. A auditoria não alterou runtime,
+banco, deploy ou operação fiscal; 153 testes Web do commit auditado passaram.
+
 ## Fila de impressão automática preparada localmente — 12/09/2026
 
 O Worker terá uma fila separada de impressão de roteiro por distribuição. A
@@ -633,3 +651,8 @@ mapeadas, nas quais a consulta acrescentaria custo sem reduzir leitura.
 - Não afirmar que algo funciona sem teste proporcional ao risco.
 - Toda mudança de arquitetura deve ser registrada.
 - Commits usam a identidade do programador; IA é ferramenta de apoio.
+# Atualização de robustez — 13/09/2026
+
+- `processarDistribuicao` normaliza quantidades em milésimos e calcula um hash semântico do formulário; uma colisão de `chave_idempotencia` com conteúdo diferente falha de modo seguro.
+- `trocas_lancamentos` é o livro idempotente das inclusões de troca; `trocas_mercado` continua sendo apenas o saldo agregado. As migrations `0018` e `0019` são pré-requisito de runtime e ainda não foram aplicadas no remoto.
+- Não remover os testes de arredondamento fracionário: eles protegem exatamente o caso `0,1 + 0,2 = 0,3` que o portal fiscal exige sem sobras artificiais.

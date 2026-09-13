@@ -9,7 +9,7 @@ import {
   type VisaoTarefas,
 } from "@/lib/tarefas-visao";
 import TarefaCard from "./TarefaCard";
-import { listarTarefasComItens } from "./actions";
+import { carregarResumoUltimaDistribuicao, listarTarefasComItens } from "./actions";
 import { obterConfiguracaoOperacional } from "../configuracoes/actions";
 import { descreverJanela } from "@/lib/janela-operacional";
 import { carregarWorkers } from "@/lib/workers.server";
@@ -27,13 +27,14 @@ const ABAS: { id: VisaoTarefas; label: string }[] = [
 export default async function TarefasPage({
   searchParams,
 }: {
-  searchParams: Promise<{ visao?: string }>;
+  searchParams: Promise<{ visao?: string; lote?: string }>;
 }) {
-  const [lista, parametros, janela, workers] = await Promise.all([
+  const [lista, parametros, janela, workers, resumoUltima] = await Promise.all([
     listarTarefasComItens(),
     searchParams,
     obterConfiguracaoOperacional(),
     carregarWorkers(),
+    carregarResumoUltimaDistribuicao(),
   ]);
   const visao = normalizarVisaoTarefas(parametros.visao);
   const contagens = Object.fromEntries(
@@ -45,14 +46,15 @@ export default async function TarefasPage({
   const tarefasVisiveis = lista.filter(
     (tarefa) => visaoDaTarefa(tarefa.status) === visao,
   );
-  const grupos = agruparPorDistribuicao(tarefasVisiveis);
+  const grupos = agruparPorDistribuicao(tarefasVisiveis)
+    .filter((grupo) => !parametros.lote || grupo.loteId === parametros.lote);
   const temTarefaAtiva = lista.some((tarefa) =>
     ["PENDENTE", "PROCESSANDO", "EMITINDO"].includes(tarefa.status),
   );
-  const ultima = agruparPorDistribuicao(lista)[0];
-  const emitidas = ultima?.tarefas.filter((t) => visaoDaTarefa(t.status) === "concluidas").length ?? 0;
-  const problemas = ultima?.tarefas.filter((t) => visaoDaTarefa(t.status) === "atencao").length ?? 0;
-  const concluida = !!ultima && lista.length < 100 && emitidas === ultima.tarefas.length;
+  const ultima = resumoUltima;
+  const emitidas = ultima?.emitidas ?? 0;
+  const problemas = ultima?.problemas ?? 0;
+  const concluida = ultima?.concluida ?? false;
   const processando = lista.some((t) =>
     ["PROCESSANDO", "EMITINDO"].includes(t.status)
     && t.reservaExpiraEm && t.reservaExpiraEm.getTime() > Date.now(),
@@ -67,17 +69,17 @@ export default async function TarefasPage({
       <p className="mt-1 text-[12px] text-[var(--ink-faint)]">Exibimos as 100 tarefas mais recentes e todas as pendências, inclusive antigas. As contagens abaixo correspondem a esse recorte.</p>
       <AtualizacaoAutomatica ativa intervaloMs={intervaloAtualizacaoWorkers(temTarefaAtiva)} descricao="Acompanhando tarefas e servidores automaticamente" />
       <PainelWorkers dados={workers} janela={descreverJanela(janela)} execucaoLegada={processando} />
-      {ultima?.numeroDistribuicao && (
+      {ultima?.numero && (
         <Card className={`mt-4 p-4 ${problemas ? "border-[var(--stamp)] bg-[var(--stamp-tint)]" : "border-[var(--field)] bg-[var(--field-tint)]"}`}>
           <div role="status" aria-live="polite">
-            <p className="text-[12px] font-semibold uppercase tracking-wide">Distribuição {String(ultima.numeroDistribuicao).padStart(6, "0")}</p>
+            <p className="text-[12px] font-semibold uppercase tracking-wide">Distribuição {String(ultima.numero).padStart(6, "0")}</p>
             <h2 className="mt-1 text-lg font-semibold">{concluida ? "Distribuição concluída" : problemas ? "Uma parte precisa de atenção" : "Acompanhe sua distribuição"}</h2>
-            <p className="mt-1 text-sm">{emitidas} de {ultima.tarefas.length} notas emitidas{problemas ? ` · ${problemas} para conferir` : ""}.</p>
+            <p className="mt-1 text-sm">{emitidas} de {ultima.total} notas emitidas{problemas ? ` · ${problemas} para conferir` : ""}.</p>
           </div>
           <div className="mt-3 flex flex-wrap gap-3 text-sm font-medium">
-            {problemas > 0 && <Link className="tap-target inline-flex items-center underline" href="/tarefas?visao=atencao">Conferir problemas</Link>}
-            {emitidas > 0 && <Link className="tap-target inline-flex items-center underline" href="/notas">Abrir documentos</Link>}
-            <Link className="tap-target inline-flex items-center underline" href={`/entregas?lote=${ultima.loteId}`}>Roteiro de entrega</Link>
+            {problemas > 0 && <Link className="tap-target inline-flex items-center underline" href={`/tarefas?visao=atencao&lote=${ultima.id}`}>Conferir problemas</Link>}
+            {emitidas > 0 && <Link className="tap-target inline-flex items-center underline" href={`/notas?lote=${ultima.id}`}>Abrir documentos</Link>}
+            <Link className="tap-target inline-flex items-center underline" href={`/entregas?lote=${ultima.id}`}>Roteiro de entrega</Link>
           </div>
         </Card>
       )}
@@ -88,10 +90,14 @@ export default async function TarefasPage({
       >
         {ABAS.map((aba) => {
           const ativa = aba.id === visao;
+          const busca = new URLSearchParams();
+          if (aba.id !== "pendentes") busca.set("visao", aba.id);
+          if (parametros.lote) busca.set("lote", parametros.lote);
+          const href = busca.size ? `/tarefas?${busca.toString()}` : "/tarefas";
           return (
             <Link
               key={aba.id}
-              href={aba.id === "pendentes" ? "/tarefas" : `/tarefas?visao=${aba.id}`}
+              href={href}
               aria-current={ativa ? "page" : undefined}
               className={`tap-target flex min-h-11 min-w-0 items-center justify-center gap-1 rounded-[calc(var(--radius-control)-3px)] px-2 text-center text-[12px] font-medium sm:text-sm ${
                 ativa
@@ -107,6 +113,12 @@ export default async function TarefasPage({
           );
         })}
       </nav>
+
+      {parametros.lote && (
+        <p className="mt-3 text-sm text-[var(--ink-soft)]">
+          Exibindo somente esta distribuição. <Link className="font-medium underline" href={visao === "pendentes" ? "/tarefas" : `/tarefas?visao=${visao}`}>Ver todas</Link>
+        </p>
+      )}
 
       <div className="mt-5 space-y-4">
         {grupos.map((grupo) => (
