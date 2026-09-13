@@ -1583,3 +1583,16 @@ operacionais; o futuro financeiro deve consultar também o estado fiscal da nota
   execução das funções de fila. Ainda falta configurar uma impressora de teste
   no PC servidor e executar um ensaio sem emissão fiscal. Não houve impressão
   real ou mudança em notas/tarefas nesta etapa.
+
+## Base de coordenação de PCs aplicada, ainda desativada — 12/09/2026
+
+- `0016_workers_coordenados.sql` foi aplicada ao projeto Supabase de produção
+  com o gate `fiscal.worker_coordination.enabled=false`. A verificação posterior
+  confirmou `fiscal.workers` e `fiscal.worker_status`, sem `SELECT` para
+  `anon` ou `authenticated`. Não há worker cadastrado, heartbeat, papel novo ou
+  emissão decorrente desta preparação.
+- O próximo passo exige uma decisão física: criar um **papel Postgres exclusivo
+  do PC servidor**, com senha entregue por canal privado, e preencher o
+  `worker.env` fora do Git. Não criar senha de banco em código, commit, log ou
+  chat. Depois instalar o ZIP `dist/worker-servidor-f76fc9f.zip` em manutenção,
+  reiniciar sem login e conferir o heartbeat antes de ativar o gate.

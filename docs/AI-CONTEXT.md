@@ -11,6 +11,14 @@ local ou de rede pelo nome Windows. A migration `0017_impressao_roteiros.sql`
 foi aplicada no Supabase com grants mínimos (sem leitura/execução para anon);
 o endpoint e Worker ainda aguardam publicação/instalação e ensaio de impressora.
 
+## Coordenação física preparada no banco — 12/09/2026
+
+`0016_workers_coordenados.sql` foi aplicada com coordenação desligada. Isso não
+altera o Worker legado nem permite processamento por um computador novo; faltam
+papel exclusivo, segredo fora do Git e ensaio físico em manutenção. A futura
+ativação só ocorre após o PC confirmar heartbeat e o corte SQL rejeitar
+operações/roles legados ativos.
+
 ## Refinamento local de trocas e roteiro — 12/09/2026
 
 - O único roteiro em `/entregas` foi ajustado para leitura e compartilhamento
