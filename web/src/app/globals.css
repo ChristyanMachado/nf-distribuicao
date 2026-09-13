@@ -124,32 +124,34 @@ select:focus {
     border: 0 !important;
     border-radius: 0 !important;
     box-shadow: none !important;
-    font-size: 11px;
-    line-height: 1.25;
+    font-size: 12px;
+    line-height: 1.4;
   }
 
-  .print-route-header { padding: 0 0 7px !important; }
-  .print-route-header h2 { margin-top: 2px !important; font-size: 20px !important; line-height: 1.15 !important; }
-  .print-route-header > p { margin-top: 2px !important; font-size: 10px !important; }
-  .print-route-header > div { margin-top: 6px !important; gap: 5px 24px !important; font-size: 10px !important; }
-  .print-route-list { margin: 8px 0 0 !important; padding: 0 !important; display: grid; gap: 7px !important; }
+  .print-route-header { padding: 0 0 14px !important; }
+  .print-route-header h2 { margin-top: 4px !important; font-size: 26px !important; line-height: 1.2 !important; }
+  .print-route-header > p { margin-top: 4px !important; font-size: 12px !important; }
+  .print-route-header > div { margin-top: 10px !important; gap: 8px 28px !important; font-size: 12px !important; }
+  .print-route-list { margin: 16px 0 0 !important; padding: 0 !important; display: grid; gap: 12px !important; }
 
   .print-card {
     break-inside: avoid;
     border-color: #bbb !important;
   }
 
-  .print-stop-header { gap: 7px !important; padding: 5px 8px !important; }
-  .print-stop-header > span { width: 20px !important; height: 20px !important; font-size: 10px !important; }
-  .print-stop-header h3 { font-size: 13px !important; line-height: 1.2 !important; }
-  .print-stop-header p { margin-top: 1px !important; font-size: 9px !important; }
-  .print-item { gap: 8px !important; padding: 4px 8px !important; font-size: 10px !important; }
-  .print-item > span { font-size: 10px !important; }
-  .print-check { padding: 5px 8px !important; font-size: 9px !important; }
-  .print-check > div { gap: 4px 16px !important; }
-  .print-check > div + div { margin-top: 5px !important; }
+  .print-stop-header { gap: 10px !important; padding: 9px 12px !important; }
+  .print-stop-header > span { width: 28px !important; height: 28px !important; font-size: 12px !important; }
+  .print-stop-header h3 { font-size: 16px !important; line-height: 1.25 !important; }
+  .print-stop-header p { margin-top: 2px !important; font-size: 11px !important; }
+  .print-item { gap: 10px !important; padding: 8px 12px !important; font-size: 12px !important; }
+  .print-item > span { font-size: 12px !important; }
+  .print-check { padding: 9px 12px !important; font-size: 11px !important; }
+  .print-check > div { gap: 6px 20px !important; }
+  .print-check > div + div { margin-top: 8px !important; }
 
   * { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
 }
 
-@page { size: 105mm 190mm; margin: 8mm; }
+/* Volta ao papel padrão de impressora do PC; o layout móvel continua sendo
+   controlado pela tela, não pela folha física. */
+@page { margin: 12mm; }

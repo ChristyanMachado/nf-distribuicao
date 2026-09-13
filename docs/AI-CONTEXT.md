@@ -24,8 +24,11 @@ operações/roles legados ativos.
 - O único roteiro em `/entregas` foi ajustado para leitura e compartilhamento
   por celular. O botão continua usando a impressão nativa para imprimir **ou
   salvar PDF**; não há segunda versão nem biblioteca de PDF. O documento usa
-  cartões por mercado e mantém `Normal` e `Troca` em colunas separadas. No CSS
-  de impressão, o PDF segue o mesmo formato estreito (`105 mm × 190 mm`).
+  cartões por mercado e mantém `Normal` e `Troca` em colunas separadas. Cada
+  quantidade ocupa uma coluna fixa de 6rem, cobrindo até três dígitos e a
+  unidade sem deslocar a coluna vizinha. A impressão voltou ao papel padrão do
+  PC, com margem de 12mm; a tela continua responsiva para celular e o HTML da
+  fila automática usa a mesma largura fixa.
 - `quantidadeDistribuida` é a quantidade **total** da entrega, incluindo troca;
   a quantidade faturável é o total menos a troca. O formulário passou a usar
   esse rótulo e explica a regra no próprio campo.

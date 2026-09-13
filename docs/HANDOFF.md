@@ -1596,3 +1596,16 @@ operacionais; o futuro financeiro deve consultar também o estado fiscal da nota
   `worker.env` fora do Git. Não criar senha de banco em código, commit, log ou
   chat. Depois instalar o ZIP `dist/worker-servidor-f76fc9f.zip` em manutenção,
   reiniciar sem login e conferir o heartbeat antes de ativar o gate.
+
+## Impressão do roteiro ajustada — 12/09/2026
+
+- A correção foi limitada ao layout: `Normal` e `Troca` continuam separados,
+  mas cada coluna de quantidade tem largura fixa de 6rem. Isso mantém a mesma
+  posição para `-`, 1, 2 ou 3 dígitos.
+- A impressão do navegador e o HTML gerado para a fila automática voltaram ao
+  papel padrão com margem de 12mm e espaçamento legível. A visualização de tela
+  permanece responsiva; não foi criada uma segunda versão móvel.
+- `npm test` passou com 153 testes e `npm run build` passou. A verificação visual
+  automatizada não pôde ser executada porque o comando `agent-browser` não está
+  instalado neste ambiente; validar no Chrome usando casos sem troca, troca de
+  1 dígito e troca de 3 dígitos antes do próximo deploy.

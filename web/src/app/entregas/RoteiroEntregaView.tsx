@@ -43,8 +43,11 @@ export default function RoteiroEntregaView({
     { rotulo: "Conferência", ativo: mostrarConferencia, alternar: () => setMostrarConferencia((valor) => !valor) },
   ];
   const gradeItens = mostrarTrocas
-    ? "grid-cols-[minmax(0,1fr)_auto_auto]"
-    : "grid-cols-[minmax(0,1fr)_auto]";
+    // Reservar a mesma largura para as duas quantidades evita que 8, 80 ou
+    // 999 alterem a posição da coluna seguinte. O espaço cobre três dígitos
+    // e a unidade sem depender de espaços no texto.
+    ? "grid-cols-[minmax(0,1fr)_6rem_6rem]"
+    : "grid-cols-[minmax(0,1fr)_6rem]";
 
   function trocarLote(id: string) {
     window.location.assign(`/entregas?lote=${encodeURIComponent(id)}`);
