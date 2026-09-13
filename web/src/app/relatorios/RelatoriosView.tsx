@@ -197,6 +197,17 @@ export default function RelatoriosView({
             detalhe={`${formatarQuantidade(operacao.distribuicoesMedidas, "distribuição medida", "distribuições medidas")} sem reprocessamento · execução do Worker`}
           />
           <KpiOperacional
+            titulo="Espera média na fila"
+            valor={
+              operacao.tempoMedioEsperaFilaSegundos === null
+                ? "—"
+                : formatarDuracao(operacao.tempoMedioEsperaFilaSegundos)
+            }
+            detalhe={operacao.lotesComEsperaMedida
+              ? `${formatarQuantidade(operacao.lotesComEsperaMedida, "distribuição medida", "distribuições medidas")} até o primeiro início do Worker`
+              : "Sem medições suficientes"}
+          />
+          <KpiOperacional
             titulo="Tempo médio por item"
             valor={
               operacao.tempoMedioPorItemSegundos === null
@@ -221,7 +232,7 @@ export default function RelatoriosView({
           </p>
         )}
         <p className="mt-2 text-[11px] leading-relaxed text-[var(--ink-faint)]">
-          Duração medida da primeira tarefa iniciada à última autorização registrada, somente em lotes concluídos na primeira tentativa. Não inclui montagem da distribuição, espera inicial na fila ou armazenamento posterior dos documentos. O teste manual de 5min 37s é uma referência exploratória para 3 notas: igualar o número de notas não garante itens e preparação equivalentes. Lotes mais lentos reduzem o saldo; outros tamanhos não recebem estimativa de economia.
+          Duração medida da primeira tarefa iniciada à última autorização registrada, somente em lotes concluídos na primeira tentativa. A espera média na fila é exibida separadamente, da criação do lote ao primeiro início do Worker. Nenhuma delas inclui montagem da distribuição ou armazenamento posterior dos documentos. O teste manual de 5min 37s é uma referência exploratória para 3 notas: igualar o número de notas não garante itens e preparação equivalentes. Lotes mais lentos reduzem o saldo; outros tamanhos não recebem estimativa de economia.
         </p>
 
         <Card className="mt-4 p-4">

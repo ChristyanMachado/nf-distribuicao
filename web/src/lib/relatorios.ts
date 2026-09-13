@@ -31,6 +31,9 @@ export type TarefaOperacional = {
   loteId: string | null;
   status: string;
   tentativas: number;
+  // Legados e fixtures anteriores a esta métrica não tinham esse timestamp.
+  // Eles continuam válidos para duração de emissão, mas ficam fora da espera.
+  criadoEm?: Date | null;
   iniciadoEm: Date | null;
   concluidoEm: Date | null;
   // A tarefa registra o resultado da emissão; a nota pode ser cancelada
@@ -73,6 +76,8 @@ export type KpisOperacionais = {
   distribuicoesComparaveis: number;
   tempoEconomizadoSegundos: number;
   tempoMedioLoteSegundos: number | null;
+  lotesComEsperaMedida: number;
+  tempoMedioEsperaFilaSegundos: number | null;
   tempoMedioPorNotaSegundos: number | null;
   tempoMedioPorItemSegundos: number | null;
   desempenhoPorEscala: { notasPorLote: number; lotes: number; segundosTotais: number;
@@ -146,6 +151,17 @@ export function calcularKpisOperacionais(tarefas: TarefaOperacional[]): KpisOper
     0
   );
   const medicoesComItens = medicoesDosLotes.filter((m) => m.itens > 0);
+  // Espera de fila e duração de emissão são medidas separadas. Não somar as
+  // duas evita inflar o benchmark fiscal com o tempo até o Worker reservar.
+  const esperasDeFila = Array.from(porLote.values())
+    .map((lote) => {
+      if (lote.some((tarefa) => !tarefa.criadoEm || !tarefa.iniciadoEm)) return null;
+      const criacoes = lote.map((tarefa) => tarefa.criadoEm?.getTime()).filter((v): v is number => v !== undefined);
+      const inicios = lote.map((tarefa) => tarefa.iniciadoEm?.getTime()).filter((v): v is number => v !== undefined);
+      const segundos = (Math.min(...inicios) - Math.min(...criacoes)) / 1000;
+      return Number.isFinite(segundos) && segundos >= 0 && segundos <= 24 * 60 * 60 ? segundos : null;
+    })
+    .filter((segundos): segundos is number => segundos !== null);
   const porEscala = new Map<number, { lotes: number; segundos: number }>();
   for (const medicao of medicoesDosLotes) {
     const atual = porEscala.get(medicao.notas) ?? { lotes: 0, segundos: 0 };
@@ -174,6 +190,10 @@ export function calcularKpisOperacionais(tarefas: TarefaOperacional[]): KpisOper
     tempoEconomizadoSegundos: Math.round(tempoEconomizadoSegundos),
     tempoMedioLoteSegundos: medicoesDosLotes.length
       ? Math.round(medicoesDosLotes.reduce((total, medicao) => total + medicao.segundos, 0) / medicoesDosLotes.length)
+      : null,
+    lotesComEsperaMedida: esperasDeFila.length,
+    tempoMedioEsperaFilaSegundos: esperasDeFila.length
+      ? Math.round(esperasDeFila.reduce((total, segundos) => total + segundos, 0) / esperasDeFila.length)
       : null,
     tempoMedioPorNotaSegundos: medicoesDosLotes.length
       ? Math.round(

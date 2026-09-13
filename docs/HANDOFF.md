@@ -1649,3 +1649,8 @@ operacionais; o futuro financeiro deve consultar também o estado fiscal da nota
 - As migrations `0018_idempotencia_semantica_lotes` e `0019_livro_idempotente_trocas` foram aplicadas no Supabase remoto `kcukzbszakwrfhbsiihw` em 13/09/2026, após autorização explícita. Verificação remota: `payload_hash` existe em `fiscal.lotes_distribuicao`; `fiscal.trocas_lancamentos` possui RLS ativo, chave única e nenhum privilégio para `anon`/`authenticated`. A migration `0014` do Ponto permanece fora de escopo.
 - Também foram corrigidos cálculo em milésimos, bloqueio do rascunho enquanto envia, foco de teclado nos produtos, preservação de filtros por distribuição, preferências do roteiro e indicadores de atenção.
 - Validação desta rodada: `git diff --check` e o JSON do journal passaram. A suíte Web/build deve ser reexecutada em um checkout com `node_modules` completo: neste worktree o `npm ci` não materializou as dependências de desenvolvimento e o runtime `tsx` externo falhou antes de carregar os testes (`uv_os_get_passwd ... ENOMEM`). Não interpretar isso como teste aprovado.
+
+## Métrica de fila separada — 13/09/2026
+
+- O relatório agora consulta `tarefas.criado_em` e calcula a espera como criação do lote até o primeiro início do Worker. Ela é exibida separadamente da duração de emissão, sem contaminar o benchmark fiscal.
+- Registros legados sem `criado_em` continuam presentes nos demais KPIs, mas ficam fora desta nova média. Foi incluído teste unitário para uma espera de 120s e emissão de 60s.

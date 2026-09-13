@@ -73,6 +73,7 @@ export async function carregarRelatorio(
     loteId: tarefas.loteId,
     status: tarefas.status,
     tentativas: tarefas.tentativas,
+    criadoEm: tarefas.criadoEm,
     iniciadoEm: tarefas.iniciadoEm,
     concluidoEm: tarefas.concluidoEm,
     notaStatus: notas.status,

@@ -169,6 +169,19 @@ describe("intervaloDoPreset", () => {
 });
 
 describe("calcularKpisOperacionais", () => {
+  it("separa espera em fila da duração efetiva da emissão", () => {
+    const criado = new Date("2026-09-13T06:00:00Z");
+    const inicio = new Date("2026-09-13T06:02:00Z");
+    const fim = new Date("2026-09-13T06:03:00Z");
+    const resultado = calcularKpisOperacionais([
+      { id: "1", loteId: "l1", status: "EMITIDA", tentativas: 1, criadoEm: criado, iniciadoEm: inicio, concluidoEm: fim },
+      { id: "2", loteId: "l1", status: "EMITIDA", tentativas: 1, criadoEm: criado, iniciadoEm: inicio, concluidoEm: fim },
+    ]);
+    expect(resultado.tempoMedioLoteSegundos).toBe(60);
+    expect(resultado.tempoMedioEsperaFilaSegundos).toBe(120);
+    expect(resultado.lotesComEsperaMedida).toBe(1);
+  });
+
   it("separa escalas sem extrapolar e informa somente amostras medidas", () => {
     const inicio = new Date("2026-09-09T10:00:00Z");
     const tarefas = [[1, 60], [1, 80], [3, 180], [5, 250]].flatMap(([notas, segundos], lote) =>
