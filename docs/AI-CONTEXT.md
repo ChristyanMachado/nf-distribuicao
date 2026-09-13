@@ -654,5 +654,5 @@ mapeadas, nas quais a consulta acrescentaria custo sem reduzir leitura.
 # Atualização de robustez — 13/09/2026
 
 - `processarDistribuicao` normaliza quantidades em milésimos e calcula um hash semântico do formulário; uma colisão de `chave_idempotencia` com conteúdo diferente falha de modo seguro.
-- `trocas_lancamentos` é o livro idempotente das inclusões de troca; `trocas_mercado` continua sendo apenas o saldo agregado. As migrations `0018` e `0019` são pré-requisito de runtime e ainda não foram aplicadas no remoto.
+- `trocas_lancamentos` é o livro idempotente das inclusões de troca; `trocas_mercado` continua sendo apenas o saldo agregado. As migrations `0018` e `0019` foram aplicadas no Supabase remoto em 13/09/2026; a migration `0014` do Ponto permanece adiada.
 - Não remover os testes de arredondamento fracionário: eles protegem exatamente o caso `0,1 + 0,2 = 0,3` que o portal fiscal exige sem sobras artificiais.
