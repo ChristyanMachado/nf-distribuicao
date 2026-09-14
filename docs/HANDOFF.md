@@ -1,5 +1,23 @@
 # Handoff — Estado Atual
 
+## Polimento mobile de Trocas e roteiro — 14/09/2026
+
+- `Trocas` passou a ser um acesso direto na navegação principal de desktop e
+  celular, usando `IconSwap`; a rota existente foi preservada.
+- A tela reutiliza o padrão pesquisável de Distribuição em um componente local
+  (`PesquisaSelecionavel`): lista, digitação parcial, seleção por toque e por
+  teclado, com opções alfabéticas vindas do servidor. O formulário continua
+  enviando UUIDs e a validação transacional no servidor não mudou.
+- Terminologia operacional final: `Quantidade a repor`, `Registrar reposição`,
+  `Reposições pendentes`, `A repor`, `Reposição nesta entrega` e `Pendente após
+  esta entrega`. A quantidade armazenada e consumida continua idêntica; mudou
+  somente a explicação ao operador.
+- Roteiro Web passou a ter colunas de quantidade menores no celular, unidade
+  junto ao nome do produto e tamanho tipográfico responsivo. Não há overflow
+  horizontal e Normal/Troca seguem separados, com Troca em vermelho. A folha de
+  impressão de PC permanece regulada pelas regras `@media print` existentes.
+- Validação: 157 testes Web, TypeScript, `next build` e `git diff --check`.
+
 ## Correção de pipeline — 14/09/2026
 
 Diagnóstico reproduziu o travamento com 18 SELECTs pequenos: pipeline padrão

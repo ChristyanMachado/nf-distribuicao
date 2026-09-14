@@ -68,8 +68,8 @@ export default function RoteiroEntregaView({
     // Reservar a mesma largura para as duas quantidades evita que 8, 80 ou
     // 999 alterem a posição da coluna seguinte. O espaço cobre três dígitos
     // e a unidade sem depender de espaços no texto.
-    ? "grid-cols-[minmax(0,1fr)_6rem_6rem]"
-    : "grid-cols-[minmax(0,1fr)_6rem]";
+    ? "grid-cols-[minmax(0,1fr)_4.75rem_4.75rem] sm:grid-cols-[minmax(0,1fr)_6rem_6rem]"
+    : "grid-cols-[minmax(0,1fr)_4.75rem] sm:grid-cols-[minmax(0,1fr)_6rem]";
 
   function trocarLote(id: string) {
     window.location.assign(`/entregas?lote=${encodeURIComponent(id)}`);
@@ -158,9 +158,9 @@ export default function RoteiroEntregaView({
                     </div>
                     {parada.itens.map((item) => (
                       <div key={`${parada.clienteId}-${item.produtoId}`} className={`print-item grid ${gradeItens} items-center gap-x-3 gap-y-1 px-4 py-3`}>
-                        <span className="min-w-0 font-medium leading-snug">{item.produtoDescricao}</span>
-                        <span className="font-mono-tab text-right text-base font-bold">{quantidadeNormal(item.quantidadeDistribuida, item.quantidadeTroca)} {item.unidade}</span>
-                        {mostrarTrocas && <span className="font-mono-tab text-right text-base font-bold text-[var(--stamp)]">{item.quantidadeTroca > 0 ? `${formatarQuantidade(item.quantidadeTroca)} ${item.unidade}` : "—"}</span>}
+                        <span className="min-w-0 font-medium leading-snug">{item.produtoDescricao}<span className="mt-0.5 block text-xs font-normal text-[var(--ink-faint)] sm:hidden">{item.unidade}</span></span>
+                        <span className="font-mono-tab text-right text-sm font-bold sm:text-base">{quantidadeNormal(item.quantidadeDistribuida, item.quantidadeTroca)} <span className="hidden sm:inline">{item.unidade}</span></span>
+                        {mostrarTrocas && <span className="font-mono-tab text-right text-sm font-bold text-[var(--stamp)] sm:text-base">{item.quantidadeTroca > 0 ? <>{formatarQuantidade(item.quantidadeTroca)} <span className="hidden sm:inline">{item.unidade}</span></> : "—"}</span>}
                         {mostrarValores && <span className={`text-right text-sm font-semibold ${mostrarTrocas ? "col-span-3" : "col-span-2"}`}>{moeda.format(item.subtotal)}</span>}
                       </div>
                     ))}

@@ -13,6 +13,7 @@ import {
   IconTruck,
   IconMore,
   IconLock,
+  IconSwap,
 } from "@/components/icons";
 import { sair } from "@/app/login/actions";
 import IdleLock from "@/components/IdleLock";
@@ -57,6 +58,7 @@ const NAV_ITEMS = [
   { href: "/notas", label: "Notas", Icon: IconReceipt },
   { href: "/relatorios", label: "Relatórios", Icon: IconChart },
   { href: "/entregas", label: "Entregas", Icon: IconTruck },
+  { href: "/trocas", label: "Trocas", Icon: IconSwap },
 ];
 
 const NAV_ITEMS_SECUNDARIOS = [

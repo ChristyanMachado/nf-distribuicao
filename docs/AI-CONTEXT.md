@@ -1,5 +1,17 @@
 # AI Context — NF Distribuição
 
+## UX operacional mobile — 14/09/2026
+
+Trocas significa obrigação de reposição sem custo ao mercado, não mercadoria
+recebida, estoque ou saldo financeiro. A UI usa as palavras `pendente` e `a
+repor`. O valor em `trocas_mercado.quantidade_disponivel` continua sendo a
+quantidade que a próxima distribuição pode abater e é reduzido pela reposição
+consumida. O acesso é direto na navegação; Mercado e Produto usam busca com
+lista, sem alterar contrato, UUIDs, idempotência ou migrations. O roteiro Web
+é mobile-first: em telas pequenas mantém Produto + Normal + Troca sem rolagem
+horizontal, escondendo somente a unidade repetida junto da quantidade e
+mostrando-a abaixo do produto. A impressão do Worker segue HTML próprio.
+
 ## Causa reproduzida do travamento Web — 14/09/2026
 
 A investigação anterior de região/saturação não resolveu o incidente. Diagnóstico
