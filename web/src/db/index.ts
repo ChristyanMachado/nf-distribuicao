@@ -16,15 +16,19 @@ if (!connectionString) {
 
 // Vercel pode executar várias instâncias em paralelo. Cada uma mantém somente
 // uma conexão para não multiplicar a pressão sobre o pooler do Supabase.
-// As páginas já paralelizam consultas independentes; o driver as enfileira
-// nesta conexão curta em vez de abrir até cinco sessões por instância.
-const client = postgres(connectionString, {
+// max limita conexões, mas NÃO desliga o pipeline do Postgres.js. O Supavisor
+// transacional pode perder respostas de consultas sobrepostas na mesma conexão.
+// Zero impede enviar outra consulta antes do ReadyForQuery da anterior.
+// O runtime 3.4.9 aceita max_pipeline, mas suas declarações ainda o omitem.
+const connectionOptions: postgres.Options<{}> & { max_pipeline: number } = {
   prepare: false,
   ssl: "require",
   connect_timeout: 10,
   idle_timeout: 5,
   max_lifetime: 60,
   max: 1,
-});
+  max_pipeline: 0,
+};
+const client = postgres(connectionString, connectionOptions);
 
 export const db = drizzle(client, { schema });

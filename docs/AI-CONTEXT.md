@@ -1,5 +1,17 @@
 # AI Context — NF Distribuição
 
+## Causa reproduzida do travamento Web — 14/09/2026
+
+A investigação anterior de região/saturação não resolveu o incidente. Diagnóstico
+somente leitura com Postgres.js/Supavisor: 18 consultas em 3 grupos de 6, max=1,
+prepare=false. Com max_pipeline=100 (padrão), timeout após 12 s; com
+max_pipeline=0, todas concluíram em 485 ms. O Web agora desativa pipeline na
+mesma conexão. max=1 sozinho não serializa o protocolo. Reprodução segura em
+web/scripts/diagnosticar-pooler.mjs; fornecer DATABASE_URL pelo ambiente, nunca
+no comando. Região gru1 e proteções contra refresh sobreposto permanecem.
+Validar telas autenticadas após deploy; os relatos anteriores de correção por
+região eram hipóteses e foram refutados pelo teste do usuário.
+
 ## Incidente Web de produção — 13/09/2026
 
 Após um lançamento de troca, várias rotas dinâmicas expiraram na Vercel por

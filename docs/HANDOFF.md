@@ -1,5 +1,15 @@
 # Handoff — Estado Atual
 
+## Correção de pipeline — 14/09/2026
+
+Diagnóstico reproduziu o travamento com 18 SELECTs pequenos: pipeline padrão
+100 expirou em 12 s; pipeline 0 completou em 485 ms. Aplicado max_pipeline=0 em
+web/src/db/index.ts. Isso serializa mensagens na conexão Supavisor, mantendo
+max=1, prepare=false e as proteções anteriores. Não houve escrita de dados,
+migration, operação fiscal ou mudança no Worker. Script de leitura reproduzível:
+web/scripts/diagnosticar-pooler.mjs (argumento 100 ou 0). Não confundir deploy
+READY/login público com validação das telas autenticadas.
+
 ## Incidente Web e feedback operacional — 13/09/2026 (local)
 
 - Produção sofreu 18 timeouts de 300 s em várias rotas; os ~121 registros de
