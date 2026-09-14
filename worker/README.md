@@ -34,6 +34,14 @@ Copie `.env.example` para `.env`, preencha localmente e nunca versione esse
 arquivo. Os roteiros controlados e todas as travas estão em
 `../docs/HANDOFF.md` e `../docs/DEPLOYMENT.md`.
 
+## Sentinela de homologação
+
+Existe um ensaio fiscal manual que emite **uma única NFP-e de teste** e só
+declara sucesso após validar um XML autorizado e um DANFE PDF novos. Ele força
+homologação, desliga fila/Storage/produção e exige uma confirmação explícita no
+comando. Consulte `../docs/SENTINELA-HOMOLOGACAO.md`; não use testes unitários
+como substituto dessa prova contra o portal real.
+
 ## Contingência manual no Windows
 
 O pacote para um operador sem VS Code é gerado por

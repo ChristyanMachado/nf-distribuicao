@@ -1,5 +1,19 @@
 # Handoff — Estado Atual
 
+## Sentinela fiscal manual — 14/09/2026
+
+- Criado `worker/scripts/executar_sentinela_homologacao.py`, invocado somente
+  com `--confirmar-emissao-de-teste`. Ele neutraliza ambiente herdado e executa
+  uma tarefa de arquivo apenas em homologação, sem banco ou Storage.
+- Resultado positivo exige um XML autorizado e um DANFE PDF produzidos na pasta
+  vazia daquela execução. O relatório em `worker/logs/sentinela-*.json` não
+  registra chave, protocolo nem segredos e também é gerado quando a validação
+  dos documentos falha.
+- Este é o estágio portal + downloads, não um E2E Web. Falta concluir banco,
+  papel e Storage do projeto QA para testar o circuito inteiro sem tocar a
+  produção. Não agendar antes de validação manual.
+- Uso e fronteira de segurança: `SENTINELA-HOMOLOGACAO.md`.
+
 ## Polimento mobile de Trocas e roteiro — 14/09/2026
 
 - `Trocas` passou a ser um acesso direto na navegação principal de desktop e

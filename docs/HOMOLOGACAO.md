@@ -1,5 +1,29 @@
 # Homologação isolada
 
+## Auditoria para sentinela E2E — 14/09/2026
+
+Consulta somente leitura confirmou o projeto `szakgftippcqtuqwxsox` como
+`ACTIVE_HEALTHY`, em São Paulo, ainda com zero tarefas/notas e zero objetos ou
+buckets no Storage. O schema remoto termina na base equivalente a `0015`: não
+possui `fiscal.workers`, `fiscal.trocas_mercado`, fila de impressão,
+`trocas_lancamentos` nem `lotes_distribuicao.payload_hash`. Também não existe
+papel de Worker QA. Portanto, ainda não é seguro apontar o Worker de fila para
+esse ambiente.
+
+O inventário automático alertou que as tabelas fiscais não usam RLS. A
+verificação efetiva de privilégios mostrou, porém, que `anon`, `authenticated`
+e `service_role` não possuem `USAGE` no schema fiscal nem `SELECT`/`UPDATE` nas
+tabelas conferidas; o advisor oficial não retornou lint. Não há exposição atual
+por esses papéis, mas RLS permanece uma defesa em profundidade a ser planejada
+com políticas compatíveis — não habilitar isoladamente, pois bloquearia o Web.
+
+O primeiro estágio da sentinela, documentado em `SENTINELA-HOMOLOGACAO.md`, já
+certifica portal real de homologação + XML/DANFE sem banco. Para o segundo
+estágio, nesta ordem: alinhar migrations do QA (mantendo `0014` excluída), criar
+bucket privado, provisionar papel exclusivo de Worker QA com privilégio mínimo,
+auditar canal/grants, publicar Web QA e só então ensaiar uma única distribuição
+identificável. Cada mudança remota requer autorização e verificação próprias.
+
 ## Estado em 09/09/2026
 
 Parcialmente preparada; não publicada e ainda não validada ponta a ponta.

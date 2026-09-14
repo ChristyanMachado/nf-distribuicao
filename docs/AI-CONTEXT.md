@@ -1,5 +1,16 @@
 # AI Context — NF Distribuição
 
+## Sentinela fiscal manual — 14/09/2026
+
+O Worker ganhou `scripts/executar_sentinela_homologacao.py`: um único comando
+manual força NFP-e TESTES, concorrência 1 e tarefa de arquivo, neutralizando
+produção, banco, Storage, recuperação, cancelamento e impressão herdados do
+terminal. O sucesso exige exatamente um XML novo com `cStat=100`, chave,
+protocolo e número válidos, além de DANFE iniciado por `%PDF-`. Cada execução
+usa diretório vazio e grava relatório sanitizado, sem chave ou protocolo. Não é
+agendado e ainda não prova Web/banco/Storage; o segundo estágio depende de
+concluir o Supabase QA isolado. Procedimento em `SENTINELA-HOMOLOGACAO.md`.
+
 ## UX operacional mobile — 14/09/2026
 
 Trocas significa obrigação de reposição sem custo ao mercado, não mercadoria
