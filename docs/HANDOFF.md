@@ -1690,3 +1690,15 @@ operacionais; o futuro financeiro deve consultar também o estado fiscal da nota
   o papel exclusivo `nf_executor_pc_temporario`, cadastrar o `WORKER_ID`
   `pc-servidor-temporario` e entregar a configuração privada ao PC. Não usar
   `nf_worker_local`, `nf_worker_vm` ou a conexão proprietária do Web.
+
+## Correção de disponibilidade do Web — 13/09/2026
+
+- Produção apresentou funções Vercel em `iad1` aguardando consultas triviais ao
+  Supabase por até 300 s. O banco confirmou execução submilissegundo e ausência
+  de bloqueios; `DATABASE_URL` já usa o pooler transacional na porta 6543.
+- `web/vercel.json` agora fixa a região `gru1`, próxima ao pooler `sa-east-1`.
+- `web/src/app/layout.tsx` define `maxDuration = 30`, para que falhas de conexão
+  sejam rápidas e recuperáveis em vez de manter carregamento por cinco minutos.
+- Após o deploy, validar `/`, `/distribuicao`, `/tarefas`, `/notas` e
+  `/configuracoes`; conferir nos logs que a execução está em `gru1` e que não há
+  novos `Task timed out after 300 seconds`.

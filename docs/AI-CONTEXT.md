@@ -662,6 +662,17 @@ mapeadas, nas quais a consulta acrescentaria custo sem reduzir leitura.
 - Não afirmar que algo funciona sem teste proporcional ao risco.
 - Toda mudança de arquitetura deve ser registrada.
 - Commits usam a identidade do programador; IA é ferramenta de apoio.
+
+## Incidente Web / pooler — 13/09/2026
+
+- A conexão de produção foi confirmada no Supavisor transaction pooler
+  (`*.pooler.supabase.com:6543/postgres`); não era uma conexão direta incorreta.
+- As consultas equivalentes executaram em menos de 1 ms no próprio banco e não
+  havia bloqueios. Os timeouts de 300 s ocorreram no caminho Vercel IAD → pooler
+  `sa-east-1`, não por volume de dados ou plano de consulta.
+- As funções Web foram fixadas em São Paulo (`gru1`) e a duração máxima dos
+  segmentos App Router foi limitada a 30 s no layout raiz. Isso reduz latência e
+  impede telas presas por cinco minutos; não altera banco, Worker ou fluxo fiscal.
 # Atualização de robustez — 13/09/2026
 
 - `processarDistribuicao` normaliza quantidades em milésimos e calcula um hash semântico do formulário; uma colisão de `chave_idempotencia` com conteúdo diferente falha de modo seguro.

@@ -19,6 +19,10 @@ import IdleLock from "@/components/IdleLock";
 import AppNavLink from "@/components/AppNavLink";
 import { validarAmbienteFiscal } from "@/lib/contrato-tarefa";
 
+// Impede que uma conexão externa presa mantenha uma tela ocupando uma função
+// por vários minutos. O Web deve falhar rápido e permitir uma nova tentativa.
+export const maxDuration = 30;
+
 export const metadata: Metadata = {
   title: "Graalyst | Distribuição & Notas",
   description: "Distribuição de produtos e emissão de notas fiscais",
