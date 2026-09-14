@@ -1,5 +1,27 @@
 # Handoff — Estado Atual
 
+## Provisionamento QA confirmado — 14/09/2026
+
+`qa_permissoes_worker_web_storage` aplicada na nova tentativa autorizada.
+Papel Worker NOLOGIN com grants mínimos, bucket privado 20 MiB PDF/XML,
+políticas Web nas tabelas novas; auditoria sem lints e zero tarefas/notas.
+Integração tentou os sete cenários com env QA da cópia principal. Rede liberada,
+mas pooler retorna tenant/user não encontrado antes de executar SQL. Confirmar
+conexão no Connect do QA. Não reaplicar migrations já confirmadas. Nenhum
+Worker iniciado, nenhum segredo criado e nenhuma operação fiscal executada.
+
+## QA: aplicação parcial confirmada — 14/09/2026
+
+Usuário autorizou migrations, papel exclusivo e bucket no projeto
+`szakgftippcqtuqwxsox`. `qa_atualizacao_fiscal_0016_0019` aplicada com sucesso:
+20 registros Drizzle, gate false, zero notas/tarefas. A 0017 teve grants legados
+condicionais; hashes refletem o SQL aplicado. 0014 excluída.
+`qa-permissoes-e-storage.sql` está preparado mas NÃO aplicado: revisor automático
+rejeitou a chamada por limite de uso. Verificação somente leitura confirmou
+ausência de `nf_homologacao_worker` e do bucket. Não repetir migrations já
+aplicadas. Autorização permanece válida; retomar provisionamento após liberação,
+auditar grants/políticas, configurar segredos e executar integração QA.
+
 ## Continuação da sentinela e integração — 14/09/2026
 
 - Sentinela neutraliza também flags de consulta e URL de banco herdadas. Teste

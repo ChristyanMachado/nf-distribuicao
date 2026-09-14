@@ -1,5 +1,37 @@
 # Homologação isolada
 
+## Provisionamento concluído; conexão pendente — 14/09/2026
+
+A nova tentativa de `qa_permissoes_worker_web_storage` foi aplicada e conferida.
+Bucket `documentos-fiscais` privado, 20 MiB, PDF/XML; papel
+`nf_homologacao_worker` criado NOLOGIN, sem superuser, criação de papéis,
+bypass RLS, DELETE de notas ou leitura de emitentes. Reserva disponível apenas
+ao Worker; Web não pode reservar. anon/authenticated sem USAGE fiscal.
+Advisor de segurança retornou zero lints; tarefas/notas continuam em zero.
+
+Integração com a configuração local existente foi tentada: após liberar a rede
+do sandbox, o pooler respondeu `(ENOTFOUND) tenant/user ... not found` nos sete
+cenários, antes das consultas. Não são testes aprovados. Confirmar host/porta
+em Connect do projeto QA; não adivinhar hosts de outros projetos. Senha/LOGIN
+do Worker e chave Storage de QA ainda precisam de provisionamento protegido.
+O bloqueio de uso descrito abaixo foi superado; não reaplicar a migration.
+
+## Atualização autorizada aplicada — 14/09/2026
+
+Aplicada `qa_atualizacao_fiscal_0016_0019` exclusivamente no QA. Verificação
+posterior confirmou 20 entradas Drizzle, tabelas de coordenação/trocas/impressão
+presentes, gate desligado e zero tarefas/notas. A 0014 permanece excluída.
+A 0017 usa grants condicionais porque os papéis legados não existem no QA;
+o journal registra o hash do SQL efetivamente aplicado, não o original.
+
+Pendente: `web/scripts/qa-permissoes-e-storage.sql`. A chamada para criar papel,
+políticas e bucket foi rejeitada pelo revisor automático por limite de uso,
+antes da aplicação. Consulta posterior confirmou papel e bucket ausentes.
+A autorização do usuário já existe e não precisa ser solicitada novamente;
+retomar a chamada normal após liberação do serviço, sem contornar a rejeição.
+Senha/LOGIN do papel e credenciais Storage ainda precisam ser provisionados
+por canal protegido antes do teste completo. Produção não foi alterada.
+
 ## Auditoria para sentinela E2E — 14/09/2026
 
 Consulta somente leitura confirmou o projeto `szakgftippcqtuqwxsox` como
