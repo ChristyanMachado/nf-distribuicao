@@ -139,13 +139,15 @@ envolvidos por rollback; sequências podem avançar mesmo com rollback no Postgr
 Nada disso deve ser usado como benchmark de desempenho da automação fiscal.
 
 Não roda dentro de `npm test`; comando separado exige o projeto autorizado antes
-de abrir conexão. Ainda não executado com sucesso: conexão pendente. Não substituir
-por mocks e declarar prova de rollback real. Os testes unitários continuam úteis,
-mas medem outra camada.
+de abrir conexão. Os sete cenários passaram em 14/09/2026 com conexão real pelo
+pooler aws-0 e papel restrito, após corrigir USAGE no schema extensions.
+O registro do grant está em `web/scripts/qa-web-acesso-digest.sql`.
+Os testes unitários continuam úteis, mas medem outra camada. Ainda falta o E2E
+do navegador e do Worker; nenhum efeito fiscal foi executado por esta suíte.
 
 ## Publicação de QA e passagem para produção
 
-Falta confirmar conexão e configurar um site de homologação com estas variáveis
+Conexão confirmada; falta configurar um site de homologação com estas variáveis
 exclusivas. Não modificar os segredos Production do site existente. Não promover
 um artefato de QA com credenciais/identificação de homologação para uso real.
 

@@ -1,5 +1,13 @@
 # AI Context — NF Distribuição
 
+## Conexão e integração QA validadas — 14/09/2026
+
+Pooler correto do QA: aws-0-sa-east-1.pooler.supabase.com:6543 (não aws-1).
+Env privado corrigido; role restrita preservada. Grant de USAGE em extensions
+e EXECUTE digest(text,text) aplicado somente no QA resolveu a criação do hash.
+Sete testes reais Web/banco passaram com rollback. Circuito navegador/Worker/
+Receita/Storage ainda pendente; não confundir integração SQL com E2E fiscal.
+
 ## Continuação dos testes E2E — 14/09/2026
 
 Plano executável por etapas em `PLANO-E2E-HOMOLOGACAO.md`. Integração e Web

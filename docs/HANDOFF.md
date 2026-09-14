@@ -1,5 +1,23 @@
 # Handoff — Estado Atual
 
+## Integração QA aprovada — 14/09/2026
+
+Connect informado pelo usuário confirmou `aws-0-sa-east-1.pooler.supabase.com:6543`;
+o env privado da cópia principal apontava para aws-1. Host corrigido, mantendo
+`nf_homologacao_web.szakgftippcqtuqwxsox`, sem usar postgres nem mudar senha.
+Primeira conexão válida encontrou falta de USAGE em extensions, apesar do
+search_path correto. Aplicada exclusivamente em QA `qa_web_acesso_digest`
+(registro em web/scripts/qa-web-acesso-digest.sql). Nenhum runtime foi alterado.
+Os sete testes reais de integração passaram: lotes 1/3/5, idempotência,
+troca integral, rollback e isolamento de reserva. Não equivalem a E2E navegador
+nem emissão fiscal. Sequências podem avançar apesar do rollback.
+
+Próximo: navegador QA, depois credenciais exclusivas Worker/Storage e fixture
+válida para o portal. Worker QA continua NOLOGIN. Produção e Ponto intocados.
+PC servidor está fisicamente com o responsável, que configurou retorno de
+energia na BIOS; ensaio elétrico não realizado e acesso Windows aguarda senha
+do cliente. Não instalar/ativar serviço antes do acesso e dos gates previstos.
+
 ## Provisionamento QA confirmado — 14/09/2026
 
 `qa_permissoes_worker_web_storage` aplicada na nova tentativa autorizada.
