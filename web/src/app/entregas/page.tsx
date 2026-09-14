@@ -9,7 +9,8 @@ export default async function EntregasPage({
 }: {
   searchParams: Promise<{ lote?: string }>;
 }) {
-  const [lotes, parametros] = await Promise.all([listarLotesEntrega(), searchParams]);
+  const parametros = await searchParams;
+  const lotes = await listarLotesEntrega();
   const loteSelecionado = lotes.find((lote) => lote.id === parametros.lote) ?? lotes[0] ?? null;
   const roteiro = loteSelecionado ? await carregarRoteiroEntrega(loteSelecionado.id) : [];
 

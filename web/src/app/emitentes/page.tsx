@@ -25,7 +25,8 @@ export default async function EmitentesPage({
 }: {
   searchParams: Promise<{ salvo?: string }>;
 }) {
-  const [emitentes, parametros] = await Promise.all([listarEmitentes(), searchParams]);
+  const parametros = await searchParams;
+  const emitentes = await listarEmitentes();
   const emitentesAtivos = emitentes.filter((emitente) => emitente.ativo);
   const emitentesInativos = emitentes.filter((emitente) => !emitente.ativo);
   const mensagemSalvamento = parametros.salvo

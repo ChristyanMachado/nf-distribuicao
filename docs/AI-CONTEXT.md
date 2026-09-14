@@ -17,12 +17,15 @@ mostrando-a abaixo do produto. A impressão do Worker segue HTML próprio.
 A investigação anterior de região/saturação não resolveu o incidente. Diagnóstico
 somente leitura com Postgres.js/Supavisor: 18 consultas em 3 grupos de 6, max=1,
 prepare=false. Com max_pipeline=100 (padrão), timeout após 12 s; com
-max_pipeline=0, todas concluíram em 485 ms. O Web agora desativa pipeline na
-mesma conexão. max=1 sozinho não serializa o protocolo. Reprodução segura em
+max_pipeline=0, SELECTs simples concluíram em 485 ms. Porém pipeline 0 é
+**incompatível com transações do postgres.js**: o callback interno de BEGIN não
+é acionado e uma distribuição falha antes de persistir. A configuração válida é
+max_pipeline=1 e leituras do Web sequenciais por instância. Reprodução segura em
 web/scripts/diagnosticar-pooler.mjs; fornecer DATABASE_URL pelo ambiente, nunca
 no comando. Região gru1 e proteções contra refresh sobreposto permanecem.
-Validar telas autenticadas após deploy; os relatos anteriores de correção por
-região eram hipóteses e foram refutados pelo teste do usuário.
+Validar telas autenticadas e uma criação de lote após deploy; os relatos
+anteriores de correção por região eram hipóteses e foram refutados pelo teste do
+usuário.
 
 ## Incidente Web de produção — 13/09/2026
 

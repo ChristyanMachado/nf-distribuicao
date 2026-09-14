@@ -28,12 +28,10 @@ export default async function ClientesPage({
 }: {
   searchParams: Promise<{ salvo?: string }>;
 }) {
-  const [clientes, emitentes, relacoes, parametros] = await Promise.all([
-    listarClientes(),
-    listarEmitentes(),
-    db.select().from(clienteEmitentes),
-    searchParams,
-  ]);
+  const parametros = await searchParams;
+  const clientes = await listarClientes();
+  const emitentes = await listarEmitentes();
+  const relacoes = await db.select().from(clienteEmitentes);
   const mensagemSalvamento = parametros.salvo
     ? MENSAGENS_SALVAMENTO[parametros.salvo]
     : undefined;

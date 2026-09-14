@@ -12,12 +12,11 @@ import { deMilesimos, emMilesimos } from "@/lib/quantidades";
 
 export async function carregarTrocasMercado() {
   await exigirSessaoAdministrativa();
-  const [listaClientes, listaProdutos, saldos] = await Promise.all([
-    db.select({ id: clientes.id, nome: clientes.nome })
-      .from(clientes).where(eq(clientes.ativo, true)).orderBy(asc(clientes.nome)),
-    db.select({ id: produtos.id, descricao: produtos.descricao, unidade: produtos.unidade })
-      .from(produtos).where(eq(produtos.ativo, true)).orderBy(asc(produtos.descricao)),
-    db.select({
+  const listaClientes = await db.select({ id: clientes.id, nome: clientes.nome })
+    .from(clientes).where(eq(clientes.ativo, true)).orderBy(asc(clientes.nome));
+  const listaProdutos = await db.select({ id: produtos.id, descricao: produtos.descricao, unidade: produtos.unidade })
+    .from(produtos).where(eq(produtos.ativo, true)).orderBy(asc(produtos.descricao));
+  const saldos = await db.select({
       id: trocasMercado.id,
       clienteId: trocasMercado.clienteId,
       produtoId: trocasMercado.produtoId,
@@ -31,8 +30,7 @@ export async function carregarTrocasMercado() {
       .innerJoin(clientes, eq(trocasMercado.clienteId, clientes.id))
       .innerJoin(produtos, eq(trocasMercado.produtoId, produtos.id))
       .where(and(eq(clientes.ativo, true), eq(produtos.ativo, true)))
-      .orderBy(asc(clientes.nome), asc(produtos.descricao)),
-  ]);
+      .orderBy(asc(clientes.nome), asc(produtos.descricao));
   return { clientes: listaClientes, produtos: listaProdutos, saldos };
 }
 

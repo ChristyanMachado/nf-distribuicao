@@ -26,11 +26,9 @@ export default async function ProdutosPage({
 }: {
   searchParams: Promise<{ salvo?: string }>;
 }) {
-  const [produtos, regrasFiscais, parametros] = await Promise.all([
-    listarProdutos(),
-    listarRegrasFiscaisAtivas(),
-    searchParams,
-  ]);
+  const parametros = await searchParams;
+  const produtos = await listarProdutos();
+  const regrasFiscais = await listarRegrasFiscaisAtivas();
   const regraUnica = regrasFiscais.length === 1 ? regrasFiscais[0] : null;
   const mensagemSalvamento = parametros.salvo
     ? MENSAGENS_SALVAMENTO[parametros.salvo]

@@ -34,12 +34,15 @@ import { deMilesimos, emMilesimos } from "@/lib/quantidades";
 
 export async function carregarDadosDistribuicao() {
   await exigirSessaoAdministrativa();
-  const [listaClientes, listaProdutos, listaPrecos, listaTrocas, relacoes, lotesRecentes] = await Promise.all([
-    db.select().from(clientes).where(eq(clientes.ativo, true)).orderBy(asc(clientes.nome)),
-    db.select().from(produtos).where(eq(produtos.ativo, true)).orderBy(asc(produtos.descricao)),
-    db.select().from(precosCliente),
-    db.select().from(trocasMercado),
-    db
+  // Não usar Promise.all aqui. Cada instância Vercel tem uma única conexão
+  // com o pooler transacional; consultas sobrepostas nessa conexão podem
+  // ficar sem resposta. A tela continua pequena e a previsibilidade vem antes
+  // de economizar poucos milissegundos neste carregamento administrativo.
+  const listaClientes = await db.select().from(clientes).where(eq(clientes.ativo, true)).orderBy(asc(clientes.nome));
+  const listaProdutos = await db.select().from(produtos).where(eq(produtos.ativo, true)).orderBy(asc(produtos.descricao));
+  const listaPrecos = await db.select().from(precosCliente);
+  const listaTrocas = await db.select().from(trocasMercado);
+  const relacoes = await db
       .select({
         clienteId: clienteEmitentes.clienteId,
         id: emitentes.id,
@@ -49,11 +52,11 @@ export async function carregarDadosDistribuicao() {
       })
       .from(clienteEmitentes)
       .innerJoin(emitentes, eq(clienteEmitentes.emitenteId, emitentes.id))
-      .where(eq(emitentes.ativo, true)).orderBy(asc(emitentes.nome)),
+      .where(eq(emitentes.ativo, true)).orderBy(asc(emitentes.nome));
     // O atalho diario considera somente um lote que ainda possa ser repetido
     // com os cadastros atuais. Clientes, produtos e emitentes desativados (ou
     // uma relacao cliente-emitente removida) nunca voltam selecionados.
-    db
+  const lotesRecentes = await db
       .select({
         id: lotesDistribuicao.id,
         numero: lotesDistribuicao.numero,
@@ -78,8 +81,7 @@ export async function carregarDadosDistribuicao() {
         eq(clienteEmitentes.emitenteId, distribuicoes.emitenteId),
       ))
       .orderBy(desc(lotesDistribuicao.criadoEm), desc(lotesDistribuicao.numero))
-      .limit(1),
-  ]);
+      .limit(1);
 
   const ultimoLote = lotesRecentes[0];
   const linhasUltimoLote = ultimoLote

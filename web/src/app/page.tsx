@@ -123,17 +123,10 @@ async function carregarResumoOperacional() {
 
   // Contagens agregadas mantêm a resposta pequena mesmo quando o histórico
   // crescer. Elas representam operação, não faturamento ou lucro.
-  const [
-    tarefasHoje,
-    [contagemLotes],
-    [contagemNotas],
-    [prontidaoBanco],
-  ] = await Promise.all([
-    consultaTarefasHoje,
-    db.select({ total: count() }).from(lotesDistribuicao),
-    db.select({ total: count() }).from(notas),
-    consultaProntidao,
-  ]);
+  const tarefasHoje = await consultaTarefasHoje;
+  const [contagemLotes] = await db.select({ total: count() }).from(lotesDistribuicao);
+  const [contagemNotas] = await db.select({ total: count() }).from(notas);
+  const [prontidaoBanco] = await consultaProntidao;
 
   const clientesAtivos = prontidaoBanco?.clientes ?? [];
   const emitentesAtivos = prontidaoBanco?.emitentes ?? [];

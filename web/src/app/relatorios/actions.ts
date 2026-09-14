@@ -81,13 +81,11 @@ export async function carregarRelatorio(
     .leftJoin(notas, eq(notas.tarefaId, tarefas.id))
     .where(and(gte(tarefas.data, periodo.inicio), lte(tarefas.data, periodo.fim)));
 
-  // As três leituras são independentes. Executá-las em paralelo reduz a
-  // latência percebida ao trocar o filtro, especialmente em conexão móvel.
-  const [itens, trocas, operacionais] = await Promise.all([
-    consultaItens,
-    consultaTrocas,
-    consultaOperacionais,
-  ]);
+  // Uma instância Vercel usa uma conexão transacional. Serializar evita que
+  // leituras independentes disputem o protocolo do pooler.
+  const itens = await consultaItens;
+  const trocas = await consultaTrocas;
+  const operacionais = await consultaOperacionais;
 
   const itensNormalizados = itens.map((i) => ({
       ...i,

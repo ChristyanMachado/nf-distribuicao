@@ -16,10 +16,8 @@ export default async function TrocasPage({
 }: {
   searchParams: Promise<{ salvo?: string }>;
 }) {
-  const [{ clientes, produtos, saldos }, parametros] = await Promise.all([
-    carregarTrocasMercado(),
-    searchParams,
-  ]);
+  const parametros = await searchParams;
+  const { clientes, produtos, saldos } = await carregarTrocasMercado();
 
   return (
     <div>

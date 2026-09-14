@@ -84,7 +84,8 @@ export default async function NotasPage({
     .innerJoin(tarefas, eq(notas.tarefaId, tarefas.id))
     .where(filtroLote)
     .groupBy(notas.status);
-  const [lista, contagensBrutas] = await Promise.all([consultaNotas, consultaContagens]);
+  const lista = await consultaNotas;
+  const contagensBrutas = await consultaContagens;
   const contagens: Record<VisaoNotas, number> = { ativas: 0, canceladas: 0 };
   for (const linha of contagensBrutas) {
     contagens[visaoDaNota(linha.status)] += Number(linha.total);

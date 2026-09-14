@@ -21,12 +21,13 @@
 ## Correção de pipeline — 14/09/2026
 
 Diagnóstico reproduziu o travamento com 18 SELECTs pequenos: pipeline padrão
-100 expirou em 12 s; pipeline 0 completou em 485 ms. Aplicado max_pipeline=0 em
-web/src/db/index.ts. Isso serializa mensagens na conexão Supavisor, mantendo
-max=1, prepare=false e as proteções anteriores. Não houve escrita de dados,
-migration, operação fiscal ou mudança no Worker. Script de leitura reproduzível:
-web/scripts/diagnosticar-pooler.mjs (argumento 100 ou 0). Não confundir deploy
-READY/login público com validação das telas autenticadas.
+100 expirou em 12 s; pipeline 0 completou em 485 ms, mas revelou-se inválido
+para transações do postgres.js (BEGIN não cria a conexão interna). O incidente
+de 14/09 falhou antes de criar lote. A correção usa max_pipeline=1, max=1,
+prepare=false e leituras sequenciais no Web. Não houve escrita de dados,
+migration, operação fiscal ou mudança no Worker. Script reproduzível:
+web/scripts/diagnosticar-pooler.mjs (pipeline, max e modo `transacao`). Não
+confundir deploy READY/login público com validação das telas autenticadas.
 
 ## Incidente Web e feedback operacional — 13/09/2026 (local)
 

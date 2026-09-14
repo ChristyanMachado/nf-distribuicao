@@ -12,10 +12,8 @@ export default async function ConfiguracoesPage({
 }: {
   searchParams: Promise<{ salvo?: string }>;
 }) {
-  const [configuracao, parametros] = await Promise.all([
-    obterConfiguracaoOperacional(),
-    searchParams,
-  ]);
+  const parametros = await searchParams;
+  const configuracao = await obterConfiguracaoOperacional();
 
   return (
     <div>

@@ -29,13 +29,11 @@ export default async function TarefasPage({
 }: {
   searchParams: Promise<{ visao?: string; lote?: string }>;
 }) {
-  const [lista, parametros, janela, workers, resumoUltima] = await Promise.all([
-    listarTarefasComItens(),
-    searchParams,
-    obterConfiguracaoOperacional(),
-    carregarWorkers(),
-    carregarResumoUltimaDistribuicao(),
-  ]);
+  const parametros = await searchParams;
+  const lista = await listarTarefasComItens();
+  const janela = await obterConfiguracaoOperacional();
+  const workers = await carregarWorkers();
+  const resumoUltima = await carregarResumoUltimaDistribuicao();
   const visao = normalizarVisaoTarefas(parametros.visao);
   const contagens = Object.fromEntries(
     ABAS.map((aba) => [

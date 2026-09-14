@@ -6,10 +6,8 @@ import { carregarDadosDistribuicao } from "./actions";
 import DistribuicaoForm from "./DistribuicaoForm";
 
 export default async function DistribuicaoPage() {
-  const [dados, escopoRascunho] = await Promise.all([
-    carregarDadosDistribuicao(),
-    escopoRascunhoDistribuicao(),
-  ]);
+  const dados = await carregarDadosDistribuicao();
+  const escopoRascunho = await escopoRascunhoDistribuicao();
   const { clientes, produtos, precos, trocasDisponiveis, ultimaDistribuicao } = dados;
   const clientesProntos = clientes.filter((cliente) => cliente.prontoParaEmissao);
 

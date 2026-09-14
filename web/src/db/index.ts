@@ -16,9 +16,11 @@ if (!connectionString) {
 
 // Vercel pode executar várias instâncias em paralelo. Cada uma mantém somente
 // uma conexão para não multiplicar a pressão sobre o pooler do Supabase.
-// max limita conexões, mas NÃO desliga o pipeline do Postgres.js. O Supavisor
-// transacional pode perder respostas de consultas sobrepostas na mesma conexão.
-// Zero impede enviar outra consulta antes do ReadyForQuery da anterior.
+// max limita conexões, mas NÃO serializa automaticamente consultas iniciadas
+// em paralelo pelo mesmo processo. O Supavisor transacional é sensível a isso.
+// max_pipeline=0 parece resolver SELECTs simples, porém é inválido para
+// transações do postgres.js: o callback interno do BEGIN não é executado.
+// Por isso usamos o mínimo válido (1) e mantemos as leituras do Web sequenciais.
 // O runtime 3.4.9 aceita max_pipeline, mas suas declarações ainda o omitem.
 const connectionOptions: postgres.Options<{}> & { max_pipeline: number } = {
   prepare: false,
@@ -27,7 +29,7 @@ const connectionOptions: postgres.Options<{}> & { max_pipeline: number } = {
   idle_timeout: 5,
   max_lifetime: 60,
   max: 1,
-  max_pipeline: 0,
+  max_pipeline: 1,
 };
 const client = postgres(connectionString, connectionOptions);
 
