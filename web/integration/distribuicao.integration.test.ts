@@ -4,10 +4,11 @@ import { drizzle } from 'drizzle-orm/postgres-js';
 import { eq, sql } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import * as schema from '../src/db/schema';
+import { connectionOptions } from '../src/db/connection-options';
 import { validarIsolamentoHomologacao } from '../scripts/isolamento-homologacao.mjs';
 
 validarIsolamentoHomologacao(process.env);
-const client = postgres(process.env.DATABASE_URL!, { ssl: 'require', prepare: false, max: 1, connect_timeout: 8 });
+const client = postgres(process.env.DATABASE_URL!, connectionOptions);
 const banco = drizzle(client, { schema });
 const estado = vi.hoisted(() => ({ banco: null as unknown as typeof banco }));
 // Só fronteiras Next são substituídas. SQL, transações e contratos são reais.
@@ -54,7 +55,24 @@ describe('Postgres exclusivo de homologação; nenhum Worker conectado', () => {
   }));
   it('troca integral não gera tarefa nem exige campos fiscais', async () => ensaio(async () => {
     await estado.banco.update(schema.clientes).set({ cnpj: null, cep: null }).where(eq(schema.clientes.id, cliente(1)));
+    await estado.banco.insert(schema.trocasMercado).values({
+      clienteId: cliente(1), produtoId, quantidadeDisponivel: '2.000',
+    }).onConflictDoUpdate({
+      target: [schema.trocasMercado.clienteId, schema.trocasMercado.produtoId],
+      set: { quantidadeDisponivel: '2.000' },
+    });
     expect(await processarDistribuicao(entrada(1, true))).toMatchObject({ tarefasCriadas: 0 });
+  }));
+  it('mesma chave com quantidades diferentes é rejeitada sem criar outro lote', async () => ensaio(async () => {
+    const dados = entrada(1);
+    const primeiro = await processarDistribuicao(dados);
+    const alterado = structuredClone(dados);
+    alterado.produtos[0].quantidadeTotal = 3;
+    alterado.produtos[0].linhas[0].quantidadeDistribuida = 3;
+    await expect(processarDistribuicao(alterado)).rejects.toThrow();
+    const rows = await estado.banco.select().from(schema.tarefas)
+      .where(eq(schema.tarefas.loteId, primeiro.loteId));
+    expect(rows).toHaveLength(1);
   }));
   it('vínculo ausente desfaz inclusive o lote inserido antes da validação', async () => ensaio(async () => {
     await estado.banco.delete(schema.clienteEmitentes).where(eq(schema.clienteEmitentes.clienteId, cliente(1)));

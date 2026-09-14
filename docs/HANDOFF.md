@@ -1,5 +1,19 @@
 # Handoff — Estado Atual
 
+## Continuação da sentinela e integração — 14/09/2026
+
+- Sentinela neutraliza também flags de consulta e URL de banco herdadas. Teste
+  carrega a configuração real para provar que um terminal previamente usado
+  para consulta/produção não impede a preparação do ensaio.
+- Runtime Web e integração usam `src/db/connection-options.ts`; nenhuma opção
+  de produção mudou. Isso evita testar transações com outra configuração.
+- Integração prepara saldo de troca dentro do rollback e verifica rejeição de
+  reenvio com conteúdo diferente. Execução remota desses cenários pendente.
+- Validação local: 6 testes focados Worker, 157 Web e TypeScript aprovados.
+- `PLANO-E2E-HOMOLOGACAO.md` registra sequência, dependências de grants/RLS da
+  0017, critérios de navegador e documentos. Não aplicar baseline/reset nem
+  migration 0014. Nenhum efeito fiscal ou mudança remota nesta continuação.
+
 ## Sentinela fiscal manual — 14/09/2026
 
 - Criado `worker/scripts/executar_sentinela_homologacao.py`, invocado somente

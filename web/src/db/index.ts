@@ -1,5 +1,6 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
+import { connectionOptions } from "./connection-options";
 import * as schema from "./schema";
 import { validarIsolamentoHomologacao } from "../../scripts/isolamento-homologacao.mjs";
 
@@ -22,15 +23,6 @@ if (!connectionString) {
 // transações do postgres.js: o callback interno do BEGIN não é executado.
 // Por isso usamos o mínimo válido (1) e mantemos as leituras do Web sequenciais.
 // O runtime 3.4.9 aceita max_pipeline, mas suas declarações ainda o omitem.
-const connectionOptions: postgres.Options<{}> & { max_pipeline: number } = {
-  prepare: false,
-  ssl: "require",
-  connect_timeout: 10,
-  idle_timeout: 5,
-  max_lifetime: 60,
-  max: 1,
-  max_pipeline: 1,
-};
 const client = postgres(connectionString, connectionOptions);
 
 export const db = drizzle(client, { schema });

@@ -5,6 +5,7 @@ from subprocess import CompletedProcess
 import pytest
 
 from scripts import executar_sentinela_homologacao as sentinela
+from src.config import carregar_config
 from scripts.executar_sentinela_homologacao import (
     montar_ambiente_seguro,
     validar_documentos,
@@ -15,6 +16,11 @@ def test_ambiente_sentinela_anula_producao_e_filas(tmp_path, monkeypatch):
     monkeypatch.setenv("HABILITAR_PRODUCAO_FISCAL", "true")
     monkeypatch.setenv("AMBIENTE_EMISSAO", "normal")
     monkeypatch.setenv("PROCESSAR_FILA_BANCO", "true")
+    monkeypatch.setenv("TESTAR_NAVEGACAO_CONSULTA", "true")
+    monkeypatch.setenv("CONSULTAR_ULTIMO_XML", "true")
+    monkeypatch.setenv("BAIXAR_DOCUMENTOS_CONSULTA", "true")
+    monkeypatch.setenv("WORKER_DATABASE_URL", "url-de-producao-invalida")
+    monkeypatch.setenv("SUPABASE_SECRET_KEY", "segredo-producao")
     env_file = tmp_path / "sentinela.env"
     env_file.write_text(
         "CLIENTE_A_LOGIN=login\nCLIENTE_A_SENHA=senha\nCLIENTE_A_EMITENTE=123\n",
@@ -35,6 +41,21 @@ def test_ambiente_sentinela_anula_producao_e_filas(tmp_path, monkeypatch):
     assert ambiente["MAX_CONCORRENCIA"] == "1"
     assert ambiente["ARMAZENAR_DOCUMENTOS"] == "false"
     assert ambiente["PROCESSAR_CANCELAMENTOS_FISCAIS"] == "false"
+    assert ambiente["SUPABASE_SECRET_KEY"] == ""
+    for nome, valor in ambiente.items():
+        monkeypatch.setenv(nome, valor)
+    config = carregar_config()
+    assert config.worker_database_url is None
+    assert config.testar_navegacao_consulta is False
+    assert config.testar_emissao_homologacao is True
+
+
+def test_sem_confirmacao_nao_inicia_processo(monkeypatch):
+    def proibido(*args, **kwargs):
+        pytest.fail("Não deve iniciar um processo sem confirmação.")
+    monkeypatch.setattr(sentinela.subprocess, "run", proibido)
+    with pytest.raises(RuntimeError, match="Emissão não iniciada"):
+        sentinela.executar(Namespace(confirmar_emissao_de_teste=False))
 
 
 def test_ambiente_sentinela_exige_credenciais_do_cliente(tmp_path):

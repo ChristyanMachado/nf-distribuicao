@@ -31,6 +31,8 @@ def _ler_cliente_tarefa(caminho: Path) -> str:
         dados = json.loads(caminho.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         raise RuntimeError("A tarefa sentinela não pôde ser lida como JSON.") from exc
+    if not isinstance(dados, dict):
+        raise RuntimeError("A tarefa sentinela deve ser um objeto JSON.")
     cliente_id = str(dados.get("cliente_id", "")).strip()
     if not re.fullmatch(r"[A-Z][A-Z0-9_]{2,63}", cliente_id):
         raise RuntimeError("cliente_id da tarefa sentinela é inválido.")
@@ -44,6 +46,12 @@ def montar_ambiente_seguro(
         raise RuntimeError(f"Arquivo de ambiente não encontrado: {env_file}")
     ambiente = dict(os.environ)
     ambiente.update({k: v for k, v in dotenv_values(env_file).items() if v is not None})
+    # Valores vazios também impedem load_dotenv() no filho de restaurar segredos.
+    for nome in tuple(ambiente):
+        if nome.startswith(("SUPABASE_", "NEXT_PUBLIC_", "WORKER_", "CLIENTE_")) or nome == "DATABASE_URL":
+            if not nome.startswith(f"{cliente_id}_"):
+                ambiente[nome] = ""
+    ambiente["WORKER_DATABASE_URL"] = ""
 
     obrigatorias = (
         f"{cliente_id}_LOGIN",
@@ -65,6 +73,9 @@ def montar_ambiente_seguro(
             "PROCESSAR_FILA_BANCO": "false",
             "TESTAR_INTEGRACAO_BANCO": "false",
             "TESTAR_NAVEGACAO_EMISSAO": "true",
+            "TESTAR_NAVEGACAO_CONSULTA": "false",
+            "CONSULTAR_ULTIMO_XML": "false",
+            "BAIXAR_DOCUMENTOS_CONSULTA": "false",
             "TESTAR_PREENCHIMENTO_COMPLETO": "true",
             "TESTAR_EMISSAO_HOMOLOGACAO": "true",
             "HABILITAR_PRODUCAO_FISCAL": "false",

@@ -1,5 +1,13 @@
 # AI Context — NF Distribuição
 
+## Continuação dos testes E2E — 14/09/2026
+
+Plano executável por etapas em `PLANO-E2E-HOMOLOGACAO.md`. Integração e Web
+compartilham opções Postgres para reproduzir a conexão do runtime. A sentinela
+de arquivo neutraliza flags antigas de consulta e conexão de banco. Continua
+faltando provar o clique no Web e atualizar/provisionar QA antes do circuito
+completo; o ensaio de portal sozinho não detecta erros de Server Action #441.
+
 ## Sentinela fiscal manual — 14/09/2026
 
 O Worker ganhou `scripts/executar_sentinela_homologacao.py`: um único comando
