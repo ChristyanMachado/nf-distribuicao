@@ -14,13 +14,17 @@ if (!connectionString) {
   );
 }
 
-// prepare: false é recomendado ao usar o connection pooler do Supabase (pgbouncer)
+// Vercel pode executar várias instâncias em paralelo. Cada uma mantém somente
+// uma conexão para não multiplicar a pressão sobre o pooler do Supabase.
+// As páginas já paralelizam consultas independentes; o driver as enfileira
+// nesta conexão curta em vez de abrir até cinco sessões por instância.
 const client = postgres(connectionString, {
   prepare: false,
   ssl: "require",
   connect_timeout: 10,
-  idle_timeout: 20,
-  max: 5,
+  idle_timeout: 5,
+  max_lifetime: 60,
+  max: 1,
 });
 
 export const db = drizzle(client, { schema });

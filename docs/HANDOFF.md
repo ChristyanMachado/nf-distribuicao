@@ -1,5 +1,24 @@
 # Handoff — Estado Atual
 
+## Incidente Web e feedback operacional — 13/09/2026 (local)
+
+- Produção sofreu 18 timeouts de 300 s em várias rotas; os ~121 registros de
+  distribuição no painel eram principalmente GET/RSC, prefetch e middleware,
+  não 121 operações gravadas.
+- A única troca permaneceu válida e o serviço voltou sem deploy. A causa
+  sustentada é amplificação de carregamentos dinâmicos e conexões; o ponto exato
+  de saturação do pool não ficou historicamente observável.
+- Correção: navegação sem prefetch, Postgres `max=1`, conexões curtas e refresh
+  single-flight. A ação de troca termina em até 30 s e orienta a não repetir
+  enquanto o resultado está incerto.
+- Feedback incorporado: cada mercado mostra o saldo restante atualizado pelas
+  alocações; botões respeitam o máximo; resumo condensado sem remover preço,
+  troca ou alertas.
+- Validação: 157 testes Web, TypeScript e build aprovados. O teste obsoleto de
+  idempotência foi alinhado ao hash simulado. Nada publicado e nenhuma escrita
+  remota. Antes do deploy, conferir `DATABASE_URL` com transaction pooler 6543.
+- Detalhes: `INCIDENTE-WEB-TIMEOUT-2026-09-13.md`.
+
 ## Auditoria operacional e de UX — 13/09/2026
 
 - Auditoria concluída sem alterar Web, banco, Worker, Vercel ou operação fiscal.

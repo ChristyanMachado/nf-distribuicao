@@ -341,8 +341,33 @@ export default function DistribuicaoForm({
               ...p,
               linhas: p.linhas.map((l) => {
                 if (chaveDestino(l) !== chave) return l;
-                const atual2 = Number(l.quantidadeDistribuida || 0);
-                return { ...l, quantidadeDistribuida: String(Math.max(0, atual2 + delta)) };
+                try {
+                  const atualMilesimos = emMilesimos(
+                    Number(l.quantidadeDistribuida || 0),
+                    "Quantidade distribuída",
+                  );
+                  const usadosPorOutros = p.linhas
+                    .filter((outra) => chaveDestino(outra) !== chave)
+                    .reduce(
+                      (total, outra) => total + emMilesimos(
+                        Number(outra.quantidadeDistribuida || 0),
+                        "Quantidade distribuída",
+                      ),
+                      0,
+                    );
+                  const limiteMilesimos = Math.max(
+                    0,
+                    emMilesimos(Number(p.quantidadeTotal || 0), "Quantidade disponível")
+                      - usadosPorOutros,
+                  );
+                  const proximo = Math.min(
+                    limiteMilesimos,
+                    Math.max(0, atualMilesimos + emMilesimos(delta, "Ajuste da quantidade")),
+                  );
+                  return { ...l, quantidadeDistribuida: String(numeroDeMilesimos(proximo)) };
+                } catch {
+                  return l;
+                }
               }),
             }
       )
@@ -867,7 +892,7 @@ export default function DistribuicaoForm({
                 const preview = previewPorProduto.find((item) => item.produtoId === p.produtoId)!;
                 const linhas = p.linhas.filter((linha) => linha.clienteId === cliente.id);
                 return <div key={p.produtoId} className="rounded-[var(--radius-control)] border border-[var(--line)] p-3">
-                  <div className="flex items-center justify-between gap-2"><span className="font-medium">{produto.descricao}</span><span className="text-[12px] text-[var(--ink-soft)]">Disponível: {p.quantidadeTotal || "0"} {produto.unidade}</span></div>
+                  <div className="flex items-center justify-between gap-2"><span className="font-medium">{produto.descricao}</span><span className={`font-mono-tab text-[12px] ${preview.validacao.sobra < 0 ? "text-[var(--stamp)]" : "text-[var(--field-strong)]"}`}>{preview.validacao.sobra < 0 ? `Excede em ${formatarQuantidade(Math.abs(preview.validacao.sobra))}` : `Restante: ${formatarQuantidade(preview.validacao.sobra)}`} {produto.unidade}</span></div>
                   {preview.validacao.erro && <p role="alert" className="mt-1 text-[12px] text-[var(--stamp)]">{preview.validacao.erro}</p>}
                   <div className="mt-2 space-y-2">{linhas.map((linha) => {
                     const emitente = cliente.emitentes.find((item) => item.id === linha.emitenteId)!;
@@ -878,10 +903,14 @@ export default function DistribuicaoForm({
                     const saldoInicialTroca = Number(trocasDisponiveis[`${p.produtoId}:${cliente.id}`] ?? 0);
                     const saldoRestanteTroca = saldoTrocaDoMercado(p.produtoId, cliente.id);
                     const maximoNestaLinha = Math.max(0, saldoRestanteTroca + Number(linha.quantidadeTroca || 0));
+                    const maximoDistribuivelNestaLinha = Math.max(
+                      0,
+                      preview.validacao.sobra + Number(linha.quantidadeDistribuida || 0),
+                    );
                     return <div key={chaveDestino(linha)} className={`rounded-[var(--radius-control)] border p-2.5 ${preenchido ? "border-[var(--field)]" : "border-[var(--line)]"}`}>
                       {linhas.length > 1 && <p className="mb-2 text-[12px] text-[var(--ink-soft)]">Emitente: {emitente.nome}</p>}
                       <div className="grid grid-cols-[1fr_auto] items-center gap-2"><Label>Quantidade total</Label>{preenchido && !resultadoLinha.erro && <span className="font-mono-tab text-[13px] text-[var(--wheat)]">{moeda.format(resultadoLinha.subtotal)}</span>}</div>
-                      <div className="mt-1 flex items-center gap-1.5"><button type="button" onClick={() => ajustarQuantidade(p.produtoId, linha, -1)} aria-label={`Diminuir ${produto.descricao}`} className="w-9 shrink-0 rounded-[var(--radius-control)] border border-[var(--line-strong)] text-[var(--ink-soft)] active:bg-[var(--field-tint)]">−</button><input id={`quantidade-${p.produtoId}-${chaveDestino(linha)}`} type="number" inputMode="decimal" value={linha.quantidadeDistribuida} aria-label={`Quantidade total de ${produto.descricao} para ${cliente.nome} — ${emitente.nome}`} min="0" onChange={(e) => atualizarLinha(p.produtoId, linha, "quantidadeDistribuida", e.target.value)} placeholder="0" className="font-mono-tab h-10! min-h-0! w-full text-center" /><button type="button" onClick={() => ajustarQuantidade(p.produtoId, linha, 1)} aria-label={`Aumentar ${produto.descricao}`} className="w-9 shrink-0 rounded-[var(--radius-control)] border border-[var(--line-strong)] text-[var(--ink-soft)] active:bg-[var(--field-tint)]">+</button></div>
+                      <div className="mt-1 flex items-center gap-1.5"><button type="button" onClick={() => ajustarQuantidade(p.produtoId, linha, -1)} aria-label={`Diminuir ${produto.descricao}`} className="w-9 shrink-0 rounded-[var(--radius-control)] border border-[var(--line-strong)] text-[var(--ink-soft)] active:bg-[var(--field-tint)]">−</button><input id={`quantidade-${p.produtoId}-${chaveDestino(linha)}`} type="number" inputMode="decimal" value={linha.quantidadeDistribuida} aria-label={`Quantidade total de ${produto.descricao} para ${cliente.nome} — ${emitente.nome}`} min="0" max={maximoDistribuivelNestaLinha} onChange={(e) => atualizarLinha(p.produtoId, linha, "quantidadeDistribuida", e.target.value)} placeholder="0" className="font-mono-tab h-10! min-h-0! w-full text-center" /><button type="button" onClick={() => ajustarQuantidade(p.produtoId, linha, 1)} aria-label={`Aumentar ${produto.descricao}`} className="w-9 shrink-0 rounded-[var(--radius-control)] border border-[var(--line-strong)] text-[var(--ink-soft)] active:bg-[var(--field-tint)]">+</button></div>
                       <p className="mt-1 text-[11px] text-[var(--ink-faint)]">Inclui as unidades de troca desta entrega.</p>
                       {saldoInicialTroca > 0 || linha.trocaAberta ? <div className="mt-2 rounded border border-[var(--wheat)] bg-[var(--cream)] px-2 py-1.5"><div className="grid grid-cols-[1fr_auto] items-center gap-2"><Label>Troca nesta entrega</Label><input type="number" inputMode="decimal" value={linha.quantidadeTroca} aria-label={`Troca de ${produto.descricao} para ${cliente.nome} — ${emitente.nome}`} min="0" max={maximoNestaLinha} onChange={(e) => atualizarLinha(p.produtoId, linha, "quantidadeTroca", e.target.value)} className="font-mono-tab h-8! min-h-0! w-16 text-right text-[12px]" /></div><p className={`mt-1 text-[11px] ${saldoRestanteTroca < -0.0005 ? "text-[var(--stamp)]" : "text-[var(--ink-soft)]"}`}>{saldoRestanteTroca < -0.0005 ? `Excede o saldo registrado em ${formatarQuantidade(Math.abs(saldoRestanteTroca))} ${produto.unidade}.` : `Saldo após esta distribuição: ${formatarQuantidade(saldoRestanteTroca)} ${produto.unidade}.`}</p></div> : <a href="/trocas" className="mt-2 inline-block text-[12px] text-[var(--ink-faint)] underline decoration-dotted underline-offset-2">Sem troca registrada · adicionar saldo</a>}
                       <div className="mt-2 flex items-center justify-end gap-1.5 text-[12px]"><span className="text-[var(--ink-soft)]">R$/un:</span><input type="number" step="0.01" inputMode="decimal" value={linha.precoUnitario} aria-label={`Preço de ${produto.descricao} para ${cliente.nome} — ${emitente.nome}`} min="0" onChange={(e) => atualizarLinha(p.produtoId, linha, "precoUnitario", e.target.value)} className="font-mono-tab h-8! min-h-0! w-20 text-right text-[12px]" /></div>
@@ -939,22 +968,25 @@ export default function DistribuicaoForm({
                   const precoDiferenteDoUltimo = precoReferencia !== null
                     && Math.abs(linha.precoUnitario - precoReferencia) > 0.004;
                   return (
-                    <div key={linha.produtoId} className="mt-2 text-[13px] text-[var(--ink-soft)]">
-                      <p>
-                        {produto?.descricao}: {linha.quantidadeDistribuida} {produto?.unidade}
-                        {linha.quantidadeTroca > 0 ? ` · troca ${linha.quantidadeTroca}` : ""}
-                        {linha.quantidadeTroca > 0 ? ` · na nota: ${linha.quantidadeFaturavel} ${produto?.unidade ?? ""}` : ""}
-                      </p>
-                      <p className="font-mono-tab text-[12px]">
-                        {moeda.format(linha.precoUnitario)} por {produto?.unidade} · {moeda.format(linha.subtotal)}
-                      </p>
+                    <div key={linha.produtoId} className="mt-2 grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-0.5 text-[13px] text-[var(--ink-soft)]">
+                      <div className="min-w-0">
+                        <p className="truncate font-medium text-[var(--ink)]">{produto?.descricao}</p>
+                        <p className="text-[12px]">
+                          {linha.quantidadeDistribuida} {produto?.unidade}
+                          {linha.quantidadeTroca > 0 ? ` · ${linha.quantidadeTroca} troca · ${linha.quantidadeFaturavel} na nota` : ""}
+                        </p>
+                      </div>
+                      <div className="text-right font-mono-tab">
+                        <p className="font-semibold text-[var(--ink)]">{moeda.format(linha.subtotal)}</p>
+                        <p className="text-[11px]">{moeda.format(linha.precoUnitario)}/{produto?.unidade}</p>
+                      </div>
                       {linha.precoPromocional && (
-                        <p className="mt-1 text-[11px] text-[var(--field-strong)]">
+                        <p className="col-span-2 mt-1 text-[11px] text-[var(--field-strong)]">
                           Preço promocional — não altera a sugestão futura.
                         </p>
                       )}
                       {precoDiferenteDoUltimo && (
-                        <p className="mt-1 rounded bg-[var(--cream)] px-2 py-1 text-[11px] text-[var(--ink)]">
+                        <p className="col-span-2 mt-1 rounded bg-[var(--cream)] px-2 py-1 text-[11px] text-[var(--ink)]">
                           Preço diferente da referência de {moeda.format(precoReferencia!)}. Confira o valor antes de enviar.
                         </p>
                       )}

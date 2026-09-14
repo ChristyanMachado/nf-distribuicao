@@ -21,19 +21,23 @@ function banco(relacoes: Record<string, unknown>[], reutilizado = false, saldoTr
   const escritas: unknown[] = [];
   const baixasTroca: unknown[] = [];
   const filtros: string[] = [];
+  let payloadHashLote: unknown;
   let confirmado = false;
   const tx = {
     select: () => ({ from: (tabela: unknown) => {
       const rows = tabela === produtos ? [{ id: produtoId, regraFiscalId: "regra" }]
-        : tabela === clienteEmitentes ? relacoes : tabela === lotesDistribuicao ? [{ id: "lote", numero: 1 }] : [];
+        : tabela === clienteEmitentes ? relacoes : tabela === lotesDistribuicao
+          ? [{ id: "lote", numero: 1, payloadHash: payloadHashLote }]
+          : [];
       const query = { innerJoin: () => query, where: (condicao: Parameters<PgDialect["sqlToQuery"]>[0]) => {
         if (tabela === clienteEmitentes) filtros.push(new PgDialect().sqlToQuery(condicao).sql);
         return query;
       }, limit: () => Promise.resolve(rows), then: (resolve: (r: unknown) => unknown) => Promise.resolve(rows).then(resolve) };
       return query;
     } }),
-    insert: (tabela: unknown) => ({ values: () => {
+    insert: (tabela: unknown) => ({ values: (valores: Record<string, unknown>) => {
       escritas.push(tabela);
+      if (tabela === lotesDistribuicao) payloadHashLote = valores.payloadHash;
       const query = { onConflictDoNothing: () => query, onConflictDoUpdate: () => Promise.resolve(),
         returning: () => Promise.resolve(tabela === lotesDistribuicao
           ? reutilizado ? [] : [{ id: "lote", numero: 1 }] : [{ id: "disponibilidade" }]),

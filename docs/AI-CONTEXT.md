@@ -1,5 +1,16 @@
 # AI Context — NF Distribuição
 
+## Incidente Web de produção — 13/09/2026
+
+Após um lançamento de troca, várias rotas dinâmicas expiraram na Vercel por
+300 s. O saldo foi gravado uma única vez e o sistema se recuperou sem deploy;
+a troca não corrompeu dados. Logs mostraram rajadas simultâneas de rotas GET/RSC.
+A correção local desativa prefetch global, limita Postgres a uma conexão curta
+por instância e impede refresh sobreposto. Trocas têm timeout de 30 s e aviso de
+demora; o saldo do produto agora se atualiza entre mercados. 157 testes,
+TypeScript e build passaram. Ainda não publicado; conferir se `DATABASE_URL`
+usa transaction pooler 6543. Ver `INCIDENTE-WEB-TIMEOUT-2026-09-13.md`.
+
 ## Próxima sequência após auditoria operacional — 13/09/2026
 
 Não iniciar uma refatoração ampla. Executar em unidades pequenas o plano de

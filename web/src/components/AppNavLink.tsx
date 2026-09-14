@@ -22,6 +22,7 @@ export default function AppNavLink({
     return (
       <Link
         href={href}
+        prefetch={false}
         aria-current={ativo ? "page" : undefined}
         className={`flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 py-1.5 transition-colors active:bg-[var(--field-tint)] ${
           ativo ? "text-[var(--field-strong)]" : "text-[var(--ink-soft)]"
@@ -36,6 +37,7 @@ export default function AppNavLink({
   return (
     <Link
       href={href}
+      prefetch={false}
       aria-current={ativo ? "page" : undefined}
       className={`flex min-h-11 items-center gap-2.5 rounded-[var(--radius-control)] px-2.5 py-2 text-sm transition-colors ${
         ativo

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useTransition } from "react";
+import { useEffect, useRef, useTransition } from "react";
 
 export default function AtualizacaoAutomatica({
   ativa,
@@ -14,12 +14,22 @@ export default function AtualizacaoAutomatica({
 }) {
   const router = useRouter();
   const [atualizando, iniciarAtualizacao] = useTransition();
+  const atualizacaoEmVoo = useRef(false);
+
+  useEffect(() => {
+    if (!atualizando) atualizacaoEmVoo.current = false;
+  }, [atualizando]);
 
   useEffect(() => {
     if (!ativa) return;
 
     const atualizar = () => {
-      if (document.visibilityState !== "visible" || !navigator.onLine || atualizando) return;
+      if (
+        document.visibilityState !== "visible"
+        || !navigator.onLine
+        || atualizacaoEmVoo.current
+      ) return;
+      atualizacaoEmVoo.current = true;
       iniciarAtualizacao(() => router.refresh());
     };
     const intervalo = window.setInterval(atualizar, intervaloMs);
@@ -28,7 +38,7 @@ export default function AtualizacaoAutomatica({
       window.clearInterval(intervalo);
       document.removeEventListener("visibilitychange", atualizar);
     };
-  }, [ativa, router, atualizando, intervaloMs]);
+  }, [ativa, router, intervaloMs]);
 
   if (!ativa) return null;
 

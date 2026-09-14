@@ -1,4 +1,7 @@
 export const dynamic = "force-dynamic";
+// Uma indisponibilidade do banco deve terminar em erro recuperável, não manter
+// o operador preso por cinco minutos numa ação idempotente.
+export const maxDuration = 30;
 
 import Card from "@/components/Card";
 import { Label } from "@/components/Field";
@@ -32,7 +35,11 @@ export default async function TrocasPage({
         </p>
       )}
       <Card className="mt-5 p-4">
-        <FormularioComFeedback action={adicionarTrocaMercado} className="grid gap-4 sm:grid-cols-3 sm:items-end">
+        <FormularioComFeedback
+          action={adicionarTrocaMercado}
+          className="grid gap-4 sm:grid-cols-3 sm:items-end"
+          slowMessage="O serviço está demorando mais que o normal. Não envie novamente agora; aguarde o resultado. Se falhar, esta tela permitirá tentar de novo sem duplicar o saldo."
+        >
           <ChaveIdempotenciaTroca />
           <div><Label htmlFor="troca-mercado" required>Mercado</Label><select id="troca-mercado" name="clienteId" required defaultValue="" className="w-full"><option value="" disabled>Selecione</option>{clientes.map((cliente) => <option key={cliente.id} value={cliente.id}>{cliente.nome}</option>)}</select></div>
           <div><Label htmlFor="troca-produto" required>Produto</Label><select id="troca-produto" name="produtoId" required defaultValue="" className="w-full"><option value="" disabled>Selecione</option>{produtos.map((produto) => <option key={produto.id} value={produto.id}>{produto.descricao} · {produto.unidade}</option>)}</select></div>
