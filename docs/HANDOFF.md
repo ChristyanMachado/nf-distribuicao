@@ -1,5 +1,22 @@
 # Handoff — Estado Atual
 
+## PC servidor físico preparado no banco — 15/09/2026
+
+Após pedido de prosseguir, o projeto de produção `kcukzbszakwrfhbsiihw`
+recebeu a migration `provisionar_pc_servidor_01_bloqueado`: papel exclusivo
+`nf_executor_pc_servidor_01` com NOLOGIN e grants delimitados pelo modelo de
+provisionamento; cadastro `pc-servidor-01`, prioridade 10, capacidade 1. O
+cadastro foi habilitado para permitir `worker_start` no futuro, mas o papel
+continua NOLOGIN e `fiscal.worker_coordination.enabled=false`. Verificação
+remota: sem privilégios SUPERUSER/BYPASSRLS; zero sessões legadas e tarefas
+abertas no momento da consulta. Nenhum Ponto foi alterado.
+
+Para instalação física ainda faltam: gerar senha exclusiva por canal privado e
+ALTER ROLE ... LOGIN, configurar `worker.env` no PC com a URL desse papel,
+Storage e credenciais fiscais, testar preflight/saúde em manutenção e só então
+executar o corte protegido do worker legado e ativar a coordenação. Não
+habilitar a fila global nem executar Resume antes da prova de manutenção.
+
 ## Integração QA aprovada — 14/09/2026
 
 Connect informado pelo usuário confirmou `aws-0-sa-east-1.pooler.supabase.com:6543`;
