@@ -2,6 +2,18 @@
 
 ## PC servidor físico preparado no banco — 15/09/2026
 
+Arquivo privado `G:/Downloads/nf-distribuicao/dist/worker.env.pc-servidor-01`
+gerado a partir da configuração operacional já existente, sem imprimir
+credenciais: três contas fiscais, Storage de produção, `WORKER_ID=pc-servidor-01`,
+concorrência 1 e emissão em ambiente `teste`. `WORKER_DATABASE_URL` permanece
+vazia; portanto o arquivo ainda não permite instalar/iniciar um serviço saudável.
+Transferir por canal privado para `C:/ConfiguracaoPrivada/worker.env` no PC
+servidor, preencher somente depois de criar login/senha do papel exclusivo e
+executar preflight. O gerador fica em
+`worker/scripts/preparar_env_pc_servidor.py`; ele recusa origem Storage fora do
+projeto de produção e não versiona o arquivo gerado. Após transferir, remover a
+cópia intermediária privada de `dist` por operação explícita e verificada.
+
 Após pedido de prosseguir, o projeto de produção `kcukzbszakwrfhbsiihw`
 recebeu a migration `provisionar_pc_servidor_01_bloqueado`: papel exclusivo
 `nf_executor_pc_servidor_01` com NOLOGIN e grants delimitados pelo modelo de
