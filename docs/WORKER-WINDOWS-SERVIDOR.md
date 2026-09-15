@@ -135,6 +135,14 @@ gera apenas material de revisão e o instalador o recusa. Não usar um pacote
 configurar `WORKER_COORDENADO=true`, WORKER_ID, WORKER_VERSION e papel exclusivo,
 mantendo downloads em volume persistente. Nenhum componente depende da Oracle.
 
+### Pacote atual preparado
+
+Para o ensaio físico de homologação, o pacote do commit `13c6705` é
+`dist/worker-servidor-13c6705.zip`, SHA-256
+`353EB32003021B3F2155E1443F8CACC0F8D38A47EB6A31DD3E47176898BA4BF1`.
+Ele não possui credenciais. Confira o hash antes e depois da transferência; um
+commit posterior exige gerar pacote e hash novos.
+
 ## Ensaio obrigatório antes de entregar
 
 1. Instalar em Windows limpo; confirmar manutenção sem tarefas consumidas.
