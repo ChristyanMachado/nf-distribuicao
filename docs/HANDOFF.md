@@ -38,17 +38,16 @@ ou reserva de fila; não imprime URLs ou chaves. Após isso, 323 testes completo
 do Worker e compilação Python passaram. Commit pendente por limite temporário
 da plataforma no momento de registrar alterações locais.
 
-Registro concluído em `13c6705` e o modelo QA recebeu a proteção adicional
-`f265f53`. Pacote Windows instalável atual gerado em
-`dist/worker-servidor-f265f53.zip`, SHA-256
-`9824B3365346AC8A35807571D745C0A1074B93AD45F230084549ADC3F92C0BB8`.
+Registro concluído e o preflight QA foi reforçado em `f99920e`. Pacote Windows
+instalável atual gerado em `dist/worker-servidor-f99920e.zip`, SHA-256
+`962ECBE61AD4C0AE714B61E71170FB35D1F7A9B0C94A4A687466B4F76F3DF117`.
 É uma versão limpa e validada, sem credenciais e sem serviço iniciado; ainda
 não entregar/instalar até o PC estar acessível e a configuração privada existir.
 
 Pré-checagem reforçada para limpar flags herdadas do terminal antes de consumir
 o env QA, provado por teste com variáveis contaminadas de produção. Validação
-posterior: 325 testes Worker e compilação Python passaram. Um novo pacote deve
-ser gerado depois deste commit; não usar o hash anterior para a instalação.
+posterior: 325 testes Worker e compilação Python passaram. O pacote acima foi
+regenerado a partir dessa versão e está pronto para o ensaio físico.
 
 ## Provisionamento QA confirmado — 14/09/2026
 
