@@ -27,6 +27,24 @@ def test_preflight_usa_arquivo_e_nao_exibe_segredos(tmp_path, monkeypatch, capsy
     assert "senha-ultra-privada" not in resultado
 
 
+def test_preflight_nao_herda_flags_de_producao_do_terminal(tmp_path, monkeypatch):
+    env = tmp_path / "qa.env"
+    env.write_text(
+        "\n".join([
+            "APP_ENVIRONMENT=homologacao",
+            "SISTEMA_FISCAL_URL=https://receita.pr.gov.br/login",
+            "AMBIENTE_EMISSAO=teste",
+            "HABILITAR_PRODUCAO_FISCAL=false",
+            "FONTE_TAREFAS=arquivo",
+        ]), encoding="utf-8")
+    monkeypatch.setenv("HABILITAR_PRODUCAO_FISCAL", "true")
+    monkeypatch.setenv("AMBIENTE_EMISSAO", "normal")
+    monkeypatch.setenv("WORKER_DATABASE_URL", "postgresql://producao:segredo@db.exemplo/postgres")
+    monkeypatch.setattr(sys, "argv", ["preflight", "--env-file", str(env)])
+
+    assert preflight.main() == 0
+
+
 def test_preflight_recusa_arquivo_simbolico_ou_ausente(tmp_path, monkeypatch):
     arquivo = tmp_path / "inexistente.env"
     monkeypatch.setattr(sys, "argv", ["preflight", "--env-file", str(arquivo)])

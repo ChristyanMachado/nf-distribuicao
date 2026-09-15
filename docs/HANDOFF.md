@@ -45,6 +45,11 @@ Registro concluído em `13c6705` e o modelo QA recebeu a proteção adicional
 É uma versão limpa e validada, sem credenciais e sem serviço iniciado; ainda
 não entregar/instalar até o PC estar acessível e a configuração privada existir.
 
+Pré-checagem reforçada para limpar flags herdadas do terminal antes de consumir
+o env QA, provado por teste com variáveis contaminadas de produção. Validação
+posterior: 325 testes Worker e compilação Python passaram. Um novo pacote deve
+ser gerado depois deste commit; não usar o hash anterior para a instalação.
+
 ## Provisionamento QA confirmado — 14/09/2026
 
 `qa_permissoes_worker_web_storage` aplicada na nova tentativa autorizada.

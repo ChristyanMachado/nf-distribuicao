@@ -24,6 +24,10 @@ Ela não abre navegador nem reserva tarefa e omite qualquer segredo na saída.
 Após essa adição, 323 testes Worker e `compileall` passaram. Criar a senha/login
 do papel QA e uma chave exclusiva do Storage continuam dependências externas.
 
+A pré-checagem também limpa flags fiscais/banco/Storage herdadas de um terminal
+antes de ler o arquivo QA, impedindo mistura silenciosa com produção. Após esse
+reforço, a suíte completa do Worker passou com 325 testes.
+
 ## Continuação dos testes E2E — 14/09/2026
 
 Plano executável por etapas em `PLANO-E2E-HOMOLOGACAO.md`. Integração e Web

@@ -11,6 +11,19 @@ from dotenv import dotenv_values
 from src.config import carregar_config
 
 
+_PREFIXOS_ISOLADOS = ("APP_", "SUPABASE_", "WORKER_", "CLIENTE_")
+_VARIAVEIS_ISOLADAS = {
+    "SISTEMA_FISCAL_URL", "AMBIENTE_EMISSAO", "HABILITAR_PRODUCAO_FISCAL",
+    "MODO_OPERACAO", "FONTE_TAREFAS", "TESTAR_INTEGRACAO_BANCO",
+    "PROCESSAR_FILA_BANCO", "TESTAR_NAVEGACAO_EMISSAO",
+    "TESTAR_PREENCHIMENTO_COMPLETO", "TESTAR_EMISSAO_HOMOLOGACAO",
+    "ARMAZENAR_DOCUMENTOS", "LIMPAR_DOCUMENTOS_EXPIRADOS",
+    "PROCESSAR_RECUPERACOES_DOCUMENTOS", "PROCESSAR_CANCELAMENTOS_FISCAIS",
+    "HEADLESS", "INSPECIONAR", "MAX_CONCORRENCIA", "CLIENTES_ATIVOS",
+    "DOWNLOAD_DIR", "LOG_DIR", "DOCUMENTOS_RETENCAO_DIAS",
+}
+
+
 def _argumentos() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--env-file", required=True, help="Arquivo privado de homologação.")
@@ -23,6 +36,11 @@ def main() -> int:
     if not caminho.is_file() or caminho.is_symlink():
         raise RuntimeError("Arquivo privado de homologação não está disponível.")
     valores = dotenv_values(caminho)
+    # Não permitir que um terminal usado para produção complete silenciosamente
+    # um arquivo QA incompleto. PATH e demais variáveis do processo permanecem.
+    for chave in tuple(os.environ):
+        if chave.startswith(_PREFIXOS_ISOLADOS) or chave in _VARIAVEIS_ISOLADAS:
+            os.environ.pop(chave, None)
     for chave, valor in valores.items():
         if valor is not None:
             os.environ[chave] = valor

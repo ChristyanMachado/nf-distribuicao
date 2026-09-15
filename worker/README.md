@@ -52,8 +52,9 @@ preenchida deve ficar fora do Git. Antes de iniciar serviço ou navegador, rode:
 ```
 
 O comando só lê e valida as travas; não abre o portal, não reserva tarefa e não
-mostra senha, URL ou chave de Storage. Ele exige `APP_ENVIRONMENT=homologacao`,
-banco/Storage do QA e ambiente fiscal de teste.
+mostra senha, URL ou chave de Storage. Ele limpa flags herdadas do terminal
+antes da leitura, exige `APP_ENVIRONMENT=homologacao`, banco/Storage do QA e
+ambiente fiscal de teste.
 
 ## Contingência manual no Windows
 
