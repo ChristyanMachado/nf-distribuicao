@@ -33,3 +33,11 @@ def test_preflight_recusa_arquivo_simbolico_ou_ausente(tmp_path, monkeypatch):
 
     with pytest.raises(RuntimeError, match="não está disponível"):
         preflight.main()
+
+
+def test_modelo_qa_sem_segredos_nao_passa_como_pronto(monkeypatch):
+    modelo = preflight.Path(__file__).resolve().parents[1] / ".env.homologacao.example"
+    monkeypatch.setattr(sys, "argv", ["preflight", "--env-file", str(modelo)])
+
+    with pytest.raises(RuntimeError, match="WORKER_DATABASE_URL"):
+        preflight.main()
