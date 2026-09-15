@@ -119,6 +119,15 @@ npm run homologacao:dev
 Site local previsto: `http://127.0.0.1:3200`. Login obrigatório e faixa HOMOLOGAÇÃO.
 O launcher carrega somente `.env.homologacao.local` e neutraliza valores que o
 Next herdaria dos arquivos habituais. Nenhum `.env` de produção é editado.
+
+Quando o arquivo privado ficar fora do clone, informe somente seu caminho local
+(nunca o conteúdo) antes dos comandos:
+
+```powershell
+$env:HOMOLOGACAO_ENV_FILE = 'G:\\Downloads\\nf-distribuicao\\web\\.env.homologacao.local'
+```
+
+Sem essa variável, o caminho padrão dentro de `web/` continua sendo usado.
 Build fica em `.next-homologacao`, separado do `.next` habitual.
 
 Guardas no início do servidor, na abertura do banco e no preflight: recusam

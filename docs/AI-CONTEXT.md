@@ -7,6 +7,10 @@ Env privado corrigido; role restrita preservada. Grant de USAGE em extensions
 e EXECUTE digest(text,text) aplicado somente no QA resolveu a criação do hash.
 Sete testes reais Web/banco passaram com rollback. Circuito navegador/Worker/
 Receita/Storage ainda pendente; não confundir integração SQL com E2E fiscal.
+O launcher de QA aceita `HOMOLOGACAO_ENV_FILE` para não duplicar segredo fora
+do Git. Build e login anônimo da aplicação local foram aprovados; ainda falta
+autenticação e fluxo controlado do navegador. Sessenta testes do Worker de
+sentinela e configuração passaram localmente.
 
 ## Continuação dos testes E2E — 14/09/2026
 

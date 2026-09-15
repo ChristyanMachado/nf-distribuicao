@@ -13,6 +13,10 @@ const comandos = {
 };
 if (!Object.hasOwn(comandos, operacao)) throw new Error('Use dev, build, start ou integration.');
 const root = fileURLToPath(new URL('../', import.meta.url));
+// O arquivo privado pode ficar fora do clone para não duplicar segredos.
+const arquivoHomologacao = process.env.HOMOLOGACAO_ENV_FILE
+  ? process.env.HOMOLOGACAO_ENV_FILE
+  : new URL('../.env.homologacao.local', import.meta.url);
 // Definir inclusive os valores vazios impede o Next de herdá-los de .env/.env.local.
 const env = { ...process.env };
 for (const file of ['.env', '.env.local', '.env.development', '.env.development.local', '.env.production', '.env.production.local', '.env.test', '.env.test.local']) {
@@ -21,8 +25,8 @@ for (const file of ['.env', '.env.local', '.env.development', '.env.development.
 }
 for (const key of Object.keys(env)) if (/^(APP_|SUPABASE_|NEXT_PUBLIC_|DATABASE_URL|WORKER_|CLIENTE_|PROCESSAR_|HABILITAR_|TESTAR_|LIMPAR_)/.test(key)) env[key] = '';
 let configuracao;
-try { configuracao = parseEnv(readFileSync(new URL('../.env.homologacao.local', import.meta.url), 'utf8')); }
-catch { throw new Error('Configure .env.homologacao.local com as credenciais exclusivas de QA.'); }
+try { configuracao = parseEnv(readFileSync(arquivoHomologacao, 'utf8')); }
+catch { throw new Error('Configure .env.homologacao.local ou HOMOLOGACAO_ENV_FILE com credenciais exclusivas de QA.'); }
 Object.assign(env, configuracao, { APP_ENVIRONMENT: 'homologacao' });
 validarIsolamentoHomologacao(env);
 delete env.NODE_ENV;

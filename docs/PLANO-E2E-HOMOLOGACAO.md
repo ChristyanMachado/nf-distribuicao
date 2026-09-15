@@ -1,8 +1,8 @@
 # Plano de conclusão do E2E — 14/09/2026
 
 Destino exclusivo: `szakgftippcqtuqwxsox` (nf-distribuicao-homologacao).
-Produção e Ponto não participam. Nenhum passo remoto abaixo foi executado nesta
-rodada. O teste de portal em arquivo é apenas a primeira camada.
+Produção e Ponto não participam. O teste de portal em arquivo é apenas a
+primeira camada.
 
 ## 1. Atualizar o QA sem reset
 
@@ -35,7 +35,11 @@ Os testes exercitam a Server Action e transações reais, usando as mesmas opç�
 Postgres do runtime (`src/db/connection-options.ts`). Sessão e cache Next são
 substituídos. Validar 1/3/5 destinos, reenvio idêntico, mudança de conteúdo com a
 mesma chave, troca integral e rollback. Os saldos preparados pelo ensaio são
-desfeitos junto com a transação; sequências podem avançar.
+desfeitos junto com a transação; sequências podem avançar. Em 14/09/2026, os
+sete cenários passaram no pooler correto (`aws-0`, porta 6543), todos em
+rollback. A correção exigida foi somente o acesso controlado à função
+`extensions.digest(text,text)` do papel Web de QA. Tarefas, lotes e notas
+continuaram em zero após o ensaio.
 
 Isso não testa o clique no navegador. Depois executar o Web QA em build de
 produção local (`homologacao:build` / `homologacao:start`) e automatizar o fluxo
@@ -77,8 +81,12 @@ os IDs daquele ensaio. Sem agendamento até essa execução manual ser comprovad
 
 - Comando de portal em arquivo implementado; ensaio ao vivo pendente.
 - Configuração Postgres compartilhada pelo runtime e testes de integração.
-- Testes de integração atualizados, ainda sem execução contra o QA atualizado.
-- Banco/Storage/credenciais e teste de navegador completo pendentes.
+- Testes de integração 1/3/5, idempotência, troca e rollback aprovados no QA.
+- Build local e tela de login com faixa QA aprovados. Falta login/interação no
+  navegador, que requer credencial administrativa e não deve criar distribuição
+  fora do roteiro controlado.
+- Bucket e papel Worker existem, mas o papel continua NOLOGIN. Faltam segredo
+  exclusivo, dados aceitos pelo portal e E2E completo Web → Worker → Storage.
 
 Referência de isolamento:
 https://supabase.com/docs/guides/deployment/managing-environments

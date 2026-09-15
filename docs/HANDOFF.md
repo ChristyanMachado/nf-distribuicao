@@ -18,6 +18,14 @@ PC servidor está fisicamente com o responsável, que configurou retorno de
 energia na BIOS; ensaio elétrico não realizado e acesso Windows aguarda senha
 do cliente. Não instalar/ativar serviço antes do acesso e dos gates previstos.
 
+O launcher agora aceita `HOMOLOGACAO_ENV_FILE`, permitindo manter o `.env`
+privado da cópia principal fora do clone. `npm run test:safety`, os sete testes
+de integração pelo launcher e build QA passaram; `GET /login` respondeu 200 e
+exibiu a faixa de homologação. O login automatizado não foi executado: exige
+transmitir a credencial administrativa de QA e não deve criar lote sem roteiro
+E2E explícito. Testes Worker sem conexão externa: 60 passaram
+(sentinela + configuração).
+
 ## Provisionamento QA confirmado — 14/09/2026
 
 `qa_permissoes_worker_web_storage` aplicada na nova tentativa autorizada.
