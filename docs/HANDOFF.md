@@ -26,6 +26,18 @@ transmitir a credencial administrativa de QA e não deve criar lote sem roteiro
 E2E explícito. Testes Worker sem conexão externa: 60 passaram
 (sentinela + configuração).
 
+Barreira adicional no Worker: `APP_ENVIRONMENT=homologacao` vincula URL do
+Worker ao projeto QA e ambiente `teste`; também exige origem QA no Storage
+quando ativado. Produção sem a marca não mudou. Suíte completa do Worker: 321
+testes aprovados. Graphify incremental atualizado; nenhum segredo de Worker,
+login do papel, fila elegível ou ação fiscal foi criado.
+
+Modelo privado de configuração QA e pré-checagem somente leitura adicionados.
+Ela valida banco, ambiente, Storage e modo persistente antes de qualquer browser
+ou reserva de fila; não imprime URLs ou chaves. Após isso, 323 testes completos
+do Worker e compilação Python passaram. Commit pendente por limite temporário
+da plataforma no momento de registrar alterações locais.
+
 ## Provisionamento QA confirmado — 14/09/2026
 
 `qa_permissoes_worker_web_storage` aplicada na nova tentativa autorizada.

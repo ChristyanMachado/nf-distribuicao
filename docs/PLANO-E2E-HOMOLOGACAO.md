@@ -64,6 +64,14 @@ para a etapa E2E explícita, preservando a validação do ID do projeto. O Worke
 deve recusar URL de banco/Storage de outro projeto e exigir ambiente teste.
 Nunca reutilizar o launcher de contingência de produção para essa execução.
 
+Essa barreira foi implementada em `worker/src/config.py`: com
+`APP_ENVIRONMENT=homologacao`, aceita apenas o projeto QA/papel Worker e
+`AMBIENTE_EMISSAO=teste`. Mantê-la no arquivo privado que será criado para o
+Worker QA. A role continua NOLOGIN até a etapa de segredo exclusivo.
+O arquivo `worker/.env.homologacao.example` mostra todas as flags necessárias
+sem conter credenciais. Antes de criar serviço, executar a pré-checagem com o
+arquivo privado; ela não abre navegador nem toca a fila.
+
 ## 4. Critério de aprovação do circuito completo
 
 Uma execução manual inicia no navegador, cria um lote identificado e entrega

@@ -42,6 +42,19 @@ homologação, desliga fila/Storage/produção e exige uma confirmação explíc
 comando. Consulte `../docs/SENTINELA-HOMOLOGACAO.md`; não use testes unitários
 como substituto dessa prova contra o portal real.
 
+## Pré-checagem do Worker de homologação
+
+`.env.homologacao.example` é somente um modelo sem segredos. A cópia
+preenchida deve ficar fora do Git. Antes de iniciar serviço ou navegador, rode:
+
+```powershell
+.\.venv\Scripts\python.exe -m scripts.verificar_preflight_homologacao --env-file C:\caminho\privado\worker-qa.env
+```
+
+O comando só lê e valida as travas; não abre o portal, não reserva tarefa e não
+mostra senha, URL ou chave de Storage. Ele exige `APP_ENVIRONMENT=homologacao`,
+banco/Storage do QA e ambiente fiscal de teste.
+
 ## Contingência manual no Windows
 
 O pacote para um operador sem VS Code é gerado por

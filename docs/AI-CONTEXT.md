@@ -12,6 +12,18 @@ do Git. Build e login anônimo da aplicação local foram aprovados; ainda falta
 autenticação e fluxo controlado do navegador. Sessenta testes do Worker de
 sentinela e configuração passaram localmente.
 
+O Worker agora trata `APP_ENVIRONMENT=homologacao` como fronteira de segurança:
+aceita apenas banco QA com o papel `nf_homologacao_worker`, recusa ambiente
+fiscal normal e exige Storage QA quando habilitado. A marca é opt-in e não
+altera a produção sem essa variável. Validação: 321 testes Worker aprovados e
+Graphify incremental atualizado (1.865 nós).
+
+Existe agora `.env.homologacao.example` do Worker e a pré-checagem
+`python -m scripts.verificar_preflight_homologacao --env-file <arquivo>`.
+Ela não abre navegador nem reserva tarefa e omite qualquer segredo na saída.
+Após essa adição, 323 testes Worker e `compileall` passaram. Criar a senha/login
+do papel QA e uma chave exclusiva do Storage continuam dependências externas.
+
 ## Continuação dos testes E2E — 14/09/2026
 
 Plano executável por etapas em `PLANO-E2E-HOMOLOGACAO.md`. Integração e Web

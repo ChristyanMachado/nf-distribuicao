@@ -11,7 +11,7 @@ from __future__ import annotations
 import os
 import re
 from dataclasses import dataclass, field
-from urllib.parse import urlsplit
+from urllib.parse import unquote, urlsplit
 
 from dotenv import load_dotenv
 
@@ -19,6 +19,9 @@ from .storage_documentos import ConfigStorageDocumentos
 from .impressao_roteiro import ConfigImpressaoRoteiro, carregar_config_impressao
 
 load_dotenv()
+
+
+_PROJETO_HOMOLOGACAO = "szakgftippcqtuqwxsox"
 
 
 @dataclass(frozen=True)
@@ -269,6 +272,15 @@ def carregar_config() -> Config:
         if worker_database_url_raw
         else None
     )
+    ambiente_aplicacao = (os.getenv("APP_ENVIRONMENT") or "").strip().lower()
+    if ambiente_aplicacao and ambiente_aplicacao not in {"homologacao", "producao"}:
+        raise RuntimeError("APP_ENVIRONMENT precisa ser homologacao ou producao.")
+    if ambiente_aplicacao == "homologacao":
+        _validar_isolamento_homologacao_worker(
+            worker_database_url=worker_database_url,
+            ambiente_emissao=ambiente_emissao,
+            habilitar_producao_fiscal=habilitar_producao_fiscal,
+        )
     worker_id = (os.getenv("WORKER_ID") or "").strip() or None
     if worker_id and (
         len(worker_id) > 120
@@ -328,6 +340,9 @@ def carregar_config() -> Config:
     storage_documentos = _carregar_storage_documentos(
         habilitado=os.getenv("ARMAZENAR_DOCUMENTOS", "false").lower() == "true"
     )
+    if ambiente_aplicacao == "homologacao" and storage_documentos is not None:
+        if storage_documentos.base_url != f"https://{_PROJETO_HOMOLOGACAO}.supabase.co":
+            raise RuntimeError("Homologação bloqueada: Storage não pertence ao projeto de QA.")
     limpar_documentos_expirados = (
         os.getenv("LIMPAR_DOCUMENTOS_EXPIRADOS", "false").lower() == "true"
     )
@@ -556,3 +571,32 @@ def _url_banco_worker(valor: str) -> str:
     ):
         raise RuntimeError("WORKER_DATABASE_URL possui formato inválido.")
     return valor.strip()
+
+
+def _validar_isolamento_homologacao_worker(
+    *,
+    worker_database_url: str | None,
+    ambiente_emissao: str,
+    habilitar_producao_fiscal: bool,
+) -> None:
+    """Impede que uma configuração QA aponte para o ambiente fiscal ou DB real."""
+
+    if ambiente_emissao != "teste" or habilitar_producao_fiscal:
+        raise RuntimeError("Homologação bloqueada: emissão fiscal deve permanecer em teste.")
+    if worker_database_url is None:
+        return
+    url = urlsplit(worker_database_url)
+    usuario = unquote(url.username or "")
+    host = (url.hostname or "").lower()
+    direto = (
+        host == f"db.{_PROJETO_HOMOLOGACAO}.supabase.co"
+        and usuario == "nf_homologacao_worker"
+        and url.port in {None, 5432}
+    )
+    pooler = (
+        re.fullmatch(r"aws-[0-9]+-sa-east-1\.pooler\.supabase\.com", host)
+        and usuario == f"nf_homologacao_worker.{_PROJETO_HOMOLOGACAO}"
+        and url.port in {5432, 6543}
+    )
+    if not direto and not pooler:
+        raise RuntimeError("Homologação bloqueada: banco Worker não pertence ao projeto de QA.")

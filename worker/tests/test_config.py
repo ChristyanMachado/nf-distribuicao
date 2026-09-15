@@ -37,6 +37,7 @@ def _preparar_env_minimo(monkeypatch):
     monkeypatch.delenv("SUPABASE_SECRET_KEY", raising=False)
     monkeypatch.delenv("SUPABASE_STORAGE_BUCKET", raising=False)
     monkeypatch.delenv("DOCUMENTOS_RETENCAO_DIAS", raising=False)
+    monkeypatch.delenv("APP_ENVIRONMENT", raising=False)
     monkeypatch.delenv("LIMPAR_DOCUMENTOS_EXPIRADOS", raising=False)
     monkeypatch.setenv("CLIENTES_ATIVOS", "CLIENTE_A")
     monkeypatch.setenv("HEADLESS", "false")
@@ -175,6 +176,36 @@ def test_ambiente_emissao_invalido_falha_com_mensagem_clara(monkeypatch):
     monkeypatch.setenv("AMBIENTE_EMISSAO", "producao")
 
     with pytest.raises(RuntimeError, match="AMBIENTE_EMISSAO"):
+        carregar_config()
+
+
+def test_homologacao_exige_banco_worker_do_projeto_qa(monkeypatch):
+    _preparar_env_minimo(monkeypatch)
+    monkeypatch.setenv("APP_ENVIRONMENT", "homologacao")
+    monkeypatch.setenv("FONTE_TAREFAS", "banco")
+    monkeypatch.setenv(
+        "WORKER_DATABASE_URL",
+        "postgresql://nf_homologacao_worker.szakgftippcqtuqwxsox:senha@aws-0-sa-east-1.pooler.supabase.com:6543/postgres",
+    )
+    monkeypatch.setenv("WORKER_ID", "qa-worker")
+    monkeypatch.setenv("TESTAR_INTEGRACAO_BANCO", "true")
+
+    assert carregar_config().ambiente_emissao == "teste"
+
+    monkeypatch.setenv(
+        "WORKER_DATABASE_URL",
+        "postgresql://nf_homologacao_worker.kcukzbszakwrfhbsiihw:senha@aws-0-sa-east-1.pooler.supabase.com:6543/postgres",
+    )
+    with pytest.raises(RuntimeError, match="banco Worker não pertence"):
+        carregar_config()
+
+
+def test_homologacao_recusa_ambiente_fiscal_normal(monkeypatch):
+    _preparar_env_minimo(monkeypatch)
+    monkeypatch.setenv("APP_ENVIRONMENT", "homologacao")
+    monkeypatch.setenv("AMBIENTE_EMISSAO", "normal")
+
+    with pytest.raises(RuntimeError, match="emissão fiscal deve permanecer em teste"):
         carregar_config()
 
 
