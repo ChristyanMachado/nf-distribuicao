@@ -137,9 +137,9 @@ mantendo downloads em volume persistente. Nenhum componente depende da Oracle.
 
 ### Pacote atual preparado
 
-Para o ensaio físico de homologação, o pacote do commit `13c6705` é
-`dist/worker-servidor-13c6705.zip`, SHA-256
-`353EB32003021B3F2155E1443F8CACC0F8D38A47EB6A31DD3E47176898BA4BF1`.
+Para o ensaio físico de homologação, o pacote atual do commit `f265f53` é
+`dist/worker-servidor-f265f53.zip`, SHA-256
+`9824B3365346AC8A35807571D745C0A1074B93AD45F230084549ADC3F92C0BB8`.
 Ele não possui credenciais. Confira o hash antes e depois da transferência; um
 commit posterior exige gerar pacote e hash novos.
 

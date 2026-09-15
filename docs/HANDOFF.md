@@ -38,9 +38,10 @@ ou reserva de fila; não imprime URLs ou chaves. Após isso, 323 testes completo
 do Worker e compilação Python passaram. Commit pendente por limite temporário
 da plataforma no momento de registrar alterações locais.
 
-Registro concluído depois em `13c6705`. Pacote Windows instalável gerado em
-`dist/worker-servidor-13c6705.zip`, SHA-256
-`353EB32003021B3F2155E1443F8CACC0F8D38A47EB6A31DD3E47176898BA4BF1`.
+Registro concluído em `13c6705` e o modelo QA recebeu a proteção adicional
+`f265f53`. Pacote Windows instalável atual gerado em
+`dist/worker-servidor-f265f53.zip`, SHA-256
+`9824B3365346AC8A35807571D745C0A1074B93AD45F230084549ADC3F92C0BB8`.
 É uma versão limpa e validada, sem credenciais e sem serviço iniciado; ainda
 não entregar/instalar até o PC estar acessível e a configuração privada existir.
 
