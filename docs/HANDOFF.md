@@ -1,5 +1,17 @@
 # Handoff — Estado Atual
 
+## Atualizador Windows preserva manutenção — 16/09/2026
+
+Ao preparar a instalação do pacote `06da7ef`, uma revisão do script Windows
+encontrou que `Update` removia `hold.request` incondicionalmente após provar
+saúde. Isso poderia liberar o PC ao final da troca mesmo sem `Resume`. O pacote
+`06da7ef` NÃO deve ser usado para atualizar o PC. O script agora registra se a
+manutenção já existia antes do corte e a preserva após uma atualização bem
+sucedida; o caminho de rollback continua deixando o executor em manutenção.
+Parser PowerShell confirmou zero erros. Empacotar nova versão limpa, conferir
+SHA-256 no PC, atualizar, provar saúde `manutencao` e repetir reboot antes do
+gate de produção.
+
 ## PC servidor: retomada após reboot — 16/09/2026
 
 Ensaio físico: o pacote `f99920e` instalou Chromium e passou o preflight do

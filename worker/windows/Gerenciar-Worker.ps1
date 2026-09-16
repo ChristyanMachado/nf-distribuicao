@@ -156,6 +156,7 @@ if ($Action -eq 'Rollback') {
     if ($version -notmatch '^[a-f0-9]{40}$' -or -not (Test-Path -LiteralPath (Join-Path $Root ('releases\'+$version+'\.venv\Scripts\python.exe')))) { throw 'Versao anterior indisponivel.' }
 } else { $version = Prepare-Release }
 $oldHealth = Get-Health
+$holdWasPresent = Test-Path -LiteralPath (Join-Path $control 'hold.request')
 Set-Control 'hold.request'
 Set-Control 'drain.request'
 Wait-Stopped
@@ -169,8 +170,8 @@ try {
     Remove-Control 'drain.request'
     Start-ScheduledTask -TaskName $TaskName
     Wait-Healthy $version $oldHealth.boot_id
-    Remove-Control 'hold.request'
-    Write-Output 'Atualizacao concluida e saude confirmada.'
+    if (-not $holdWasPresent) { Remove-Control 'hold.request' }
+    Write-Output 'Atualizacao concluida e saude confirmada; estado de manutencao anterior preservado.'
 } catch {
     Set-Control 'drain.request'
     Wait-Stopped
