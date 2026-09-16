@@ -12,7 +12,7 @@ import pytest
 
 from src.executor_contexto import IdentidadeExecutor, executor_atual
 from src.fonte_tarefas import FontePostgresTarefas, FonteTarefasErro
-from src.servico_coordenado import executar_coordenado, identificar
+from src.servico_coordenado import executar_coordenado, identificar, _iniciar_aguardando_lease
 
 
 class CoordenadorFalso:
@@ -116,6 +116,58 @@ def test_versao_e_boot_invalidos_bloqueiam(setup, monkeypatch):
     monkeypatch.setenv("WORKER_VERSION", "abc")
     monkeypatch.setenv("WORKER_BOOT_ID", "invalido")
     with pytest.raises(RuntimeError, match="BOOT"): identificar(config)
+
+
+def test_reboot_aguarda_apenas_sessao_antiga_e_retomada_sem_fila():
+    class SessaoAntiga(Exception):
+        sqlstate = "55000"
+    class Coordenador:
+        chamadas = 0
+        async def iniciar(self):
+            self.chamadas += 1
+            if self.chamadas < 3:
+                raise SessaoAntiga()
+            return {"admitted": False, "active_count": 0}
+    relogio = [0]
+    estados = []
+    async def esperar(segundos): relogio[0] += segundos
+    coordenador = Coordenador()
+    resultado = asyncio.run(_iniciar_aguardando_lease(
+        coordenador, logging.getLogger("reboot"), lambda *estado: estados.append(estado),
+        relogio=lambda: relogio[0], esperar=esperar))
+    assert resultado["admitted"] is False
+    assert coordenador.chamadas == 3
+    assert estados == [("espera", 0), ("espera", 0)]
+
+
+def test_reboot_nao_repetira_falhas_nao_relacionadas_ao_lease():
+    class PermissaoNegada(Exception):
+        sqlstate = "42501"
+    class Coordenador:
+        chamadas = 0
+        async def iniciar(self):
+            self.chamadas += 1
+            raise PermissaoNegada()
+    coordenador = Coordenador()
+    with pytest.raises(PermissaoNegada):
+        asyncio.run(_iniciar_aguardando_lease(
+            coordenador, logging.getLogger("reboot"), lambda *_: None,
+            esperar=AsyncMock()))
+    assert coordenador.chamadas == 1
+
+
+def test_reboot_nao_ultrapassa_prazo_se_lease_nunca_expira():
+    class SessaoAntiga(Exception):
+        sqlstate = "55000"
+    class Coordenador:
+        async def iniciar(self): raise SessaoAntiga()
+    relogio = [0]
+    async def esperar(segundos): relogio[0] += segundos
+    with pytest.raises(SessaoAntiga):
+        asyncio.run(_iniciar_aguardando_lease(
+            Coordenador(), logging.getLogger("reboot"), lambda *_: None,
+            relogio=lambda: relogio[0], esperar=esperar))
+    assert relogio[0] == 150
 
 
 def test_contexto_sql_local_reseta_mesmo_em_excecao():

@@ -45,6 +45,30 @@ class Coordenador:
         return await self._chamar("SELECT fiscal.worker_stop($1,$2::uuid)")
 
 
+async def _iniciar_aguardando_lease(coordenador, logger, publicar, *,
+                                   relogio=time.monotonic, esperar=asyncio.sleep):
+    """Após reboot, aguarda apenas a sessão anterior cercada pelo lease SQL.
+
+    Outras falhas (permissão, conexão, configuração) continuam fatais. Nunca
+    libera uma sessão concorrente nem reserva tarefas enquanto espera.
+    """
+    limite = relogio() + 150  # lease SQL: 120 s; margem para latência do pooler
+    avisou = False
+    while True:
+        try:
+            return await coordenador.iniciar()
+        except Exception as exc:
+            if getattr(exc, "sqlstate", None) != "55000":
+                raise
+            if relogio() >= limite:
+                raise
+            if not avisou:
+                logger.warning("Sessão anterior ainda protegida; aguardando expiração do lease.")
+                avisou = True
+            publicar("espera", 0)
+            await esperar(5)
+
+
 def identificar(config):
     versao = os.getenv("WORKER_VERSION", "")
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._+-]{0,63}", versao):
@@ -92,7 +116,7 @@ async def executar_coordenado(config, logger, *, executor, max_ciclos=None,
 
     try:
         async with criar_coordenador(config, identidade) as coordenador:
-            resumo = await coordenador.iniciar()
+            resumo = await _iniciar_aguardando_lease(coordenador, logger, publicar)
             ultima_ok = time.monotonic()
             logger.info("Executor %s iniciado na versão %s; prioridade definida no banco.",
                         identidade.worker_id, identidade.versao)

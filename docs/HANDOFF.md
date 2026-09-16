@@ -1,5 +1,25 @@
 # Handoff — Estado Atual
 
+## PC servidor: retomada após reboot — 16/09/2026
+
+Ensaio físico: o pacote `f99920e` instalou Chromium e passou o preflight do
+papel `nf_executor_pc_servidor_01`. A tarefa Windows só iniciou depois de
+conceder à conta local `GraalystWorker` o direito "Fazer logon como um trabalho
+em lotes"; o log operacional registrou `0x80070569`. O primeiro heartbeat em
+manutenção mostrou código 0 e nenhuma tarefa ativa. No reboot, a tarefa iniciou,
+mas `worker_start` devolveu SQLSTATE `55000`: a sessão anterior ainda possuía
+lease válido de até 120 s. A tarefa parou degradada; um início manual após o
+lease passou. Gate global de coordenação continua desligado e `hold.request`
+continua presente: nenhuma nota foi processada.
+
+Correção local: `servico_coordenado._iniciar_aguardando_lease` espera até 150 s
+somente por SQLSTATE `55000` antes de desistir. Enquanto espera publica saúde
+`espera`, sem abrir fila, e mantém o fencing do banco; permissão `42501` e demais
+falhas continuam fatais. Treze testes focados e 327 testes Worker passaram.
+Ainda falta empacotar uma versão limpa, instalar via Update e repetir o reboot
+físico, conferindo manutenção automática sem ação manual. Não executar `Resume`
+nem habilitar produção/coordenação antes desse gate.
+
 ## PC servidor físico preparado no banco — 15/09/2026
 
 Arquivo privado `G:/Downloads/nf-distribuicao/dist/worker.env.pc-servidor-01`
