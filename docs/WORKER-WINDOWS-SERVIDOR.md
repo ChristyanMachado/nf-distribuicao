@@ -137,9 +137,9 @@ mantendo downloads em volume persistente. Nenhum componente depende da Oracle.
 
 ### Pacote atual preparado
 
-Para o ensaio físico de homologação, o pacote atual do commit `f99920e` é
-`dist/worker-servidor-f99920e.zip`, SHA-256
-`962ECBE61AD4C0AE714B61E71170FB35D1F7A9B0C94A4A687466B4F76F3DF117`.
+Para o próximo ensaio físico, o pacote atual do commit `489033e` é
+`dist/worker-servidor-489033e.zip`, SHA-256
+`87172A0FFA9F73FF48179BEBE46902061041315101337ECDB633168382FC79D9`.
 Ele não possui credenciais. Confira o hash antes e depois da transferência.
 
 ## Ensaio obrigatório antes de entregar

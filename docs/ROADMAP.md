@@ -26,8 +26,8 @@ histórico: vários itens apontados nela já foram implementados depois.
 
 ## Em andamento imediato
 
-1. **Empacotar e atualizar o Worker do PC servidor**, preservando
-   `hold.request`; comprovar saúde em manutenção e repetir o teste de reboot.
+1. **Atualizar o Worker do PC servidor** com o pacote `489033e` já gerado,
+   preservando `hold.request`; comprovar saúde em manutenção e repetir o reboot.
 2. **Validar operação física segura:** logs, retomada, impressão e estabilidade,
    sem criar emissão artificial em produção.
 3. **Primeira operação legítima em produção:** acompanhar uma distribuição real,

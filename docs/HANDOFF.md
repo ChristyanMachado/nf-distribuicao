@@ -22,6 +22,11 @@ Validação local: 334 testes do Worker aprovados, incluindo XML com offset
 sentinela de homologação e preservação da idempotência. Nenhuma emissão,
 cancelamento ou atualização automática do PC servidor foi executada.
 
+Pacote instalável sem credenciais gerado a partir do commit `489033e` em
+`dist/worker-servidor-489033e.zip`, com 38 arquivos e SHA-256
+`87172A0FFA9F73FF48179BEBE46902061041315101337ECDB633168382FC79D9`.
+O pacote foi apenas preparado; não foi transferido, instalado nem liberado no PC.
+
 ## Polimento operacional: trocas, datas e ordem — 17/09/2026
 
 Feedback real do cliente corrigido no Web, sem migration nem alteração remota:
