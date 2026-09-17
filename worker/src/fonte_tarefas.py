@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from contextlib import asynccontextmanager
+from datetime import datetime
 import hashlib
 import hmac
 import json
@@ -524,6 +525,7 @@ class FontePostgresTarefas:
         chave_acesso: str,
         numero: str,
         protocolo: str,
+        data_emissao_utc: datetime,
     ) -> None:
         """Grava a nota e conclui a tarefa numa única transação.
 
@@ -535,6 +537,8 @@ class FontePostgresTarefas:
             raise FonteTarefasErro("Chave de acesso fiscal inválida.")
         if not re.fullmatch(r"\d{1,20}", numero) or not re.fullmatch(r"\d{1,30}", protocolo):
             raise FonteTarefasErro("Identificação da autorização fiscal inválida.")
+        if not isinstance(data_emissao_utc, datetime) or data_emissao_utc.tzinfo is not None:
+            raise FonteTarefasErro("Data fiscal de emissão inválida.")
 
         try:
             async with self._conexao() as conexao:
@@ -576,7 +580,7 @@ class FontePostgresTarefas:
                         """INSERT INTO fiscal.notas
                            (tarefa_id,cliente_id,numero,chave_acesso,protocolo_autorizacao,
                             status,valor_total,data_emissao)
-                           VALUES ($1::uuid,$2,$3,$4,$5,'AUTORIZADA',$6,now())
+                           VALUES ($1::uuid,$2,$3,$4,$5,'AUTORIZADA',$6,$7::timestamp)
                            ON CONFLICT (tarefa_id) DO NOTHING""",
                         str(_uuid(tarefa_id)),
                         tarefa["cliente_id"],
@@ -584,6 +588,7 @@ class FontePostgresTarefas:
                         chave_acesso,
                         protocolo,
                         tarefa["valor_total"],
+                        data_emissao_utc,
                     )
                     if inserida != "INSERT 0 1":
                         raise FonteTarefasErro("A tarefa já possui outro registro de nota.")

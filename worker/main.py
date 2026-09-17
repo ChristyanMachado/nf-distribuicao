@@ -1080,6 +1080,7 @@ async def executar_fila_banco(
                         chave_acesso=metadados.chave_acesso,
                         numero=metadados.numero,
                         protocolo=metadados.protocolo,
+                        data_emissao_utc=metadados.data_emissao_utc,
                     )
                     autorizacao_registrada = True
                     if storage is None:

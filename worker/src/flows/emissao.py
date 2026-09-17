@@ -132,6 +132,10 @@ class MetadadosDocumentoFiscal:
     numero: str
     protocolo: str
     codigo_status: str
+    # ``timestamp without time zone`` do banco segue a convenção histórica
+    # do projeto: instante UTC sem ``tzinfo``. A origem continua sendo o
+    # ``dhEmi`` assinado no XML, nunca o relógio do Worker.
+    data_emissao_utc: datetime
 
 
 # ---------------------------------------------------------------------------
@@ -1915,7 +1919,29 @@ def extrair_metadados_xml(caminho: str) -> MetadadosDocumentoFiscal:
         raise FalhaDownloadDocumento("XML não contém identificação fiscal válida.")
     if not protocolo or not protocolo.isdigit() or codigo != "100":
         raise FalhaDownloadDocumento("XML não comprova autorização fiscal.")
-    return MetadadosDocumentoFiscal(chave, numero, protocolo, codigo)
+
+    data_emissao_xml = texto("dhEmi")
+    if not data_emissao_xml:
+        raise FalhaDownloadDocumento("XML não contém a data fiscal de emissão (dhEmi).")
+    try:
+        data_emissao = datetime.fromisoformat(
+            data_emissao_xml[:-1] + "+00:00"
+            if data_emissao_xml.endswith("Z")
+            else data_emissao_xml
+        )
+    except ValueError as exc:
+        raise FalhaDownloadDocumento("XML contém data fiscal de emissão inválida.") from exc
+    if data_emissao.tzinfo is None or data_emissao.utcoffset() is None:
+        raise FalhaDownloadDocumento("XML contém data fiscal de emissão sem fuso horário.")
+    data_emissao_utc = data_emissao.astimezone(timezone.utc).replace(tzinfo=None)
+
+    return MetadadosDocumentoFiscal(
+        chave,
+        numero,
+        protocolo,
+        codigo,
+        data_emissao_utc,
+    )
 
 
 def _remover_download_invalido(caminho: str) -> None:

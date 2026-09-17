@@ -1,6 +1,7 @@
 """Testes puros para a separação entre smoke test e preenchimento fiscal."""
 
 import asyncio
+from datetime import datetime
 import logging
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
@@ -790,6 +791,7 @@ def test_fila_banco_autorizada_registra_metadados_com_token_da_reserva(sinalizar
         chave_acesso="1" * 44,
         numero="123",
         protocolo="456789",
+        data_emissao_utc=datetime(2026, 9, 15, 23, 18, 9),
     )
 
     with (
@@ -827,6 +829,7 @@ def test_fila_banco_autorizada_registra_metadados_com_token_da_reserva(sinalizar
         chave_acesso=metadados.chave_acesso,
         numero=metadados.numero,
         protocolo=metadados.protocolo,
+        data_emissao_utc=metadados.data_emissao_utc,
     )
     fonte.registrar_documentos_armazenados.assert_not_awaited()
 
@@ -843,6 +846,7 @@ def test_fila_banco_com_storage_associa_documentos_sem_reemitir():
         chave_acesso="1" * 44,
         numero="123",
         protocolo="456789",
+        data_emissao_utc=datetime(2026, 9, 15, 23, 18, 9),
     )
     storage = SimpleNamespace(retencao_dias=365)
     manifesto = SimpleNamespace()

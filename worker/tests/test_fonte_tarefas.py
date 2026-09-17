@@ -8,6 +8,7 @@ por token, transações e idempotência.
 from __future__ import annotations
 
 import asyncio
+from datetime import datetime, timezone
 from contextlib import asynccontextmanager
 import hashlib
 import json
@@ -505,6 +506,27 @@ def test_autorizacao_recusa_metadados_fiscais_invalidos(
                 chave_acesso=chave,
                 numero=numero,
                 protocolo=protocolo,
+                data_emissao_utc=datetime(2026, 9, 15, 23, 18, 9),
+            )
+        )
+
+
+@pytest.mark.parametrize(
+    "data_emissao",
+    ["2026-09-15T23:18:09", datetime(2026, 9, 15, 23, 18, 9, tzinfo=timezone.utc)],
+)
+def test_autorizacao_recusa_data_fiscal_fora_do_contrato(data_emissao) -> None:
+    fonte = _fonte_com_conexao(_ConexaoFake())
+
+    with pytest.raises(FonteTarefasErro, match="Data fiscal"):
+        asyncio.run(
+            fonte.registrar_emissao_autorizada(
+                TAREFA_ID,
+                RESERVA_TOKEN,
+                chave_acesso="1" * 44,
+                numero="123",
+                protocolo="456789",
+                data_emissao_utc=data_emissao,
             )
         )
 
@@ -524,6 +546,7 @@ def test_autorizacao_atualiza_tarefa_e_insere_nota_na_mesma_transacao() -> None:
             chave_acesso=chave,
             numero="123",
             protocolo="456789",
+            data_emissao_utc=datetime(2026, 9, 15, 23, 18, 9),
         )
     )
 
@@ -539,6 +562,8 @@ def test_autorizacao_atualiza_tarefa_e_insere_nota_na_mesma_transacao() -> None:
     assert "ON CONFLICT (tarefa_id) DO NOTHING" in insercao[1]
     assert insercao[2][0] == TAREFA_ID
     assert insercao[2][2:5] == ("123", chave, "456789")
+    assert insercao[2][6] == datetime(2026, 9, 15, 23, 18, 9)
+    assert "now()" not in insercao[1].split("VALUES", 1)[1]
 
 
 def test_autorizacao_repetida_com_mesmos_metadados_e_idempotente() -> None:
@@ -563,6 +588,7 @@ def test_autorizacao_repetida_com_mesmos_metadados_e_idempotente() -> None:
             chave_acesso=chave,
             numero="123",
             protocolo="456789",
+            data_emissao_utc=datetime(2026, 9, 15, 23, 18, 9),
         )
     )
 
@@ -593,6 +619,7 @@ def test_autorizacao_repetida_recusa_protocolo_divergente() -> None:
                 chave_acesso=chave,
                 numero="123",
                 protocolo="999999",
+                data_emissao_utc=datetime(2026, 9, 15, 23, 18, 9),
             )
         )
 
@@ -614,6 +641,7 @@ def test_conflito_na_insercao_da_nota_aborta_transacao() -> None:
                 chave_acesso="1" * 44,
                 numero="123",
                 protocolo="456789",
+                data_emissao_utc=datetime(2026, 9, 15, 23, 18, 9),
             )
         )
 

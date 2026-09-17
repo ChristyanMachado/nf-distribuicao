@@ -1,5 +1,27 @@
 # Handoff — Estado Atual
 
+## Data fiscal oficial extraída do XML — 17/09/2026
+
+O Worker deixou de atribuir o relógio de persistência à emissão fiscal. Após
+baixar e validar o XML autorizado, `extrair_metadados_xml` agora exige `dhEmi`
+com fuso explícito, converte o instante para UTC e o propaga até
+`fiscal.notas.data_emissao`. A coluna existente é `timestamp without time zone`;
+por compatibilidade com o histórico do projeto, o valor gravado é UTC sem
+`tzinfo`. `concluido_em`, `atualizado_em` e os demais tempos operacionais
+continuam usando o relógio do banco.
+
+Não houve migration, backfill ou acesso ao Supabase. Notas antigas preservam o
+valor histórico que já possuíam. A nova semântica só passa a valer para notas
+emitidas por um pacote do Worker que contenha esta alteração; por isso os
+rótulos Web permanecem `Autorizada em` até a atualização do PC servidor e uma
+validação operacional legítima. Data fiscal não entrou na identidade da nota:
+chave, número e protocolo continuam determinando a idempotência.
+
+Validação local: 334 testes do Worker aprovados, incluindo XML com offset
+`-03:00`, `Z`/frações, normalização UTC, ausência/invalidade de `dhEmi`, contrato da fila,
+sentinela de homologação e preservação da idempotência. Nenhuma emissão,
+cancelamento ou atualização automática do PC servidor foi executada.
+
 ## Polimento operacional: trocas, datas e ordem — 17/09/2026
 
 Feedback real do cliente corrigido no Web, sem migration nem alteração remota:
@@ -21,11 +43,9 @@ Em Notas, autorização e preparação deixaram de compartilhar uma data ambígu
 O cabeçalho mostra a(s) data(s) de autorização no fuso `America/Sao_Paulo` e,
 quando diferente, mostra separadamente a data em que a distribuição foi
 preparada. Cards usam o rótulo `Autorizada em`; nomes de download preferem a
-data de autorização e usam a distribuição apenas como fallback. A coluna
-`notas.data_emissao` ainda é preenchida pelo Worker com `now()` ao persistir a
-autorização; extrair `dhEmi` do XML como data fiscal oficial permanece uma
-evolução deliberada para Financeiro/Auditoria, sem atribuir hoje semântica
-fiscal indevida ao timestamp existente.
+data de autorização e usam a distribuição apenas como fallback. A limitação de
+`notas.data_emissao` descrita originalmente aqui foi resolvida na unidade acima;
+este parágrafo permanece como contexto histórico do Web publicado em `491cc80`.
 
 Validação local: 164 testes Web aprovados e `tsc --noEmit` aprovado. O build
 compilou e passou pelo TypeScript, mas a coleta de páginas parou como esperado

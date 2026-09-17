@@ -1,73 +1,75 @@
 # Roadmap — NF Distribuição
 
-Atualizado em 09/09/2026. Reconciliação, evidências e limitações em
-[Auditoria de lapidação](AUDITORIA-LAPIDACAO-2026-09-09.md).
-O histórico de implantação permanece no HANDOFF e no Git; tarefas já concluídas
-não são gates futuros. Publicação não é consequência automática de alteração local.
+Atualizado em 17/09/2026. O histórico detalhado e as limitações operacionais
+estão no [Handoff](HANDOFF.md). A
+[auditoria de lapidação](AUDITORIA-LAPIDACAO-2026-09-09.md) é um diagnóstico
+histórico: vários itens apontados nela já foram implementados depois.
 
-## Entregue anteriormente
+## Onde estamos
 
-- Fluxo fiscal conectado, snapshot/idempotência, reserva e token fencing.
-- VM e papel exclusivo; piloto em produção com concorrência 1.
-- Storage privado, recuperação por fila própria e cancelamento protegido.
-- Correção do incidente de cancelamento, conforme registro `adb82fa` no HANDOFF;
-  não reabrir nem repetir cancelamento sem nova evidência e autorização.
-- Rascunho, pesquisa de produtos, repetição, resumo pré-envio, preço promocional,
-  notas por distribuição, confirmação persistente e impressão compacta.
-- Limpeza autorizada de homologação e retirada da exceção para excluir fictícios.
+- Fluxo fiscal conectado, snapshot imutável, idempotência semântica, reserva e
+  token fencing.
+- Worker coordenado com papel mínimo, manutenção explícita, retomada após lease
+  anterior e concorrência segura configurada em 1.
+- Storage privado, recuperação em fila própria e cancelamento fiscal protegido,
+  sem confundir estado da nota com estado da tarefa.
+- Distribuição com quantidades em milésimos, rascunho protegido, pesquisa de
+  produtos, repetição, conferência de sobras, preço promocional e livro
+  idempotente de trocas.
+- Notas por distribuição, paginação, compartilhamento e datas operacionais
+  separadas; PWA, layout móvel e roteiro de impressão disponíveis.
+- Feedback operacional de trocas, datas e ordem publicado em `491cc80`, com
+  164 testes Web e TypeScript aprovados.
+- Data fiscal oficial (`dhEmi`) extraída do XML, normalizada para UTC e ligada à
+  persistência da nota sem migration; 334 testes do Worker aprovados. A ativação
+  depende da instalação do próximo pacote no PC servidor.
 
-## Unidade local de lapidação — implementada, ainda não publicada
+## Em andamento imediato
 
-- Saldo de tempo preserva perdas; datas e denominadores inválidos não distorcem médias.
-- Benchmark de três notas identificado como comparação exploratória, não prova
-  de economia nas demais escalas ou em lotes com produtos diferentes.
-- Conferência explicita quantidade faturável e sobra; aceite só quando houver sobra,
-  também validado no servidor.
-- Ordenação alfabética consistente; tarefas antigas não terminais não desaparecem
-  no corte de 100 recentes; recorte das contagens explícito.
-- Motivo fiscal sem causa pré-preenchida e mensagem de canceladas corrigida.
-- Destinos só de trocas validam vínculo/atividade sem exigir cadastro fiscal.
-- Rascunho tolera indisponibilidade do armazenamento; número inválido não derruba formulário.
-- Relatório corrige incompatibilidade texto/enum e mostra tempos observados por escala.
-- 143 testes Web e build de produção aprovados; sem novo efeito fiscal.
+1. **Empacotar e atualizar o Worker do PC servidor**, preservando
+   `hold.request`; comprovar saúde em manutenção e repetir o teste de reboot.
+2. **Validar operação física segura:** logs, retomada, impressão e estabilidade,
+   sem criar emissão artificial em produção.
+3. **Primeira operação legítima em produção:** acompanhar uma distribuição real,
+   conferir XML/DANFE, data fiscal, status e documentos. Produção está preparada,
+   mas o fluxo completo ainda aguarda essa validação prática.
 
 ## Próximas unidades, em ordem
 
-Pré-requisito iniciado: ambiente separado em `HOMOLOGACAO.md`, com schema/seed
-e papel limitado já criados, mas conexão do aplicativo ainda pendente. Não testar
-envios no banco de produção. Confirmação de troca integral/foco implementada;
-146 testes Web e build de homologação aprovados, sem validação visual desse foco.
+1. **Alta:** completar ensaio autenticado em aparelho real no ambiente seguro.
+2. **Alta:** complementar destinos somente de troca com rollback real em banco
+   isolado; não criar tarefas no banco de produção para QA.
+3. **Alta, analítica:** instrumentar separadamente preparação, fila, autorização
+   e documentos; comparar somente com referências manuais equivalentes.
+4. **Média:** ensaiar concorrência 2 depois de confirmar isolamento e estabilidade
+   no PC servidor; concorrência 1 permanece o padrão seguro.
+5. **Média:** classificar causa confirmada separadamente do estado fiscal, com
+   evidência e autoria; causa desconhecida por padrão.
+6. **Média:** ensaiar expiração/recuperação e backup/restauração em ambiente seguro.
+7. **Média:** paginar Notas por distribuição no servidor e adicionar pesquisa
+   objetiva antes do crescimento do histórico; hoje o limite é por nota.
 
-1. **Alta:** completar ensaio em aparelho real, sessão autenticada e sucesso/foco
-   em ambiente seguro. Conferência, sobra, edição após aceite e rascunho já foram
-   conferidos no navegador local com viewport móvel, sem enviar distribuição.
-2. **Alta:** complementar testes simulados de destinos só de troca com rollback
-   real em banco de teste isolado; não criar tarefas no banco de produção para QA.
-3. **Média:** paginar Notas por lote no servidor antes de assinar documentos;
-   adicionar pesquisa objetiva e preservar filtros/retorno. Não carregar histórico
-   inteiro à medida que cresce. Adiada nesta unidade: recorte consultado tem
-   apenas 6 notas em 4 lotes; preparar antes do crescimento, sem urgência artificial.
-4. **Alta, analítica:** instrumentar tempos por tentativa e limites de preparação,
-   fila, autorização e documentos; coletar referências manuais equivalentes por
-   notas/linhas. Não extrapolar 337 segundos para tamanhos diferentes.
-5. **Média:** classificação de causa confirmada separada do estado fiscal, com
-   evidência e autoria; causa desconhecida por padrão, sem culpabilização automática.
-6. **Média:** ensaiar expiração/recuperação e backup/restauração em ambiente seguro;
-   medir recursos da VM sob carga real antes de aumentar concorrência.
+## Depois da estabilização
 
-## Condicionais / fora desta lapidação
+- Definir o contrato Fiscal → Financeiro e iniciar o novo sistema financeiro.
+- Criar o hub Graalyst para integrar módulos independentes.
+- Implementar recuperação de senha compatível com a identidade real dos usuários.
+- Decidir isolamento multiempresa, auditoria e limites distribuídos antes de
+  ampliar acesso.
 
-- Multiempresa: decidir isolamento por implantação ou tenant, revisar autorização,
-  revogação de sessão, auditoria e limites distribuídos antes de ampliar acesso.
-- Migration `0014` do ponto compartilhado continua adiada, fora do journal; exige
-  coordenação própria. Não misturar com alterações fiscais.
-- Heartbeat global do Worker apenas se a espera sem diagnóstico justificar.
-  Lease indica tarefa ativa, não disponibilidade geral.
-- Importação de planilha, redesign, novas confirmações generalizadas e refatoração
-  do Worker sem evidência de ganho: não implementar agora.
+## Condicionais e decisões adiadas
 
-## Gate para esta revisão
+- Persistir a ordem operacional do atalho `Repetir distribuição` requer coluna e
+  migration próprias; não alterar schema sem necessidade confirmada.
+- Migration `0014` do Ponto compartilhado continua adiada e fora do journal.
+- Heartbeat global do Worker somente se a espera sem diagnóstico justificar;
+  lease de tarefa não prova disponibilidade global.
+- Importação de planilha, redesign e refatorações amplas sem evidência de ganho
+  permanecem fora desta fase.
 
-Revisar diff, testes, build, telas autenticadas e aparelho real; preservar rascunho,
-promoção, trocas e idempotência. Não emitir/cancelar para demonstrar UX. Manter
-separados: código local validado, publicação e confirmação operacional em produção.
+## Gate operacional
+
+Revisar diff, testes, pacote, saúde em manutenção e reboot antes de liberar uma
+nova versão do Worker. Não emitir nem cancelar para demonstrar UX. Manter sempre
+separados: código validado, publicação, instalação no PC e confirmação fiscal
+em uma operação legítima.

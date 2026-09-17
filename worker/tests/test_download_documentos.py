@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import datetime
 import logging
 from pathlib import Path
 
@@ -38,10 +39,52 @@ class DownloadFalso:
 
 def test_extrai_prova_fiscal_do_xml_autorizado(tmp_path):
     caminho = tmp_path / "autorizada.xml"
-    caminho.write_text("""<nfeProc><NFe><infNFe Id="NFe12345678901234567890123456789012345678901234"><ide><nNF>321</nNF></ide></infNFe></NFe><protNFe><infProt><cStat>100</cStat><chNFe>12345678901234567890123456789012345678901234</chNFe><nProt>141260000000001</nProt></infProt></protNFe></nfeProc>""", encoding="utf-8")
+    caminho.write_text(_xml_autorizado("2026-09-15T20:18:09-03:00"), encoding="utf-8")
     dados = extrair_metadados_xml(str(caminho))
     assert dados.numero == "321"
     assert dados.codigo_status == "100"
+    assert dados.data_emissao_utc == datetime(2026, 9, 15, 23, 18, 9)
+    assert dados.data_emissao_utc.tzinfo is None
+
+
+def _xml_autorizado(data_emissao: str | None) -> str:
+    dh_emi = f"<dhEmi>{data_emissao}</dhEmi>" if data_emissao is not None else ""
+    return (
+        '<nfeProc><NFe><infNFe Id="NFe12345678901234567890123456789012345678901234">'
+        f"<ide><nNF>321</nNF>{dh_emi}</ide></infNFe></NFe>"
+        "<protNFe><infProt><cStat>100</cStat>"
+        "<chNFe>12345678901234567890123456789012345678901234</chNFe>"
+        "<nProt>141260000000001</nProt></infProt></protNFe></nfeProc>"
+    )
+
+
+@pytest.mark.parametrize(
+    ("data_emissao", "mensagem"),
+    [
+        (None, "dhEmi"),
+        ("data-invalida", "inválida"),
+        ("2026-09-15T20:18:09", "fuso horário"),
+    ],
+)
+def test_xml_recusa_data_fiscal_ausente_ou_invalida(
+    tmp_path,
+    data_emissao: str | None,
+    mensagem: str,
+):
+    caminho = tmp_path / "data-invalida.xml"
+    caminho.write_text(_xml_autorizado(data_emissao), encoding="utf-8")
+
+    with pytest.raises(FalhaDownloadDocumento, match=mensagem):
+        extrair_metadados_xml(str(caminho))
+
+
+def test_xml_aceita_utc_z_e_preserva_fracoes_de_segundo(tmp_path):
+    caminho = tmp_path / "data-utc.xml"
+    caminho.write_text(_xml_autorizado("2026-09-15T23:18:09.123456Z"), encoding="utf-8")
+
+    dados = extrair_metadados_xml(str(caminho))
+
+    assert dados.data_emissao_utc == datetime(2026, 9, 15, 23, 18, 9, 123456)
 
 
 def test_xml_sem_status_autorizado_e_recusado(tmp_path):

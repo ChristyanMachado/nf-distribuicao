@@ -76,7 +76,9 @@ def test_valida_exatamente_um_xml_autorizado_e_um_pdf(tmp_path):
     (tmp_path / "sentinela.xml").write_text(
         "<?xml version='1.0'?><nfeProc><protNFe><infProt>"
         f"<chNFe>{chave}</chNFe><nProt>123456</nProt><cStat>100</cStat>"
-        "</infProt></protNFe><NFe><infNFe><ide><nNF>42</nNF></ide></infNFe></NFe></nfeProc>",
+        "</infProt></protNFe><NFe><infNFe><ide><nNF>42</nNF>"
+        "<dhEmi>2026-09-15T20:18:09-03:00</dhEmi>"
+        "</ide></infNFe></NFe></nfeProc>",
         encoding="utf-8",
     )
     (tmp_path / "sentinela.pdf").write_bytes(b"%PDF-1.7\nconteudo")
