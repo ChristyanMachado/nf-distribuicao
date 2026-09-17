@@ -29,7 +29,42 @@ describe("agruparNotasPorDistribuicao", () => {
 
     expect(grupos).toHaveLength(2);
     expect(grupos.every((grupo) => grupo.notas.length === 1)).toBe(true);
-    expect(grupos[0].data).toBe("2026-09-01");
+    expect(grupos[0].datasAutorizacao).toEqual(["2026-09-01"]);
+    expect(grupos[0].dataDistribuicao).toBeNull();
+  });
+
+  it("separa autorização da nota e preparação da distribuição em dias diferentes", () => {
+    const grupos = agruparNotasPorDistribuicao([{
+      id: "1",
+      loteId: "a",
+      numeroDistribuicao: 7,
+      dataDistribuicao: "2026-09-14",
+      dataEmissao: new Date("2026-09-15T15:00:00Z"),
+    }]);
+
+    expect(grupos[0].dataDistribuicao).toBe("2026-09-14");
+    expect(grupos[0].datasAutorizacao).toEqual(["2026-09-15"]);
+  });
+
+  it("preserva todas as datas quando notas do lote são autorizadas em dias diferentes", () => {
+    const grupos = agruparNotasPorDistribuicao([
+      { id: "1", loteId: "a", numeroDistribuicao: 7, dataDistribuicao: "2026-09-14", dataEmissao: new Date("2026-09-15T15:00:00Z") },
+      { id: "2", loteId: "a", numeroDistribuicao: 7, dataDistribuicao: "2026-09-14", dataEmissao: new Date("2026-09-16T15:00:00Z") },
+    ]);
+
+    expect(grupos[0].datasAutorizacao).toEqual(["2026-09-15", "2026-09-16"]);
+  });
+
+  it("usa o dia operacional brasileiro, não o dia UTC", () => {
+    const grupos = agruparNotasPorDistribuicao([{
+      id: "1",
+      loteId: "a",
+      numeroDistribuicao: 7,
+      dataDistribuicao: "2026-09-14",
+      dataEmissao: new Date("2026-09-16T01:30:00Z"),
+    }]);
+
+    expect(grupos[0].datasAutorizacao).toEqual(["2026-09-15"]);
   });
 });
 

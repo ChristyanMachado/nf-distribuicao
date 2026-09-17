@@ -52,6 +52,29 @@ export function chaveDestino(destino: DestinoRascunho) {
   return `${destino.clienteId}:${destino.emitenteId}`;
 }
 
+/**
+ * Mantém a sequência operacional escolhida pelo usuário. O catálogo pode
+ * continuar alfabético; depois da seleção, a primeira ocorrência de cada
+ * mercado em `destinos` define sua posição.
+ */
+export function ordenarClientesSelecionados<T extends { id: string }>(
+  destinos: readonly DestinoRascunho[],
+  clientes: readonly T[],
+): T[] {
+  const clientesPorId = new Map(clientes.map((cliente) => [cliente.id, cliente]));
+  const vistos = new Set<string>();
+  const resultado: T[] = [];
+
+  for (const destino of destinos) {
+    if (vistos.has(destino.clienteId)) continue;
+    vistos.add(destino.clienteId);
+    const cliente = clientesPorId.get(destino.clienteId);
+    if (cliente) resultado.push(cliente);
+  }
+
+  return resultado;
+}
+
 export function temConteudoRascunho(rascunho: Pick<RascunhoDistribuicao, "destinos" | "produtos">) {
   return rascunho.destinos.length > 0 || rascunho.produtos.length > 0;
 }

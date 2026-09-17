@@ -1,5 +1,37 @@
 # Handoff — Estado Atual
 
+## Polimento operacional: trocas, datas e ordem — 17/09/2026
+
+Feedback real do cliente corrigido no Web, sem migration nem alteração remota:
+a lista operacional de Trocas passa a mostrar somente saldos positivos; linhas
+zeradas e o livro idempotente permanecem no banco, preservando auditoria. O
+consumo parcial/integral continua transacional e o uso efetivo segue registrado
+nas linhas históricas de `fiscal.distribuicoes.quantidade_troca`.
+
+Na Distribuição, o catálogo continua alfabético para facilitar a busca, mas os
+cartões de emitentes e de preenchimento agora seguem a primeira ocorrência de
+cada mercado em `destinos`. Isso conserva a ordem de clique, inclusive após
+restaurar o rascunho local, sem alterar o hash idempotente ou o contrato fiscal.
+O atalho `Repetir distribuição anterior` ainda depende da ordem devolvida pelo
+banco porque o lote histórico não persiste uma posição operacional; corrigi-lo
+de forma garantida exigirá uma coluna/migration própria e ficou deliberadamente
+fora deste polimento sem autorização de mudança de schema.
+
+Em Notas, autorização e preparação deixaram de compartilhar uma data ambígua.
+O cabeçalho mostra a(s) data(s) de autorização no fuso `America/Sao_Paulo` e,
+quando diferente, mostra separadamente a data em que a distribuição foi
+preparada. Cards usam o rótulo `Autorizada em`; nomes de download preferem a
+data de autorização e usam a distribuição apenas como fallback. A coluna
+`notas.data_emissao` ainda é preenchida pelo Worker com `now()` ao persistir a
+autorização; extrair `dhEmi` do XML como data fiscal oficial permanece uma
+evolução deliberada para Financeiro/Auditoria, sem atribuir hoje semântica
+fiscal indevida ao timestamp existente.
+
+Validação local: 164 testes Web aprovados e `tsc --noEmit` aprovado. O build
+compilou e passou pelo TypeScript, mas a coleta de páginas parou como esperado
+porque o worktree isolado não possui `DATABASE_URL`. Graphify não estava
+instalado neste worktree; relações foram confirmadas no código e nos testes.
+
 ## Atualizador Windows preserva manutenção — 16/09/2026
 
 Ao preparar a instalação do pacote `06da7ef`, uma revisão do script Windows

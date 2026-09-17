@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { and, asc, eq, sql } from "drizzle-orm";
+import { and, asc, eq, gt, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { clientes, produtos, trocasLancamentos, trocasMercado } from "@/db/schema";
 import { exigirSessaoAdministrativa } from "@/lib/auth-server";
@@ -29,7 +29,11 @@ export async function carregarTrocasMercado() {
       .from(trocasMercado)
       .innerJoin(clientes, eq(trocasMercado.clienteId, clientes.id))
       .innerJoin(produtos, eq(trocasMercado.produtoId, produtos.id))
-      .where(and(eq(clientes.ativo, true), eq(produtos.ativo, true)))
+      .where(and(
+        eq(clientes.ativo, true),
+        eq(produtos.ativo, true),
+        gt(trocasMercado.quantidadeDisponivel, "0"),
+      ))
       .orderBy(asc(clientes.nome), asc(produtos.descricao));
   return { clientes: listaClientes, produtos: listaProdutos, saldos };
 }

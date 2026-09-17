@@ -98,7 +98,7 @@ export default function NotaCard({ nota }: { nota: Nota }) {
           </p>
           <p className="font-mono-tab mt-0.5 text-[13px] text-[var(--ink-faint)]">
             {nota.dataEmissao
-              ? new Date(nota.dataEmissao).toLocaleDateString("pt-BR")
+              ? `Autorizada em ${new Date(nota.dataEmissao).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}`
               : "Sem data"}{" "}
             · {moeda.format(Number(nota.valorTotal))}
           </p>

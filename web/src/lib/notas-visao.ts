@@ -1,3 +1,5 @@
+import { dataOperacionalBrasil } from "./datas";
+
 export type NotaAgrupavel = {
   id: string;
   loteId: string | null;
@@ -9,7 +11,8 @@ export type NotaAgrupavel = {
 export type GrupoNotas<T extends NotaAgrupavel> = {
   chave: string;
   numeroDistribuicao: number | null;
-  data: string | null;
+  datasAutorizacao: string[];
+  dataDistribuicao: string | null;
   notas: T[];
 };
 
@@ -41,10 +44,15 @@ export function agruparNotasPorDistribuicao<T extends NotaAgrupavel>(notas: T[])
       grupo = {
         chave,
         numeroDistribuicao: nota.numeroDistribuicao,
-        data: nota.dataDistribuicao ?? nota.dataEmissao?.toISOString().slice(0, 10) ?? null,
+        datasAutorizacao: [],
+        dataDistribuicao: nota.dataDistribuicao,
         notas: [],
       };
       grupos.set(chave, grupo);
+    }
+    const dataAutorizacao = nota.dataEmissao ? dataOperacionalBrasil(nota.dataEmissao) : null;
+    if (dataAutorizacao && !grupo.datasAutorizacao.includes(dataAutorizacao)) {
+      grupo.datasAutorizacao.push(dataAutorizacao);
     }
     grupo.notas.push(nota);
   }

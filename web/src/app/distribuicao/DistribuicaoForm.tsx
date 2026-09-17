@@ -14,6 +14,7 @@ import {
   chaveDestino,
   chaveRascunhoDistribuicao,
   filtrarProdutosParaBusca,
+  ordenarClientesSelecionados,
   restaurarRascunhoDistribuicao,
   temConteudoRascunho,
   type DestinoRascunho,
@@ -104,6 +105,10 @@ export default function DistribuicaoForm({
   const mercadosSelecionados = useMemo(
     () => new Set(destinos.map((destino) => destino.clienteId)),
     [destinos]
+  );
+  const clientesSelecionados = useMemo(
+    () => ordenarClientesSelecionados(destinos, clientes),
+    [destinos, clientes],
   );
   const chaveRascunho = useMemo(
     () => chaveRascunhoDistribuicao(escopoRascunho),
@@ -660,7 +665,7 @@ export default function DistribuicaoForm({
             Cada combinação gera uma nota. Um mesmo mercado pode receber notas de vários emitentes.
           </p>
           <div className="space-y-3">
-            {clientes.filter((cliente) => mercadosSelecionados.has(cliente.id)).map((cliente) => {
+            {clientesSelecionados.map((cliente) => {
               const destinosDoCliente = destinos.filter((destino) => destino.clienteId === cliente.id);
               const emitentesDisponiveis = cliente.emitentes.filter(
                 (emitente) => !destinosDoCliente.some((destino) => destino.emitenteId === emitente.id)
@@ -872,7 +877,7 @@ export default function DistribuicaoForm({
       {/* O mercado é a unidade de trabalho: conclua todos os produtos dele e
           avance para o próximo, sem alterar o agrupamento fiscal por emitente. */}
       <div className="mt-4 space-y-4">
-        {clientes.filter((cliente) => mercadosSelecionados.has(cliente.id)).map((cliente, indiceMercado) => {
+        {clientesSelecionados.map((cliente, indiceMercado) => {
           const produtosConferidos = produtosDistribuicao.filter((produto) => {
             const linhas = produto.linhas.filter((linha) => linha.clienteId === cliente.id);
             return linhas.length > 0 && linhas.every((linha) => linha.quantidadeDistribuida !== "");

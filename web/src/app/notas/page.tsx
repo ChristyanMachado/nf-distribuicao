@@ -24,7 +24,7 @@ import {
   visaoDaNota,
   type VisaoNotas,
 } from "@/lib/notas-visao";
-import { dataIsoParaBrasil } from "@/lib/datas";
+import { dataIsoParaBrasil, dataOperacionalBrasil } from "@/lib/datas";
 
 const ABAS: { id: VisaoNotas; label: string }[] = [
   { id: "ativas", label: "Ativas" },
@@ -116,8 +116,8 @@ export default async function NotasPage({
         cliente: nota.clienteNome,
         emitente: nota.emitenteNome,
         numeroDistribuicao: nota.numeroDistribuicao,
-        data: nota.dataDistribuicao
-          ?? nota.dataEmissao?.toISOString().slice(0, 10)
+        data: (nota.dataEmissao ? dataOperacionalBrasil(nota.dataEmissao) : null)
+          ?? nota.dataDistribuicao
           ?? "",
       };
       return [
@@ -197,7 +197,18 @@ export default async function NotasPage({
                     ? `Distribuição ${String(grupo.numeroDistribuicao).padStart(6, "0")}`
                     : "Nota anterior ao agrupamento"}
                 </p>
-                {grupo.data && <p className="mt-0.5 text-[12px] text-[var(--ink-soft)]">{dataIsoParaBrasil(grupo.data)}</p>}
+                {grupo.datasAutorizacao.length > 0 ? (
+                  <p className="mt-0.5 text-[12px] text-[var(--ink-soft)]">
+                    {grupo.datasAutorizacao.length === 1 ? "Autorizada em " : "Autorizações em "}
+                    {grupo.datasAutorizacao.map(dataIsoParaBrasil).join(" e ")}
+                  </p>
+                ) : null}
+                {grupo.dataDistribuicao
+                  && (grupo.datasAutorizacao.length !== 1 || grupo.datasAutorizacao[0] !== grupo.dataDistribuicao) ? (
+                    <p className="mt-0.5 text-[11px] text-[var(--ink-faint)]">
+                      Distribuição preparada em {dataIsoParaBrasil(grupo.dataDistribuicao)}
+                    </p>
+                  ) : null}
               </div>
               <span className="text-[12px] text-[var(--ink-faint)]">{grupo.notas.length} {grupo.notas.length === 1 ? "nota" : "notas"}</span>
             </div>

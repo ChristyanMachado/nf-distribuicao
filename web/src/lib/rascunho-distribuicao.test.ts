@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   chaveRascunhoDistribuicao,
   filtrarProdutosParaBusca,
+  ordenarClientesSelecionados,
   restaurarRascunhoDistribuicao,
 } from "./rascunho-distribuicao";
 
@@ -99,5 +100,74 @@ describe("busca de produtos", () => {
       { id: outroProduto, descricao: "Alface" },
       { id: "x", descricao: "Alfáce americana" },
     ], "alface").map((item) => item.descricao)).toEqual(["Alface", "Alfáce americana"]);
+  });
+});
+
+describe("ordem de mercados selecionados", () => {
+  const mercados = [
+    { id: "mercado-a", nome: "Alfa" },
+    { id: "mercado-b", nome: "Beta" },
+    { id: "mercado-c", nome: "Gama" },
+  ];
+
+  it("segue a ordem de seleção, não a ordem alfabética do catálogo", () => {
+    const destinos = [
+      { clienteId: "mercado-c", emitenteId: emitente },
+      { clienteId: "mercado-a", emitenteId: emitente },
+      { clienteId: "mercado-b", emitenteId: emitente },
+    ];
+
+    expect(ordenarClientesSelecionados(destinos, mercados).map((item) => item.id))
+      .toEqual(["mercado-c", "mercado-a", "mercado-b"]);
+  });
+
+  it("mantém apenas a primeira posição de um mercado com vários emitentes", () => {
+    const destinos = [
+      { clienteId: "mercado-b", emitenteId: "emitente-1" },
+      { clienteId: "mercado-a", emitenteId: "emitente-1" },
+      { clienteId: "mercado-b", emitenteId: "emitente-2" },
+    ];
+
+    expect(ordenarClientesSelecionados(destinos, mercados).map((item) => item.id))
+      .toEqual(["mercado-b", "mercado-a"]);
+  });
+
+  it("ignora mercados que não pertencem mais ao catálogo atual", () => {
+    const destinos = [
+      { clienteId: "mercado-removido", emitenteId: emitente },
+      { clienteId: "mercado-a", emitenteId: emitente },
+    ];
+
+    expect(ordenarClientesSelecionados(destinos, mercados).map((item) => item.id))
+      .toEqual(["mercado-a"]);
+  });
+
+  it("mantém a ordem depois de salvar e restaurar o rascunho local", () => {
+    const mercadoA = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    const mercadoC = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+    const emitenteA = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
+    const emitenteC = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
+    const restaurado = restaurarRascunhoDistribuicao(JSON.stringify({
+      versao: 1,
+      data: "2026-09-17",
+      chaveIdempotencia: chave,
+      destinos: [
+        { clienteId: mercadoC, emitenteId: emitenteC },
+        { clienteId: mercadoA, emitenteId: emitenteA },
+      ],
+      produtos: [],
+    }), {
+      produtoIds: [],
+      destinosPermitidos: [
+        { clienteId: mercadoA, emitenteId: emitenteA },
+        { clienteId: mercadoC, emitenteId: emitenteC },
+      ],
+    });
+
+    expect(restaurado).not.toBeNull();
+    expect(ordenarClientesSelecionados(restaurado!.destinos, [
+      { id: mercadoA, nome: "Alfa" },
+      { id: mercadoC, nome: "Gama" },
+    ]).map((item) => item.id)).toEqual([mercadoC, mercadoA]);
   });
 });
