@@ -10,7 +10,7 @@ import {
   recuperacoesDocumentos,
   cancelamentosFiscais,
 } from "@/db/schema";
-import { and, count, desc, eq, ne } from "drizzle-orm";
+import { and, count, countDistinct, desc, eq, inArray, max, ne, sql } from "drizzle-orm";
 import Link from "next/link";
 import Card from "@/components/Card";
 import AtualizacaoAutomatica from "@/components/AtualizacaoAutomatica";
@@ -21,6 +21,7 @@ import { documentosDaNotaDisponiveis } from "@/lib/documentos-nota";
 import {
   agruparNotasPorDistribuicao,
   normalizarVisaoNotas,
+  ordenarGruposPorChaves,
   visaoDaNota,
   type VisaoNotas,
 } from "@/lib/notas-visao";
@@ -40,13 +41,46 @@ export default async function NotasPage({
   const visao = normalizarVisaoNotas(parametros.visao);
   const paginaSolicitada = Number(parametros.pagina ?? "1");
   const pagina = Number.isInteger(paginaSolicitada) && paginaSolicitada > 0 ? paginaSolicitada : 1;
-  const POR_PAGINA = 50;
+  const DISTRIBUICOES_POR_PAGINA = 20;
   const filtroLote = parametros.lote ? eq(tarefas.loteId, parametros.lote) : undefined;
   const filtroVisao = visao === "canceladas"
     ? eq(notas.status, "CANCELADA")
     : ne(notas.status, "CANCELADA");
   const filtros = filtroLote ? and(filtroLote, filtroVisao) : filtroVisao;
-  const consultaNotas = db.select({
+  const chaveUnidade = sql<string>`case
+    when ${tarefas.loteId} is not null then 'lote:' || ${tarefas.loteId}::text
+    else 'legado:' || ${notas.id}::text
+  end`;
+  const notaMaisRecente = max(notas.criadoEm);
+  const consultaUnidades = db
+    .select({ chave: chaveUnidade, notaMaisRecente })
+    .from(notas)
+    .innerJoin(tarefas, eq(notas.tarefaId, tarefas.id))
+    .where(filtros)
+    .groupBy(chaveUnidade)
+    .orderBy(desc(notaMaisRecente), desc(chaveUnidade))
+    .limit(DISTRIBUICOES_POR_PAGINA)
+    .offset((pagina - 1) * DISTRIBUICOES_POR_PAGINA);
+  const consultaTotalUnidades = db
+    .select({ total: countDistinct(chaveUnidade) })
+    .from(notas)
+    .innerJoin(tarefas, eq(notas.tarefaId, tarefas.id))
+    .where(filtros);
+  const consultaContagens = db
+    .select({ status: notas.status, total: count() })
+    .from(notas)
+    .innerJoin(tarefas, eq(notas.tarefaId, tarefas.id))
+    .where(filtroLote)
+    .groupBy(notas.status);
+  // O cliente Web mantém uma conexão com max_pipeline=1. Estas leituras são
+  // deliberadamente sequenciais para não reabrir a tempestade do Supavisor.
+  const unidades = await consultaUnidades;
+  const totalUnidadesBruto = await consultaTotalUnidades;
+  const contagensBrutas = await consultaContagens;
+  const chavesPagina = unidades.map((unidade) => unidade.chave);
+  const lista = chavesPagina.length === 0
+    ? []
+    : await db.select({
       id: notas.id,
       numero: notas.numero,
       status: notas.status,
@@ -74,24 +108,14 @@ export default async function NotasPage({
       .leftJoin(lotesDistribuicao, eq(tarefas.loteId, lotesDistribuicao.id))
       .leftJoin(recuperacoesDocumentos, eq(recuperacoesDocumentos.notaId, notas.id))
       .leftJoin(cancelamentosFiscais, eq(cancelamentosFiscais.notaId, notas.id))
-      .where(filtros)
-      .orderBy(desc(notas.criadoEm))
-      .limit(POR_PAGINA)
-      .offset((pagina - 1) * POR_PAGINA);
-  const consultaContagens = db
-    .select({ status: notas.status, total: count() })
-    .from(notas)
-    .innerJoin(tarefas, eq(notas.tarefaId, tarefas.id))
-    .where(filtroLote)
-    .groupBy(notas.status);
-  const lista = await consultaNotas;
-  const contagensBrutas = await consultaContagens;
+      .where(and(filtros, inArray(chaveUnidade, chavesPagina)))
+      .orderBy(desc(notas.criadoEm), desc(notas.id));
   const contagens: Record<VisaoNotas, number> = { ativas: 0, canceladas: 0 };
   for (const linha of contagensBrutas) {
     contagens[visaoDaNota(linha.status)] += Number(linha.total);
   }
-  const totalVisao = contagens[visao];
-  const totalPaginas = Math.max(1, Math.ceil(totalVisao / POR_PAGINA));
+  const totalUnidades = Number(totalUnidadesBruto[0]?.total ?? 0);
+  const totalPaginas = Math.max(1, Math.ceil(totalUnidades / DISTRIBUICOES_POR_PAGINA));
   const notasVisiveis = lista;
   const agora = new Date();
   const temOperacaoAtiva = lista.some((nota) =>
@@ -132,7 +156,10 @@ export default async function NotasPage({
       ];
     }),
   );
-  const grupos = agruparNotasPorDistribuicao(notasVisiveis);
+  const grupos = ordenarGruposPorChaves(
+    agruparNotasPorDistribuicao(notasVisiveis),
+    chavesPagina,
+  );
   function hrefPagina(destino: number) {
     const busca = new URLSearchParams();
     if (visao !== "ativas") busca.set("visao", visao);

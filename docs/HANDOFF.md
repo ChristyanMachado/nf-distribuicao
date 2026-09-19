@@ -1948,3 +1948,59 @@ operacionais; o futuro financeiro deve consultar também o estado fiscal da nota
 - Após o deploy, validar `/`, `/distribuicao`, `/tarefas`, `/notas` e
   `/configuracoes`; conferir nos logs que a execução está em `gru1` e que não há
   novos `Task timed out after 300 seconds`.
+
+## Corte coordenado e contingência local preparada — 18/09/2026
+
+- Depois da conclusão e conferência da contingência local, o projeto Supabase
+  `kcukzbszakwrfhbsiihw` recebeu o corte protegido: não havia tarefa, emissão,
+  cancelamento ou recuperação em andamento; o PC principal apresentava heartbeat
+  recente e lease vigente; as sessões legadas foram encerradas.
+- `nf_worker_local` e `nf_worker_vm` estão `NOLOGIN` e
+  `fiscal.worker_coordination.enabled=true`. O executor `pc-servidor-01`,
+  prioridade 10 e capacidade 1, permaneceu online e fora de drenagem após o
+  corte. A fila ficou sem tarefas pendentes ou incompletas.
+- Foi provisionada antecipadamente a identidade `pc-contingencia-local`, papel
+  `nf_executor_pc_contingencia_local`, prioridade 100 e capacidade 1. O papel
+  permanece `NOLOGIN` e o registro drenando: ele não pode processar nada até a
+  senha privada, o preflight e o ensaio em manutenção serem concluídos.
+- O pacote verificado naquele corte para instalar a contingência coordenada era
+  `dist/worker-servidor-489033e-py3137.zip`, SHA-256
+  `3567066C4E62D1BC5586015D26C8C22FE819D4637B50FE1FBA352F29942C8EC7`.
+  Uma cópia operacional foi colocada fora do Git em
+  `G:/Downloads/nf-distribuicao/dist/worker-coordenado-contingencia-489033e.zip`.
+- A configuração privada foi gerada sem URL do banco em
+  `G:/Downloads/nf-distribuicao/dist/worker.env.pc-contingencia-local.coordenado`.
+  Ela já contém a identidade, três clientes, Storage e produção fiscal, mas não
+  funciona até ser criada a senha exclusiva e preenchida `WORKER_DATABASE_URL`.
+- `preparar_env_pc_servidor.py` agora aceita identidade e ambiente como opções,
+  preservando os defaults antigos e recusando produção fiscal no ambiente de
+  teste. Os seis testes focados do gerador passaram.
+
+## Pacote e correção fiscal vigentes — 19/09/2026
+
+- O PC servidor executa o commit `1815811`, com tolerância controlada para a
+  transição lenta entre Produto e ICMS. O Worker espera 10 segundos e, sem
+  repetir o clique em Avançar, admite mais 20 segundos antes de falhar com
+  segurança. A correção foi motivada pelas três falhas transitórias da
+  distribuição 17, todas anteriores ao clique em Emitir.
+- O pacote instalado, preparado para Python 3.13.7, é
+  `dist/worker-servidor-1815811-py3137.zip`, SHA-256
+  `A4468EFF62A69B0E4F67E55DBC3A9CF91AE85082E23019D650CC7F1D08F85BBA`.
+  A instalação foi confirmada pelo health do executor `pc-servidor-01`.
+- As ferramentas locais de empacotamento e preparação de configuração passam a
+  aceitar explicitamente a versão Python de destino, a identidade do executor e
+  a fronteira teste/produção. Elas não gravam credenciais no Git e recusam
+  produção fiscal combinada com ambiente de teste.
+
+## Paginação de notas por distribuição — 19/09/2026
+
+- A tela `/notas` pagina 20 distribuições inteiras, em vez de cortar o histórico
+  a cada 50 notas. Todas as notas do mesmo lote permanecem juntas; registros
+  legados sem lote formam uma unidade individual.
+- As leituras continuam sequenciais por causa do `max_pipeline=1` adotado para o
+  Supavisor. A ordem das distribuições é definida no banco e reaplicada depois
+  do agrupamento, evitando depender da posição de uma nota individual.
+- Validação local: 166 testes Web e TypeScript aprovados. O build compilou o
+  código, mas a coleta de páginas parou porque este worktree não possui
+  `DATABASE_URL`; validar `/notas` autenticada depois do deploy antes de dar a
+  mudança como comprovada contra o banco real.

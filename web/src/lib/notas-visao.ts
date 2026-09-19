@@ -59,3 +59,19 @@ export function agruparNotasPorDistribuicao<T extends NotaAgrupavel>(notas: T[])
 
   return [...grupos.values()];
 }
+
+/**
+ * A consulta pagina distribuições antes de buscar suas notas. Esta ordenação
+ * reaplica no resultado agrupado a ordem estável definida pelo banco, sem
+ * depender da posição individual de cada nota dentro do lote.
+ */
+export function ordenarGruposPorChaves<T extends NotaAgrupavel>(
+  grupos: GrupoNotas<T>[],
+  chaves: readonly string[],
+): GrupoNotas<T>[] {
+  const ordem = new Map(chaves.map((chave, indice) => [chave, indice]));
+  const depoisDaPagina = chaves.length;
+  return [...grupos].sort(
+    (a, b) => (ordem.get(a.chave) ?? depoisDaPagina) - (ordem.get(b.chave) ?? depoisDaPagina),
+  );
+}

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   agruparNotasPorDistribuicao,
   normalizarVisaoNotas,
+  ordenarGruposPorChaves,
   visaoDaNota,
 } from "./notas-visao";
 
@@ -65,6 +66,31 @@ describe("agruparNotasPorDistribuicao", () => {
     }]);
 
     expect(grupos[0].datasAutorizacao).toEqual(["2026-09-15"]);
+  });
+});
+
+describe("ordenarGruposPorChaves", () => {
+  const notas = [
+    { id: "1", loteId: "a", numeroDistribuicao: 12, dataDistribuicao: "2026-09-05", dataEmissao: null },
+    { id: "2", loteId: "b", numeroDistribuicao: 11, dataDistribuicao: "2026-09-04", dataEmissao: null },
+    { id: "3", loteId: null, numeroDistribuicao: null, dataDistribuicao: null, dataEmissao: null },
+  ];
+
+  it("segue a ordem estável da página de distribuições", () => {
+    const grupos = agruparNotasPorDistribuicao(notas);
+
+    const ordenados = ordenarGruposPorChaves(grupos, ["legado:3", "lote:b", "lote:a"]);
+
+    expect(ordenados.map((grupo) => grupo.chave)).toEqual(["legado:3", "lote:b", "lote:a"]);
+  });
+
+  it("mantém grupos sem chave conhecida no fim e não altera o array original", () => {
+    const grupos = agruparNotasPorDistribuicao(notas);
+
+    const ordenados = ordenarGruposPorChaves(grupos, ["lote:b"]);
+
+    expect(ordenados.map((grupo) => grupo.chave)).toEqual(["lote:b", "lote:a", "legado:3"]);
+    expect(grupos.map((grupo) => grupo.chave)).toEqual(["lote:a", "lote:b", "legado:3"]);
   });
 });
 
