@@ -2004,3 +2004,19 @@ operacionais; o futuro financeiro deve consultar também o estado fiscal da nota
   código, mas a coleta de páginas parou porque este worktree não possui
   `DATABASE_URL`; validar `/notas` autenticada depois do deploy antes de dar a
   mudança como comprovada contra o banco real.
+
+## Concorrência 2 ativada no PC servidor — 19/09/2026
+
+- Com todas as filas vazias e `tarefas_ativas=0`, o executor
+  `pc-servidor-01` foi parado de forma drenada. A configuração privada recebeu
+  `MAX_CONCORRENCIA=2` e o cadastro coordenado passou a
+  `capacity_limit=2`.
+- Depois do reinício, o banco confirmou `reported_capacity=2`,
+  `capacity_limit=2`, `draining=false` e lease vigente. O health voltou a
+  `estado=ok`, sem tarefa ativa, na versão fiscal `1815811`.
+- O código já isolava cada tarefa em um `BrowserContext`, usava reserva com
+  token/lease e serializava tarefas que compartilham a mesma credencial fiscal;
+  por isso não foi necessária alteração de runtime. Permanece pendente a prova
+  operacional com duas tarefas legítimas de credenciais diferentes. Se o portal
+  apresentar interferência, timeout ou retry, reverter tanto o limite privado
+  quanto `fiscal.workers.capacity_limit` para 1.
