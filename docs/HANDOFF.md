@@ -2020,3 +2020,16 @@ operacionais; o futuro financeiro deve consultar também o estado fiscal da nota
   operacional com duas tarefas legítimas de credenciais diferentes. Se o portal
   apresentar interferência, timeout ou retry, reverter tanto o limite privado
   quanto `fiscal.workers.capacity_limit` para 1.
+
+## Concorrência adaptativa planejada — 19/09/2026
+
+- O plano técnico está em `PLANO-CONCORRENCIA-ADAPTATIVA.md`; não houve mudança
+  de runtime, banco ou UI. O PC confirmou i5-3470 (4c/4t), 15,89 GB de RAM e
+  margem ociosa em uma amostra, insuficiente para declarar suporte a 3.
+- A versão inicial decidirá 1/2/3 antes de cada ciclo, com guardrails de CPU,
+  memória, fila e falhas, histerese e fallback 1. Não interromperá notas ativas.
+  Admissão durante o ciclo só será considerada se benchmarks mostrarem benefício.
+- Estado factual: 1 é comprovado; 2 está configurado como ensaio e aguarda prova
+  paralela legítima; 3 continua apenas teto de benchmark. A implementação
+  mecânica foi preparada para GPT-5.6 Terra / Média e deve começar em modo
+  observação.
