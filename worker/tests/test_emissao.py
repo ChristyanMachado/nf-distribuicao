@@ -13,12 +13,14 @@ from src.flows.emissao import (
     ValorFiscalDivergente,
     _formatar_decimal_portal,
     _preencher_decimal_portal,
+    aguardar_icms_apos_produto,
     aguardar_autorizacao,
     clicar_avancar_por_contexto,
     clicar_avancar_produto,
     emitir,
     selecionar_emitente,
 )
+from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 
 
 def _logger_silencioso() -> logging.Logger:
@@ -424,3 +426,46 @@ def test_avancar_produto_recusa_ausencia_de_botao_seguro():
 
     with pytest.raises(RuntimeError, match="Nenhum botão 'Avançar'"):
         asyncio.run(clicar_avancar_produto(pagina, _logger_silencioso()))
+
+
+class SituacaoTributariaLentaFalsa:
+    def __init__(self, falhas: int) -> None:
+        self.falhas = falhas
+        self.esperas: list[tuple[str, int]] = []
+
+    async def wait_for(self, *, state: str, timeout: int) -> None:
+        self.esperas.append((state, timeout))
+        if self.falhas:
+            self.falhas -= 1
+            raise PlaywrightTimeoutError("portal ainda não apresentou o ICMS")
+
+
+def test_icms_apos_produto_mantem_caminho_rapido_de_dez_segundos():
+    situacao = SituacaoTributariaLentaFalsa(falhas=0)
+
+    asyncio.run(aguardar_icms_apos_produto(situacao, _logger_silencioso()))
+
+    assert situacao.esperas == [("visible", 10_000)]
+
+
+def test_icms_apos_produto_tolera_vinte_segundos_adicionais_sem_novo_clique():
+    situacao = SituacaoTributariaLentaFalsa(falhas=1)
+
+    asyncio.run(aguardar_icms_apos_produto(situacao, _logger_silencioso()))
+
+    assert situacao.esperas == [
+        ("visible", 10_000),
+        ("visible", 20_000),
+    ]
+
+
+def test_icms_apos_produto_propaga_timeout_depois_de_trinta_segundos():
+    situacao = SituacaoTributariaLentaFalsa(falhas=2)
+
+    with pytest.raises(PlaywrightTimeoutError):
+        asyncio.run(aguardar_icms_apos_produto(situacao, _logger_silencioso()))
+
+    assert situacao.esperas == [
+        ("visible", 10_000),
+        ("visible", 20_000),
+    ]

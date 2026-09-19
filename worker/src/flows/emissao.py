@@ -453,6 +453,36 @@ async def clicar_avancar_produto(
     logger.info("Avançar da etapa de produtos clicado")
 
 
+async def aguardar_icms_apos_produto(
+    situacao_tributaria: Locator,
+    logger: logging.Logger,
+) -> None:
+    """Tolera uma transição lenta do portal sem repetir nenhum clique.
+
+    Em produção, a SPA da Receita já levou pouco mais de dez segundos para
+    apresentar o ICMS depois de aceitar os dados do produto. O clique anterior
+    ocorreu antes de qualquer emissão fiscal, mas repeti-lo seria arriscado por
+    poder alcançar a subetapa seguinte durante uma transição tardia. Por isso,
+    mantemos a sentinela rápida de dez segundos e apenas estendemos a espera por
+    mais vinte segundos quando o portal ainda não respondeu.
+    """
+
+    try:
+        await situacao_tributaria.wait_for(
+            state="visible",
+            timeout=10_000,
+        )
+    except PlaywrightTimeoutError:
+        logger.warning(
+            "Portal fiscal demorou mais de 10s na transição Produto -> ICMS; "
+            "aguardando até 20s adicionais sem repetir o clique"
+        )
+        await situacao_tributaria.wait_for(
+            state="visible",
+            timeout=20_000,
+        )
+
+
 async def aceitar_consentimento(page: Page, logger: logging.Logger) -> None:
     logger.info("Aceitando consentimento inicial")
     # Confirmado via reconhecimento ao vivo 20/08.
@@ -1279,9 +1309,9 @@ async def preencher_item(
         .locator("select.slds-select")
     )
 
-    await situacao_tributaria.wait_for(
-        state="visible",
-        timeout=10000
+    await aguardar_icms_apos_produto(
+        situacao_tributaria,
+        logger,
     )
 
     await situacao_tributaria.select_option(
