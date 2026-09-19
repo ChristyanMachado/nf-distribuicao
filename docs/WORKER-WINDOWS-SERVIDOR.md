@@ -41,7 +41,9 @@ desenvolvimento. As dependências são baixadas em versões fixadas e o Chromium
    senha aleatória guardada pelo Agendador do Windows. Os arquivos ficam em
    `C:\ProgramData\GraalystWorker`; usuários comuns não leem credenciais.
 4. A tarefa **GraalystWorker** inicia no boot sem login de pessoa, sem janela e
-   sem monitor. Ela reinicia após falha. Não há porta de rede pública aberta.
+   sem monitor. O bootstrap reinicia o processo após falha operacional, com um
+   intervalo de um minuto, além da política de reinício do Agendador. Uma parada
+   drenada continua encerrando normalmente. Não há porta de rede pública aberta.
 5. O primeiro início fica em **manutenção**: confirma a conexão, mas não pega
    trabalho. Depois da validação e do corte coordenado no banco, o técnico libera:
 
@@ -126,10 +128,12 @@ Na estação de desenvolvimento, com código revisado e Git limpo:
 ```powershell
 cd worker
 .\.venv\Scripts\python.exe -m scripts.empacotar_worker_servidor `
-  --output '..\dist\worker-servidor.zip'
+  --output '..\dist\worker-servidor.zip' `
+  --target-python '3.13.7'
 ```
 
-O comando retorna versão, hash e indicação de pacote instalável. `--preview`
+Use em `--target-python` a versão exata exibida por `python --version` no PC
+destino. O comando retorna versão, hash e indicação de pacote instalável. `--preview`
 gera apenas material de revisão e o instalador o recusa. Não usar um pacote
 `-dirty` em produção. Uma VM Linux usa o mesmo `src.servico` e a imagem existente;
 configurar `WORKER_COORDENADO=true`, WORKER_ID, WORKER_VERSION e papel exclusivo,
@@ -137,10 +141,13 @@ mantendo downloads em volume persistente. Nenhum componente depende da Oracle.
 
 ### Pacote atual preparado
 
-Para o próximo ensaio físico, o pacote atual do commit `489033e` é
-`dist/worker-servidor-489033e.zip`, SHA-256
-`87172A0FFA9F73FF48179BEBE46902061041315101337ECDB633168382FC79D9`.
-Ele não possui credenciais. Confira o hash antes e depois da transferência.
+O pacote atualmente instalado no PC servidor corresponde ao commit `1815811`,
+preparado para o Python 3.13.7:
+`dist/worker-servidor-1815811-py3137.zip`, SHA-256
+`A4468EFF62A69B0E4F67E55DBC3A9CF91AE85082E23019D650CC7F1D08F85BBA`.
+Ele não possui credenciais. Para uma atualização futura, gere um novo pacote a
+partir do commit limpo que será instalado e confira o hash antes e depois da
+transferência; não reutilize este hash para outro commit.
 
 ## Ensaio obrigatório antes de entregar
 

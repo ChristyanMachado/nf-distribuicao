@@ -12,6 +12,7 @@ from dotenv import dotenv_values
 _CLIENTE = re.compile(
     r"CLIENTE_[A-Z0-9_]+_(LOGIN|SENHA|IDENTIDADE_ESPERADA|EMITENTE|NOME_EMITENTE)"
 )
+_WORKER_ID = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 
 
 def _serializar(valores: dict[str, str]) -> str:
@@ -21,9 +22,22 @@ def _serializar(valores: dict[str, str]) -> str:
     )
 
 
-def preparar(origem: Path, destino: Path) -> dict[str, object]:
+def preparar(
+    origem: Path,
+    destino: Path,
+    *,
+    worker_id: str = "pc-servidor-01",
+    ambiente_emissao: str = "teste",
+    producao_fiscal: bool = False,
+) -> dict[str, object]:
     if origem.resolve() == destino.resolve():
         raise ValueError("Origem e destino precisam ser diferentes.")
+    if not _WORKER_ID.fullmatch(worker_id):
+        raise ValueError("WORKER_ID deve ter 1-64 letras, números, _ ou -.")
+    if ambiente_emissao not in {"teste", "normal"}:
+        raise ValueError("Ambiente de emissão deve ser teste ou normal.")
+    if producao_fiscal and ambiente_emissao != "normal":
+        raise ValueError("Produção fiscal exige AMBIENTE_EMISSAO=normal.")
     antigos = {k: v for k, v in dotenv_values(origem, interpolate=False).items() if v}
     clientes = ["CLIENTE_A", "CLIENTE_B", "CLIENTE_C"]
     obrigatorios = {
@@ -40,7 +54,7 @@ def preparar(origem: Path, destino: Path) -> dict[str, object]:
     valores: dict[str, str] = {
         "APP_ENVIRONMENT": "producao",
         "WORKER_COORDENADO": "true",
-        "WORKER_ID": "pc-servidor-01",
+        "WORKER_ID": worker_id,
         "WORKER_DATABASE_URL": "",
         "MAX_CONCORRENCIA": "1",
         "WORKER_POLL_SECONDS": "5",
@@ -50,11 +64,11 @@ def preparar(origem: Path, destino: Path) -> dict[str, object]:
         "PROCESSAR_FILA_BANCO": "true",
         "MODO_OPERACAO": "automatico",
         "SISTEMA_FISCAL_URL": "https://receita.pr.gov.br/login",
-        "AMBIENTE_EMISSAO": "teste",
+        "AMBIENTE_EMISSAO": ambiente_emissao,
         "TESTAR_NAVEGACAO_EMISSAO": "true",
         "TESTAR_PREENCHIMENTO_COMPLETO": "true",
-        "TESTAR_EMISSAO_HOMOLOGACAO": "true",
-        "HABILITAR_PRODUCAO_FISCAL": "false",
+        "TESTAR_EMISSAO_HOMOLOGACAO": "true" if ambiente_emissao == "teste" else "false",
+        "HABILITAR_PRODUCAO_FISCAL": "true" if producao_fiscal else "false",
         "ARMAZENAR_DOCUMENTOS": "true",
         "SUPABASE_URL": url_storage,
         "SUPABASE_SECRET_KEY": antigos["SUPABASE_SECRET_KEY"],
@@ -92,8 +106,17 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--worker-id", default="pc-servidor-01")
+    parser.add_argument("--ambiente-emissao", choices=("teste", "normal"), default="teste")
+    parser.add_argument("--producao-fiscal", action="store_true")
     args = parser.parse_args()
-    print(json.dumps(preparar(args.source, args.output)))
+    print(json.dumps(preparar(
+        args.source,
+        args.output,
+        worker_id=args.worker_id,
+        ambiente_emissao=args.ambiente_emissao,
+        producao_fiscal=args.producao_fiscal,
+    )))
 
 
 if __name__ == "__main__":
