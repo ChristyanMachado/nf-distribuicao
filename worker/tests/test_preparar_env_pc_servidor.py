@@ -13,7 +13,7 @@ def _origem(tmp_path: Path) -> Path:
         **{
             f"CLIENTE_{cliente}_{campo}": f"valor-{cliente}-{campo}"
             for cliente in "ABC"
-            for campo in ("LOGIN", "SENHA", "EMITENTE")
+            for campo in ("LOGIN", "SENHA", "IDENTIDADE_ESPERADA", "EMITENTE")
         },
     }
     arquivo = tmp_path / "origem.env"
@@ -59,3 +59,37 @@ def test_recusa_worker_id_invalido(tmp_path: Path, worker_id: str) -> None:
 def test_recusa_producao_no_ambiente_de_teste(tmp_path: Path) -> None:
     with pytest.raises(ValueError):
         preparar(_origem(tmp_path), tmp_path / "destino.env", producao_fiscal=True)
+
+
+def test_descobre_e_preserva_quantidade_dinamica_de_emitentes(tmp_path: Path) -> None:
+    origem = _origem(tmp_path)
+    with origem.open("a", encoding="utf-8") as arquivo:
+        for campo in ("LOGIN", "SENHA", "IDENTIDADE_ESPERADA", "EMITENTE"):
+            arquivo.write(f"CLIENTE_NOVO_{campo}='valor-{campo}'\n")
+
+    destino = tmp_path / "destino.env"
+    resultado = preparar(origem, destino)
+    valores = dotenv_values(destino, interpolate=False)
+
+    assert resultado["clientes"] == 4
+    assert valores["CLIENTES_ATIVOS"] == "CLIENTE_A,CLIENTE_B,CLIENTE_C,CLIENTE_NOVO"
+    assert valores["CLIENTE_NOVO_LOGIN"] == "valor-LOGIN"
+    assert valores["CLIENTE_NOVO_SENHA"] == "valor-SENHA"
+
+
+def test_recusa_bloco_dinamico_incompleto(tmp_path: Path) -> None:
+    origem = _origem(tmp_path)
+    with origem.open("a", encoding="utf-8") as arquivo:
+        arquivo.write("CLIENTE_NOVO_LOGIN='login'\n")
+
+    with pytest.raises(RuntimeError, match="origem está incompleta"):
+        preparar(origem, tmp_path / "destino.env")
+
+
+def test_recusa_bloco_sem_login(tmp_path: Path) -> None:
+    origem = _origem(tmp_path)
+    with origem.open("a", encoding="utf-8") as arquivo:
+        arquivo.write("CLIENTE_NOVO_SENHA='senha'\n")
+
+    with pytest.raises(RuntimeError, match="origem está incompleta"):
+        preparar(origem, tmp_path / "destino.env")

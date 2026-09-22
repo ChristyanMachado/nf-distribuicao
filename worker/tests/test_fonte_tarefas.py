@@ -247,6 +247,8 @@ def test_continuacao_reserva_somente_lote_que_ja_possui_inicio() -> None:
     assert "iniciada.iniciado_em IS NOT NULL" in consulta
     assert "pendente.status='PENDENTE'" in consulta
     assert "FOR UPDATE OF t SKIP LOCKED" in consulta
+    assert "ORDER BY t.tentativas,t.atualizado_em,t.criado_em,t.id" in consulta
+    assert "t.tentativas < 3" in consulta
     assert argumentos == ("worker-teste", 1)
     assert conexao.transacao_fake.entrou is True
     assert conexao.transacao_fake.saiu is True
@@ -450,6 +452,45 @@ def test_devolver_validacao_e_idempotente_quando_ja_pendente() -> None:
     asyncio.run(fonte.devolver_pendente_sem_processar(TAREFA_ID, RESERVA_TOKEN))
 
     assert [chamada[0] for chamada in conexao.chamadas] == ["execute", "fetchval"]
+
+
+@pytest.mark.parametrize("status", ["PENDENTE", "ERRO"])
+def test_falha_transitoria_reagenda_ou_encerra_no_limite(status: str) -> None:
+    conexao = _ConexaoFake(fetchrow=[{"status": status}])
+    fonte = _fonte_com_conexao(conexao)
+
+    resultado = asyncio.run(fonte.reagendar_falha_transitoria_pre_emissao(
+        TAREFA_ID,
+        RESERVA_TOKEN,
+        mensagem="Portal temporariamente indisponível.",
+        codigo_erro="FALHA_PREENCHIMENTO",
+    ))
+
+    assert resultado == status
+    _, consulta, args = conexao.chamadas[0]
+    assert "external_started_at IS NULL" in consulta
+    assert "tentativas<$1" in consulta
+    assert "reserva_token=NULL" in consulta
+    assert args == (
+        3,
+        "Portal temporariamente indisponível.",
+        "FALHA_PREENCHIMENTO",
+        TAREFA_ID,
+        RESERVA_TOKEN,
+    )
+
+
+def test_falha_transitoria_nao_reabre_reserva_insegura() -> None:
+    conexao = _ConexaoFake(fetchrow=[None, {"status": "EMITINDO", "codigo_erro": None}])
+    fonte = _fonte_com_conexao(conexao)
+
+    with pytest.raises(FonteTarefasErro, match="reserva pré-emissão"):
+        asyncio.run(fonte.reagendar_falha_transitoria_pre_emissao(
+            TAREFA_ID,
+            RESERVA_TOKEN,
+            mensagem="Portal temporariamente indisponível.",
+            codigo_erro="FALHA_PREENCHIMENTO",
+        ))
 
 
 @pytest.mark.parametrize("lease_segundos", [0, 59, 3601, 100_000])

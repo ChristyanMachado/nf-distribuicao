@@ -122,6 +122,13 @@ def _diagnostico_falha_pre_emissao(
     )
 
 
+def _falha_transitoria_pre_emissao(exc: Exception) -> bool:
+    return isinstance(
+        exc,
+        (PlaywrightTimeoutError, fluxo_emissao.FalhaTransitoriaPortal),
+    )
+
+
 async def preencher_formulario_completo(page, tarefa: Tarefa, logger) -> None:
     """
     RF13 passos 4-10 — parte da tela de emissão (já alcançada por
@@ -1162,13 +1169,31 @@ async def executar_fila_banco(
                             exc,
                         )
                     try:
-                        await fonte.registrar_status(
-                            tarefa_id,
-                            reserva.reserva_token,
-                            destino,
-                            mensagem=mensagem,
-                            codigo_erro=codigo_erro,
+                        falha_transitoria = (
+                            not entrou_em_emissao
+                            and _falha_transitoria_pre_emissao(exc)
                         )
+                        if falha_transitoria:
+                            destino = await fonte.reagendar_falha_transitoria_pre_emissao(
+                                tarefa_id,
+                                reserva.reserva_token,
+                                mensagem=mensagem,
+                                codigo_erro=codigo_erro,
+                            )
+                            logger.warning(
+                                "[%s] Falha transitória pré-emissão registrada como %s; "
+                                "nenhum clique fiscal foi repetido.",
+                                tarefa_id,
+                                destino,
+                            )
+                        else:
+                            await fonte.registrar_status(
+                                tarefa_id,
+                                reserva.reserva_token,
+                                destino,
+                                mensagem=mensagem,
+                                codigo_erro=codigo_erro,
+                            )
                     except FonteTarefasErro:
                         logger.error(
                             "[%s] Falha também ao registrar o estado seguro da tarefa.",

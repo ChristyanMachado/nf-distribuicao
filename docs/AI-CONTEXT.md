@@ -1,5 +1,29 @@
 # AI Context — NF Distribuição
 
+## Incidente de concorrência e emitentes dinâmicos — 22/09/2026
+
+As duas falhas iniciais da distribuição 17 não foram causadas por cadastro ou
+credencial. Dois contextos concorrentes chegaram juntos ao `Avançar` da
+Identificação da operação e ambos expiraram após 30 s; os mesmos snapshots
+foram autorizados depois, isoladamente. O PC servidor voltou de 2 para 1
+execução simultânea. O fluxo agora observa a etapa seguinte após timeout e,
+se ela não apareceu, falha sem repetir o clique incerto. Essa confirmação não
+alcança o botão fiscal `Emitir`.
+
+O retry pedido é de **tarefa**, não de clique: timeout transitório confirmado
+antes de `EMITINDO` devolve a tarefa para `PENDENTE`, mantendo a tentativa, e
+as reservas priorizam tarefas novas antes dos retries. Após três tentativas a
+tarefa fica em `ERRO`. Qualquer falha depois da fronteira fiscal continua em
+conferência humana e nunca volta automaticamente. A migration local
+`0020_retry_automatico_pre_emissao.sql` é necessária para a ordenação da fila
+e ainda não deve ser tratada como aplicada sem confirmação remota.
+
+O Web e o runtime já aceitavam referências arbitrárias de emitentes; a trava
+A/B/C estava apenas no preparador de `worker.env`. O preparador passou a
+descobrir de 1 a 20 blocos privados completos no arquivo de origem. Login e
+senha continuam exclusivamente no PC do Worker: o Supabase/Web mantém somente
+`credencial_referencia` e o identificador NFP-e.
+
 ## Conexão e integração QA validadas — 14/09/2026
 
 Pooler correto do QA: aws-0-sa-east-1.pooler.supabase.com:6543 (não aws-1).

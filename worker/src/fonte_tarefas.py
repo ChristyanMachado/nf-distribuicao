@@ -273,10 +273,11 @@ class FontePostgresTarefas:
                                FROM fiscal.tarefas t
                                JOIN lote_prioritario l ON l.lote_id=t.lote_id
                                WHERE t.status='PENDENTE'
+                                 AND t.tentativas < 3
                                  AND t.contrato_versao=1
                                  AND t.payload_worker IS NOT NULL
                                  AND t.payload_hash IS NOT NULL
-                               ORDER BY t.criado_em,t.id
+                               ORDER BY t.tentativas,t.atualizado_em,t.criado_em,t.id
                                LIMIT $2
                                FOR UPDATE OF t SKIP LOCKED
                            ), reservadas AS (
@@ -286,6 +287,10 @@ class FontePostgresTarefas:
                                    reserva_expira_em=now()+make_interval(secs=>900),
                                    tentativas=t.tentativas+1,
                                    iniciado_em=COALESCE(t.iniciado_em,now()),
+                                   mensagem_status='Processamento iniciado pelo Worker.',
+                                   ultimo_erro=NULL,
+                                   codigo_erro=NULL,
+                                   concluido_em=NULL,
                                    atualizado_em=now()
                                FROM candidatas c WHERE t.id=c.id
                                RETURNING t.id AS tarefa_id,t.reserva_token
@@ -516,6 +521,72 @@ class FontePostgresTarefas:
             raise
         except Exception as exc:
             raise FonteTarefasErro("Não foi possível liberar a tarefa validada.") from exc
+
+    async def reagendar_falha_transitoria_pre_emissao(
+        self,
+        tarefa_id: str,
+        reserva_token: str,
+        *,
+        mensagem: str,
+        codigo_erro: str,
+        max_tentativas: int = 3,
+    ) -> str:
+        """Devolve uma navegação transitória ao fim da fila, com limite.
+
+        Esta operação só alcança ``PROCESSANDO`` sem fronteira fiscal. A
+        tentativa já foi contabilizada na reserva e não é decrementada.
+        """
+        if not 2 <= max_tentativas <= 10:
+            raise FonteTarefasErro("Limite de tentativas automáticas inválido.")
+        if not mensagem or len(mensagem) > 300 or "\n" in mensagem or "\r" in mensagem:
+            raise FonteTarefasErro("Mensagem de resultado inválida.")
+        if not re.fullmatch(r"[A-Z][A-Z0-9_]{2,63}", codigo_erro):
+            raise FonteTarefasErro("Código de erro inválido.")
+        try:
+            async with self._conexao() as conexao:
+                linha = await conexao.fetchrow(
+                    """UPDATE fiscal.tarefas
+                       SET status=CASE WHEN tentativas<$1
+                              THEN 'PENDENTE'::fiscal.status_tarefa
+                              ELSE 'ERRO'::fiscal.status_tarefa END,
+                           reservada_por=NULL,reserva_token=NULL,reserva_expira_em=NULL,
+                           mensagem_status=CASE WHEN tentativas<$1
+                              THEN 'Falha temporária antes da emissão; nova tentativa automática aguardando no fim da fila.'
+                              ELSE $2 END,
+                           ultimo_erro=$2,codigo_erro=$3,
+                           concluido_em=CASE WHEN tentativas<$1 THEN NULL ELSE now() END,
+                           atualizado_em=now()
+                       WHERE id=$4::uuid AND reserva_token=$5::uuid
+                         AND reserva_expira_em>now() AND status='PROCESSANDO'
+                         AND external_started_at IS NULL
+                       RETURNING status::text AS status""",
+                    max_tentativas,
+                    mensagem,
+                    codigo_erro,
+                    str(_uuid(tarefa_id)),
+                    str(_uuid(reserva_token)),
+                )
+                if linha is not None:
+                    return str(linha["status"])
+                atual = await conexao.fetchrow(
+                    "SELECT status::text AS status,codigo_erro FROM fiscal.tarefas WHERE id=$1::uuid",
+                    str(_uuid(tarefa_id)),
+                )
+                if (
+                    atual
+                    and atual["status"] in {"PENDENTE", "ERRO"}
+                    and atual["codigo_erro"] == codigo_erro
+                ):
+                    return str(atual["status"])
+                raise FonteTarefasErro(
+                    "Falha transitória não pertence a uma reserva pré-emissão ativa."
+                )
+        except FonteTarefasErro:
+            raise
+        except Exception as exc:
+            raise FonteTarefasErro(
+                "Não foi possível reagendar a falha transitória."
+            ) from exc
 
     async def registrar_emissao_autorizada(
         self,

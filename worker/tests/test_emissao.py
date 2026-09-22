@@ -9,12 +9,14 @@ from src.flows.emissao import (
     Emitente,
     EmissaoBloqueada,
     FalhaConfirmacaoEmissao,
+    FalhaTransitoriaPortal,
     Tarefa,
     ValorFiscalDivergente,
     _formatar_decimal_portal,
     _preencher_decimal_portal,
     aguardar_icms_apos_produto,
     aguardar_autorizacao,
+    avancar_identificacao_operacao,
     clicar_avancar_por_contexto,
     clicar_avancar_produto,
     emitir,
@@ -206,11 +208,16 @@ class BotaoAvancarFalso:
         visivel: bool = True,
         habilitado: bool = True,
         profundidade_contexto: int | None = None,
+        falhas_click: int = 0,
+        ao_clicar=None,
     ) -> None:
         self.visivel = visivel
         self.habilitado = habilitado
         self.clicado = False
         self.profundidade_contexto = profundidade_contexto
+        self.falhas_click = falhas_click
+        self.ao_clicar = ao_clicar
+        self.tentativas = 0
 
     async def is_visible(self) -> bool:
         return self.visivel
@@ -219,7 +226,15 @@ class BotaoAvancarFalso:
         return self.habilitado
 
     async def click(self) -> None:
+        self.tentativas += 1
+        if self.falhas_click:
+            self.falhas_click -= 1
+            if self.ao_clicar:
+                self.ao_clicar()
+            raise PlaywrightTimeoutError("portal em re-renderização")
         self.clicado = True
+        if self.ao_clicar:
+            self.ao_clicar()
 
     async def evaluate(self, _expressao, _termos):
         return self.profundidade_contexto
@@ -244,6 +259,30 @@ class PaginaSequenciaFalsa:
         assert papel == "button"
         assert name == "Avançar"
         return self.colecao
+
+
+class AncoraRetiradaFalsa:
+    first: "AncoraRetiradaFalsa"
+
+    def __init__(self, pagina) -> None:
+        self.first = self
+        self.pagina = pagina
+
+    async def wait_for(self, *, state: str, timeout: int) -> None:
+        assert state == "visible"
+        assert timeout in {10_000, 15_000}
+        if not self.pagina.retirada_visivel:
+            raise PlaywrightTimeoutError("retirada ainda não apareceu")
+
+
+class PaginaOperacaoFalsa(PaginaSequenciaFalsa):
+    def __init__(self, botao: BotaoAvancarFalso) -> None:
+        super().__init__([botao])
+        self.retirada_visivel = False
+        self.ancora_retirada = AncoraRetiradaFalsa(self)
+
+    def get_by_text(self, _padrao):
+        return self.ancora_retirada
 
 
 class SelectEmitenteFalso:
@@ -323,6 +362,44 @@ def test_avancar_por_contexto_escolhe_o_ancestral_mais_proximo():
 
     assert antigo.clicado is False
     assert atual.clicado is True
+
+
+def test_timeout_do_click_com_etapa_seguinte_visivel_nao_repete() -> None:
+    pagina = None
+
+    def mostrar_retirada() -> None:
+        pagina.retirada_visivel = True
+
+    botao = BotaoAvancarFalso(
+        profundidade_contexto=2,
+        falhas_click=1,
+        ao_clicar=mostrar_retirada,
+    )
+    pagina = PaginaOperacaoFalsa(botao)
+
+    asyncio.run(avancar_identificacao_operacao(pagina, _logger_silencioso()))
+
+    assert botao.tentativas == 1
+
+
+def test_timeout_sem_transicao_falha_sem_repetir_click() -> None:
+    botao = BotaoAvancarFalso(profundidade_contexto=2, falhas_click=1)
+    pagina = PaginaOperacaoFalsa(botao)
+
+    with pytest.raises(RuntimeError, match="não foi repetido"):
+        asyncio.run(avancar_identificacao_operacao(pagina, _logger_silencioso()))
+
+    assert botao.tentativas == 1
+
+
+def test_click_concluido_sem_etapa_seguinte_e_falha_transitoria() -> None:
+    botao = BotaoAvancarFalso(profundidade_contexto=2)
+    pagina = PaginaOperacaoFalsa(botao)
+
+    with pytest.raises(FalhaTransitoriaPortal, match="não abriu a etapa de retirada"):
+        asyncio.run(avancar_identificacao_operacao(pagina, _logger_silencioso()))
+
+    assert botao.tentativas == 1
 
 
 @pytest.mark.parametrize(

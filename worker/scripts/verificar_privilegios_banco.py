@@ -79,7 +79,14 @@ async def verificar(database_url: str) -> dict[str, object]:
               ) AS executar_reserva,
               has_table_privilege(current_user, 'fiscal.tarefas', 'SELECT') AS ler_tarefas,
               has_column_privilege(current_user, 'fiscal.tarefas', 'status', 'UPDATE')
+                AND has_column_privilege(current_user, 'fiscal.tarefas', 'reservada_por', 'UPDATE')
                 AND has_column_privilege(current_user, 'fiscal.tarefas', 'reserva_token', 'UPDATE')
+                AND has_column_privilege(current_user, 'fiscal.tarefas', 'reserva_expira_em', 'UPDATE')
+                AND has_column_privilege(current_user, 'fiscal.tarefas', 'tentativas', 'UPDATE')
+                AND has_column_privilege(current_user, 'fiscal.tarefas', 'iniciado_em', 'UPDATE')
+                AND has_column_privilege(current_user, 'fiscal.tarefas', 'mensagem_status', 'UPDATE')
+                AND has_column_privilege(current_user, 'fiscal.tarefas', 'ultimo_erro', 'UPDATE')
+                AND has_column_privilege(current_user, 'fiscal.tarefas', 'concluido_em', 'UPDATE')
                 AND has_column_privilege(current_user, 'fiscal.tarefas', 'atualizado_em', 'UPDATE')
                 AS atualizar_status,
               has_column_privilege(current_user, 'fiscal.tarefas', 'codigo_erro', 'UPDATE')

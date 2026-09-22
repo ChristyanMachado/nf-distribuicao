@@ -46,6 +46,10 @@ class FalhaConfirmacaoEmissao(RuntimeError):
     """A Receita não exibiu a confirmação de autorização esperada."""
 
 
+class FalhaTransitoriaPortal(RuntimeError):
+    """O portal parou antes da fronteira fiscal e permite nova navegação."""
+
+
 class AcessoPortalNegado(RuntimeError):
     """O portal recusou o módulo seguinte antes de iniciar a emissão."""
 
@@ -380,6 +384,48 @@ async def clicar_avancar_por_contexto(
         raise RuntimeError("A etapa apresentou mais de um botão Avançar equivalente.")
     await melhores[0].click()
     logger.info("Avançar identificado pelo contexto da etapa clicado")
+
+
+async def _aguardar_etapa_retirada(page: Page, timeout: int) -> bool:
+    ancora = page.get_by_text(
+        re.compile(r"Local de Retirada diferente do Emitente", re.IGNORECASE)
+    ).first
+    try:
+        await ancora.wait_for(state="visible", timeout=timeout)
+        return True
+    except PlaywrightTimeoutError:
+        return False
+
+
+async def avancar_identificacao_operacao(page: Page, logger: logging.Logger) -> None:
+    """Avança e confirma a etapa reversível sem repetir um clique incerto.
+
+    Um timeout de ``click`` não prova que o evento não chegou ao portal. Por
+    isso a etapa seguinte é observada antes da falha, mas o clique não é
+    repetido. O botão fiscal ``Emitir`` não usa esta função.
+    """
+    try:
+        await clicar_avancar_por_contexto(
+            page,
+            ("identificação da operação", "natureza da operação"),
+            logger,
+        )
+    except PlaywrightTimeoutError as exc:
+        if await _aguardar_etapa_retirada(page, 15_000):
+            logger.warning(
+                "Clique em Avançar expirou, mas a etapa de retirada foi confirmada."
+            )
+            return
+        raise FalhaTransitoriaPortal(
+            "O portal não respondeu ao Avançar da identificação da operação; "
+            "o clique não foi repetido por segurança."
+        ) from exc
+
+    if await _aguardar_etapa_retirada(page, 10_000):
+        return
+    raise FalhaTransitoriaPortal(
+        "O portal aceitou o clique, mas não abriu a etapa de retirada."
+    )
 
 
 async def clicar_avancar_apos_texto(
@@ -925,11 +971,7 @@ async def preencher_identificacao_operacao(page: Page, tarefa: Tarefa, logger: l
         page, _ANCORA_INDICADOR_PRESENCA, INDICADOR_PRESENCA_OPCOES[tarefa.indicador_presenca], logger
     )
 
-    await clicar_avancar_por_contexto(
-        page,
-        ("identificação da operação", "natureza da operação"),
-        logger,
-    )
+    await avancar_identificacao_operacao(page, logger)
 
 
 async def avancar_local_retirada(page: Page, logger: logging.Logger) -> None:

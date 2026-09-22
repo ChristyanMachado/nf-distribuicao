@@ -7,11 +7,13 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 
 from main import (
     _diagnostico_falha_cancelamento,
     _diagnostico_tecnico_seguro,
     _diagnostico_falha_pre_emissao,
+    _falha_transitoria_pre_emissao,
     _limpar_documentos_expirados,
     _processar_recuperacoes_documentos,
     _recuperar_uploads_pendentes,
@@ -28,6 +30,7 @@ from src.flows.emissao import (
     Destinatario,
     Emitente,
     FalhaConfirmacaoEmissao,
+    FalhaTransitoriaPortal,
     Tarefa,
 )
 from src.flows.consulta import CancelamentoNaoEnviado, CancelamentoResultadoIncerto
@@ -41,6 +44,12 @@ def test_diagnostico_especifico_quando_portal_nega_modulo():
         "ACESSO_PORTAL_NEGADO",
         "A Receita negou acesso ao módulo seguinte antes da emissão.",
     )
+
+
+def test_somente_timeout_pre_emissao_e_classificado_como_transitorio():
+    assert _falha_transitoria_pre_emissao(PlaywrightTimeoutError("lento")) is True
+    assert _falha_transitoria_pre_emissao(FalhaTransitoriaPortal("lento")) is True
+    assert _falha_transitoria_pre_emissao(RuntimeError("dado inválido")) is False
 
 
 def test_cancelamento_nao_enviado_permite_correcao_sem_fingir_incerteza():
@@ -146,6 +155,9 @@ class _FonteBancoFake:
         self.reservar = AsyncMock(return_value=reservas)
         self.reservar_continuacao_lote = AsyncMock(return_value=[])
         self.devolver_pendente_sem_processar = AsyncMock()
+        self.reagendar_falha_transitoria_pre_emissao = AsyncMock(
+            return_value="PENDENTE"
+        )
         self.registrar_status = AsyncMock()
         self.registrar_emissao_autorizada = AsyncMock()
         self.registrar_documentos_armazenados = AsyncMock()
@@ -700,6 +712,41 @@ def test_fila_banco_falha_antes_de_emitir_vai_para_erro():
         mensagem="A Receita não confirmou o acesso do emitente.",
         codigo_erro="FALHA_AUTENTICACAO",
     )
+
+
+def test_timeout_antes_de_emitir_volta_ao_fim_da_fila() -> None:
+    reserva = _reserva_banco()
+    fonte = _FonteBancoFake([reserva])
+    logger = logging.getLogger("teste-fila-timeout-transitorio")
+    credencial = SimpleNamespace(
+        identidade_esperada="Emitente esperado",
+        emitente="emitente-original",
+    )
+
+    with (
+        patch("main.FontePostgresTarefas", return_value=fonte),
+        patch("main.carregar_credencial", return_value=credencial),
+        patch("main._manter_reserva_ativa", new_callable=AsyncMock),
+        patch(
+            "main.realizar_login",
+            new_callable=AsyncMock,
+            side_effect=PlaywrightTimeoutError("portal lento"),
+        ),
+        patch(
+            "main.processar_tarefas_em_paralelo_async",
+            side_effect=_orquestrador_sem_browser,
+        ),
+    ):
+        resultado = asyncio.run(executar_fila_banco(_config_banco(), logger))
+
+    assert resultado == 1
+    fonte.reagendar_falha_transitoria_pre_emissao.assert_awaited_once_with(
+        reserva.contratada.tarefa.tarefa_id,
+        reserva.reserva_token,
+        mensagem="A Receita não confirmou o acesso do emitente.",
+        codigo_erro="FALHA_AUTENTICACAO",
+    )
+    fonte.registrar_status.assert_not_awaited()
 
 
 def test_fila_banco_falha_depois_de_emitindo_exige_conferencia():

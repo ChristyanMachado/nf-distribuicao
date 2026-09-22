@@ -141,6 +141,13 @@
       "when": 1789318860000,
       "tag": "0019_livro_idempotente_trocas",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1790060400000,
+      "tag": "0020_retry_automatico_pre_emissao",
+      "breakpoints": true
     }
   ]
 }

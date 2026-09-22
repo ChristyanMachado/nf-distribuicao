@@ -1,5 +1,21 @@
 # Handoff — Estado Atual
 
+## Estado operacional em 22/09/2026
+
+- PC servidor cabeado: `192.168.4.27` na rede atual; endereço DHCP pode mudar.
+- Worker de produção saudável, voltou para `MAX_CONCORRENCIA=1` após duas
+  navegações paralelas expirarem juntas na transição para Retirada.
+- Banco ainda permite capacidade máxima 2, mas o processo reporta capacidade 1;
+  a reserva efetiva permanece unitária.
+- Retry transitório foi definido no nível da tarefa: nova navegação no fim da
+  fila, no máximo três tentativas; nunca repetir clique incerto. A migration
+  `0020_retry_automatico_pre_emissao.sql` precisa ser aplicada antes de publicar
+  o Worker correspondente.
+- Novo emitente: criar normalmente no Web com uma referência válida e adicionar
+  no `worker.env` privado o bloco `<REFERENCIA>_LOGIN`, `_SENHA`,
+  `_IDENTIDADE_ESPERADA` e `_EMITENTE`. Reiniciar o Worker depois. Não gravar
+  esses segredos no Web, Supabase, Git ou pacote distribuível.
+
 ## Data fiscal oficial extraída do XML — 17/09/2026
 
 O Worker deixou de atribuir o relógio de persistência à emissão fiscal. Após

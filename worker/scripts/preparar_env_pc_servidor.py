@@ -9,8 +9,11 @@ import re
 from dotenv import dotenv_values
 
 
+_CAMPO_CREDENCIAL = (
+    "LOGIN|SENHA|IDENTIDADE_ESPERADA|EMITENTE|NOME_EMITENTE"
+)
 _CLIENTE = re.compile(
-    r"CLIENTE_[A-Z0-9_]+_(LOGIN|SENHA|IDENTIDADE_ESPERADA|EMITENTE|NOME_EMITENTE)"
+    rf"^(?P<referencia>CLIENTE_[A-Z0-9_]{{1,55}})_(?P<campo>{_CAMPO_CREDENCIAL})$"
 )
 _WORKER_ID = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 
@@ -39,10 +42,23 @@ def preparar(
     if producao_fiscal and ambiente_emissao != "normal":
         raise ValueError("Produção fiscal exige AMBIENTE_EMISSAO=normal.")
     antigos = {k: v for k, v in dotenv_values(origem, interpolate=False).items() if v}
-    clientes = ["CLIENTE_A", "CLIENTE_B", "CLIENTE_C"]
+    credenciais_encontradas = {
+        correspondencia.group("referencia")
+        for nome in antigos
+        if (correspondencia := _CLIENTE.fullmatch(nome))
+    }
+    clientes = sorted(credenciais_encontradas)
+    if not clientes or len(clientes) > 20:
+        raise RuntimeError(
+            "A origem deve conter entre 1 e 20 referências de credencial fiscal."
+        )
     obrigatorios = {
         "SUPABASE_SECRET_KEY",
-        *(f"{cliente}_{campo}" for cliente in clientes for campo in ("LOGIN", "SENHA", "EMITENTE")),
+        *(
+            f"{cliente}_{campo}"
+            for cliente in clientes
+            for campo in ("LOGIN", "SENHA", "IDENTIDADE_ESPERADA", "EMITENTE")
+        ),
     }
     ausentes = sorted(nome for nome in obrigatorios if not antigos.get(nome))
     if ausentes:
@@ -85,7 +101,10 @@ def preparar(
         "CLIENTES_ATIVOS": ",".join(clientes),
     }
     for nome, valor in antigos.items():
-        if _CLIENTE.fullmatch(nome) and nome.startswith(tuple(clientes)):
+        if (
+            (correspondencia := _CLIENTE.fullmatch(nome))
+            and correspondencia.group("referencia") in clientes
+        ):
             valores[nome] = valor
 
     destino.parent.mkdir(parents=True, exist_ok=True)
