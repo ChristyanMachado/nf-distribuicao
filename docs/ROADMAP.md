@@ -9,8 +9,9 @@ histórico: vários itens apontados nela já foram implementados depois.
 
 - Fluxo fiscal conectado, snapshot imutável, idempotência semântica, reserva e
   token fencing.
-- Worker coordenado com papel mínimo, manutenção explícita, retomada após lease
-  anterior e concorrência segura configurada em 1.
+- Worker coordenado com papel mínimo, manutenção explícita e retomada após lease
+  anterior. Capacidade 1 é o estado comprovado; capacidade 2 continua um ensaio
+  reversível que exige duas tarefas legítimas de credenciais diferentes.
 - Storage privado, recuperação em fila própria e cancelamento fiscal protegido,
   sem confundir estado da nota com estado da tarefa.
 - Distribuição com quantidades em milésimos, rascunho protegido, pesquisa de
@@ -27,14 +28,22 @@ histórico: vários itens apontados nela já foram implementados depois.
   Workers compactos no mobile, total físico explícito no roteiro, emitentes em
   área secundária e relatórios operacionais com período personalizado, trocas
   por mercado e histórico de quantidade por produto.
+- A versão Web `b8d5746` está em `main` e produção; `2bd469e`, também marcado
+  pela tag `web-prod-stable-20260922`, permanece como rollback conhecido.
+- O tempo economizado é dinâmico: usa durações reais dos lotes limpos e só
+  compara escalas que possuam benchmark humano validado. O KPI voltou a ficar
+  visível; hoje a única referência é 337 s para exatamente 3 notas.
 
 ## Em andamento imediato
 
-1. **Atualizar o Worker do PC servidor** com o pacote `489033e` já gerado,
+1. **Confirmar e aplicar a migration `0020_retry_automatico_pre_emissao.sql`**
+   no projeto correto antes de publicar o Worker que usa o retry; não instalar
+   `3592bd5` ou posterior sem esse pré-requisito confirmado.
+2. **Gerar e instalar o próximo pacote do Worker** a partir do commit validado,
    preservando `hold.request`; comprovar saúde em manutenção e repetir o reboot.
-2. **Validar operação física segura:** logs, retomada, impressão e estabilidade,
+3. **Validar operação física segura:** logs, retomada, impressão e estabilidade,
    sem criar emissão artificial em produção.
-3. **Primeira operação legítima em produção:** acompanhar uma distribuição real,
+4. **Primeira operação legítima em produção:** acompanhar uma distribuição real,
    conferir XML/DANFE, data fiscal, status e documentos. Produção está preparada,
    mas o fluxo completo ainda aguarda essa validação prática.
 
@@ -50,9 +59,7 @@ histórico: vários itens apontados nela já foram implementados depois.
 5. **Média:** classificar causa confirmada separadamente do estado fiscal, com
    evidência e autoria; causa desconhecida por padrão.
 6. **Média:** ensaiar expiração/recuperação e backup/restauração em ambiente seguro.
-7. **Média:** paginar Notas por distribuição no servidor e adicionar pesquisa
-   objetiva antes do crescimento do histórico; hoje o limite é por nota.
-8. **Descoberta, sem implementação:** confirmar com o cliente as decisões em
+7. **Descoberta, sem implementação:** confirmar com o cliente as decisões em
    `PLANO-FATURAMENTO-DIFERIDO.md` antes de qualquer schema ou UX de cooperativas.
 
 ## Depois da estabilização

@@ -15,6 +15,7 @@ from main import (
     _diagnostico_falha_pre_emissao,
     _falha_transitoria_pre_emissao,
     _limpar_documentos_expirados,
+    _processar_cancelamentos_fiscais,
     _processar_recuperacoes_documentos,
     _recuperar_uploads_pendentes,
     _validar_preparacao_reserva,
@@ -168,6 +169,10 @@ class _FonteBancoFake:
         self.reservar_recuperacoes_documentos = AsyncMock(return_value=[])
         self.concluir_recuperacao_documentos = AsyncMock()
         self.registrar_falha_recuperacao = AsyncMock()
+        self.reservar_cancelamentos_fiscais = AsyncMock(return_value=[])
+        self.concluir_cancelamento_fiscal = AsyncMock()
+        self.registrar_falha_cancelamento = AsyncMock()
+        self.iniciar_efeito_cancelamento = AsyncMock()
 
     async def __aenter__(self):
         return self
@@ -714,6 +719,18 @@ def test_fila_banco_falha_antes_de_emitir_vai_para_erro():
     )
 
 
+def _cancelamento_banco() -> SimpleNamespace:
+    reserva = _reserva_banco()
+    return SimpleNamespace(
+        cancelamento_id="99999999-9999-4999-8999-999999999999",
+        tarefa_id="11111111-1111-4111-8111-111111111111",
+        chave_acesso="1" * 44,
+        motivo="Dados incorretos",
+        reserva_token=reserva.reserva_token,
+        contratada=reserva.contratada,
+    )
+
+
 def test_timeout_antes_de_emitir_volta_ao_fim_da_fila() -> None:
     reserva = _reserva_banco()
     fonte = _FonteBancoFake([reserva])
@@ -747,6 +764,128 @@ def test_timeout_antes_de_emitir_volta_ao_fim_da_fila() -> None:
         codigo_erro="FALHA_AUTENTICACAO",
     )
     fonte.registrar_status.assert_not_awaited()
+
+
+def test_cancelamento_fiscal_orquestra_consulta_conclui_e_fecha_pagina():
+    cancelamento = _cancelamento_banco()
+    fonte = _FonteBancoFake([])
+    fonte.reservar_cancelamentos_fiscais.return_value = [cancelamento]
+    config = _config_banco()
+    config.processar_cancelamentos_fiscais = True
+    credencial = SimpleNamespace(
+        identidade_esperada="Emitente",
+        emitente="emitente-original",
+    )
+    logger = logging.getLogger("teste-cancelamento-sucesso")
+
+    with (
+        patch("main.carregar_credencial", return_value=credencial),
+        patch("main.realizar_login", new_callable=AsyncMock) as login,
+        patch("main.navegar_ate_consulta", new_callable=AsyncMock) as navegar,
+        patch("main.selecionar_emitente_consulta", new_callable=AsyncMock) as selecionar,
+        patch("main.pesquisar_nota_por_chave", new_callable=AsyncMock) as pesquisar,
+        patch("main.cancelar_nota_consultada", new_callable=AsyncMock) as cancelar,
+        patch(
+            "main.processar_tarefas_em_paralelo_async",
+            side_effect=_orquestrador_sem_browser,
+        ),
+    ):
+        resultado = asyncio.run(
+            _processar_cancelamentos_fiscais(fonte, config, logger, 1)
+        )
+
+    pagina = cancelar.await_args.args[0]
+    assert resultado == (True, False)
+    login.assert_awaited_once_with(
+        pagina, config.sistema_fiscal_url, credencial, logger
+    )
+    navegar.assert_awaited_once_with(pagina, logger, ambiente="teste")
+    selecionar.assert_awaited_once_with(
+        pagina, cancelamento.contratada.tarefa.emitente.valor_select, logger
+    )
+    pesquisar.assert_awaited_once_with(
+        pagina,
+        cancelamento.chave_acesso,
+        logger,
+        pausar_apos_clique=False,
+    )
+    cancelar.assert_awaited_once_with(
+        pagina,
+        motivo=cancelamento.motivo,
+        ambiente="teste",
+        logger=logger,
+    )
+    pagina.close.assert_awaited_once()
+    fonte.concluir_cancelamento_fiscal.assert_awaited_once_with(cancelamento)
+    fonte.registrar_falha_cancelamento.assert_not_awaited()
+
+
+@pytest.mark.parametrize(
+    ("erro", "codigo_erro", "exige_conferencia"),
+    [
+        (
+            CancelamentoNaoEnviado("O cancelamento não foi enviado."),
+            "CANCELAMENTO_NAO_ENVIADO",
+            False,
+        ),
+        (
+            CancelamentoResultadoIncerto("Confira a nota na Receita."),
+            "RESULTADO_CANCELAMENTO_INCERTO",
+            True,
+        ),
+    ],
+)
+def test_cancelamento_fiscal_preserva_resultado_seguro_em_falhas(
+    erro,
+    codigo_erro,
+    exige_conferencia,
+):
+    cancelamento = _cancelamento_banco()
+    fonte = _FonteBancoFake([])
+    fonte.reservar_cancelamentos_fiscais.return_value = [cancelamento]
+    config = _config_banco()
+    config.processar_cancelamentos_fiscais = True
+    credencial = SimpleNamespace(
+        identidade_esperada="Emitente",
+        emitente="emitente-original",
+    )
+
+    with (
+        patch("main.carregar_credencial", return_value=credencial),
+        patch("main.realizar_login", new_callable=AsyncMock),
+        patch("main.navegar_ate_consulta", new_callable=AsyncMock),
+        patch("main.selecionar_emitente_consulta", new_callable=AsyncMock),
+        patch("main.pesquisar_nota_por_chave", new_callable=AsyncMock),
+        patch(
+            "main.cancelar_nota_consultada",
+            new_callable=AsyncMock,
+            side_effect=erro,
+        ) as cancelar,
+        patch(
+            "main.processar_tarefas_em_paralelo_async",
+            side_effect=_orquestrador_sem_browser,
+        ),
+    ):
+        resultado = asyncio.run(
+            _processar_cancelamentos_fiscais(
+                fonte,
+                config,
+                logging.getLogger("teste-cancelamento-falha"),
+                1,
+            )
+        )
+
+    pagina = cancelar.await_args.args[0]
+    assert resultado == (True, True)
+    pagina.close.assert_awaited_once()
+    fonte.concluir_cancelamento_fiscal.assert_not_awaited()
+    fonte.registrar_falha_cancelamento.assert_awaited_once_with(
+        cancelamento.cancelamento_id,
+        cancelamento.reserva_token,
+        codigo_erro=codigo_erro,
+        mensagem=str(erro),
+        exige_conferencia=exige_conferencia,
+    )
 
 
 def test_fila_banco_falha_depois_de_emitindo_exige_conferencia():

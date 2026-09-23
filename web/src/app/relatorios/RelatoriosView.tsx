@@ -260,7 +260,7 @@ export default function RelatoriosView({
             </p>
           </div>
         </div>
-        <div className="mt-3 grid grid-cols-1 gap-3 min-[380px]:grid-cols-2 md:grid-cols-4">
+        <div className="mt-3 grid grid-cols-1 gap-3 min-[380px]:grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
           <KpiOperacional
             titulo="Distribuições"
             valor={String(operacao.distribuicoes)}
@@ -286,7 +286,24 @@ export default function RelatoriosView({
             }
             detalhe={`${formatarQuantidade(operacao.distribuicoesMedidas, "distribuição medida", "distribuições medidas")} sem reprocessamento`}
           />
+          <KpiOperacional
+            titulo="Tempo economizado estimado"
+            valor={
+              operacao.distribuicoesComparaveis === 0
+                ? "—"
+                : `${operacao.tempoEconomizadoSegundos < 0 ? "−" : ""}${formatarDuracao(Math.abs(operacao.tempoEconomizadoSegundos))}`
+            }
+            detalhe={
+              operacao.distribuicoesComparaveis === 0
+                ? "Nenhum lote de 3 notas comparável neste período"
+                : `Frente ao teste manual em ${formatarQuantidade(operacao.distribuicoesComparaveis, "lote comparável", "lotes comparáveis")} de mesma escala`
+            }
+            destaque
+          />
         </div>
+        <p className="mt-2 text-[11px] leading-relaxed text-[var(--ink-faint)]">
+          Estimativa dinâmica: compara a duração real de cada lote limpo com o benchmark manual da mesma quantidade de notas. Hoje a referência validada é 5min 37s para 3 notas; valor negativo indica que a automação levou mais tempo.
+        </p>
         {operacao.notasCanceladas > 0 && (
           <p className="mt-2 rounded-[var(--radius-control)] border border-[var(--wheat)] bg-[var(--cream)] px-3 py-2 text-[12px] text-[var(--ink-soft)]">
             {formatarQuantidade(operacao.notasCanceladas, "nota cancelada", "notas canceladas")} após emissão. O cancelamento não muda o resultado da tarefa; sua causa precisa ser confirmada.
@@ -294,13 +311,7 @@ export default function RelatoriosView({
         )}
         <details className="mt-4 rounded-[var(--radius-card)] border border-[var(--line)] bg-[var(--paper)] p-4">
           <summary className="cursor-pointer text-sm font-semibold">Tempos e diagnóstico do Worker</summary>
-          <div className="mt-4 grid grid-cols-1 gap-3 min-[380px]:grid-cols-2 md:grid-cols-4">
-            <KpiOperacional
-              titulo="Saldo frente ao teste manual"
-              valor={operacao.distribuicoesComparaveis === 0 ? "—" : `${operacao.tempoEconomizadoSegundos < 0 ? "−" : ""}${formatarDuracao(Math.abs(operacao.tempoEconomizadoSegundos))}`}
-              detalhe={`${formatarQuantidade(operacao.distribuicoesComparaveis, "lote", "lotes")} de 3 notas; positivo indica menos tempo`}
-              destaque
-            />
+          <div className="mt-4 grid grid-cols-1 gap-3 min-[380px]:grid-cols-2 md:grid-cols-3">
             <KpiOperacional
               titulo="Erros"
               valor={String(operacao.erros)}
@@ -319,7 +330,7 @@ export default function RelatoriosView({
             />
           </div>
           <p className="mt-3 text-[11px] leading-relaxed text-[var(--ink-faint)]">
-            Duração medida da primeira tarefa iniciada à última autorização, apenas em lotes concluídos na primeira tentativa. A espera na fila fica separada. Nenhum destes tempos inclui montar a distribuição ou armazenar documentos. O teste manual de 5min 37s é apenas referência exploratória para 3 notas.
+            Duração medida da primeira tarefa iniciada à última autorização, apenas em lotes concluídos na primeira tentativa. A espera na fila fica separada. Nenhum destes tempos inclui montar a distribuição ou armazenar documentos.
           </p>
           <h3 className="mt-4 text-sm font-semibold">Tempo observado por tamanho de lote</h3>
           <p className="mt-1 text-[12px] text-[var(--ink-soft)]">

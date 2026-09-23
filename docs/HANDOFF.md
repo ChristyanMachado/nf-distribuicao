@@ -2079,3 +2079,29 @@ operacionais; o futuro financeiro deve consultar também o estado fiscal da nota
   passou pelo TypeScript, mas a coleta de páginas parou porque este worktree não
   possui `DATABASE_URL`; isso é limitação do ambiente local, não validação
   autenticada contra o banco ou o Vercel.
+
+## Promoção Web, KPI principal e contratos do Worker — 23/09/2026
+
+- O commit `b8d5746` foi promovido para `main` e para a produção da Vercel. O
+  deploy `dpl_GcFdQCj5kbhqc2i4roVzeeUpieDB` ficou `READY` em `gru1`, `/login`
+  respondeu HTTP 200 e não houve erro de runtime na janela conferida.
+- O rollback Web conhecido continua sendo `2bd469e`, marcado pela tag
+  `web-prod-stable-20260922` e associado ao deploy estável anterior
+  `dpl_8V22Fgm4ihF1kTdqzhG1JBEHBGiq`.
+- `Tempo economizado estimado` voltou à área principal de eficiência. O cálculo
+  não é fixo: soma, por lote limpo, benchmark humano da mesma escala menos a
+  duração automática real. O registro é extensível, mas contém somente a
+  referência comprovada de 337 s para exatamente 3 notas; outras escalas não
+  recebem economia inventada e valor negativo permanece visível.
+- A sentinela de homologação ganhou contratos para ambiente sanitizado,
+  subprocesso correto, sucesso com XML/DANFE novos, retorno não zero, isolamento
+  entre clientes e recusa de identificador inválido sem abrir processo.
+- A orquestração de cancelamento agora tem testes de contrato do início ao fim
+  por mocks: consulta e persistência no sucesso; `CANCELAMENTO_NAO_ENVIADO` sem
+  conferência; `RESULTADO_CANCELAMENTO_INCERTO` exigindo conferência; fechamento
+  da página nos caminhos exercitados de sucesso e falha durante o cancelamento.
+- Validação local desta rodada: 367 testes do Worker, 172 testes Web focais e
+  TypeScript aprovados. Nenhum desses testes acessa Receita, Supabase ou dados
+  reais; mudanças de DOM ainda dependem de sentinela manual em homologação.
+- O procedimento de uso do DeepSeek, incluindo recuperação de chamada que gasta
+  todo o orçamento em raciocínio, está documentado em `MODELOS-IA.md`.

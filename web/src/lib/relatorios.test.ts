@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  BENCHMARKS_MANUAIS_POR_NOTAS,
   calcularKpis,
   calcularKpisOperacionais,
   intervaloDoPreset,
@@ -234,6 +235,39 @@ describe("intervaloDoPreset", () => {
 });
 
 describe("calcularKpisOperacionais", () => {
+  it("mantém somente benchmarks humanos verificados e imutáveis", () => {
+    expect(BENCHMARKS_MANUAIS_POR_NOTAS[3]).toEqual({ segundosPorLote: 337 });
+    expect(Object.keys(BENCHMARKS_MANUAIS_POR_NOTAS)).toEqual(["3"]);
+    expect(Object.isFrozen(BENCHMARKS_MANUAIS_POR_NOTAS)).toBe(true);
+    expect(Object.isFrozen(BENCHMARKS_MANUAIS_POR_NOTAS[3])).toBe(true);
+  });
+
+  it("compara somente lotes cuja escala possui benchmark manual", () => {
+    const inicio = new Date("2026-09-10T10:00:00Z");
+    const tresNotas = [0, 1, 2].map((indice) => ({
+      id: `tres-${indice}`,
+      loteId: "lote-tres",
+      status: "EMITIDA",
+      tentativas: 1,
+      iniciadoEm: inicio,
+      concluidoEm: new Date(inicio.getTime() + 100_000),
+    }));
+    const quatroNotas = [0, 1, 2, 3].map((indice) => ({
+      id: `quatro-${indice}`,
+      loteId: "lote-quatro",
+      status: "EMITIDA",
+      tentativas: 1,
+      iniciadoEm: inicio,
+      concluidoEm: new Date(inicio.getTime() + 100_000),
+    }));
+
+    const resultado = calcularKpisOperacionais([...tresNotas, ...quatroNotas]);
+
+    expect(resultado.distribuicoesMedidas).toBe(2);
+    expect(resultado.distribuicoesComparaveis).toBe(1);
+    expect(resultado.tempoEconomizadoSegundos).toBe(237);
+  });
+
   it("separa espera em fila da duração efetiva da emissão", () => {
     const criado = new Date("2026-09-13T06:00:00Z");
     const inicio = new Date("2026-09-13T06:02:00Z");

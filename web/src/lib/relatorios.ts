@@ -98,11 +98,18 @@ export type KpisOperacionais = {
     mediaLoteSegundos: number; mediaNotaSegundos: number }[];
 };
 
-// Benchmark humano de 25/08/2026: uma distribuição com EXATAMENTE 3 notas
-// levou 337 s. Não é uma estimativa por nota e não deve ser extrapolado para
-// lotes de tamanho diferente. O tempo automático vem dos timestamps reais.
-export const BENCHMARK_MANUAL_SEGUNDOS_POR_LOTE = 337;
-export const BENCHMARK_MANUAL_QUANTIDADE_NOTAS = 3;
+/**
+ * Benchmarks manuais verificados, indexados pela quantidade EXATA de notas.
+ * Não são estimativas por nota e nunca devem ser extrapolados para outra
+ * escala. Hoje há uma única amostra controlada: 337 s para 3 notas em
+ * 25/08/2026. Novas entradas só podem ser incluídas após nova medição humana.
+ */
+export type BenchmarkManual = { readonly segundosPorLote: number };
+
+export const BENCHMARKS_MANUAIS_POR_NOTAS: Readonly<Record<number, BenchmarkManual>> =
+  Object.freeze({
+    3: Object.freeze({ segundosPorLote: 337 }),
+  });
 
 const STATUS_SUCESSO = new Set(["EMITIDA", "DOCUMENTOS_ARMAZENADOS"]);
 
@@ -157,11 +164,13 @@ export function calcularKpisOperacionais(tarefas: TarefaOperacional[]): KpisOper
         : null;
     })
     .filter((medicao): medicao is { segundos: number; notas: number; itens: number } => medicao !== null);
-  const medicoesComparaveis = medicoesDosLotes.filter(
-    (medicao) => medicao.notas === BENCHMARK_MANUAL_QUANTIDADE_NOTAS,
-  );
+  const medicoesComparaveis = medicoesDosLotes.flatMap((medicao) => {
+    const benchmark = BENCHMARKS_MANUAIS_POR_NOTAS[medicao.notas];
+    return benchmark ? [{ medicao, benchmark }] : [];
+  });
   const tempoEconomizadoSegundos = medicoesComparaveis.reduce(
-    (total, medicao) => total + BENCHMARK_MANUAL_SEGUNDOS_POR_LOTE - medicao.segundos,
+    (total, { medicao, benchmark }) =>
+      total + benchmark.segundosPorLote - medicao.segundos,
     0
   );
   const medicoesComItens = medicoesDosLotes.filter((m) => m.itens > 0);
