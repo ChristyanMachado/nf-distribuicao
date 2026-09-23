@@ -242,7 +242,7 @@ describe("calcularKpisOperacionais", () => {
     expect(Object.isFrozen(BENCHMARKS_MANUAIS_POR_NOTAS[3])).toBe(true);
   });
 
-  it("compara somente lotes cuja escala possui benchmark manual", () => {
+  it("estima economia por nota e mantém a comparação direta separada", () => {
     const inicio = new Date("2026-09-10T10:00:00Z");
     const tresNotas = [0, 1, 2].map((indice) => ({
       id: `tres-${indice}`,
@@ -265,7 +265,10 @@ describe("calcularKpisOperacionais", () => {
 
     expect(resultado.distribuicoesMedidas).toBe(2);
     expect(resultado.distribuicoesComparaveis).toBe(1);
-    expect(resultado.tempoEconomizadoSegundos).toBe(237);
+    expect(resultado.notasElegiveisEconomia).toBe(7);
+    expect(resultado.notasComAutomacaoObservada).toBe(7);
+    expect(resultado.notasComAutomacaoExtrapolada).toBe(0);
+    expect(resultado.tempoEconomizadoSegundos).toBe(586);
   });
 
   it("separa espera em fila da duração efetiva da emissão", () => {
@@ -281,7 +284,7 @@ describe("calcularKpisOperacionais", () => {
     expect(resultado.lotesComEsperaMedida).toBe(1);
   });
 
-  it("separa escalas sem extrapolar e informa somente amostras medidas", () => {
+  it("preserva desempenho observado por escala e estima economia abrangente", () => {
     const inicio = new Date("2026-09-09T10:00:00Z");
     const tarefas = [[1, 60], [1, 80], [3, 180], [5, 250]].flatMap(([notas, segundos], lote) =>
       Array.from({ length: notas }, (_, i) => ({ id: `${lote}-${i}`, loteId: String(lote),
@@ -293,7 +296,10 @@ describe("calcularKpisOperacionais", () => {
       { notasPorLote: 3, lotes: 1, segundosTotais: 180, mediaLoteSegundos: 180, tempoAmortizadoPorNotaSegundos: 60, notasPorMinuto: 1 },
       { notasPorLote: 5, lotes: 1, segundosTotais: 250, mediaLoteSegundos: 250, tempoAmortizadoPorNotaSegundos: 50, notasPorMinuto: 1.2 },
     ]);
-    expect(resultado.tempoEconomizadoSegundos).toBe(157);
+    expect(resultado.notasElegiveisEconomia).toBe(10);
+    expect(resultado.notasComAutomacaoObservada).toBe(10);
+    expect(resultado.notasComAutomacaoExtrapolada).toBe(0);
+    expect(resultado.tempoEconomizadoSegundos).toBe(553);
     expect(calcularKpisOperacionais([]).desempenhoPorEscala).toEqual([]);
   });
   it("desconta lotes mais lentos do saldo em vez de ocultar perdas", () => {
@@ -337,6 +343,9 @@ describe("calcularKpisOperacionais", () => {
       erros: 1,
       distribuicoesMedidas: 1,
       tempoEconomizadoSegundos: 295,
+      notasElegiveisEconomia: 3,
+      notasComAutomacaoObservada: 3,
+      notasComAutomacaoExtrapolada: 0,
       tempoMedioLoteSegundos: 42,
     });
   });
@@ -362,11 +371,14 @@ describe("calcularKpisOperacionais", () => {
     ]);
 
     expect(resultado.tempoMedioLoteSegundos).toBe(90);
-    expect(resultado.tempoEconomizadoSegundos).toBe((337 - 60) + (337 - 120));
+    expect(resultado.tempoEconomizadoSegundos).toBe(494);
+    expect(resultado.notasElegiveisEconomia).toBe(6);
+    expect(resultado.notasComAutomacaoObservada).toBe(6);
+    expect(resultado.notasComAutomacaoExtrapolada).toBe(0);
     expect(resultado.distribuicoesMedidas).toBe(2);
   });
 
-  it("não extrapola o benchmark manual de três notas para um lote maior", () => {
+  it("extrapola o custo manual por nota para lotes de outras escalas", () => {
     const inicio = new Date("2026-09-08T10:00:00Z");
     const fim = new Date("2026-09-08T10:05:00Z");
     const resultado = calcularKpisOperacionais([
@@ -380,7 +392,10 @@ describe("calcularKpisOperacionais", () => {
     expect(resultado.tempoMedioLoteSegundos).toBe(300);
     expect(resultado.tempoAmortizadoPorNotaSegundos).toBe(60);
     expect(resultado.distribuicoesComparaveis).toBe(0);
-    expect(resultado.tempoEconomizadoSegundos).toBe(0);
+    expect(resultado.notasElegiveisEconomia).toBe(5);
+    expect(resultado.notasComAutomacaoObservada).toBe(5);
+    expect(resultado.notasComAutomacaoExtrapolada).toBe(0);
+    expect(resultado.tempoEconomizadoSegundos).toBe(262);
   });
 
   it("mede itens sem confundir quantidade de produtos com notas", () => {
@@ -421,7 +436,10 @@ describe("calcularKpisOperacionais", () => {
     expect(resultado.distribuicoesConcluidas).toBe(2);
     expect(resultado.distribuicoesMedidas).toBe(1);
     expect(resultado.tempoMedioLoteSegundos).toBe(60);
-    expect(resultado.tempoEconomizadoSegundos).toBe(277);
+    expect(resultado.tempoEconomizadoSegundos).toBe(369);
+    expect(resultado.notasElegiveisEconomia).toBe(4);
+    expect(resultado.notasComAutomacaoObservada).toBe(3);
+    expect(resultado.notasComAutomacaoExtrapolada).toBe(1);
     expect(resultado.tentativasRegistradas).toBe(5);
     expect(resultado.reprocessamentos).toBe(1);
   });
@@ -440,6 +458,65 @@ describe("calcularKpisOperacionais", () => {
     // nem throughput a partir do intervalo acumulado entre tentativas.
     expect(resultado.distribuicoesMedidas).toBe(0);
     expect(resultado.desempenhoPorEscala).toEqual([]);
+    expect(resultado.notasElegiveisEconomia).toBe(3);
+    expect(resultado.notasComAutomacaoExtrapolada).toBe(3);
+    expect(resultado.tempoEconomizadoSegundos).toBeNull();
+  });
+
+  it("extrapola duração de lotes reprocessados pela média ponderada observada", () => {
+    const inicio = new Date("2026-09-05T10:00:00Z");
+    const resultado = calcularKpisOperacionais([
+      ...[0, 1, 2].map((i) => ({ id: `limpo-${i}`, loteId: "limpo", status: "EMITIDA", tentativas: 1, iniciadoEm: inicio, concluidoEm: new Date(inicio.getTime() + 90_000) })),
+      ...[0, 1, 2].map((i) => ({ id: `retry-${i}`, loteId: "retry", status: "EMITIDA", tentativas: 2, iniciadoEm: inicio, concluidoEm: new Date(inicio.getTime() + 200_000) })),
+    ]);
+
+    expect(resultado.notasElegiveisEconomia).toBe(6);
+    expect(resultado.notasComAutomacaoObservada).toBe(3);
+    expect(resultado.notasComAutomacaoExtrapolada).toBe(3);
+    expect(resultado.baselineManualEstimadoSegundos).toBe(674);
+    expect(resultado.tempoAutomaticoEstimadoSegundos).toBe(180);
+    expect(resultado.tempoEconomizadoSegundos).toBe(494);
+    expect(resultado.distribuicoesComparaveis).toBe(1);
+  });
+
+  it("trata lote paralelo como wall-clock observado e identifica o rate como throughput amortizado", () => {
+    const inicio = new Date("2026-09-23T10:00:00Z");
+    const fim = new Date(inicio.getTime() + 40_000);
+    const resultado = calcularKpisOperacionais([
+      { id: "a", loteId: "paralelo", status: "EMITIDA", tentativas: 1, iniciadoEm: inicio, concluidoEm: fim },
+      { id: "b", loteId: "paralelo", status: "EMITIDA", tentativas: 1, iniciadoEm: inicio, concluidoEm: fim },
+    ]);
+
+    // A UI pode mostrar 20 s amortizados por nota como vazão, mas a duração
+    // observada do lote continua 40 s; não declaramos latência individual de 20 s.
+    expect(resultado.tempoMedioLoteSegundos).toBe(40);
+    expect(resultado.tempoAmortizadoPorNotaSegundos).toBe(20);
+    expect(resultado.tempoAutomaticoEstimadoSegundos).toBe(40);
+    expect(resultado.notasComAutomacaoObservada).toBe(2);
+  });
+
+  it("preserva saldo negativo quando a duração observada excede o baseline", () => {
+    const inicio = new Date("2026-09-05T10:00:00Z");
+    const resultado = calcularKpisOperacionais(
+      [0, 1, 2].map((i) => ({ id: `lento-${i}`, loteId: "lento", status: "EMITIDA", tentativas: 1, iniciadoEm: inicio, concluidoEm: new Date(inicio.getTime() + 400_000) })),
+    );
+
+    expect(resultado.tempoEconomizadoSegundos).toBe(-63);
+  });
+
+  it("não inventa economia quando não existe nenhuma medição limpa", () => {
+    const inicio = new Date("2026-09-05T10:00:00Z");
+    const resultado = calcularKpisOperacionais([
+      { id: "retry-1", loteId: "retry", status: "EMITIDA", tentativas: 2, iniciadoEm: inicio, concluidoEm: new Date(inicio.getTime() + 60_000) },
+      { id: "retry-2", loteId: "retry", status: "EMITIDA", tentativas: 2, iniciadoEm: inicio, concluidoEm: new Date(inicio.getTime() + 60_000) },
+    ]);
+
+    expect(resultado.notasElegiveisEconomia).toBe(2);
+    expect(resultado.notasComAutomacaoObservada).toBe(0);
+    expect(resultado.notasComAutomacaoExtrapolada).toBe(2);
+    expect(resultado.baselineManualEstimadoSegundos).toBe(225);
+    expect(resultado.tempoAutomaticoEstimadoSegundos).toBeNull();
+    expect(resultado.tempoEconomizadoSegundos).toBeNull();
   });
 });
 

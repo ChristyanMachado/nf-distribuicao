@@ -42,6 +42,12 @@ function formatarDuracao(segundos: number): string {
   return minutosRestantes === 0 ? `${horas}h` : `${horas}h ${minutosRestantes}min`;
 }
 
+function formatarEstimativaMinutos(segundos: number): string {
+  const minutos = Math.round(Math.abs(segundos) / 60);
+  const sinal = segundos < 0 ? "−" : "";
+  return minutos === 0 ? `${sinal}≈<1 min` : `${sinal}≈${minutos} min`;
+}
+
 async function carregarResumoOperacional() {
   const hoje = dataOperacionalBrasil();
 
@@ -317,18 +323,18 @@ export default async function DashboardPage() {
             />
             <Indicador
               rotulo="Tempo economizado estimado"
-              valor={operacaoHoje.distribuicoesComparaveis === 0 ? "—" : `${operacaoHoje.tempoEconomizadoSegundos < 0 ? "−" : ""}${formatarDuracao(Math.abs(operacaoHoje.tempoEconomizadoSegundos))}`}
+              valor={operacaoHoje.notasElegiveisEconomia === 0 || operacaoHoje.tempoEconomizadoSegundos === null ? "—" : formatarEstimativaMinutos(operacaoHoje.tempoEconomizadoSegundos)}
               destaque
             />
           </div>
-          {operacaoHoje.distribuicoesComparaveis > 0 && (
+          {operacaoHoje.notasElegiveisEconomia > 0 && operacaoHoje.tempoEconomizadoSegundos !== null && (
             <p className="mt-4 border-t border-[var(--line)] pt-3 text-[11px] leading-relaxed text-[var(--ink-faint)]">
-              Estimativa baseada em {operacaoHoje.distribuicoesComparaveis} de {totalDistribuicoes} distribuição(ões) de hoje com benchmark equivalente. Método completo em Relatórios.
+              Estimativa provisória sobre {operacaoHoje.notasElegiveisEconomia} nota(s) concluída(s) hoje; {operacaoHoje.notasComAutomacaoExtrapolada} extrapolada(s). A extrapolação usa vazão do lote, não latência individual. Método completo em Relatórios.
             </p>
           )}
-          {operacaoHoje.distribuicoesComparaveis === 0 && (
+          {(operacaoHoje.notasElegiveisEconomia === 0 || operacaoHoje.tempoEconomizadoSegundos === null) && (
             <p className="mt-4 border-t border-[var(--line)] pt-3 text-[11px] leading-relaxed text-[var(--ink-faint)]">
-              Sem distribuição comparável ao teste manual hoje. Método completo em Relatórios.
+              Sem notas concluídas com medição automática limpa hoje. Método completo em Relatórios.
             </p>
           )}
         </Card>

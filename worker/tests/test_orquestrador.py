@@ -155,3 +155,45 @@ def test_com_semaphore_limita_contextos_simultaneos():
     assert max(picos) == 1, "com MAX_CONCORRENCIA=1, nunca deveria haver 2 contextos abertos ao mesmo tempo"
     assert len(browser.contextos) == 3, "as 3 tarefas ainda deveriam rodar, uma de cada vez"
     assert all(c.fechado for c in browser.contextos)
+
+
+def test_concorrencia_dois_roda_duas_tarefas_e_deixa_a_terceira_aguardar():
+    em_andamento: list[str] = []
+    picos: list[int] = []
+    ordem_inicio: list[str] = []
+    finalizadas: list[str] = []
+
+    async def tarefa_lenta(tarefa_id: str, context: ContextoFalso) -> None:
+        em_andamento.append(tarefa_id)
+        ordem_inicio.append(tarefa_id)
+        picos.append(len(em_andamento))
+        if len(ordem_inicio) == 3:
+            assert finalizadas, "a terceira tarefa iniciou antes de uma vaga ser liberada"
+        await asyncio.sleep(0.05)
+        em_andamento.remove(tarefa_id)
+        finalizadas.append(tarefa_id)
+
+    browser = BrowserFalso()
+
+    async def rodar():
+        semaphore = asyncio.Semaphore(2)
+        return await asyncio.gather(
+            *(
+                _processar_uma_tarefa(
+                    f"T{i}", browser, tarefa_lenta, _logger_silencioso(), semaphore
+                )
+                for i in range(3)
+            )
+        )
+
+    resultados = asyncio.run(rodar())
+
+    assert len(resultados) == 3
+    assert all(resultado.sucesso for resultado in resultados)
+    assert max(picos) == 2
+    assert len(ordem_inicio) == len(finalizadas) == 3
+    assert len(browser.contextos) == 3
+    assert len({id(contexto) for contexto in browser.contextos}) == 3, (
+        "cada tarefa deve receber um BrowserContext isolado"
+    )
+    assert all(contexto.fechado for contexto in browser.contextos)

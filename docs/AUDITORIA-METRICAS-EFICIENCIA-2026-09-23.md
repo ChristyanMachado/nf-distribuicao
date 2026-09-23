@@ -94,9 +94,85 @@ FROM l;
 
 Resultado observado: `16 lotes / 13 medidos / 4 comparáveis / 882 segundos`.
 
+## Atualização do KPI abrangente — recorte até 23/09/2026
+
+Uma nova consulta somente de leitura atualizou o recorte para **50 notas de
+tarefas concluídas**. Há 42 notas em 14 lotes concluídos na primeira tentativa,
+com timestamps válidos; 8 notas concluídas pertencem a lotes reprocessados e
+não têm duração vencedora reconstruível. Cinco dos 14 lotes limpos têm 3 notas
+(15 notas diretamente comparáveis ao benchmark de escala). As outras 27 notas
+estão em 9 lotes limpos, têm tempo observado, mas não benchmark humano da mesma
+escala.
+
+O KPI principal agora usa uma aproximação linear provisória para cobrir as 50
+notas, mantendo medição e extrapolação diferenciadas:
+
+```text
+baseline manual = 50 × (337 / 3) = 5.616,667 s
+parede observada = soma das durações dos 14 lotes limpos = 1.559,671 s
+vazão observada = 1.559,671 / 42 = 37,135 s por nota (amortizado)
+parede estimada para 8 notas sem medição limpa = 8 × 37,135 = 297,080 s
+tempo automatizado estimado = 1.559,671 + 297,080 = 1.856,751 s
+economia estimada = 5.616,667 - 1.856,751 = 3.759,916 s ≈ 62 min 40 s
+```
+
+A interface arredonda o indicador para **≈63 min**; não mostra segundos como se
+fossem precisão real. A comparação direta da única escala disponível é um
+subconjunto separado: `5 × 337 - 554,952 = 1.130,048 s`, aproximadamente
+18 min 50 s para cinco lotes de 3 notas. Esse subconjunto não é somado uma
+segunda vez ao total.
+
+`37,135 s/nota` é somente uma taxa de throughput amortizada para estimar o
+tempo total de outro volume. Não é latência individual. Se duas notas levam
+40 s de parede simultaneamente, o lote observado permanece 40 s; o rate de
+20 s por nota só pode ser usado para extrapolar volume semelhante, nunca para
+afirmar que cada nota teve latência de 20 s. O relatório continua mostrando
+tempo de lote e throughput separadamente. As durações dos 14 lotes limpos não
+se sobrepõem entre si neste recorte; retries ficam fora do tempo observado e
+entram apenas na estimativa de volume, sem somar intervalos que incluem espera
+ou intervenção.
+
+Reprodução agregada no projeto de produção (`t.data` é texto ISO `YYYY-MM-DD`):
+
+```sql
+WITH tarefas AS (
+  SELECT id, lote_id, status::text AS status, tentativas, iniciado_em, concluido_em
+  FROM fiscal.tarefas
+  WHERE data >= '2026-08-25' AND data < '2026-09-24'
+    AND status::text <> 'CANCELADA'
+), lotes AS (
+  SELECT COALESCE(lote_id::text, 'tarefa:' || id::text) AS grupo,
+         COUNT(*) AS notas,
+         BOOL_AND(status IN ('EMITIDA','DOCUMENTOS_ARMAZENADOS')) AS concluido,
+         BOOL_AND(tentativas = 1) AS primeira_tentativa,
+         MIN(iniciado_em) AS inicio,
+         MAX(concluido_em) AS fim
+  FROM tarefas
+  GROUP BY 1
+), medidos AS (
+  SELECT *, EXTRACT(EPOCH FROM (fim - inicio)) AS segundos
+  FROM lotes
+  WHERE concluido AND primeira_tentativa
+    AND inicio IS NOT NULL AND fim >= inicio
+    AND EXTRACT(EPOCH FROM (fim - inicio)) BETWEEN 0 AND 86400
+)
+SELECT
+  (SELECT SUM(notas) FROM lotes WHERE concluido) AS notas_em_lotes_concluidos,
+  (SELECT SUM(notas) FROM medidos) AS notas_medidas,
+  COUNT(*) AS lotes_medidos,
+  SUM(segundos) AS segundos_parede_lotes,
+  COUNT(*) FILTER (WHERE notas = 3) AS lotes_com_3_notas,
+  SUM(segundos) FILTER (WHERE notas = 3) AS segundos_parede_3_notas,
+  (SELECT SUM(notas) FROM lotes WHERE concluido AND NOT primeira_tentativa)
+    AS notas_sem_medicao_limpa
+FROM medidos;
+```
+
 ## Limitações
 
-Os quatro lotes comparáveis possuíam de 6 a 13 linhas de itens. Igual quantidade
-de notas não garante igual trabalho manual. Uma única observação humana não
-permite estimar separadamente custo fixo, custo por nota e custo por item. Até
-novas medições, não extrapolar 337 segundos para outras escalas.
+Os lotes comparáveis possuíam números diferentes de linhas de itens. Igual
+quantidade de notas não garante igual trabalho manual. Uma única observação
+humana não permite estimar separadamente custo fixo, custo por nota e custo por
+item. A extrapolação atual é deliberadamente linear e provisória, não um modelo
+estatístico validado. Substituir os parâmetros somente após o benchmark descrito
+em `PROTOCOLO-BENCHMARK-MANUAL.md`.

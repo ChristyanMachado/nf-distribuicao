@@ -29,6 +29,12 @@ const moedaCompacta = new Intl.NumberFormat("pt-BR", {
   notation: "compact",
 });
 
+function formatarEstimativaMinutos(segundos: number): string {
+  const minutos = Math.round(Math.abs(segundos) / 60);
+  const sinal = segundos < 0 ? "−" : "";
+  return minutos === 0 ? `${sinal}≈<1 min` : `${sinal}≈${minutos} min`;
+}
+
 const PRESETS: { valor: PresetPeriodo; label: string }[] = [
   { valor: "hoje", label: "Hoje" },
   { valor: "7dias", label: "7 dias" },
@@ -289,14 +295,14 @@ export default function RelatoriosView({
           <KpiOperacional
             titulo="Tempo economizado estimado"
             valor={
-              operacao.distribuicoesComparaveis === 0
+              operacao.notasElegiveisEconomia === 0 || operacao.tempoEconomizadoSegundos === null
                 ? "—"
-                : `${operacao.tempoEconomizadoSegundos < 0 ? "−" : ""}${formatarDuracao(Math.abs(operacao.tempoEconomizadoSegundos))}`
+                : formatarEstimativaMinutos(operacao.tempoEconomizadoSegundos)
             }
             detalhe={
-              operacao.distribuicoesComparaveis === 0
-                ? "Nenhum lote de 3 notas comparável neste período"
-                : `${formatarQuantidade(operacao.distribuicoesComparaveis, "lote comparável", "lotes comparáveis")} de ${operacao.distribuicoes} distribuições no período`
+              operacao.tempoEconomizadoSegundos === null
+                ? "Sem medição automática limpa suficiente neste período"
+                : `${formatarQuantidade(operacao.notasElegiveisEconomia, "nota considerada", "notas consideradas")} · ${operacao.notasComAutomacaoExtrapolada} extrapolada(s)`
             }
             destaque
           />
@@ -304,7 +310,7 @@ export default function RelatoriosView({
         <details className="mt-4 rounded-[var(--radius-card)] border border-[var(--line)] bg-[var(--paper)] p-4">
           <summary className="cursor-pointer text-sm font-semibold">Método, tentativas e tempos detalhados</summary>
           <p className="mt-3 text-[11px] leading-relaxed text-[var(--ink-faint)]">
-            A estimativa soma, por lote comparável, 5min 37s do teste manual menos a duração automática observada. A referência atual só vale para lotes de 3 notas concluídos sem reprocessamento; outros tamanhos não recebem economia estimada. Valores negativos são preservados.
+            Estimativa provisória: o benchmark manual de 5min 37s para 3 notas fornece uma referência linear média. Todas as notas de lotes concluídos entram no baseline; {operacao.notasComAutomacaoObservada} têm duração de parede de lote observada e {operacao.notasComAutomacaoExtrapolada} usam a vazão observada para estimar o tempo total. Esse rate é throughput amortizado, não latência individual. {operacao.distribuicoesComparaveis} lote(s) de 3 notas permanecem como comparação direta. Sem medição limpa o indicador fica indisponível, e valores negativos são preservados.
           </p>
           {operacao.notasCanceladas > 0 && (
             <p className="mt-3 text-[12px] text-[var(--ink-soft)]">

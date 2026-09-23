@@ -1,5 +1,73 @@
 # Handoff — Estado Atual
 
+## KPI abrangente e tentativa de concorrência 2 — 23/09/2026
+
+A estimativa de economia cobre agora todo o trabalho concluído do período:
+50 notas elegíveis, 42 medidas em 14 lotes limpos e 8 de lotes reprocessados
+extrapoladas pela vazão observada. Com o benchmark provisório de 337 s/3 notas,
+o cálculo reproduz aproximadamente 62 min 40 s (UI arredonda para ≈63 min).
+O tempo observado é wall-clock por lote; a taxa por nota é throughput
+amortizado, não latência individual. Detalhes, query e limitações em
+`docs/AUDITORIA-METRICAS-EFICIENCIA-2026-09-23.md`.
+
+Concorrência 2 foi coberta por teste de isolamento/semaphore no Worker, sem
+acessar a Receita. O Supabase aceita limite 2, mas o último heartbeat em
+23/09/2026 10:52 UTC reportou `capacity_limit=2` e `reported_capacity=1`.
+O alias SSH não resolve neste ambiente (`PC-Servidor` → `pc-servidor`), portanto
+o arquivo privado da máquina ainda não foi alterado. Ao obter acesso, faça a
+mudança no único arquivo de configuração
+`C:\ProgramData\GraalystWorker\shared\config\worker.env`, mudando somente
+`MAX_CONCORRENCIA=1` para `MAX_CONCORRENCIA=2`; preserve cópia de segurança,
+pare/drain com `Gerenciar-Worker.ps1 -Action Stop`, reinicie em manutenção,
+confirme saúde e `reported_capacity=2`, depois use `-Action Resume` quando for
+seguro reabrir a fila. Voltar para 1 é a mesma edição do valor e reinício.
+Não emitir notas artificiais em produção. A instalação e o ensaio físico ainda
+estão pendentes.
+
+Procedimento PowerShell no PC, como administrador, a partir do pacote instalado
+`C:\Pacotes\worker-servidor-489033e`: execute `-Action Stop`; então use o bloco
+abaixo. Para voltar a 1, altere somente `$limite` para `'1'`; o mesmo bloco
+preserva backup e muda somente essa linha. Depois, confirme/crie `hold.request`,
+execute `-Action Start`, valide manutenção e `reported_capacity` igual ao limite;
+só então `-Action Resume` reabre a fila.
+
+```powershell
+$gerenciar = 'C:\Pacotes\worker-servidor-489033e\windows\Gerenciar-Worker.ps1'
+& $gerenciar -Action Stop
+
+$config = 'C:\ProgramData\GraalystWorker\shared\config\worker.env'
+$limite = '2' # use '1' para rollback de concorrência
+if ($limite -notin @('1','2')) { throw 'Este procedimento aceita somente 1 ou 2.' }
+$conteudo = [IO.File]::ReadAllText($config)
+if ([regex]::Matches($conteudo, '(?m)^MAX_CONCORRENCIA=.*$').Count -ne 1) {
+  throw 'Esperava exatamente uma linha MAX_CONCORRENCIA; arquivo não alterado.'
+}
+$backup = "$config.bak-$(Get-Date -Format yyyyMMdd-HHmmss)"
+Copy-Item -LiteralPath $config -Destination $backup
+$atualizado = [regex]::Replace($conteudo, '(?m)^MAX_CONCORRENCIA=.*$', "MAX_CONCORRENCIA=$limite")
+$utf8SemBOM = New-Object System.Text.UTF8Encoding($false)
+[IO.File]::WriteAllText($config, $atualizado, $utf8SemBOM)
+if (-not (Select-String -LiteralPath $config -Pattern "^MAX_CONCORRENCIA=$limite$" -Quiet)) {
+  Copy-Item -LiteralPath $backup -Destination $config -Force
+  throw 'Validação falhou; configuração restaurada do backup.'
+}
+$hold = 'C:\ProgramData\GraalystWorker\shared\control\hold.request'
+New-Item -ItemType File -Path $hold -Force | Out-Null
+
+& $gerenciar -Action Start
+Start-Sleep -Seconds 20
+& $gerenciar -Action Status
+# Depois de confirmar manutenção + reported_capacity=2 no banco:
+& $gerenciar -Action Resume
+```
+
+Diagnóstico read-only após `Start` (o serviço deve permanecer em manutenção):
+
+```sql
+SELECT worker_id, capacity_limit, reported_capacity, draining, heartbeat_at
+FROM fiscal.workers WHERE worker_id = 'pc-servidor-01';
+```
+
 ## Estado operacional em 22/09/2026
 
 - PC servidor cabeado: `192.168.4.27` na rede atual; endereço DHCP pode mudar.

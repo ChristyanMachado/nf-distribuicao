@@ -1,6 +1,6 @@
 # Roadmap — NF Distribuição
 
-Atualizado em 22/09/2026. O histórico detalhado e as limitações operacionais
+Atualizado em 23/09/2026. O histórico detalhado e as limitações operacionais
 estão no [Handoff](HANDOFF.md). A
 [auditoria de lapidação](AUDITORIA-LAPIDACAO-2026-09-09.md) é um diagnóstico
 histórico: vários itens apontados nela já foram implementados depois.
@@ -9,9 +9,11 @@ histórico: vários itens apontados nela já foram implementados depois.
 
 - A decomposição factual do saldo de 14 minutos está registrada em
   [AUDITORIA-METRICAS-EFICIENCIA-2026-09-23.md](AUDITORIA-METRICAS-EFICIENCIA-2026-09-23.md).
+- O KPI provisório agora cobre 50 notas concluídas no recorte de 30 dias:
+  42 têm throughput de lote observado, 8 extrapoladas; resultado ≈63 min,
+  sem apresentar precisão de segundos. O protocolo de benchmark foi atualizado.
 - O próximo benchmark deve seguir
   [PROTOCOLO-BENCHMARK-MANUAL.md](PROTOCOLO-BENCHMARK-MANUAL.md).
-- Não extrapolar o único benchmark de 3 notas até haver amostra suficiente.
 
 ## Onde estamos
 
@@ -38,9 +40,12 @@ histórico: vários itens apontados nela já foram implementados depois.
   por mercado e histórico de quantidade por produto.
 - A versão Web `b8d5746` está em `main` e produção; `2bd469e`, também marcado
   pela tag `web-prod-stable-20260922`, permanece como rollback conhecido.
-- O tempo economizado é dinâmico: usa durações reais dos lotes limpos e só
-  compara escalas que possuam benchmark humano validado. O KPI voltou a ficar
-  visível; hoje a única referência é 337 s para exatamente 3 notas.
+- O tempo economizado é dinâmico e identificado como estimativa. Usa baseline
+  linear provisório de 337 s/3 notas e throughput de parede dos lotes sem retry;
+  isso não mede latência individual e precisa ser recalibrado com benchmark real.
+- Banco permite capacidade 2 (`capacity_limit=2`), mas o último heartbeat
+  consultado ainda reportou 1. A atualização do `worker.env` físico e validação
+  manual ainda dependem de acesso à máquina; não afirmar concorrência 2 ativa.
 
 ## Em andamento imediato
 
@@ -62,8 +67,9 @@ histórico: vários itens apontados nela já foram implementados depois.
    isolado; não criar tarefas no banco de produção para QA.
 3. **Alta, analítica:** instrumentar separadamente preparação, fila, autorização
    e documentos; comparar somente com referências manuais equivalentes.
-4. **Média:** ensaiar concorrência 2 depois de confirmar isolamento e estabilidade
-   no PC servidor; concorrência 1 permanece o padrão seguro.
+4. **Média:** configurar `MAX_CONCORRENCIA=2` no arquivo privado do PC servidor,
+   confirmar `reported_capacity=2`, e validar com duas tarefas legítimas ou em
+   homologação isolada. Uma terceira deve permanecer na fila. Não elevar a 3.
 5. **Média:** classificar causa confirmada separadamente do estado fiscal, com
    evidência e autoria; causa desconhecida por padrão.
 6. **Média:** ensaiar expiração/recuperação e backup/restauração em ambiente seguro.

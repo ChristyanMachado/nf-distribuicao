@@ -31,6 +31,7 @@ def _preparar_env_minimo(monkeypatch):
     monkeypatch.delenv("TESTAR_INTEGRACAO_BANCO", raising=False)
     monkeypatch.delenv("ARMAZENAR_DOCUMENTOS", raising=False)
     monkeypatch.delenv("WORKER_PERSISTENTE", raising=False)
+    monkeypatch.delenv("WORKER_COORDENADO", raising=False)
     monkeypatch.delenv("PAUSAR_ANTES_TRANSPORTE", raising=False)
     monkeypatch.delenv("INSPECIONAR", raising=False)
     monkeypatch.delenv("SUPABASE_URL", raising=False)
@@ -253,6 +254,24 @@ def test_producao_recusa_arquivo_local_ou_concorrencia_nao_validada(monkeypatch)
     monkeypatch.setenv("MAX_CONCORRENCIA", "2")
     with pytest.raises(RuntimeError, match="MAX_CONCORRENCIA=1"):
         carregar_config()
+
+
+def test_worker_coordenado_de_producao_aceita_concorrencia_dois(monkeypatch):
+    _habilitar_emissao_producao(monkeypatch)
+    monkeypatch.setenv("MAX_CONCORRENCIA", "2")
+    monkeypatch.setenv("WORKER_COORDENADO", "true")
+    monkeypatch.setenv("WORKER_PERSISTENTE", "true")
+    monkeypatch.setenv("HEADLESS", "true")
+    monkeypatch.setenv("ARMAZENAR_DOCUMENTOS", "true")
+    monkeypatch.setenv("SUPABASE_URL", "https://projeto-teste.supabase.co")
+    monkeypatch.setenv("SUPABASE_SECRET_KEY", "x" * 32)
+
+    config = carregar_config()
+
+    assert config.worker_coordenado is True
+    assert config.worker_persistente is True
+    assert config.habilitar_producao_fiscal is True
+    assert config.max_concorrencia == 2
 
 
 def test_homologacao_e_producao_nao_podem_ser_ligadas_juntas(monkeypatch):

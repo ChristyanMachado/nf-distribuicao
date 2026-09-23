@@ -29,8 +29,23 @@ medição em um experimento pesado.
 
 ## Recalibração
 
-Primeiro comparar por grupos de mesma escala e complexidade, mostrando tamanho
-da amostra e faixa/mediana. Só avaliar um modelo como
-`tempo = custo fixo + custo por nota + custo por linha` quando houver medições
-repetidas e variação independente suficiente. Até lá, cadastrar referências
-somente para a escala realmente medida e manter a estimativa como exploratória.
+Para cada observação, registrar operador, início/fim, notas, linhas de produto,
+produtos distintos, emitentes, concorrência do Worker, pausas e retrabalho.
+Comparar o mesmo conjunto quando viável. Separar duração total de parede do
+lote (latência operacional) de soma de notas por minuto (throughput); não
+converter throughput em latência individual.
+
+O KPI atual usa provisoriamente 337 s/3 notas como baseline manual linear e a
+vazão histórica dos lotes limpos para extrapolar o tempo agregado das notas sem
+medição. Não interpretar o rate amortizado como duração de uma NF individual.
+Com novas medições, primeiro substituir o benchmark por amostras comparáveis
+repetidas nas escalas comuns; reportar mediana/faixa e tamanho da amostra. Só
+avaliar `tempo = custo fixo + custo por nota + custo por linha` quando houver
+variação independente e amostra suficiente. Não incluir taxa hipotética de erro
+humano; guardar falhas e retrabalho como observações separadas.
+
+Um futuro ensaio de throughput fiscal deve ocorrer somente em homologação
+controlada e comparar concorrências 1, 2 e 3 (eventualmente maiores em outra
+etapa), registrando tempo de parede por lote, notas/minuto, CPU, memória e erros.
+Esse laboratório não faz parte da implementação atual nem autoriza emissão
+artificial em produção.

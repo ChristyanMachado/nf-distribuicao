@@ -90,7 +90,12 @@ export type KpisOperacionais = {
   distribuicoesComparaveis: number;
   tentativasRegistradas: number;
   reprocessamentos: number;
-  tempoEconomizadoSegundos: number;
+  tempoEconomizadoSegundos: number | null;
+  notasElegiveisEconomia: number;
+  notasComAutomacaoObservada: number;
+  notasComAutomacaoExtrapolada: number;
+  baselineManualEstimadoSegundos: number | null;
+  tempoAutomaticoEstimadoSegundos: number | null;
   tempoMedioLoteSegundos: number | null;
   lotesComEsperaMedida: number;
   tempoMedioEsperaFilaSegundos: number | null;
@@ -102,10 +107,10 @@ export type KpisOperacionais = {
 };
 
 /**
- * Benchmarks manuais verificados, indexados pela quantidade EXATA de notas.
- * Não são estimativas por nota e nunca devem ser extrapolados para outra
- * escala. Hoje há uma única amostra controlada: 337 s para 3 notas em
- * 25/08/2026. Novas entradas só podem ser incluídas após nova medição humana.
+ * Benchmarks manuais observados, indexados pela quantidade EXATA de notas.
+ * A comparação direta por lote exige escala correspondente. O KPI abrangente
+ * usa provisoriamente o custo médio por nota derivado da única amostra:
+ * 337 s para 3 notas em 25/08/2026. Novas medições devem substituir/refinar isso.
  */
 export type BenchmarkManual = { readonly segundosPorLote: number };
 
@@ -113,6 +118,14 @@ export const BENCHMARKS_MANUAIS_POR_NOTAS: Readonly<Record<number, BenchmarkManu
   Object.freeze({
     3: Object.freeze({ segundosPorLote: 337 }),
   });
+
+/**
+ * Aproximação linear provisória derivada do único benchmark disponível.
+ * Deve ser substituída quando o protocolo de benchmark produzir amostras
+ * suficientes para separar custo fixo, nota e item.
+ */
+const SEGUNDOS_MANUAIS_POR_NOTA =
+  BENCHMARKS_MANUAIS_POR_NOTAS[3].segundosPorLote / 3;
 
 const STATUS_SUCESSO = new Set(["EMITIDA", "DOCUMENTOS_ARMAZENADOS"]);
 
@@ -181,11 +194,41 @@ export function calcularKpisOperacionais(tarefas: TarefaOperacional[]): KpisOper
     const benchmark = BENCHMARKS_MANUAIS_POR_NOTAS[medicao.notas];
     return benchmark ? [{ medicao, benchmark }] : [];
   });
-  const tempoEconomizadoSegundos = medicoesComparaveis.reduce(
-    (total, { medicao, benchmark }) =>
-      total + benchmark.segundosPorLote - medicao.segundos,
-    0
+  const notasElegiveisEconomia = lotesConcluidos.reduce(
+    (total, lote) => total + lote.length,
+    0,
   );
+  const notasComAutomacaoObservada = medicoesDosLotes.reduce(
+    (total, medicao) => total + medicao.notas,
+    0,
+  );
+  const notasComAutomacaoExtrapolada = Math.max(
+    0,
+    notasElegiveisEconomia - notasComAutomacaoObservada,
+  );
+  const segundosAutomaticosObservados = medicoesDosLotes.reduce(
+    (total, medicao) => total + medicao.segundos,
+    0,
+  );
+  // Para extrapolar notas sem medição limpa usamos vazão média (tempo de parede
+  // do lote / notas entregues), não latência individual. É uma aproximação de
+  // throughput para volume agregado e não deve ser lida como tempo por NF.
+  const segundosParedePorNotaViaThroughput = notasComAutomacaoObservada > 0
+    ? segundosAutomaticosObservados / notasComAutomacaoObservada
+    : null;
+  const baselineManualEstimadoSegundos = notasElegiveisEconomia > 0
+    ? notasElegiveisEconomia * SEGUNDOS_MANUAIS_POR_NOTA
+    : null;
+  const tempoAutomaticoEstimadoSegundos = segundosParedePorNotaViaThroughput === null
+    ? null
+    : segundosAutomaticosObservados
+      + notasComAutomacaoExtrapolada * segundosParedePorNotaViaThroughput;
+  // Sem nenhuma medição automática limpa, o KPI fica indisponível. Não usamos
+  // o intervalo acumulado de retries, que inclui espera e não mede execução.
+  const tempoEconomizadoSegundos =
+    baselineManualEstimadoSegundos === null || tempoAutomaticoEstimadoSegundos === null
+      ? notasElegiveisEconomia === 0 ? 0 : null
+      : baselineManualEstimadoSegundos - tempoAutomaticoEstimadoSegundos;
   const medicoesComItens = medicoesDosLotes.filter((m) => m.itens > 0);
   // Espera de fila e duração de emissão são medidas separadas. Não somar as
   // duas evita inflar o benchmark fiscal com o tempo até o Worker reservar.
@@ -228,7 +271,18 @@ export function calcularKpisOperacionais(tarefas: TarefaOperacional[]): KpisOper
     distribuicoesComparaveis: medicoesComparaveis.length,
     tentativasRegistradas,
     reprocessamentos,
-    tempoEconomizadoSegundos: Math.round(tempoEconomizadoSegundos),
+    tempoEconomizadoSegundos: tempoEconomizadoSegundos === null
+      ? null
+      : Math.round(tempoEconomizadoSegundos),
+    notasElegiveisEconomia,
+    notasComAutomacaoObservada,
+    notasComAutomacaoExtrapolada,
+    baselineManualEstimadoSegundos: baselineManualEstimadoSegundos === null
+      ? null
+      : Math.round(baselineManualEstimadoSegundos),
+    tempoAutomaticoEstimadoSegundos: tempoAutomaticoEstimadoSegundos === null
+      ? null
+      : Math.round(tempoAutomaticoEstimadoSegundos),
     tempoMedioLoteSegundos: medicoesDosLotes.length
       ? Math.round(medicoesDosLotes.reduce((total, medicao) => total + medicao.segundos, 0) / medicoesDosLotes.length)
       : null,
