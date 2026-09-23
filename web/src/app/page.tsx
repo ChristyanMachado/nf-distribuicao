@@ -1,6 +1,6 @@
 export const dynamic = "force-dynamic";
 
-import { count, desc, eq, sql } from "drizzle-orm";
+import { desc, eq, sql } from "drizzle-orm";
 import Card from "@/components/Card";
 import {
   IconChart,
@@ -10,7 +10,7 @@ import {
   IconTruck,
 } from "@/components/icons";
 import { db } from "@/db";
-import { lotesDistribuicao, notas, tarefas } from "@/db/schema";
+import { notas, tarefas } from "@/db/schema";
 import { dataOperacionalBrasil } from "@/lib/datas";
 import { pendenciasCliente, pendenciasEmitente } from "@/lib/prontidao-integracao";
 import {
@@ -55,13 +55,17 @@ async function carregarResumoOperacional() {
       tentativas: tarefas.tentativas,
       iniciadoEm: tarefas.iniciadoEm,
       concluidoEm: tarefas.concluidoEm,
+      notaStatus: notas.status,
     })
     .from(tarefas)
+    .leftJoin(notas, eq(notas.tarefaId, tarefas.id))
     .where(eq(tarefas.data, hoje))
     .orderBy(desc(tarefas.criadoEm))
     .limit(LIMITE_TAREFAS_DO_DIA);
 
   type ProntidaoBanco = {
+    totalDistribuicoesHoje: number;
+    totalNotasHoje: number;
     clientes: Array<{
       id: string;
       cnpj: string | null;
@@ -86,6 +90,17 @@ async function carregarResumoOperacional() {
   // quatro consultas independentes na abertura da Home.
   const consultaProntidao: Promise<ProntidaoBanco[]> = db.execute(sql`
     SELECT
+      COALESCE((
+        SELECT count(DISTINCT coalesce(t.lote_id::text, 'tarefa:' || t.id::text))
+        FROM fiscal.tarefas t
+        WHERE t.data = ${hoje} AND t.status::text <> 'CANCELADA'
+      ), 0)::int AS "totalDistribuicoesHoje",
+      COALESCE((
+        SELECT count(DISTINCT n.id)
+        FROM fiscal.notas n
+        INNER JOIN fiscal.tarefas t ON t.id = n.tarefa_id
+        WHERE t.data = ${hoje} AND t.status::text <> 'CANCELADA'
+      ), 0)::int AS "totalNotasHoje",
       COALESCE((
         SELECT jsonb_agg(jsonb_build_object(
           'id', c.id,
@@ -121,12 +136,9 @@ async function carregarResumoOperacional() {
       ), '[]'::jsonb) AS relacoes
   `).then((linhas) => linhas as unknown as ProntidaoBanco[]);
 
-  // Contagens agregadas mantêm a resposta pequena mesmo quando o histórico
-  // crescer. Elas representam operação, não faturamento ou lucro.
   const tarefasHoje = await consultaTarefasHoje;
-  const [contagemLotes] = await db.select({ total: count() }).from(lotesDistribuicao);
-  const [contagemNotas] = await db.select({ total: count() }).from(notas);
   const [prontidaoBanco] = await consultaProntidao;
+  const operacaoHoje = calcularKpisOperacionais(tarefasHoje satisfies TarefaOperacional[]);
 
   const clientesAtivos = prontidaoBanco?.clientes ?? [];
   const emitentesAtivos = prontidaoBanco?.emitentes ?? [];
@@ -155,9 +167,11 @@ async function carregarResumoOperacional() {
 
   return {
     hoje,
-    totalDistribuicoes: Number(contagemLotes?.total ?? 0),
-    totalNotas: Number(contagemNotas?.total ?? 0),
-    operacaoHoje: calcularKpisOperacionais(tarefasHoje satisfies TarefaOperacional[]),
+    // A Home usa uma única população: tarefas da data operacional brasileira.
+    // Totais históricos pertencem ao relatório completo.
+    totalDistribuicoes: Number(prontidaoBanco?.totalDistribuicoesHoje ?? 0),
+    totalNotas: Number(prontidaoBanco?.totalNotasHoje ?? 0),
+    operacaoHoje,
     prontidao: {
       emitentes: emitentesAtivos.length,
       emitentesIncompletos,
@@ -284,10 +298,10 @@ export default async function DashboardPage() {
 
       <section aria-labelledby="valor-entregue" className="mt-6">
         <h2 id="valor-entregue" className="text-lg font-medium">
-          Resultado operacional
+          Resultado de hoje
         </h2>
         <p className="mt-0.5 text-[13px] text-[var(--ink-soft)]">
-          Histórico do uso e eficiência estimada de hoje.
+          O que aconteceu na data operacional atual. O histórico completo fica em Relatórios.
         </p>
 
         <Card className="mt-3 p-4">
@@ -302,14 +316,21 @@ export default async function DashboardPage() {
               Icon={IconReceipt}
             />
             <Indicador
-              rotulo="Saldo frente ao teste manual hoje"
+              rotulo="Tempo economizado estimado"
               valor={operacaoHoje.distribuicoesComparaveis === 0 ? "—" : `${operacaoHoje.tempoEconomizadoSegundos < 0 ? "−" : ""}${formatarDuracao(Math.abs(operacaoHoje.tempoEconomizadoSegundos))}`}
               destaque
             />
           </div>
-          <p className="mt-4 border-t border-[var(--line)] pt-3 text-[11px] leading-relaxed text-[var(--ink-faint)]">
-            Comparação exploratória com um teste manual de 3 notas. Saldo positivo indica menos tempo; negativo, mais tempo. Sem amostra aparece “—”. Produtos e preparação podem diferir; consulte a metodologia em Relatórios.
-          </p>
+          {operacaoHoje.distribuicoesComparaveis > 0 && (
+            <p className="mt-4 border-t border-[var(--line)] pt-3 text-[11px] leading-relaxed text-[var(--ink-faint)]">
+              Estimativa baseada em {operacaoHoje.distribuicoesComparaveis} de {totalDistribuicoes} distribuição(ões) de hoje com benchmark equivalente. Método completo em Relatórios.
+            </p>
+          )}
+          {operacaoHoje.distribuicoesComparaveis === 0 && (
+            <p className="mt-4 border-t border-[var(--line)] pt-3 text-[11px] leading-relaxed text-[var(--ink-faint)]">
+              Sem distribuição comparável ao teste manual hoje. Método completo em Relatórios.
+            </p>
+          )}
         </Card>
 
         <a

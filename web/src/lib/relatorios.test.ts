@@ -289,9 +289,9 @@ describe("calcularKpisOperacionais", () => {
         concluidoEm: new Date(inicio.getTime() + segundos * 1000) })));
     const resultado = calcularKpisOperacionais(tarefas);
     expect(resultado.desempenhoPorEscala).toEqual([
-      { notasPorLote: 1, lotes: 2, segundosTotais: 140, mediaLoteSegundos: 70, mediaNotaSegundos: 70 },
-      { notasPorLote: 3, lotes: 1, segundosTotais: 180, mediaLoteSegundos: 180, mediaNotaSegundos: 60 },
-      { notasPorLote: 5, lotes: 1, segundosTotais: 250, mediaLoteSegundos: 250, mediaNotaSegundos: 50 },
+      { notasPorLote: 1, lotes: 2, segundosTotais: 140, mediaLoteSegundos: 70, tempoAmortizadoPorNotaSegundos: 70, notasPorMinuto: 0.86 },
+      { notasPorLote: 3, lotes: 1, segundosTotais: 180, mediaLoteSegundos: 180, tempoAmortizadoPorNotaSegundos: 60, notasPorMinuto: 1 },
+      { notasPorLote: 5, lotes: 1, segundosTotais: 250, mediaLoteSegundos: 250, tempoAmortizadoPorNotaSegundos: 50, notasPorMinuto: 1.2 },
     ]);
     expect(resultado.tempoEconomizadoSegundos).toBe(157);
     expect(calcularKpisOperacionais([]).desempenhoPorEscala).toEqual([]);
@@ -314,7 +314,7 @@ describe("calcularKpisOperacionais", () => {
       { ...base, id: "2", loteId: "2" },
       { ...base, id: "3", loteId: "3", concluidoEm: new Date(inicio.getTime() - 1000) },
     ]);
-    expect(resultado.tempoMedioPorItemSegundos).toBe(30);
+    expect(resultado.tempoAmortizadoPorItemSegundos).toBe(30);
     expect(resultado.distribuicoesMedidas).toBe(2);
   });
 
@@ -378,7 +378,7 @@ describe("calcularKpisOperacionais", () => {
     ]);
 
     expect(resultado.tempoMedioLoteSegundos).toBe(300);
-    expect(resultado.tempoMedioPorNotaSegundos).toBe(60);
+    expect(resultado.tempoAmortizadoPorNotaSegundos).toBe(60);
     expect(resultado.distribuicoesComparaveis).toBe(0);
     expect(resultado.tempoEconomizadoSegundos).toBe(0);
   });
@@ -392,8 +392,8 @@ describe("calcularKpisOperacionais", () => {
       { id: "3", loteId: "l1", status: "EMITIDA", quantidadeItens: 3, tentativas: 1, iniciadoEm: inicio, concluidoEm: fim },
     ]);
 
-    expect(resultado.tempoMedioPorNotaSegundos).toBe(40);
-    expect(resultado.tempoMedioPorItemSegundos).toBe(20);
+    expect(resultado.tempoAmortizadoPorNotaSegundos).toBe(40);
+    expect(resultado.tempoAmortizadoPorItemSegundos).toBe(20);
   });
 
   it("separa nota cancelada de falha técnica sem desfazer a tarefa concluída", () => {
@@ -422,6 +422,24 @@ describe("calcularKpisOperacionais", () => {
     expect(resultado.distribuicoesMedidas).toBe(1);
     expect(resultado.tempoMedioLoteSegundos).toBe(60);
     expect(resultado.tempoEconomizadoSegundos).toBe(277);
+    expect(resultado.tentativasRegistradas).toBe(5);
+    expect(resultado.reprocessamentos).toBe(1);
+  });
+
+  it("separa reservas, retrabalho, throughput e tempo amortizado", () => {
+    const inicio = new Date("2026-09-23T10:00:00Z");
+    const resultado = calcularKpisOperacionais([
+      { id: "1", loteId: "l1", status: "EMITIDA", tentativas: 1, iniciadoEm: inicio, concluidoEm: new Date(inicio.getTime() + 120_000) },
+      { id: "2", loteId: "l1", status: "EMITIDA", tentativas: 2, iniciadoEm: inicio, concluidoEm: new Date(inicio.getTime() + 120_000) },
+      { id: "3", loteId: "l1", status: "EMITIDA", tentativas: 1, iniciadoEm: inicio, concluidoEm: new Date(inicio.getTime() + 120_000) },
+    ]);
+
+    expect(resultado.tentativasRegistradas).toBe(4);
+    expect(resultado.reprocessamentos).toBe(1);
+    // O retry torna o lote inelegível para velocidade: não inventamos latência
+    // nem throughput a partir do intervalo acumulado entre tentativas.
+    expect(resultado.distribuicoesMedidas).toBe(0);
+    expect(resultado.desempenhoPorEscala).toEqual([]);
   });
 });
 

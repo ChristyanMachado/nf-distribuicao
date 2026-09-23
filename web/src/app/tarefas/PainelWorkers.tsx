@@ -16,6 +16,10 @@ export default function PainelWorkers({
 }) {
   const ativos = dados.workers.filter((worker) => ["ONLINE", "BUSY"].includes(worker.estado));
   const semExecutor = dados.situacao === "disponivel" && dados.workers.length > 0 && ativos.length === 0;
+  const operacaoNormal = dados.situacao === "disponivel"
+    && dados.workers.length > 0
+    && ativos.length === dados.workers.length
+    && dados.workers.every((worker) => worker.coordenacaoAtiva && !worker.ultimoErro);
   return (
     <Card className="mt-4 p-4" role="region" aria-labelledby="titulo-executores">
       <h2 id="titulo-executores" className="text-sm font-semibold">Servidores de emissão</h2>
@@ -46,36 +50,55 @@ export default function PainelWorkers({
           Nenhum servidor disponível confirmado. Verifique o computador e a conexão antes da próxima emissão.
         </p>
       )}
-      <div className="mt-3 grid gap-3 sm:grid-cols-2">
-        {dados.workers.map((worker) => {
-          const saudavel = ["ONLINE", "BUSY"].includes(worker.estado);
-          return (
-            <article key={worker.id} className="min-w-0 rounded-[var(--radius-control)] border border-[var(--line)] p-3">
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <h3 className="min-w-0 break-all text-sm font-semibold">{worker.id}</h3>
-                <span className={`rounded px-2 py-1 text-[11px] font-medium ${saudavel ? "bg-[var(--field-tint)] text-[var(--field)]" : "bg-[var(--stamp-tint)] text-[var(--stamp)]"}`}>
-                  {descreverEstadoWorker(worker)}
-                </span>
-              </div>
-              {worker.ultimoErro && <p className="mt-2 text-[12px] text-[var(--stamp)]">Última ocorrência: {worker.ultimoErro}.</p>}
-              {worker.estado === "OFFLINE" && worker.operacoesAtivas.length > 0 && <p className="mt-2 text-[12px] text-[var(--stamp)]">As reservas restantes não confirmam execução. Resultados fiscais incertos precisam de conferência.</p>}
-              <details className="mt-2 text-[12px]">
-                <summary className="tap-target flex cursor-pointer items-center font-medium text-[var(--field-strong)]">Ver detalhes</summary>
-                <p className="mt-2 text-[var(--ink-soft)]">Prioridade {worker.prioridade}{worker.preferido && worker.coordenacaoAtiva ? " · Preferido para novas tarefas" : ""}</p>
-                <dl className="mt-2 space-y-2">
-                  <div><dt className="text-[var(--ink-faint)]">Último contato · São Paulo</dt><dd>{worker.ultimoContato ? <time dateTime={worker.ultimoContato}>{dataContato.format(new Date(worker.ultimoContato))}</time> : "Ainda não recebido"} · {tempoSemContato(worker.segundosSemContato)}</dd></div>
-                  <div><dt className="text-[var(--ink-faint)]">Versão</dt><dd className="break-all font-mono">{worker.versao ?? "Não informada"}</dd></div>
-                  <div><dt className="text-[var(--ink-faint)]">Capacidade</dt><dd>Até {worker.capacidadePermitida} por vez · executor informa {worker.capacidadeInformada ?? "—"}</dd></div>
-                  <div><dt className="text-[var(--ink-faint)]">Operações</dt><dd>{worker.operacoesAtivas.length} com reserva · {worker.operacoesConcluidas} concluídas</dd></div>
-                </dl>
-                {worker.estado === "DRAINING" && <p className="mt-2 text-[var(--ink-soft)]">Conclui as operações em curso sem aceitar novas tarefas.</p>}
-                {worker.operacoesAtivas.length > 0 && <div className="mt-3"><p className="text-[var(--ink-faint)]">Identificadores das operações</p><ul className="mt-1 space-y-1">{worker.operacoesAtivas.map((id) => <li key={id} className="break-all font-mono">{id}</li>)}</ul></div>}
-              </details>
-            </article>
-          );
-        })}
-      </div>
-      {dados.workers.length > 0 && <p className="mt-3 text-[11px] text-[var(--ink-faint)]">Menor número tem preferência. Contatos confirmam comunicação recente, sem garantir o próximo resultado fiscal. Concluídas incluem emissões, recuperações e cancelamentos.</p>}
+      {operacaoNormal ? (
+        <>
+          <details className="mt-3 sm:hidden">
+            <summary className="tap-target flex cursor-pointer items-center justify-between gap-3 rounded-[var(--radius-control)] border border-[var(--line)] px-3 py-2 text-[13px] font-medium text-[var(--field-strong)]">
+              <span>Operação normal · {ativos.length} servidor(es)</span>
+              <span className="text-[11px]">Ver detalhes</span>
+            </summary>
+            <div className="mt-3 grid gap-3">{dados.workers.map((worker) => <CartaoWorker key={worker.id} worker={worker} />)}</div>
+            <RodapeWorkers />
+          </details>
+          <div className="mt-3 hidden gap-3 sm:grid sm:grid-cols-2">{dados.workers.map((worker) => <CartaoWorker key={worker.id} worker={worker} />)}</div>
+          <div className="hidden sm:block"><RodapeWorkers /></div>
+        </>
+      ) : (
+        <>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">{dados.workers.map((worker) => <CartaoWorker key={worker.id} worker={worker} />)}</div>
+          {dados.workers.length > 0 && <RodapeWorkers />}
+        </>
+      )}
     </Card>
   );
+}
+
+function CartaoWorker({ worker }: { worker: DadosPainel["workers"][number] }) {
+  const saudavel = ["ONLINE", "BUSY"].includes(worker.estado);
+  return (
+    <article className="min-w-0 rounded-[var(--radius-control)] border border-[var(--line)] p-3">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <h3 className="min-w-0 break-all text-sm font-semibold">{worker.id}</h3>
+        <span className={`rounded px-2 py-1 text-[11px] font-medium ${saudavel ? "bg-[var(--field-tint)] text-[var(--field)]" : "bg-[var(--stamp-tint)] text-[var(--stamp)]"}`}>{descreverEstadoWorker(worker)}</span>
+      </div>
+      {worker.ultimoErro && <p className="mt-2 text-[12px] text-[var(--stamp)]">Última ocorrência: {worker.ultimoErro}.</p>}
+      {worker.estado === "OFFLINE" && worker.operacoesAtivas.length > 0 && <p className="mt-2 text-[12px] text-[var(--stamp)]">As reservas restantes não confirmam execução. Resultados fiscais incertos precisam de conferência.</p>}
+      <details className="mt-2 text-[12px]">
+        <summary className="tap-target flex cursor-pointer items-center font-medium text-[var(--field-strong)]">Ver detalhes</summary>
+        <p className="mt-2 text-[var(--ink-soft)]">Prioridade {worker.prioridade}{worker.preferido && worker.coordenacaoAtiva ? " · Preferido para novas tarefas" : ""}</p>
+        <dl className="mt-2 space-y-2">
+          <div><dt className="text-[var(--ink-faint)]">Último contato · São Paulo</dt><dd>{worker.ultimoContato ? <time dateTime={worker.ultimoContato}>{dataContato.format(new Date(worker.ultimoContato))}</time> : "Ainda não recebido"} · {tempoSemContato(worker.segundosSemContato)}</dd></div>
+          <div><dt className="text-[var(--ink-faint)]">Versão</dt><dd className="break-all font-mono">{worker.versao ?? "Não informada"}</dd></div>
+          <div><dt className="text-[var(--ink-faint)]">Capacidade</dt><dd>Até {worker.capacidadePermitida} por vez · executor informa {worker.capacidadeInformada ?? "—"}</dd></div>
+          <div><dt className="text-[var(--ink-faint)]">Operações</dt><dd>{worker.operacoesAtivas.length} com reserva · {worker.operacoesConcluidas} concluídas</dd></div>
+        </dl>
+        {worker.estado === "DRAINING" && <p className="mt-2 text-[var(--ink-soft)]">Conclui as operações em curso sem aceitar novas tarefas.</p>}
+        {worker.operacoesAtivas.length > 0 && <div className="mt-3"><p className="text-[var(--ink-faint)]">Identificadores das operações</p><ul className="mt-1 space-y-1">{worker.operacoesAtivas.map((id) => <li key={id} className="break-all font-mono">{id}</li>)}</ul></div>}
+      </details>
+    </article>
+  );
+}
+
+function RodapeWorkers() {
+  return <p className="mt-3 text-[11px] text-[var(--ink-faint)]">Menor número tem preferência. Contato recente confirma comunicação, não o próximo resultado fiscal. Concluídas incluem emissões, recuperações e cancelamentos.</p>;
 }

@@ -5,6 +5,14 @@ estão no [Handoff](HANDOFF.md). A
 [auditoria de lapidação](AUDITORIA-LAPIDACAO-2026-09-09.md) é um diagnóstico
 histórico: vários itens apontados nela já foram implementados depois.
 
+## Auditoria de eficiência — 23/09/2026
+
+- A decomposição factual do saldo de 14 minutos está registrada em
+  [AUDITORIA-METRICAS-EFICIENCIA-2026-09-23.md](AUDITORIA-METRICAS-EFICIENCIA-2026-09-23.md).
+- O próximo benchmark deve seguir
+  [PROTOCOLO-BENCHMARK-MANUAL.md](PROTOCOLO-BENCHMARK-MANUAL.md).
+- Não extrapolar o único benchmark de 3 notas até haver amostra suficiente.
+
 ## Onde estamos
 
 - Fluxo fiscal conectado, snapshot imutável, idempotência semântica, reserva e

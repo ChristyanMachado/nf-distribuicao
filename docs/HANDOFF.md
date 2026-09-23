@@ -2105,3 +2105,23 @@ operacionais; o futuro financeiro deve consultar também o estado fiscal da nota
   reais; mudanças de DOM ainda dependem de sentinela manual em homologação.
 - O procedimento de uso do DeepSeek, incluindo recuperação de chamada que gasta
   todo o orçamento em raciocínio, está documentado em `MODELOS-IA.md`.
+
+## Auditoria de eficiência e Home diária — 23/09/2026
+
+- Uma consulta read-only no Supabase reproduziu o saldo exibido: 16 lotes
+  operacionais, 13 medidos, 4 comparáveis ao único benchmark de 3 notas e
+  881,877 s de saldo, arredondados para 882 s (14min42s). O formatador anterior
+  mostrava 14 min. A matemática estava correta, mas cobria somente quatro lotes.
+- A Home misturava contagens históricas globais com status e eficiência da data
+  operacional atual. As contagens agora usam a mesma data brasileira das
+  tarefas; o relatório completo permanece responsável pelo histórico.
+- Tentativas registradas e reservas adicionais ficaram separadas de sucessos e
+  erros finais. Tempos divididos por nota/item são apresentados como
+  amortizados, e throughput não é descrito como latência individual.
+- Metodologia e diagnósticos foram recolhidos no mobile; alertas de servidor
+  continuam visíveis. Trocas e Emitentes não foram alterados.
+- Evidência detalhada: `AUDITORIA-METRICAS-EFICIENCIA-2026-09-23.md`. Próxima
+  medição humana: `PROTOCOLO-BENCHMARK-MANUAL.md`.
+- Validação local: 173 testes Web e TypeScript aprovados. A build compilou e
+  passou pelo TypeScript, mas parou ao coletar páginas porque este worktree não
+  possui `DATABASE_URL`.

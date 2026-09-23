@@ -296,22 +296,22 @@ export default function RelatoriosView({
             detalhe={
               operacao.distribuicoesComparaveis === 0
                 ? "Nenhum lote de 3 notas comparável neste período"
-                : `Frente ao teste manual em ${formatarQuantidade(operacao.distribuicoesComparaveis, "lote comparável", "lotes comparáveis")} de mesma escala`
+                : `${formatarQuantidade(operacao.distribuicoesComparaveis, "lote comparável", "lotes comparáveis")} de ${operacao.distribuicoes} distribuições no período`
             }
             destaque
           />
         </div>
-        <p className="mt-2 text-[11px] leading-relaxed text-[var(--ink-faint)]">
-          Estimativa dinâmica: compara a duração real de cada lote limpo com o benchmark manual da mesma quantidade de notas. Hoje a referência validada é 5min 37s para 3 notas; valor negativo indica que a automação levou mais tempo.
-        </p>
-        {operacao.notasCanceladas > 0 && (
-          <p className="mt-2 rounded-[var(--radius-control)] border border-[var(--wheat)] bg-[var(--cream)] px-3 py-2 text-[12px] text-[var(--ink-soft)]">
-            {formatarQuantidade(operacao.notasCanceladas, "nota cancelada", "notas canceladas")} após emissão. O cancelamento não muda o resultado da tarefa; sua causa precisa ser confirmada.
-          </p>
-        )}
         <details className="mt-4 rounded-[var(--radius-card)] border border-[var(--line)] bg-[var(--paper)] p-4">
-          <summary className="cursor-pointer text-sm font-semibold">Tempos e diagnóstico do Worker</summary>
-          <div className="mt-4 grid grid-cols-1 gap-3 min-[380px]:grid-cols-2 md:grid-cols-3">
+          <summary className="cursor-pointer text-sm font-semibold">Método, tentativas e tempos detalhados</summary>
+          <p className="mt-3 text-[11px] leading-relaxed text-[var(--ink-faint)]">
+            A estimativa soma, por lote comparável, 5min 37s do teste manual menos a duração automática observada. A referência atual só vale para lotes de 3 notas concluídos sem reprocessamento; outros tamanhos não recebem economia estimada. Valores negativos são preservados.
+          </p>
+          {operacao.notasCanceladas > 0 && (
+            <p className="mt-3 text-[12px] text-[var(--ink-soft)]">
+              {formatarQuantidade(operacao.notasCanceladas, "nota cancelada", "notas canceladas")} após emissão. O cancelamento não desfaz a tarefa concluída.
+            </p>
+          )}
+          <div className="mt-4 grid grid-cols-1 gap-3 min-[380px]:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
             <KpiOperacional
               titulo="Erros"
               valor={String(operacao.erros)}
@@ -319,34 +319,43 @@ export default function RelatoriosView({
               alerta={operacao.erros > 0}
             />
             <KpiOperacional
+              titulo="Tentativas registradas"
+              valor={String(operacao.tentativasRegistradas)}
+              detalhe={`${operacao.reprocessamentos} reserva(s) adicional(is); não equivalem necessariamente a erros distintos`}
+            />
+            <KpiOperacional
               titulo="Espera média na fila"
               valor={operacao.tempoMedioEsperaFilaSegundos === null ? "—" : formatarDuracao(operacao.tempoMedioEsperaFilaSegundos)}
               detalhe={operacao.lotesComEsperaMedida ? `${formatarQuantidade(operacao.lotesComEsperaMedida, "distribuição medida", "distribuições medidas")} até o primeiro início` : "Sem medições suficientes"}
             />
             <KpiOperacional
-              titulo="Tempo médio por item"
-              valor={operacao.tempoMedioPorItemSegundos === null ? "—" : formatarDuracao(operacao.tempoMedioPorItemSegundos)}
-              detalhe="duração do lote dividida pelas linhas de itens"
+              titulo="Tempo amortizado por item"
+              valor={operacao.tempoAmortizadoPorItemSegundos === null ? "—" : formatarDuracao(operacao.tempoAmortizadoPorItemSegundos)}
+              detalhe="tempo de parede dos lotes dividido pelas linhas; não é latência individual"
             />
           </div>
           <p className="mt-3 text-[11px] leading-relaxed text-[var(--ink-faint)]">
-            Duração medida da primeira tarefa iniciada à última autorização, apenas em lotes concluídos na primeira tentativa. A espera na fila fica separada. Nenhum destes tempos inclui montar a distribuição ou armazenar documentos.
+            Duração do lote é o tempo de parede da primeira tarefa iniciada à última autorização, apenas em lotes concluídos na primeira tentativa. A espera na fila fica separada. Nenhum destes tempos inclui montar a distribuição ou armazenar documentos.
           </p>
           <h3 className="mt-4 text-sm font-semibold">Tempo observado por tamanho de lote</h3>
           <p className="mt-1 text-[12px] text-[var(--ink-soft)]">
             {operacao.distribuicoesMedidas} de {operacao.distribuicoes} distribuições têm medição elegível; reprocessamentos, lotes incompletos e duração inválida ficam fora.
           </p>
+          <p className="mt-1 text-[11px] text-[var(--ink-faint)]">
+            Throughput é a taxa observada dentro dos lotes medidos. Não representa latência individual nem a vazão global entre lotes que possam se sobrepor.
+          </p>
           {operacao.desempenhoPorEscala.length === 0 ? <p className="mt-3 text-sm">Ainda sem lotes elegíveis neste período.</p> : (
             <div className="mt-3 overflow-x-auto">
               <table className="w-full text-left text-[12px] font-mono-tab">
                 <caption className="sr-only">Durações medidas, sem extrapolação do teste manual</caption>
-                <thead><tr>{["Notas/lote", "Lotes medidos", "Tempo somado", "Média/lote", "Média/nota"].map((titulo) => <th key={titulo} scope="col" className="px-2 py-2 font-medium">{titulo}</th>)}</tr></thead>
+                <thead><tr>{["Notas/lote", "Lotes medidos", "Tempo somado", "Média/lote", "Amortizado/nota", "Throughput"].map((titulo) => <th key={titulo} scope="col" className="px-2 py-2 font-medium">{titulo}</th>)}</tr></thead>
                 <tbody>{operacao.desempenhoPorEscala.map((escala) => <tr key={escala.notasPorLote} className="border-t border-[var(--line)]">
                   <th scope="row" className="px-2 py-2 font-normal">{escala.notasPorLote}</th>
                   <td className="px-2 py-2">{escala.lotes}</td>
                   <td className="px-2 py-2 whitespace-nowrap">{formatarDuracao(escala.segundosTotais)}</td>
                   <td className="px-2 py-2 whitespace-nowrap">{formatarDuracao(escala.mediaLoteSegundos)}</td>
-                  <td className="px-2 py-2 whitespace-nowrap">{formatarDuracao(escala.mediaNotaSegundos)}</td>
+                  <td className="px-2 py-2 whitespace-nowrap">{formatarDuracao(escala.tempoAmortizadoPorNotaSegundos)}</td>
+                  <td className="px-2 py-2 whitespace-nowrap">{escala.notasPorMinuto.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} nota/min</td>
                 </tr>)}</tbody>
               </table>
             </div>

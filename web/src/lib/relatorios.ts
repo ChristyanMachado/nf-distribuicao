@@ -88,14 +88,17 @@ export type KpisOperacionais = {
   erros: number;
   distribuicoesMedidas: number;
   distribuicoesComparaveis: number;
+  tentativasRegistradas: number;
+  reprocessamentos: number;
   tempoEconomizadoSegundos: number;
   tempoMedioLoteSegundos: number | null;
   lotesComEsperaMedida: number;
   tempoMedioEsperaFilaSegundos: number | null;
-  tempoMedioPorNotaSegundos: number | null;
-  tempoMedioPorItemSegundos: number | null;
+  tempoAmortizadoPorNotaSegundos: number | null;
+  tempoAmortizadoPorItemSegundos: number | null;
   desempenhoPorEscala: { notasPorLote: number; lotes: number; segundosTotais: number;
-    mediaLoteSegundos: number; mediaNotaSegundos: number }[];
+    mediaLoteSegundos: number; tempoAmortizadoPorNotaSegundos: number;
+    notasPorMinuto: number }[];
 };
 
 /**
@@ -121,6 +124,16 @@ function chaveDoLote(tarefa: TarefaOperacional): string {
 
 export function calcularKpisOperacionais(tarefas: TarefaOperacional[]): KpisOperacionais {
   const validas = tarefas.filter((t) => t.status !== "CANCELADA");
+  const tentativasRegistradas = validas.reduce(
+    (total, tarefa) => total + Math.max(0, tarefa.tentativas),
+    0,
+  );
+  // Uma tentativa adicional comprova retrabalho/reserva repetida, mas não
+  // comprova sozinha uma nova falha: não há telemetria histórica por tentativa.
+  const reprocessamentos = validas.reduce(
+    (total, tarefa) => total + Math.max(0, tarefa.tentativas - 1),
+    0,
+  );
   const notasProcessadas = validas.filter((t) => STATUS_SUCESSO.has(t.status));
   const notasCanceladas = notasProcessadas.filter((t) => t.notaStatus === "CANCELADA");
   // "Emitida" aqui significa fiscalmente ativa. A tarefa de uma nota
@@ -197,7 +210,10 @@ export function calcularKpisOperacionais(tarefas: TarefaOperacional[]): KpisOper
     desempenhoPorEscala: [...porEscala].sort(([a], [b]) => a - b).map(([notasPorLote, m]) => ({
       notasPorLote, lotes: m.lotes, segundosTotais: Math.round(m.segundos),
       mediaLoteSegundos: Math.round(m.segundos / m.lotes),
-      mediaNotaSegundos: Math.round(m.segundos / (m.lotes * notasPorLote)),
+      tempoAmortizadoPorNotaSegundos: Math.round(m.segundos / (m.lotes * notasPorLote)),
+      notasPorMinuto: m.segundos > 0
+        ? Math.round(((m.lotes * notasPorLote * 60) / m.segundos) * 100) / 100
+        : 0,
     })),
     distribuicoes: porLote.size,
     distribuicoesConcluidas: lotesConcluidos.length,
@@ -210,6 +226,8 @@ export function calcularKpisOperacionais(tarefas: TarefaOperacional[]): KpisOper
     erros: validas.filter((t) => t.status === "ERRO").length,
     distribuicoesMedidas: medicoesDosLotes.length,
     distribuicoesComparaveis: medicoesComparaveis.length,
+    tentativasRegistradas,
+    reprocessamentos,
     tempoEconomizadoSegundos: Math.round(tempoEconomizadoSegundos),
     tempoMedioLoteSegundos: medicoesDosLotes.length
       ? Math.round(medicoesDosLotes.reduce((total, medicao) => total + medicao.segundos, 0) / medicoesDosLotes.length)
@@ -218,13 +236,13 @@ export function calcularKpisOperacionais(tarefas: TarefaOperacional[]): KpisOper
     tempoMedioEsperaFilaSegundos: esperasDeFila.length
       ? Math.round(esperasDeFila.reduce((total, segundos) => total + segundos, 0) / esperasDeFila.length)
       : null,
-    tempoMedioPorNotaSegundos: medicoesDosLotes.length
+    tempoAmortizadoPorNotaSegundos: medicoesDosLotes.length
       ? Math.round(
           medicoesDosLotes.reduce((total, medicao) => total + medicao.segundos, 0)
           / medicoesDosLotes.reduce((total, medicao) => total + medicao.notas, 0),
         )
       : null,
-    tempoMedioPorItemSegundos: medicoesComItens.length > 0
+    tempoAmortizadoPorItemSegundos: medicoesComItens.length > 0
       ? Math.round(
           medicoesComItens.reduce((total, medicao) => total + medicao.segundos, 0)
           / medicoesComItens.reduce((total, medicao) => total + medicao.itens, 0),
