@@ -32,6 +32,7 @@ export async function carregarRelatorio(
       clienteNome: clientes.nome,
       produtoId: tarefaItens.produtoId,
       produtoDescricao: produtos.descricao,
+      produtoUnidade: produtos.unidade,
       quantidade: tarefaItens.quantidade,
       subtotal: tarefaItens.subtotal,
     })
@@ -50,6 +51,7 @@ export async function carregarRelatorio(
       clienteNome: clientes.nome,
       produtoId: disponibilidades.produtoId,
       produtoDescricao: produtos.descricao,
+      produtoUnidade: produtos.unidade,
       quantidadeTroca: distribuicoes.quantidadeTroca,
       precoUnitario: distribuicoes.precoUnitario,
     })

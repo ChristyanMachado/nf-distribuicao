@@ -11,6 +11,7 @@ export type ItemRelatorio = {
   clienteNome: string;
   produtoId: string;
   produtoDescricao: string;
+  produtoUnidade?: string;
   quantidade: number;
   subtotal: number;
 };
@@ -22,6 +23,7 @@ export type TrocaRelatorio = {
   clienteNome: string;
   produtoId: string;
   produtoDescricao: string;
+  produtoUnidade?: string;
   quantidadeTroca: number;
   precoUnitario: number;
 };
@@ -60,6 +62,18 @@ export type RankingItem = {
 export type PontoSerie = {
   data: string;
   valor: number;
+};
+
+export type RankingQuantidadeItem = {
+  id: string;
+  nome: string;
+  unidade: string;
+  quantidade: number;
+};
+
+export type PontoSerieQuantidade = {
+  data: string;
+  quantidade: number;
 };
 
 export type KpisOperacionais = {
@@ -216,6 +230,10 @@ function arredondarMoeda(valor: number): number {
   return Math.round(valor * 100) / 100;
 }
 
+function arredondarQuantidade(valor: number): number {
+  return Math.round(valor * 1000) / 1000;
+}
+
 function itensValidos(itens: ItemRelatorio[]): ItemRelatorio[] {
   return itens.filter((i) => i.status !== STATUS_EXCLUIDO_DO_FATURAMENTO);
 }
@@ -277,6 +295,88 @@ export function rankearPorProduto(itens: ItemRelatorio[]): RankingItem[] {
     mapa.set(item.produtoId, atual);
   }
   return Array.from(mapa.values()).sort((a, b) => b.valor - a.valor);
+}
+
+/**
+ * Valor das reposições efetivamente usadas, agrupado pelo destino. Não é
+ * perda, receita nem saldo pendente: é apenas a expressão monetária do volume
+ * de troca registrado nas distribuições do período.
+ */
+export function rankearTrocasPorCliente(trocas: TrocaRelatorio[]): RankingItem[] {
+  const mapa = new Map<string, RankingItem>();
+  for (const troca of trocasValidas(trocas)) {
+    const atual = mapa.get(troca.clienteId) ?? {
+      id: troca.clienteId,
+      nome: troca.clienteNome,
+      valor: 0,
+      quantidade: 0,
+    };
+    atual.valor = arredondarMoeda(
+      atual.valor + troca.quantidadeTroca * troca.precoUnitario,
+    );
+    atual.quantidade = arredondarQuantidade(atual.quantidade + troca.quantidadeTroca);
+    mapa.set(troca.clienteId, atual);
+  }
+  return Array.from(mapa.values()).sort((a, b) => b.valor - a.valor);
+}
+
+/**
+ * Volume físico registrado por produto. A quantidade normal vem dos itens da
+ * nota e a reposição vem da distribuição; assim a métrica representa o que
+ * saiu para entrega sem confundir unidades de produtos diferentes.
+ */
+export function rankearQuantidadeFisicaPorProduto(
+  itens: ItemRelatorio[],
+  trocas: TrocaRelatorio[],
+): RankingQuantidadeItem[] {
+  const mapa = new Map<string, RankingQuantidadeItem>();
+
+  for (const item of itensValidos(itens)) {
+    const atual = mapa.get(item.produtoId) ?? {
+      id: item.produtoId,
+      nome: item.produtoDescricao,
+      unidade: item.produtoUnidade ?? "UN",
+      quantidade: 0,
+    };
+    atual.quantidade = arredondarQuantidade(atual.quantidade + item.quantidade);
+    mapa.set(item.produtoId, atual);
+  }
+
+  for (const troca of trocasValidas(trocas)) {
+    const atual = mapa.get(troca.produtoId) ?? {
+      id: troca.produtoId,
+      nome: troca.produtoDescricao,
+      unidade: troca.produtoUnidade ?? "UN",
+      quantidade: 0,
+    };
+    atual.quantidade = arredondarQuantidade(atual.quantidade + troca.quantidadeTroca);
+    mapa.set(troca.produtoId, atual);
+  }
+
+  return Array.from(mapa.values()).sort((a, b) => b.quantidade - a.quantidade);
+}
+
+/** Série diária do volume físico de um único produto. */
+export function serieQuantidadeProduto(
+  itens: ItemRelatorio[],
+  trocas: TrocaRelatorio[],
+  produtoId: string,
+): PontoSerieQuantidade[] {
+  const mapa = new Map<string, number>();
+  for (const item of itensValidos(itens)) {
+    if (item.produtoId !== produtoId) continue;
+    mapa.set(item.data, arredondarQuantidade((mapa.get(item.data) ?? 0) + item.quantidade));
+  }
+  for (const troca of trocasValidas(trocas)) {
+    if (troca.produtoId !== produtoId) continue;
+    mapa.set(
+      troca.data,
+      arredondarQuantidade((mapa.get(troca.data) ?? 0) + troca.quantidadeTroca),
+    );
+  }
+  return Array.from(mapa.entries())
+    .map(([data, quantidade]) => ({ data, quantidade }))
+    .sort((a, b) => a.data.localeCompare(b.data));
 }
 
 /**

@@ -1,6 +1,6 @@
 # Roadmap — NF Distribuição
 
-Atualizado em 17/09/2026. O histórico detalhado e as limitações operacionais
+Atualizado em 22/09/2026. O histórico detalhado e as limitações operacionais
 estão no [Handoff](HANDOFF.md). A
 [auditoria de lapidação](AUDITORIA-LAPIDACAO-2026-09-09.md) é um diagnóstico
 histórico: vários itens apontados nela já foram implementados depois.
@@ -23,6 +23,10 @@ histórico: vários itens apontados nela já foram implementados depois.
 - Data fiscal oficial (`dhEmi`) extraída do XML, normalizada para UTC e ligada à
   persistência da nota sem migration; 334 testes do Worker aprovados. A ativação
   depende da instalação do próximo pacote no PC servidor.
+- Feedback de uso real incorporado de forma cirúrgica: reposições mais claras,
+  Workers compactos no mobile, total físico explícito no roteiro, emitentes em
+  área secundária e relatórios operacionais com período personalizado, trocas
+  por mercado e histórico de quantidade por produto.
 
 ## Em andamento imediato
 
@@ -48,10 +52,14 @@ histórico: vários itens apontados nela já foram implementados depois.
 6. **Média:** ensaiar expiração/recuperação e backup/restauração em ambiente seguro.
 7. **Média:** paginar Notas por distribuição no servidor e adicionar pesquisa
    objetiva antes do crescimento do histórico; hoje o limite é por nota.
+8. **Descoberta, sem implementação:** confirmar com o cliente as decisões em
+   `PLANO-FATURAMENTO-DIFERIDO.md` antes de qualquer schema ou UX de cooperativas.
 
 ## Depois da estabilização
 
 - Definir o contrato Fiscal → Financeiro e iniciar o novo sistema financeiro.
+- Projetar Estoque e Produção Rural como produtos próprios, usando apenas o
+  histórico de distribuição como futura entrada; não incorporá-los ao NF.
 - Criar o hub Graalyst para integrar módulos independentes.
 - Implementar recuperação de senha compatível com a identidade real dos usuários.
 - Decidir isolamento multiempresa, auditoria e limites distribuídos antes de

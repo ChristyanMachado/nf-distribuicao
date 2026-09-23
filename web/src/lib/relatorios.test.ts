@@ -5,7 +5,10 @@ import {
   intervaloDoPreset,
   rankearPorCliente,
   rankearPorProduto,
+  rankearQuantidadeFisicaPorProduto,
+  rankearTrocasPorCliente,
   serieDiaria,
+  serieQuantidadeProduto,
   validarIntervaloRelatorio,
   type ItemRelatorio,
   type TrocaRelatorio,
@@ -20,6 +23,7 @@ const itens: ItemRelatorio[] = [
     clienteNome: "Mercado A",
     produtoId: "p1",
     produtoDescricao: "Couve-flor",
+    produtoUnidade: "MC",
     quantidade: 37,
     subtotal: 166.5,
   },
@@ -31,6 +35,7 @@ const itens: ItemRelatorio[] = [
     clienteNome: "Mercado A",
     produtoId: "p2",
     produtoDescricao: "Alface",
+    produtoUnidade: "UN",
     quantidade: 20,
     subtotal: 40,
   },
@@ -42,6 +47,7 @@ const itens: ItemRelatorio[] = [
     clienteNome: "Mercado B",
     produtoId: "p1",
     produtoDescricao: "Couve-flor",
+    produtoUnidade: "MC",
     quantidade: 30,
     subtotal: 135,
   },
@@ -53,6 +59,7 @@ const itens: ItemRelatorio[] = [
     clienteNome: "Mercado A",
     produtoId: "p1",
     produtoDescricao: "Couve-flor",
+    produtoUnidade: "MC",
     quantidade: 10,
     subtotal: 45,
   },
@@ -66,6 +73,7 @@ const trocas: TrocaRelatorio[] = [
     clienteNome: "Mercado A",
     produtoId: "p1",
     produtoDescricao: "Couve-flor",
+    produtoUnidade: "MC",
     quantidadeTroca: 3,
     precoUnitario: 4.5,
   },
@@ -140,6 +148,63 @@ describe("serieDiaria", () => {
     expect(serie).toEqual([
       { data: "2026-08-10", valor: 206.5 },
       { data: "2026-08-11", valor: 135 },
+    ]);
+  });
+});
+
+describe("indicadores físicos e de trocas", () => {
+  const trocasComMaisDados: TrocaRelatorio[] = [
+    ...trocas,
+    {
+      data: "2026-08-11",
+      status: "SEM_TAREFA",
+      clienteId: "b",
+      clienteNome: "Mercado B",
+      produtoId: "p1",
+      produtoDescricao: "Couve-flor",
+      produtoUnidade: "MC",
+      quantidadeTroca: 1.125,
+      precoUnitario: 4.5,
+    },
+    {
+      data: "2026-08-11",
+      status: "CANCELADA",
+      clienteId: "b",
+      clienteNome: "Mercado B",
+      produtoId: "p1",
+      produtoDescricao: "Couve-flor",
+      quantidadeTroca: 100,
+      precoUnitario: 4.5,
+    },
+  ];
+
+  it("ranqueia somente reposições válidas por cliente", () => {
+    expect(rankearTrocasPorCliente(trocasComMaisDados)).toEqual([
+      { id: "a", nome: "Mercado A", valor: 13.5, quantidade: 3 },
+      { id: "b", nome: "Mercado B", valor: 5.06, quantidade: 1.125 },
+    ]);
+  });
+
+  it("soma quantidade normal e troca por produto sem misturar canceladas", () => {
+    const ranking = rankearQuantidadeFisicaPorProduto(itens, trocasComMaisDados);
+    expect(ranking[0]).toEqual({
+      id: "p1",
+      nome: "Couve-flor",
+      unidade: "MC",
+      quantidade: 71.125,
+    });
+    expect(ranking[1]).toEqual({
+      id: "p2",
+      nome: "Alface",
+      unidade: "UN",
+      quantidade: 20,
+    });
+  });
+
+  it("produz histórico diário da quantidade física do produto", () => {
+    expect(serieQuantidadeProduto(itens, trocasComMaisDados, "p1")).toEqual([
+      { data: "2026-08-10", quantidade: 40 },
+      { data: "2026-08-11", quantidade: 31.125 },
     ]);
   });
 });

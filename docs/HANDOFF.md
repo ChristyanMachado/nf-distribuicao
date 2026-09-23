@@ -2049,3 +2049,33 @@ operacionais; o futuro financeiro deve consultar também o estado fiscal da nota
   paralela legítima; 3 continua apenas teto de benchmark. A implementação
   mecânica foi preparada para GPT-5.6 Terra / Média e deve começar em modo
   observação.
+
+## Feedback de uso real: UX e relatórios enxutos — 22/09/2026
+
+- A rodada tratou o vídeo do cliente como pesquisa de usuário. Foram feitas
+  somente mudanças derivadas do domínio de distribuição; não houve migration,
+  operação fiscal nem expansão para Financeiro, Estoque ou Produção Rural.
+- No formulário, a reposição agora separa `Trocas pendentes`, `Usar nesta
+  entrega` e `Continuará pendente`. O zero inicial deixou de ser valor editável
+  e passou a placeholder, sem mudar a validação numérica ou a semântica de zero.
+- O roteiro de entrega exibe a quantidade física `Total` e, separadamente,
+  `Troca incluída`, tanto na tela quanto no HTML de impressão. A quantidade
+  faturável e as regras fiscais não foram alteradas.
+- Os cards de Worker mantêm identidade, estado e ocorrências críticas visíveis;
+  versão, capacidade, heartbeat e identificadores ficam em `Ver detalhes`.
+- Emitentes saiu da navegação diária direta e continua acessível em `Mais`, sem
+  remover cadastro nem rota administrativa.
+- Relatórios preservam Hoje/7 dias/30 dias/Este mês e agora aceitam período
+  personalizado validado (máximo de 366 dias). Os rótulos distinguem valor
+  registrado de receita/lucro e volume distribuído de estoque ou previsão.
+- Foram adicionados valor das reposições usadas por mercado, quantidade física
+  por produto e histórico diário selecionável. Os diagnósticos técnicos do
+  Worker ficaram recolhidos; fila, problemas e tempo médio por distribuição
+  continuam imediatamente visíveis.
+- O faturamento diferido foi modelado, mas não implementado, em
+  `PLANO-FATURAMENTO-DIFERIDO.md`. As fronteiras comerciais e descobertas para
+  produtos futuros estão em `DESCOBERTAS-PRODUTOS-FUTUROS.md`.
+- Validação local: 170 testes Web e TypeScript aprovados. A build compilou e
+  passou pelo TypeScript, mas a coleta de páginas parou porque este worktree não
+  possui `DATABASE_URL`; isso é limitação do ambiente local, não validação
+  autenticada contra o banco ou o Vercel.

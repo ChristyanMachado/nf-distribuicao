@@ -57,24 +57,20 @@ export default function PainelWorkers({
                   {descreverEstadoWorker(worker)}
                 </span>
               </div>
-              <p className="mt-1 text-[12px] text-[var(--ink-soft)]">
-                Prioridade {worker.prioridade}{worker.preferido && worker.coordenacaoAtiva ? " · Preferido para novas tarefas" : ""}
-              </p>
-              <dl className="mt-3 space-y-2 text-[12px]">
-                <div><dt className="text-[var(--ink-faint)]">Último contato · São Paulo</dt><dd>{worker.ultimoContato ? <time dateTime={worker.ultimoContato}>{dataContato.format(new Date(worker.ultimoContato))}</time> : "Ainda não recebido"} · {tempoSemContato(worker.segundosSemContato)}</dd></div>
-                <div><dt className="text-[var(--ink-faint)]">Versão</dt><dd className="break-all font-mono">{worker.versao ?? "Não informada"}</dd></div>
-                <div><dt className="text-[var(--ink-faint)]">Capacidade</dt><dd>Até {worker.capacidadePermitida} por vez · executor informa {worker.capacidadeInformada ?? "—"}</dd></div>
-                <div><dt className="text-[var(--ink-faint)]">Operações</dt><dd>{worker.operacoesAtivas.length} com reserva · {worker.operacoesConcluidas} concluídas</dd></div>
-              </dl>
-              {worker.ultimoErro && <p className="mt-3 text-[12px] text-[var(--stamp)]">Última ocorrência: {worker.ultimoErro}.</p>}
-              {worker.estado === "DRAINING" && <p className="mt-2 text-[12px] text-[var(--ink-soft)]">Conclui as operações em curso sem aceitar novas tarefas.</p>}
+              {worker.ultimoErro && <p className="mt-2 text-[12px] text-[var(--stamp)]">Última ocorrência: {worker.ultimoErro}.</p>}
               {worker.estado === "OFFLINE" && worker.operacoesAtivas.length > 0 && <p className="mt-2 text-[12px] text-[var(--stamp)]">As reservas restantes não confirmam execução. Resultados fiscais incertos precisam de conferência.</p>}
-              {worker.operacoesAtivas.length > 0 && (
-                <details className="mt-3 text-[12px]">
-                  <summary className="tap-target flex cursor-pointer items-center underline">Identificadores das operações</summary>
-                  <ul className="mt-1 space-y-1">{worker.operacoesAtivas.map((id) => <li key={id} className="break-all font-mono">{id}</li>)}</ul>
-                </details>
-              )}
+              <details className="mt-2 text-[12px]">
+                <summary className="tap-target flex cursor-pointer items-center font-medium text-[var(--field-strong)]">Ver detalhes</summary>
+                <p className="mt-2 text-[var(--ink-soft)]">Prioridade {worker.prioridade}{worker.preferido && worker.coordenacaoAtiva ? " · Preferido para novas tarefas" : ""}</p>
+                <dl className="mt-2 space-y-2">
+                  <div><dt className="text-[var(--ink-faint)]">Último contato · São Paulo</dt><dd>{worker.ultimoContato ? <time dateTime={worker.ultimoContato}>{dataContato.format(new Date(worker.ultimoContato))}</time> : "Ainda não recebido"} · {tempoSemContato(worker.segundosSemContato)}</dd></div>
+                  <div><dt className="text-[var(--ink-faint)]">Versão</dt><dd className="break-all font-mono">{worker.versao ?? "Não informada"}</dd></div>
+                  <div><dt className="text-[var(--ink-faint)]">Capacidade</dt><dd>Até {worker.capacidadePermitida} por vez · executor informa {worker.capacidadeInformada ?? "—"}</dd></div>
+                  <div><dt className="text-[var(--ink-faint)]">Operações</dt><dd>{worker.operacoesAtivas.length} com reserva · {worker.operacoesConcluidas} concluídas</dd></div>
+                </dl>
+                {worker.estado === "DRAINING" && <p className="mt-2 text-[var(--ink-soft)]">Conclui as operações em curso sem aceitar novas tarefas.</p>}
+                {worker.operacoesAtivas.length > 0 && <div className="mt-3"><p className="text-[var(--ink-faint)]">Identificadores das operações</p><ul className="mt-1 space-y-1">{worker.operacoesAtivas.map((id) => <li key={id} className="break-all font-mono">{id}</li>)}</ul></div>}
+              </details>
             </article>
           );
         })}

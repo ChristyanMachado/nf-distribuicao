@@ -712,6 +712,16 @@ executa cada tarefa em um `BrowserContext` independente.
     Como `iniciado_em` preserva a primeira tentativa, lotes com qualquer tarefa
     reprocessada ficam fora da média/economia para não contabilizar espera como
     automação ativa.
+13. `quantidade_distribuida` é o total físico entregue; `quantidade_troca` é a
+    parcela incluída nesse total e `quantidade_faturavel` é a diferença fiscal.
+    Telas operacionais de entrega devem mostrar o total físico sem exigir soma
+    mental e nunca alterar a regra fiscal para simplificar a apresentação.
+14. Relatórios do NF Distribuição podem derivar valor, volume, reposições e
+    histórico diretamente das distribuições. Não devem afirmar lucro, estoque
+    disponível ou previsão de produção sem os dados dos respectivos domínios.
+15. Clientes futuros poderão ter faturamento imediato ou diferido. O modelo
+    diferido precisa preservar alocações parciais entre linhas entregues e itens
+    faturados, mas ainda depende de decisões do cliente e não está implementado.
 
 ## Reunião de 29/08/2026
 

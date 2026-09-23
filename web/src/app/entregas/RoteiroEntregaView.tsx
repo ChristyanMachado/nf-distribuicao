@@ -75,10 +75,6 @@ export default function RoteiroEntregaView({
     window.location.assign(`/entregas?lote=${encodeURIComponent(id)}`);
   }
 
-  function quantidadeNormal(quantidadeDistribuida: number, quantidadeTroca: number) {
-    return formatarQuantidade(Math.max(0, quantidadeDistribuida - quantidadeTroca));
-  }
-
   return (
     <div className="pb-24">
       <div className="no-print mt-5 space-y-3">
@@ -153,13 +149,13 @@ export default function RoteiroEntregaView({
                   <div className="divide-y divide-[var(--line)]">
                     <div className={`grid ${gradeItens} gap-x-3 bg-[var(--cream)] px-4 py-2 font-mono-tab text-[10px] font-bold uppercase tracking-wide text-[var(--ink-faint)]`}>
                       <span>Produto</span>
-                      <span className="text-right">Normal</span>
-                      {mostrarTrocas && <span className="text-right">Troca</span>}
+                      <span className="text-right">Total</span>
+                      {mostrarTrocas && <span className="text-right">Troca incluída</span>}
                     </div>
                     {parada.itens.map((item) => (
                       <div key={`${parada.clienteId}-${item.produtoId}`} className={`print-item grid ${gradeItens} items-center gap-x-3 gap-y-1 px-4 py-3`}>
                         <span className="min-w-0 font-medium leading-snug">{item.produtoDescricao}<span className="mt-0.5 block text-xs font-normal text-[var(--ink-faint)] sm:hidden">{item.unidade}</span></span>
-                        <span className="font-mono-tab text-right text-sm font-bold sm:text-base">{quantidadeNormal(item.quantidadeDistribuida, item.quantidadeTroca)} <span className="hidden sm:inline">{item.unidade}</span></span>
+                        <span className="font-mono-tab text-right text-sm font-bold sm:text-base">{formatarQuantidade(item.quantidadeDistribuida)} <span className="hidden sm:inline">{item.unidade}</span></span>
                         {mostrarTrocas && <span className="font-mono-tab text-right text-sm font-bold text-[var(--stamp)] sm:text-base">{item.quantidadeTroca > 0 ? <>{formatarQuantidade(item.quantidadeTroca)} <span className="hidden sm:inline">{item.unidade}</span></> : "—"}</span>}
                         {mostrarValores && <span className={`text-right text-sm font-semibold ${mostrarTrocas ? "col-span-3" : "col-span-2"}`}>{moeda.format(item.subtotal)}</span>}
                       </div>
