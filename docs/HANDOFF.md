@@ -1,5 +1,42 @@
 # Handoff — Estado Atual
 
+## Configuração por Worker e referências dinâmicas — 23/09/2026
+
+Auditoria confirmou que cadastro, vínculo cliente–emitente e snapshot de tarefa
+já são dinâmicos no Web/Supabase; não é necessária nova tabela nem migração de
+cadastros. Login/senha fiscal continuam privados no PC do Worker. O preparador
+de `worker.env` agora reconhece qualquer `credencial_referencia` válida pelo
+Web (por exemplo `EMITENTE_JOAO`), preservando referências legadas `CLIENTE_*`
+e exigindo o bloco completo de credenciais. Teste focado: 10 aprovados. A
+alteração ainda não foi empacotada nem instalada no PC servidor.
+
+Foi implementado localmente o controle de concorrência individual por Worker
+em Configurações (Manual 1/2/3 ou Automático, limitado pelos tetos administrativo
+e local), além do controlador automático conservador no Worker. A preferência
+web só grava modo/capacidade desejados e dados de auditoria; o Worker informa a
+capacidade efetiva por função privada, somente entre ciclos e sem cancelar
+notas ativas. Automático inicia em 1, só promove após janelas saudáveis,
+serializa credenciais repetidas e retorna ao mínimo diante de dados/falhas
+incertos. O teto local vem de `MAX_CONCORRENCIA`; aumentar a opção disponível
+exige provisionar e reiniciar o pacote daquele PC. A contingência local segue
+fora do cadastro coordenado e mantém sua configuração própria.
+
+A migration aditiva `0021_concorrencia_worker.sql` foi aplicada ao Supabase
+`kcukzbszakwrfhbsiihw` em 23/09/2026. Pós-verificação confirmou as colunas e a
+view; os dois papéis de Worker têm EXECUTE na função, enquanto `anon` e
+`authenticated` não têm. PC servidor continua Manual 1, teto banco 2, teto local
+1; contingência continua Manual 1/teto 1. Portanto, a migration não aumentou
+concorrência. Falta publicar Web e atualizar o pacote Worker compatível. A
+validação local desta etapa: 387 testes do Worker, 177 testes do Web e
+`tsc --noEmit` aprovados. O build compilou e passou TypeScript, mas a coleta de
+páginas parou porque este checkout não tem `DATABASE_URL`; falta build com o
+ambiente de deploy, deploy e ensaio controlado no PC. O build repetido com URL
+fictícia local (sem conexão de banco) completou com sucesso. Emitentes
+já eram dinâmicos no banco/Web; foi generalizada a preparação do `worker.env`
+para referências novas, mantendo senhas exclusivamente locais. Atualização
+incremental Graphify code-only concluída; `graphify-out/` permanece local e
+ignorado.
+
 ## KPI abrangente e tentativa de concorrência 2 — 23/09/2026
 
 A estimativa de economia cobre agora todo o trabalho concluído do período:

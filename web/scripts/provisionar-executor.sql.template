@@ -27,7 +27,8 @@ GRANT UPDATE (status,tentativas,reservada_por,reserva_token,reserva_expira_em,me
 GRANT EXECUTE ON FUNCTION fiscal.reservar_tarefas_worker(text,integer,integer),
  fiscal.worker_start(text,uuid,text,integer),fiscal.worker_heartbeat(text,uuid,boolean,text),
  fiscal.worker_admission(text,uuid),fiscal.worker_summary(text,uuid),fiscal.worker_stop(text,uuid),
- fiscal.worker_recover_abandoned(text,uuid) TO :"worker_role";
+ fiscal.worker_recover_abandoned(text,uuid),
+ fiscal.worker_set_capacity(text,uuid,text,integer,integer,integer,text) TO :"worker_role";
 INSERT INTO fiscal.workers(worker_id,db_role,priority,capacity_limit)
  VALUES (:'worker_id',:'worker_role',:worker_priority,:worker_capacity);
 COMMIT;
