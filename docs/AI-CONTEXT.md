@@ -14,9 +14,10 @@ O retry pedido é de **tarefa**, não de clique: timeout transitório confirmado
 antes de `EMITINDO` devolve a tarefa para `PENDENTE`, mantendo a tentativa, e
 as reservas priorizam tarefas novas antes dos retries. Após três tentativas a
 tarefa fica em `ERRO`. Qualquer falha depois da fronteira fiscal continua em
-conferência humana e nunca volta automaticamente. A migration local
-`0020_retry_automatico_pre_emissao.sql` é necessária para a ordenação da fila
-e ainda não deve ser tratada como aplicada sem confirmação remota.
+conferência humana e nunca volta automaticamente. A migration
+`0020_retry_automatico_pre_emissao.sql` foi aplicada em produção em 2026-09-23
+(`retry_automatico_pre_emissao`) e verificada: índice e ordenação instalados;
+os papéis `nf_worker_vm` e `nf_worker_local` mantêm EXECUTE na reserva.
 
 O Web e o runtime já aceitavam referências arbitrárias de emitentes; a trava
 A/B/C estava apenas no preparador de `worker.env`. O preparador passou a

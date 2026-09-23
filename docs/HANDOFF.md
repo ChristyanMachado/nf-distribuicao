@@ -77,8 +77,9 @@ FROM fiscal.workers WHERE worker_id = 'pc-servidor-01';
   a reserva efetiva permanece unitária.
 - Retry transitório foi definido no nível da tarefa: nova navegação no fim da
   fila, no máximo três tentativas; nunca repetir clique incerto. A migration
-  `0020_retry_automatico_pre_emissao.sql` precisa ser aplicada antes de publicar
-  o Worker correspondente.
+  `0020_retry_automatico_pre_emissao.sql` foi aplicada em produção em
+  2026-09-23 (`retry_automatico_pre_emissao`) e verificada; a fila prioriza
+  tarefas novas e ambos os papéis Worker mantêm permissão de execução.
 - Novo emitente: criar normalmente no Web com uma referência válida e adicionar
   no `worker.env` privado o bloco `<REFERENCIA>_LOGIN`, `_SENHA`,
   `_IDENTIDADE_ESPERADA` e `_EMITENTE`. Reiniciar o Worker depois. Não gravar
@@ -2175,6 +2176,9 @@ operacionais; o futuro financeiro deve consultar também o estado fiscal da nota
   todo o orçamento em raciocínio, está documentado em `MODELOS-IA.md`.
 
 ## Auditoria de eficiência e Home diária — 23/09/2026
+
+> O cálculo de 14min42s abaixo documenta a metodologia anterior, já substituída
+> pelo KPI abrangente descrito no início deste handoff e em `ROADMAP.md`.
 
 - Uma consulta read-only no Supabase reproduziu o saldo exibido: 16 lotes
   operacionais, 13 medidos, 4 comparáveis ao único benchmark de 3 notas e

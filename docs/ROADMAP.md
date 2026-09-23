@@ -7,8 +7,8 @@ histórico: vários itens apontados nela já foram implementados depois.
 
 ## Auditoria de eficiência — 23/09/2026
 
-- A decomposição factual do saldo de 14 minutos está registrada em
-  [AUDITORIA-METRICAS-EFICIENCIA-2026-09-23.md](AUDITORIA-METRICAS-EFICIENCIA-2026-09-23.md).
+- A auditoria registra o cálculo antigo de 14min42s e, em seção posterior,
+  documenta sua substituição pelo KPI abrangente.
 - O KPI provisório agora cobre 50 notas concluídas no recorte de 30 dias:
   42 têm throughput de lote observado, 8 extrapoladas; resultado ≈63 min,
   sem apresentar precisão de segundos. O protocolo de benchmark foi atualizado.
@@ -38,8 +38,10 @@ histórico: vários itens apontados nela já foram implementados depois.
   Workers compactos no mobile, total físico explícito no roteiro, emitentes em
   área secundária e relatórios operacionais com período personalizado, trocas
   por mercado e histórico de quantidade por produto.
-- A versão Web `b8d5746` está em `main` e produção; `2bd469e`, também marcado
-  pela tag `web-prod-stable-20260922`, permanece como rollback conhecido.
+- A versão Web `a7884b0` está em `main` e produção; o checkpoint também está
+  marcado pela tag `checkpoint-metricas-concorrencia2-20260923`. `2bd469e`,
+  marcado pela tag `web-prod-stable-20260922`, permanece como rollback estável
+  conhecido.
 - O tempo economizado é dinâmico e identificado como estimativa. Usa baseline
   linear provisório de 337 s/3 notas e throughput de parede dos lotes sem retry;
   isso não mede latência individual e precisa ser recalibrado com benchmark real.
@@ -49,9 +51,9 @@ histórico: vários itens apontados nela já foram implementados depois.
 
 ## Em andamento imediato
 
-1. **Confirmar e aplicar a migration `0020_retry_automatico_pre_emissao.sql`**
-   no projeto correto antes de publicar o Worker que usa o retry; não instalar
-   `3592bd5` ou posterior sem esse pré-requisito confirmado.
+1. **Concluído:** migration `0020_retry_automatico_pre_emissao.sql` aplicada no
+   Supabase de produção em 2026-09-23; índice, ordenação e permissões dos papéis
+   `nf_worker_vm`/`nf_worker_local` verificados.
 2. **Gerar e instalar o próximo pacote do Worker** a partir do commit validado,
    preservando `hold.request`; comprovar saúde em manutenção e repetir o reboot.
 3. **Validar operação física segura:** logs, retomada, impressão e estabilidade,
