@@ -42,6 +42,10 @@ histórico: vários itens apontados nela já foram implementados depois.
   marcado pela tag `checkpoint-metricas-concorrencia2-20260923`. `2bd469e`,
   marcado pela tag `web-prod-stable-20260922`, permanece como rollback estável
   conhecido.
+- O Worker `9b404b25cb9a532eef85ac0f208793563b8b4c6f` foi instalado no PC
+  servidor em 23/09/2026. Health pós-atualização: `ok`, depois `espera`, sem
+  tarefas ativas; `hold.request` ausente. Valheim permaneceu em execução.
+  Concorrência física continua em 1; nenhuma emissão de teste foi criada.
 - O tempo economizado é dinâmico e identificado como estimativa. Usa baseline
   linear provisório de 337 s/3 notas e throughput de parede dos lotes sem retry;
   isso não mede latência individual e precisa ser recalibrado com benchmark real.
@@ -54,10 +58,11 @@ histórico: vários itens apontados nela já foram implementados depois.
 1. **Concluído:** migration `0020_retry_automatico_pre_emissao.sql` aplicada no
    Supabase de produção em 2026-09-23; índice, ordenação e permissões dos papéis
    `nf_worker_vm`/`nf_worker_local` verificados.
-2. **Gerar e instalar o próximo pacote do Worker** a partir do commit validado,
-   preservando `hold.request`; comprovar saúde em manutenção e repetir o reboot.
-3. **Validar operação física segura:** logs, retomada, impressão e estabilidade,
-   sem criar emissão artificial em produção.
+2. **Concluído:** Worker atualizado no PC servidor para `9b404b2`; SHA-256 do
+   pacote conferido antes da instalação. A release anterior é preservada para
+   rollback pelo gerenciador.
+3. **Validar operação física segura:** confirmar novamente após reboot, observar
+   logs, retomada e impressão; sem criar emissão artificial em produção.
 4. **Primeira operação legítima em produção:** acompanhar uma distribuição real,
    conferir XML/DANFE, data fiscal, status e documentos. Produção está preparada,
    mas o fluxo completo ainda aguarda essa validação prática.

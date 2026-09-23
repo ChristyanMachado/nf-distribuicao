@@ -2197,3 +2197,24 @@ operacionais; o futuro financeiro deve consultar também o estado fiscal da nota
 - Validação local: 173 testes Web e TypeScript aprovados. A build compilou e
   passou pelo TypeScript, mas parou ao coletar páginas porque este worktree não
   possui `DATABASE_URL`.
+
+## Worker do PC servidor atualizado — 23/09/2026
+
+- O pacote `worker-servidor-9b404b2-py3137.zip` foi transferido e seu SHA-256
+  confirmado no destino (`289008750A081313730B83DCB3707647F9E3E65ED3595991A1AAA41CD9277096`).
+- O atualizador Windows preparou a release antes da drenagem, validou o runtime
+  Playwright/Chromium, alternou `current.json` e confirmou o health check.
+  Versão ativa: `9b404b25cb9a532eef85ac0f208793563b8b4c6f`; a versão anterior
+  (`181581153c9d15e4fb78f11d092e18864716ce9d`) permanece disponível para
+  rollback pelo gerenciador.
+- Pós-atualização: tarefa `GraalystWorker` em execução, health `espera` com
+  código 0 e zero tarefas ativas, sem `hold.request`; o Worker está apto a
+  retomar a busca. `ValheimServer` também permaneceu em execução.
+- Configuração não secreta confirmada: produção, modo coordenado, concorrência
+  1, polling de 5 s; recuperação e cancelamentos fiscais habilitados. Nenhuma
+  emissão/cancelamento artificial foi executado.
+- Na rede local observada, o PC responde em `192.168.4.27` (`DESKTOP-45U2KDL`).
+  Esse IP é privado e pode mudar com DHCP noutra rede; não é endereço público
+  nem dependência do Worker. O alias SSH não foi alterado nesta rodada.
+- A retomada após reboot, estabilidade em operação legítima e teste físico de
+  impressão continuam pendentes. Não inferir sucesso fiscal apenas do health.
