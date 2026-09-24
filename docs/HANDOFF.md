@@ -59,10 +59,15 @@ ignorado.
 
 O Preview da Vercel exige variáveis exclusivamente de homologação e
 `APP_ENVIRONMENT=homologacao`; não relaxar `scripts/isolamento-homologacao.mjs`
-para contornar a trava. O deploy anterior do ramo foi barrado por esse guard,
-não por falha de compilação. Só testar o formulário no Preview depois de
-configurar o DATABASE_URL/Storage/auth isolados da QA; nunca copiar segredo de
-produção para Preview. O servidor físico continua sem receber pacote novo.
+para contornar a trava. O commit `76d08223e5b8dc6b1b48067d14428e2e0c5bbd17`
+foi enviado à branch de validação. O Preview
+`dpl_nBhnZwffQ6hLNuUa5AnifcssTNqM` terminou `ERROR` no comando
+`npm run deploy:check && npm run build` (`BUILD_UTILS_SPAWN_1`); a ferramenta
+de logs de build não estava disponível para identificar qual subcomando saiu
+com erro. O preflight local já havia sinalizado ausência de variáveis de QA.
+Só testar o formulário no Preview depois de configurar DATABASE_URL/Storage/
+auth isolados da QA; nunca copiar segredo de produção para Preview. O servidor
+físico continua sem receber pacote novo.
 
 ## KPI abrangente e tentativa de concorrência 2 — 23/09/2026
 
