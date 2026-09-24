@@ -1,6 +1,8 @@
 # Plano de concorrência adaptativa do Worker
 
-Estado: planejamento aprovado tecnicamente; **não implementado**.
+Estado: implementação inicial concluída na branch de validação; rollout ainda
+parcial. O comportamento conservador padrão permanece Manual 1. Não declarar
+concorrência 2/3 operacionalmente validada sem o ensaio descrito abaixo.
 
 Este documento define a fronteira entre investigação e implementação. Nenhuma
 emissão fiscal foi criada para produzir estas conclusões.
@@ -371,38 +373,49 @@ limite fixo por ciclo.
 
 ## 10. Critérios de aceitação e estado
 
-1. Implementação local: Manual 1/2/3 é lido entre ciclos; UI bloqueia valores
-   acima do menor teto banco/local. A preferência requer migration aplicada.
-2. Implementação local: Automático inicia conservador e limita ao teto efetivo.
-3. Implementação local: setter recusa mudanças com tarefas ativas; trabalho em
-   andamento não é cancelado.
-4. No Automático, métrica obrigatória ausente força 1; no Manual, mantém a
-   escolha salvo uma trava universal.
-5. Mesma credencial nunca executa em paralelo.
-6. Nenhuma reserva duplicada em dois executores.
-7. Falha de ciclo/informação indisponível faz o ciclo seguinte usar 1; resultado
-   fiscal incerto segue as proteções existentes e não é repetido automaticamente.
-8. Razões fechadas e sanitizadas são armazenadas e testadas.
-9. UI distingue preferência solicitada, teto liberado e capacidade informada.
-10. Testes automatizados não criaram efeito fiscal real. A migration remota
-    está aplicada; ainda faltam deploy compatível e ensaio controlado no PC.
+1. Implementado: Manual 1/2/3 e Automático são lidos entre ciclos; UI limita a
+   preferência ao menor teto administrativo/local.
+2. Implementado: Automático inicia em 1 e somente avança com sinais saudáveis.
+3. Implementado: setter do Worker impede alteração com tarefa ativa; notas
+   iniciadas não são interrompidas.
+4. Implementado: métrica obrigatória ausente/falha força fallback conservador.
+5. Implementado: mesma credencial fiscal não executa em paralelo.
+6. Implementado: reserva coordenada mantém token/lease/dono por executor.
+7. Implementado: resultado fiscal incerto segue conferência humana, sem retry.
+8. Implementado: motivos fechados/sanitizados são armazenados e testados.
+9. Implementado: UI separa preferência pedida, teto liberado e capacidade atual.
+10. Implementado e aplicado em produção e QA: migration 0021 e RPC 0022.
+    Grants remotos foram verificados; Web QA não tem UPDATE direto em workers.
+11. Parcial: testes unitários locais aprovados, mas a atualização da preferência
+    por uma linha Worker QA ainda não foi exercitada; a tabela QA está vazia.
+12. Pendente: Preview Vercel isolado e atualização do pacote do PC servidor.
+13. Pendente: ensaio com duas tarefas fiscais legítimas, emitentes distintos,
+    observando interferência/timeout e telemetria. Não criar nota artificial em
+    produção para satisfazer este critério.
 
 ## 11. Próximos passos de rollout
 
-Implementação concluída no código da branch de validação; migration remota
-aplicada. Modo Automático é opt-in e não altera o padrão Manual 1. A lógica nova
-ainda não foi instalada no PC servidor nem validada em emissão real.
+Implementação concluída no código da branch de validação; migrations remotas
+0021 e 0022 aplicadas em produção e QA. Modo Automático é opt-in e não altera o
+padrão Manual 1. A lógica nova ainda não foi instalada no PC servidor nem
+validada em emissão real. Produção mantém capacidade reportada 1 e teto 2;
+contingência segue em Manual 1/teto 1 e drenada.
 
-1. Concluído: aplicar/verificar a migration `0021_concorrencia_worker.sql` no Supabase
-   correto; validar os grants e a view sanitizada.
-2. Publicar o Web compatível e atualizar o Worker do PC servidor com
+1. Concluído: aplicar/verificar `0021_concorrencia_worker.sql` e
+   `0022_preferencia_concorrencia_worker.sql` em produção e QA; conferir grants
+   mínimos e view sanitizada.
+2. Pendente: configurar variáveis exclusivamente QA no Preview Vercel e
+   confirmar qual papel privado de banco o Web de produção usa para executar
+   a RPC 0022 (sem compartilhar credenciais). O guard de isolamento não deve
+   ser removido.
+3. Publicar o Web compatível na branch/Preview e atualizar o Worker do PC servidor com
    `psutil==7.2.2` e um teto local definido para a máquina. O teto
    administrativo atual do PC servidor é 2, mas o modo/capacidade selecionados
    continuam Manual 1; não aumentá-los até concluir o ensaio controlado.
-3. Validar a página de Configurações em Manual 1 e confirmar que o valor é
+4. Validar a página de Configurações em Manual 1 e confirmar que o valor é
    reportado corretamente. Habilitar 2 somente após teste controlado com
    emitentes/credenciais diferentes; manter 3 bloqueado até evidência própria.
-4. Só então selecionar Automático e observar decisões/capacidade informada
+5. Só então selecionar Automático e observar decisões/capacidade informada
    durante ciclos reais. Reverter pela UI para Manual 1 se houver anomalia.
 
 O controlador registra capacidade efetiva e motivo; não há um terceiro modo

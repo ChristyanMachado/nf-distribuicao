@@ -75,31 +75,16 @@ export async function atualizarConcorrenciaWorker(
       throw new Error("Selecione uma capacidade entre 1 e 3.");
     }
 
-    const registro = modo === "MANUAL"
-      ? await db.execute<{ worker_id: string }>(sql`
-          UPDATE fiscal.workers
-          SET requested_mode = 'MANUAL',
-              manual_capacity = ${capacidade},
-              concurrency_updated_by = ${(sessao?.usuario ?? "desenvolvimento").slice(0, 160)},
-              concurrency_updated_at = clock_timestamp()
-          WHERE worker_id = ${workerId}
-            AND ${capacidade} <= capacity_limit
-            AND ${capacidade} <= local_capacity_limit
-          RETURNING worker_id
-        `)
-      : await db.execute<{ worker_id: string }>(sql`
-          UPDATE fiscal.workers
-          SET requested_mode = 'AUTOMATICO',
-              automatic_max = ${capacidade},
-              concurrency_updated_by = ${(sessao?.usuario ?? "desenvolvimento").slice(0, 160)},
-              concurrency_updated_at = clock_timestamp()
-          WHERE worker_id = ${workerId}
-            AND ${capacidade} <= capacity_limit
-            AND ${capacidade} <= local_capacity_limit
-          RETURNING worker_id
-        `);
+    const registro = await db.execute<{ worker_id: string | null }>(sql`
+      SELECT fiscal.atualizar_preferencia_concorrencia(
+        ${workerId},
+        ${modo},
+        ${capacidade},
+        ${(sessao?.usuario ?? "desenvolvimento").slice(0, 160)}
+      ) AS worker_id
+    `);
 
-    if (registro.length !== 1) {
+    if (registro.length !== 1 || registro[0]?.worker_id !== workerId) {
       throw new Error("A capacidade escolhida não está liberada para esse servidor.");
     }
   } catch (erro) {

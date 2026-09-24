@@ -1,6 +1,6 @@
 # Handoff — Estado Atual
 
-## Configuração por Worker e referências dinâmicas — 23/09/2026
+## Configuração por Worker e referências dinâmicas — 24/09/2026
 
 Auditoria confirmou que cadastro, vínculo cliente–emitente e snapshot de tarefa
 já são dinâmicos no Web/Supabase; não é necessária nova tabela nem migração de
@@ -22,12 +22,32 @@ exige provisionar e reiniciar o pacote daquele PC. A contingência local segue
 fora do cadastro coordenado e mantém sua configuração própria.
 
 A migration aditiva `0021_concorrencia_worker.sql` foi aplicada ao Supabase
-`kcukzbszakwrfhbsiihw` em 23/09/2026. Pós-verificação confirmou as colunas e a
-view; os dois papéis de Worker têm EXECUTE na função, enquanto `anon` e
-`authenticated` não têm. PC servidor continua Manual 1, teto banco 2, teto local
-1; contingência continua Manual 1/teto 1. Portanto, a migration não aumentou
-concorrência. Falta publicar Web e atualizar o pacote Worker compatível. A
-validação local desta etapa: 387 testes do Worker, 177 testes do Web e
+`kcukzbszakwrfhbsiihw` e à homologação `szakgftippcqtuqwxsox` em 24/09/2026.
+A `0022_preferencia_concorrencia_worker.sql` também foi aplicada nos dois
+projetos. Ela oferece uma RPC estreita para gravar preferência sem DML direto
+do Web em `fiscal.workers`: somente `nf_homologacao_web` recebe EXECUTE na QA;
+em produção não há papel Web dedicado cadastrado e o proprietário da função é
+`postgres`, então o funcionamento depende de a conexão privada do Web usar esse
+principal (validar no primeiro ensaio de Configurações, sem revelar credenciais).
+Em ambas, `anon` e `authenticated` não têm EXECUTE; em QA o Web também não tem
+UPDATE na tabela. Advisors não apontaram novo alerta para a função; os avisos
+existentes são de outros objetos (principalmente `auditoria_fiscal`/Ponto).
+
+Pós-verificação confirmou função, owner `postgres`, `SECURITY DEFINER`,
+`search_path=pg_catalog`, grants e colunas. O PC servidor continua Manual 1,
+teto banco 2, reportado 1; a contingência permanece Manual 1/teto 1 e drenada.
+Nenhum limite efetivo foi aumentado. A tabela `fiscal.workers` de homologação
+está vazia: não provisionamos identidade nem credenciais fictícias, portanto o
+fluxo de salvar uma preferência pelo Web ainda requer uma linha QA autorizada.
+O teste transacional de RPC foi tentado sem persistência; o executor MCP não
+pôde assumir `nf_homologacao_web`, a transação foi revertida e a consulta
+posterior confirmou zero linha de teste. A chamada da Server Action deve ser
+validada por Preview usando a credencial privada QA, não ampliando grants para
+o papel de diagnóstico.
+O ramo de validação contém a UI e o contrato RPC; `main`, produção Vercel e o
+pacote Worker do PC não foram promovidos nesta etapa.
+
+Validação local anterior: 387 testes do Worker, 177 testes do Web e
 `tsc --noEmit` aprovados. O build compilou e passou TypeScript, mas a coleta de
 páginas parou porque este checkout não tem `DATABASE_URL`; falta build com o
 ambiente de deploy, deploy e ensaio controlado no PC. O build repetido com URL
@@ -36,6 +56,13 @@ já eram dinâmicos no banco/Web; foi generalizada a preparação do `worker.env
 para referências novas, mantendo senhas exclusivamente locais. Atualização
 incremental Graphify code-only concluída; `graphify-out/` permanece local e
 ignorado.
+
+O Preview da Vercel exige variáveis exclusivamente de homologação e
+`APP_ENVIRONMENT=homologacao`; não relaxar `scripts/isolamento-homologacao.mjs`
+para contornar a trava. O deploy anterior do ramo foi barrado por esse guard,
+não por falha de compilação. Só testar o formulário no Preview depois de
+configurar o DATABASE_URL/Storage/auth isolados da QA; nunca copiar segredo de
+produção para Preview. O servidor físico continua sem receber pacote novo.
 
 ## KPI abrangente e tentativa de concorrência 2 — 23/09/2026
 
