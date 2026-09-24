@@ -2287,3 +2287,33 @@ operacionais; o futuro financeiro deve consultar também o estado fiscal da nota
   nem dependência do Worker. O alias SSH não foi alterado nesta rodada.
 - A retomada após reboot, estabilidade em operação legítima e teste físico de
   impressão continuam pendentes. Não inferir sucesso fiscal apenas do health.
+
+## Promoção de concorrência por executor — 24/09/2026
+
+- O commit `56e0130aee4dd1c021bb1798203cc61bcb23ca4a` foi promovido por
+  fast-forward para `main`. A Vercel criou o deploy de produção
+  `dpl_9LVQD3hBA4QfE7yn7GzMmzv1QVK2`, estado `READY`, região `gru1`; o domínio
+  `nf-distribuicao.vercel.app` está associado ao deploy e `/login` respondeu
+  HTTP 200. O rollback Web imediato é o deploy anterior em produção do commit
+  `9b404b25cb9a532eef85ac0f208793563b8b4c6f` (`dpl_C1YSRJqSKh2RhgmqAvtNdHpo8nXR`).
+- O Worker do PC servidor foi atualizado de forma drenada para o mesmo commit,
+  com package SHA-256
+  `97F88B5486620940EB7A00CD93844C2C29BB2F51841E36F549C656E43E4B0A24`.
+  Heartbeat confirmou versão `56e0130...`, health `ok`, banco `ONLINE`, lease
+  vigente, zero tarefas ativas e `hold`/`drain` ausentes. `previous.json` aponta
+  para a release funcional `9b404b25...`; rollback disponível pelo gerenciador
+  Windows. A impressão automática está desabilitada, sem consumir as 11
+  solicitações de impressão pendentes.
+- Nenhuma tarefa de emissão estava pendente/ativa; recuperação e cancelamento
+  não tinham solicitações em andamento. O Worker permaneceu em produção com
+  `MAX_CONCORRENCIA=1`, `reported_capacity=1`, embora o teto cadastrado seja 2.
+  Não se alterou a configuração para concorrência 2 e não houve emissão fiscal
+  artificial.
+- Validação local: 177 testes Web, TypeScript e 387 testes Worker aprovados. O
+  `deploy:check` e a coleta completa de páginas não rodam neste worktree porque
+  ele não contém variáveis de ambiente (`DATABASE_URL` etc.); o ambiente
+  Production da Vercel gerou o deploy READY. O primeiro fluxo completo da nova
+  preferência ainda precisa de validação funcional pela interface autenticada.
+- Verificação pós-deploy adicional: não havia clusters de erro de runtime na
+  janela de 10 minutos consultada; heartbeat do Worker permaneceu `ONLINE` com
+  zero tarefas ativas.
