@@ -70,69 +70,6 @@ def test_processa_identificado_e_encerra_sem_vazar_contexto(setup):
     assert CoordenadorFalso.instances[-1].stopped
 
 
-@pytest.mark.parametrize(
-    ("modo", "capacidade_manual", "teto_local", "teto_admin", "falha_report", "esperado"),
-    [
-        ("MANUAL", 2, 2, 2, False, 2),
-        ("MANUAL", 3, 1, 3, False, 1),
-        ("MANUAL", 3, 3, 2, False, 2),
-        ("MANUAL", 2, 3, 3, True, 1),
-    ],
-)
-def test_capacidade_do_proximo_ciclo_respeita_politica_e_falha_fechada(
-    setup, modo, capacidade_manual, teto_local, teto_admin, falha_report, esperado
-):
-    config, _ = setup
-    config.max_concorrencia = teto_local
-    config.limite_local_concorrencia = teto_local
-    observado = {"capacidade_ciclo": None, "report": None}
-
-    class FonteFalsa:
-        async def obter_politica_concorrencia(self):
-            return {
-                "mode": modo,
-                "manual_capacity": capacidade_manual,
-                "automatic_max": 3,
-                "admin_limit": teto_admin,
-            }
-
-        async def obter_fila_concorrencia(self):
-            return 3, 3
-
-    class CoordenadorPoliticaFalso(CoordenadorFalso):
-        def __init__(self, config, identidade):
-            super().__init__(config, identidade)
-            self.fonte = FonteFalsa()
-
-        async def iniciar(self):
-            return {"admitted": False, "active_count": 0}
-
-        async def heartbeat(self, **kwargs):
-            self.beats.append(kwargs)
-            return {"admitted": True, "active_count": 0}
-
-        async def definir_capacidade(self, *args):
-            observado["report"] = args
-            if falha_report:
-                raise RuntimeError("falha simulada sem dado confidencial")
-            return {"applied": True}
-
-    async def executor(config_ciclo, _logger):
-        observado["capacidade_ciclo"] = config_ciclo.max_concorrencia
-        return 2
-
-    assert asyncio.run(executar_coordenado(
-        config,
-        logging.getLogger("concorrencia-integracao"),
-        executor=executor,
-        max_ciclos=1,
-        criar_coordenador=CoordenadorPoliticaFalso,
-        tick=0.001,
-    )) == 0
-    assert observado["capacidade_ciclo"] == esperado
-    assert observado["report"] is not None
-
-
 def test_drain_existente_nao_processa(setup):
     config, path = setup
     (path / "drain").touch()

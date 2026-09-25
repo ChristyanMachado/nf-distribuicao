@@ -2,10 +2,7 @@
 from __future__ import annotations
 
 import asyncio
-import copy
 from contextlib import suppress
-from dataclasses import replace
-from collections import deque
 import json
 import os
 from pathlib import Path
@@ -15,24 +12,6 @@ from uuid import UUID, uuid4
 
 from .executor_contexto import IdentidadeExecutor, executor_atual, controle_solicitado
 from .fonte_tarefas import FontePostgresTarefas
-from .concorrencia_adaptativa import (
-    ControllerState,
-    Mode,
-    Policy,
-    QueueState,
-    Sample,
-    decide_capacity,
-)
-
-
-def _configuracao_com_capacidade(config, capacidade):
-    try:
-        return replace(config, max_concorrencia=capacidade)
-    except TypeError:
-        # Facilita testes com objetos simples sem mutar a configuração original.
-        copia = copy.copy(config)
-        copia.max_concorrencia = capacidade
-        return copia
 
 
 class Coordenador:
@@ -53,9 +32,8 @@ class Coordenador:
         return json.loads(resultado) if isinstance(resultado, str) else resultado
 
     async def iniciar(self):
-        # Nunca anuncia a capacidade máxima antes de ler política e limites.
         return await self._chamar("SELECT fiscal.worker_start($1,$2::uuid,$3,$4)",
-                                 self.identidade.versao, 1)
+                                 self.identidade.versao, self.config.max_concorrencia)
 
     async def heartbeat(self, *, drenando=False, erro=None):
         return await self._chamar("SELECT fiscal.worker_heartbeat($1,$2::uuid,$3,$4)", drenando, erro)
@@ -65,12 +43,6 @@ class Coordenador:
 
     async def parar(self):
         return await self._chamar("SELECT fiscal.worker_stop($1,$2::uuid)")
-
-    async def definir_capacidade(self, modo, capacidade, limite_local, sugerida, motivo):
-        return await self._chamar(
-            "SELECT fiscal.worker_set_capacity($1,$2::uuid,$3,$4,$5,$6,$7)",
-            modo, capacidade, limite_local, sugerida, motivo,
-        )
 
 
 async def _iniciar_aguardando_lease(coordenador, logger, publicar, *,
@@ -134,16 +106,6 @@ async def executar_coordenado(config, logger, *, executor, max_ciclos=None,
     inicio_ciclo = 0.0
     conectado = False
     falhas_consecutivas = 0
-    capacidade_atual = 1
-    estado_controlador = ControllerState(effective_capacity=1, previous_cycle_clean=False)
-    amostras = deque(maxlen=24)
-    proxima_amostra = 0.0
-    fila_ciclo = 0
-    try:
-        import psutil
-        psutil.cpu_percent(interval=None)  # aquece o contador sem bloquear o loop
-    except Exception:
-        psutil = None
 
     def publicar(estado, saida=0):
         _gravar_saude(saude, estado=estado, codigo_saida=saida, detalhes={
@@ -161,18 +123,6 @@ async def executar_coordenado(config, logger, *, executor, max_ciclos=None,
             try:
                 while True:
                     agora = time.monotonic()
-                    if agora >= proxima_amostra:
-                        if psutil is None:
-                            amostras.append(Sample(None, None))
-                        else:
-                            try:
-                                amostras.append(Sample(
-                                    float(psutil.cpu_percent(interval=None)),
-                                    int(psutil.virtual_memory().available),
-                                ))
-                            except Exception:
-                                amostras.append(Sample(None, None))
-                        proxima_amostra = agora + 5
                     drenar = parar.is_set() or controle_solicitado("WORKER_CONTROL_PATH")
                     hold = controle_solicitado("WORKER_STARTUP_HOLD_PATH")
                     if agora >= proximo_heartbeat:
@@ -203,12 +153,6 @@ async def executar_coordenado(config, logger, *, executor, max_ciclos=None,
                             resultado = 1
                         tarefa = None
                         ciclos += 1
-                        estado_controlador = ControllerState(
-                            effective_capacity=capacidade_atual,
-                            previous_cycle_clean=(resultado == 2 and fila_ciclo > 0),
-                            last_change_at=estado_controlador.last_change_at,
-                        )
-                        fila_ciclo = 0
                         erro = "WORKER_CYCLE_FAILED" if resultado == 1 else None
                         falhas_consecutivas = falhas_consecutivas + 1 if resultado == 1 else 0
                         if falhas_consecutivas >= 3:
@@ -228,69 +172,8 @@ async def executar_coordenado(config, logger, *, executor, max_ciclos=None,
                         break
                     if (tarefa is None and conectado and resumo["admitted"] and not drenar and not hold
                             and agora >= proximo_ciclo):
-                        try:
-                            registro = await coordenador.fonte.obter_politica_concorrencia()
-                            elegiveis, credenciais = await coordenador.fonte.obter_fila_concorrencia()
-                            fila_ciclo = elegiveis
-                            local_limit = min(
-                                int(getattr(config, "limite_local_concorrencia", None)
-                                     or config.max_concorrencia or 1),
-                                3,
-                            )
-                            policy = Policy(
-                                mode=Mode(str(registro["mode"])),
-                                manual_capacity=int(registro["manual_capacity"]),
-                                auto_min=1,
-                                auto_max=int(registro["automatic_max"]),
-                                local_limit=local_limit,
-                                admin_limit=int(registro["admin_limit"]),
-                            )
-                            decision = decide_capacity(
-                                policy,
-                                estado_controlador,
-                                tuple(amostras),
-                                QueueState(elegiveis, credenciais, lease_healthy=conectado),
-                                now_monotonic=agora,
-                            )
-                            modo_decisao = policy.mode.value
-                            try:
-                                await coordenador.definir_capacidade(
-                                    modo_decisao, decision.capacity, local_limit,
-                                    decision.capacity if modo_decisao == "AUTOMATICO" else 1,
-                                    decision.reason,
-                                )
-                            except Exception as exc:
-                                # Sem confirmação do banco, nunca admite mais que 1.
-                                decision = type(decision)(1, "CAPACITY_REPORT_FAILED")
-                                modo_decisao = "MANUAL"
-                                logger.warning("Capacidade não confirmada pelo banco (%s); próximo ciclo limitado a 1.", type(exc).__name__)
-                            capacidade_atual = decision.capacity
-                            momento_alteracao = estado_controlador.last_change_at
-                            if capacidade_atual != estado_controlador.effective_capacity:
-                                momento_alteracao = time.monotonic()
-                            estado_controlador = ControllerState(
-                                effective_capacity=capacidade_atual,
-                                previous_cycle_clean=estado_controlador.previous_cycle_clean,
-                                last_change_at=momento_alteracao,
-                            )
-                            config_ciclo = _configuracao_com_capacidade(config, capacidade_atual)
-                            logger.info(
-                                "Concorrência do próximo ciclo: %d (%s; modo=%s).",
-                                capacidade_atual, decision.reason, modo_decisao,
-                            )
-                        except Exception as exc:
-                            # Falha ao ler política/fila mantém o serviço vivo, mas fechado em 1.
-                            capacidade_atual = 1
-                            fila_ciclo = 0
-                            estado_controlador = ControllerState(
-                                effective_capacity=1,
-                                previous_cycle_clean=estado_controlador.previous_cycle_clean,
-                                last_change_at=estado_controlador.last_change_at,
-                            )
-                            config_ciclo = _configuracao_com_capacidade(config, 1)
-                            logger.warning("Política de concorrência indisponível (%s); próximo ciclo limitado a 1.", type(exc).__name__)
                         inicio_ciclo = time.monotonic()
-                        tarefa = asyncio.create_task(executor(config_ciclo, logger))
+                        tarefa = asyncio.create_task(executor(config, logger))
                     estado = ("degradado" if not conectado else "drenando" if drenar else
                               "manutencao" if hold else "processando" if tarefa is not None else
                               "ok" if resumo["admitted"] else "espera")

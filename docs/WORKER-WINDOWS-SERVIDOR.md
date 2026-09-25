@@ -139,16 +139,15 @@ gera apenas material de revisão e o instalador o recusa. Não usar um pacote
 configurar `WORKER_COORDENADO=true`, WORKER_ID, WORKER_VERSION e papel exclusivo,
 mantendo downloads em volume persistente. Nenhum componente depende da Oracle.
 
-### Pacote atualmente instalado
+### Pacote atual preparado
 
-O pacote ativo no PC servidor corresponde ao commit `56e0130aee4dd1c021bb1798203cc61bcb23ca4a`,
-preparado para Python 3.13.7: `worker-servidor-56e0130-py3137.zip`, SHA-256
-`97F88B5486620940EB7A00CD93844C2C29BB2F51841E36F549C656E43E4B0A24`.
-O pacote não contém credenciais. O backup imediatamente anterior continua na
-release `9b404b25cb9a532eef85ac0f208793563b8b4c6f`, selecionável por
-`Gerenciar-Worker.ps1 -Action Rollback`; após conferir a saúde, use `-Action Resume`.
-Para futuras atualizações, gere um pacote novo a partir do commit limpo e confira
-o hash antes e depois da transferência; não reutilize este hash para outro commit.
+O pacote atualmente instalado no PC servidor corresponde ao commit `1815811`,
+preparado para o Python 3.13.7:
+`dist/worker-servidor-1815811-py3137.zip`, SHA-256
+`A4468EFF62A69B0E4F67E55DBC3A9CF91AE85082E23019D650CC7F1D08F85BBA`.
+Ele não possui credenciais. Para uma atualização futura, gere um novo pacote a
+partir do commit limpo que será instalado e confira o hash antes e depois da
+transferência; não reutilize este hash para outro commit.
 
 ## Ensaio obrigatório antes de entregar
 

@@ -1,74 +1,5 @@
 # Handoff — Estado Atual
 
-## Configuração por Worker e referências dinâmicas — 24/09/2026
-
-Auditoria confirmou que cadastro, vínculo cliente–emitente e snapshot de tarefa
-já são dinâmicos no Web/Supabase; não é necessária nova tabela nem migração de
-cadastros. Login/senha fiscal continuam privados no PC do Worker. O preparador
-de `worker.env` agora reconhece qualquer `credencial_referencia` válida pelo
-Web (por exemplo `EMITENTE_JOAO`), preservando referências legadas `CLIENTE_*`
-e exigindo o bloco completo de credenciais. Teste focado: 10 aprovados. A
-alteração ainda não foi empacotada nem instalada no PC servidor.
-
-Foi implementado localmente o controle de concorrência individual por Worker
-em Configurações (Manual 1/2/3 ou Automático, limitado pelos tetos administrativo
-e local), além do controlador automático conservador no Worker. A preferência
-web só grava modo/capacidade desejados e dados de auditoria; o Worker informa a
-capacidade efetiva por função privada, somente entre ciclos e sem cancelar
-notas ativas. Automático inicia em 1, só promove após janelas saudáveis,
-serializa credenciais repetidas e retorna ao mínimo diante de dados/falhas
-incertos. O teto local vem de `MAX_CONCORRENCIA`; aumentar a opção disponível
-exige provisionar e reiniciar o pacote daquele PC. A contingência local segue
-fora do cadastro coordenado e mantém sua configuração própria.
-
-A migration aditiva `0021_concorrencia_worker.sql` foi aplicada ao Supabase
-`kcukzbszakwrfhbsiihw` e à homologação `szakgftippcqtuqwxsox` em 24/09/2026.
-A `0022_preferencia_concorrencia_worker.sql` também foi aplicada nos dois
-projetos. Ela oferece uma RPC estreita para gravar preferência sem DML direto
-do Web em `fiscal.workers`: somente `nf_homologacao_web` recebe EXECUTE na QA;
-em produção não há papel Web dedicado cadastrado e o proprietário da função é
-`postgres`, então o funcionamento depende de a conexão privada do Web usar esse
-principal (validar no primeiro ensaio de Configurações, sem revelar credenciais).
-Em ambas, `anon` e `authenticated` não têm EXECUTE; em QA o Web também não tem
-UPDATE na tabela. Advisors não apontaram novo alerta para a função; os avisos
-existentes são de outros objetos (principalmente `auditoria_fiscal`/Ponto).
-
-Pós-verificação confirmou função, owner `postgres`, `SECURITY DEFINER`,
-`search_path=pg_catalog`, grants e colunas. O PC servidor continua Manual 1,
-teto banco 2, reportado 1; a contingência permanece Manual 1/teto 1 e drenada.
-Nenhum limite efetivo foi aumentado. A tabela `fiscal.workers` de homologação
-está vazia: não provisionamos identidade nem credenciais fictícias, portanto o
-fluxo de salvar uma preferência pelo Web ainda requer uma linha QA autorizada.
-O teste transacional de RPC foi tentado sem persistência; o executor MCP não
-pôde assumir `nf_homologacao_web`, a transação foi revertida e a consulta
-posterior confirmou zero linha de teste. A chamada da Server Action deve ser
-validada por Preview usando a credencial privada QA, não ampliando grants para
-o papel de diagnóstico.
-O ramo de validação contém a UI e o contrato RPC; `main`, produção Vercel e o
-pacote Worker do PC não foram promovidos nesta etapa.
-
-Validação local anterior: 387 testes do Worker, 177 testes do Web e
-`tsc --noEmit` aprovados. O build compilou e passou TypeScript, mas a coleta de
-páginas parou porque este checkout não tem `DATABASE_URL`; falta build com o
-ambiente de deploy, deploy e ensaio controlado no PC. O build repetido com URL
-fictícia local (sem conexão de banco) completou com sucesso. Emitentes
-já eram dinâmicos no banco/Web; foi generalizada a preparação do `worker.env`
-para referências novas, mantendo senhas exclusivamente locais. Atualização
-incremental Graphify code-only concluída; `graphify-out/` permanece local e
-ignorado.
-
-O Preview da Vercel exige variáveis exclusivamente de homologação e
-`APP_ENVIRONMENT=homologacao`; não relaxar `scripts/isolamento-homologacao.mjs`
-para contornar a trava. O commit `76d08223e5b8dc6b1b48067d14428e2e0c5bbd17`
-foi enviado à branch de validação. O Preview
-`dpl_nBhnZwffQ6hLNuUa5AnifcssTNqM` terminou `ERROR` no comando
-`npm run deploy:check && npm run build` (`BUILD_UTILS_SPAWN_1`); a ferramenta
-de logs de build não estava disponível para identificar qual subcomando saiu
-com erro. O preflight local já havia sinalizado ausência de variáveis de QA.
-Só testar o formulário no Preview depois de configurar DATABASE_URL/Storage/
-auth isolados da QA; nunca copiar segredo de produção para Preview. O servidor
-físico continua sem receber pacote novo.
-
 ## KPI abrangente e tentativa de concorrência 2 — 23/09/2026
 
 A estimativa de economia cobre agora todo o trabalho concluído do período:
@@ -2267,53 +2198,28 @@ operacionais; o futuro financeiro deve consultar também o estado fiscal da nota
   passou pelo TypeScript, mas parou ao coletar páginas porque este worktree não
   possui `DATABASE_URL`.
 
-## Worker do PC servidor atualizado — 23/09/2026
+## Candidata isolada para sessão expirada — 25/09/2026
 
-- O pacote `worker-servidor-9b404b2-py3137.zip` foi transferido e seu SHA-256
-  confirmado no destino (`289008750A081313730B83DCB3707647F9E3E65ED3595991A1AAA41CD9277096`).
-- O atualizador Windows preparou a release antes da drenagem, validou o runtime
-  Playwright/Chromium, alternou `current.json` e confirmou o health check.
-  Versão ativa: `9b404b25cb9a532eef85ac0f208793563b8b4c6f`; a versão anterior
-  (`181581153c9d15e4fb78f11d092e18864716ce9d`) permanece disponível para
-  rollback pelo gerenciador.
-- Pós-atualização: tarefa `GraalystWorker` em execução, health `espera` com
-  código 0 e zero tarefas ativas, sem `hold.request`; o Worker está apto a
-  retomar a busca. `ValheimServer` também permaneceu em execução.
-- Configuração não secreta confirmada: produção, modo coordenado, concorrência
-  1, polling de 5 s; recuperação e cancelamentos fiscais habilitados. Nenhuma
-  emissão/cancelamento artificial foi executado.
-- Na rede local observada, o PC responde em `192.168.4.27` (`DESKTOP-45U2KDL`).
-  Esse IP é privado e pode mudar com DHCP noutra rede; não é endereço público
-  nem dependência do Worker. O alias SSH não foi alterado nesta rodada.
-- A retomada após reboot, estabilidade em operação legítima e teste físico de
-  impressão continuam pendentes. Não inferir sucesso fiscal apenas do health.
-
-## Promoção de concorrência por executor — 24/09/2026
-
-- O commit `56e0130aee4dd1c021bb1798203cc61bcb23ca4a` foi promovido por
-  fast-forward para `main`. A Vercel criou o deploy de produção
-  `dpl_9LVQD3hBA4QfE7yn7GzMmzv1QVK2`, estado `READY`, região `gru1`; o domínio
-  `nf-distribuicao.vercel.app` está associado ao deploy e `/login` respondeu
-  HTTP 200. O rollback Web imediato é o deploy anterior em produção do commit
-  `9b404b25cb9a532eef85ac0f208793563b8b4c6f` (`dpl_C1YSRJqSKh2RhgmqAvtNdHpo8nXR`).
-- O Worker do PC servidor foi atualizado de forma drenada para o mesmo commit,
-  com package SHA-256
-  `97F88B5486620940EB7A00CD93844C2C29BB2F51841E36F549C656E43E4B0A24`.
-  Heartbeat confirmou versão `56e0130...`, health `ok`, banco `ONLINE`, lease
-  vigente, zero tarefas ativas e `hold`/`drain` ausentes. `previous.json` aponta
-  para a release funcional `9b404b25...`; rollback disponível pelo gerenciador
-  Windows. A impressão automática está desabilitada, sem consumir as 11
-  solicitações de impressão pendentes.
-- Nenhuma tarefa de emissão estava pendente/ativa; recuperação e cancelamento
-  não tinham solicitações em andamento. O Worker permaneceu em produção com
-  `MAX_CONCORRENCIA=1`, `reported_capacity=1`, embora o teto cadastrado seja 2.
-  Não se alterou a configuração para concorrência 2 e não houve emissão fiscal
-  artificial.
-- Validação local: 177 testes Web, TypeScript e 387 testes Worker aprovados. O
-  `deploy:check` e a coleta completa de páginas não rodam neste worktree porque
-  ele não contém variáveis de ambiente (`DATABASE_URL` etc.); o ambiente
-  Production da Vercel gerou o deploy READY. O primeiro fluxo completo da nova
-  preferência ainda precisa de validação funcional pela interface autenticada.
-- Verificação pós-deploy adicional: não havia clusters de erro de runtime na
-  janela de 10 minutos consultada; heartbeat do Worker permaneceu `ONLINE` com
-  zero tarefas ativas.
+- Esta worktree parte diretamente do checkpoint `9b404b2`. A correção veio do
+  commit `33f17bb`, sem trazer os commits intermediários de concorrência do
+  Worker. Os únicos arquivos Web aplicados foram `web/src/proxy.ts` e
+  `web/src/proxy.test.ts`; ambos têm blobs idênticos aos do commit de origem.
+- O Proxy encaminha POSTs de Server Action sem sessão para o guarda da própria
+  ação, preservando a resposta nativa do Next. Páginas, formulários comuns e
+  APIs continuam sujeitos ao redirecionamento do Proxy.
+- O cherry-pick encontrou conflito apenas neste handoff, porque o commit de
+  origem acrescentava a nota depois de seções ausentes no checkpoint. Esta
+  seção registra o isolamento sem importar aquele histórico posterior.
+- A hipótese do incidente é que uma sessão expirada levou o Proxy a responder
+  307 a `POST /distribuicao`; os logs não mostram o cabeçalho `next-action`.
+- Validação isolada: 181 testes Web em 30 arquivos, 17 testes de segurança,
+  8 testes específicos do Proxy e `tsc --noEmit` aprovados. A build compilou e
+  passou pela etapa TypeScript, mas parou em `Collecting page data` para
+  `/tarefas`: `DATABASE_URL` está ausente nesta worktree. Nenhuma credencial
+  de produção foi copiada para contornar essa limitação.
+- Esta validação não reproduz no navegador a expiração de sessão durante uma
+  Server Action nem confirma o comportamento em produção; isso requer teste
+  posterior em ambiente isolado e publicação deliberada.
+- Ainda não houve push, deploy, migration ou operação fiscal nesta candidata.
+  A proposta de homologação no mesmo projeto Supabase segue decisão separada;
+  credenciais de produção não são usadas como isolamento de testes.

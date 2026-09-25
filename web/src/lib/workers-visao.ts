@@ -18,16 +18,6 @@ export type RegistroWorker = {
   preferred: boolean;
   coordination_enabled: boolean;
   server_now: string | Date;
-  requested_mode: "MANUAL" | "AUTOMATICO";
-  concurrency_mode: "MANUAL" | "AUTOMATICO";
-  manual_capacity: number;
-  automatic_max: number;
-  local_capacity_limit: number;
-  suggested_capacity: number;
-  decision_reason: string;
-  decision_at: string | Date | null;
-  config_applied_at: string | Date | null;
-  concurrency_updated_at: string | Date | null;
 };
 
 export type WorkerVisao = {
@@ -44,15 +34,6 @@ export type WorkerVisao = {
   ultimoErro: string | null;
   preferido: boolean;
   coordenacaoAtiva: boolean;
-  modoSolicitado: "MANUAL" | "AUTOMATICO";
-  modoAplicado: "MANUAL" | "AUTOMATICO";
-  capacidadeManual: number;
-  maximoAutomatico: number;
-  limiteLocalInstalado: number;
-  capacidadeSugerida: number;
-  motivoDecisao: string;
-  configuracaoAplicadaEm: string | null;
-  concorrenciaAlteradaEm: string | null;
 };
 
 export type PainelWorkers =
@@ -114,53 +95,14 @@ export function projetarWorker(registro: RegistroWorker): WorkerVisao {
       : null,
     versao: registro.version && /^[A-Za-z0-9][A-Za-z0-9._+-]{0,63}$/.test(registro.version)
       ? registro.version : null,
-    capacidadePermitida: Math.min(registro.capacity_limit, registro.local_capacity_limit),
+    capacidadePermitida: registro.capacity_limit,
     capacidadeInformada: registro.reported_capacity,
     operacoesAtivas: registro.active_task_ids,
     operacoesConcluidas: total,
     ultimoErro: erroWorkerSeguro(registro.last_error_code),
     preferido: registro.preferred,
     coordenacaoAtiva: registro.coordination_enabled,
-    modoSolicitado: registro.requested_mode,
-    modoAplicado: registro.concurrency_mode,
-    capacidadeManual: registro.manual_capacity,
-    maximoAutomatico: registro.automatic_max,
-    limiteLocalInstalado: registro.local_capacity_limit,
-    capacidadeSugerida: registro.suggested_capacity,
-    motivoDecisao: motivoConcorrenciaSeguro(registro.decision_reason),
-    configuracaoAplicadaEm: registro.config_applied_at
-      ? dataValida(registro.config_applied_at).toISOString() : null,
-    concorrenciaAlteradaEm: registro.concurrency_updated_at
-      ? dataValida(registro.concurrency_updated_at).toISOString() : null,
   };
-}
-
-const MOTIVOS_CONCORRENCIA: Record<string, string> = {
-  BOOTSTRAP: "iniciando com segurança",
-  MANUAL: "configuração manual",
-  AUTO_BASELINE: "modo automático conservador",
-  NO_ELIGIBLE_TASKS: "sem tarefas para paralelizar",
-  INSUFFICIENT_DISTINCT_CREDENTIALS: "aguardando emitentes diferentes",
-  METRICS_UNAVAILABLE: "aguardando dados suficientes do computador",
-  RESOURCE_PRESSURE: "reduzido para proteger o computador",
-  CRITICAL_MEMORY: "memória baixa; usando capacidade mínima",
-  MARGINAL_RESOURCES: "mantido no nível seguro",
-  PREVIOUS_CYCLE_FAILED: "ciclo anterior exige cautela",
-  LEASE_UNHEALTHY: "comunicação do Worker instável",
-  FISCAL_RESULT_UNCERTAIN: "resultado fiscal exige conferência",
-  HEALTHY_TWO_WINDOWS_PROMOTE_ONE: "margem confirmada; subindo um nível",
-  HEALTHY_AT_CEILING: "limite automático atingido",
-  PROMOTION_COOLDOWN: "mantido estável após ajuste recente",
-  REDUCTION_COOLDOWN: "mantido estável durante janela de redução",
-  SINGLE_PRESSURE_WINDOW_HOLD: "aguardando confirmar a pressão do computador",
-  RESOURCE_PRESSURE_REDUCE_ONE: "pressão confirmada; reduzindo um nível",
-  MARGINAL_RESOURCES_HOLD: "mantido no nível atual enquanto mede",
-  INVALID_POLICY: "configuração inválida; usando mínimo",
-  NOT_HEALTHY_REDUCE_ONE: "sem margem confirmada; reduzindo um nível",
-};
-
-function motivoConcorrenciaSeguro(codigo: string): string {
-  return MOTIVOS_CONCORRENCIA[codigo] ?? "estado de concorrência registrado";
 }
 
 export function descreverEstadoWorker(worker: Pick<WorkerVisao, "estado" | "ultimoContato">): string {

@@ -20,9 +20,7 @@ export async function carregarWorkers(): Promise<PainelWorkers> {
       select worker_id, priority, enabled, capacity_limit, reported_capacity,
              heartbeat_at, lease_expires_at, version, draining, state,
              active_task_ids, tasks_completed, last_error_code, preferred,
-             coordination_enabled, server_now, requested_mode, concurrency_mode,
-             manual_capacity, automatic_max, suggested_capacity, decision_reason,
-             local_capacity_limit, decision_at, config_applied_at, concurrency_updated_at
+             coordination_enabled, server_now
       from fiscal.worker_status
       order by priority asc, worker_id asc
     `);

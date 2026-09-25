@@ -1,8 +1,6 @@
 # Plano de concorrência adaptativa do Worker
 
-Estado: implementação inicial concluída na branch de validação; rollout ainda
-parcial. O comportamento conservador padrão permanece Manual 1. Não declarar
-concorrência 2/3 operacionalmente validada sem o ensaio descrito abaixo.
+Estado: planejamento aprovado tecnicamente; **não implementado**.
 
 Este documento define a fronteira entre investigação e implementação. Nenhuma
 emissão fiscal foi criada para produzir estas conclusões.
@@ -321,29 +319,23 @@ efetiva aplicada e acrescentar:
 - `decision_at timestamptz`;
 - `config_applied_at timestamptz`.
 
-Implementado localmente em `0021_concorrencia_worker.sql`: a função
-`fiscal.worker_set_capacity(...)` valida `session_user`, `worker_id`, `run_id`,
-lease, teto administrativo e teto local; só aceita atualização sem operações
-ativas, altera telemetria/capacidade efetiva e não toca em tarefa/token. EXECUTE
-é revogado de `PUBLIC`/`anon`/`authenticated` e concedido aos papéis de Worker.
-A view `worker_status` expõe apenas campos sanitizados de configuração e estado.
-A migration `0021_concorrencia_worker.sql` foi aplicada e verificada no projeto
-Supabase `kcukzbszakwrfhbsiihw` em 23/09/2026. Os limites efetivos permanecem
-conservadores: PC servidor configurado no banco para Manual 1, com teto
-administrativo 2; contingência local Manual 1/teto 1. A migration, por si só,
-não aumenta a concorrência nem inicia tarefas.
+Criar função privada `fiscal.worker_report_capacity(...)`, autenticada por
+`session_user`, `worker_id`, `run_id` e lease vigente. Ela aceita capacidade
+efetiva somente entre 1 e `capacity_limit`, atualiza os campos acima e não toca
+em tarefa/token. Revogar `PUBLIC` e conceder EXECUTE apenas aos papéis de
+executor. A view `worker_status` expõe somente modo, sugerida, efetiva, motivo e
+instantes, além dos campos sanitizados existentes.
 
 Não expor token, credencial, payload ou identificador fiscal nos logs/status.
 
 ## 8. UX
 
-Na tela de Configurações, abaixo do horário (implementado localmente):
+Na tela de Configurações, abaixo do horário:
 
 - **Manual** — “Você escolhe quantas notas podem ser processadas ao mesmo
   tempo.” Opções 1, 2 e 3.
-- **Automático** — “O sistema começa em 1 e ajusta gradualmente até o máximo
-  permitido conforme o computador e a fila.” Seletor simples do teto automático;
-  o mínimo é fixo em 1 para manter o início e qualquer fallback conservadores.
+- **Automático** — “O sistema ajusta entre o mínimo e o máximo conforme o
+  computador e a fila.” Seletores simples de mínimo e máximo.
 - Texto permanente: “Reduzir não interrompe notas em andamento; apenas novas
   notas aguardam.”
 - Estado: “Usando agora: N por vez”, “Limite liberado neste servidor: N” e, no
@@ -354,9 +346,9 @@ Enquanto `capacity_limit=2`, a opção 3 aparece desabilitada como “aguarda
 validação neste servidor”. Não aceitar e depois reduzir silenciosamente. Não
 mostrar parâmetros de CPU/RAM ao usuário comum.
 
-## 9. Arquivos/componentes (estado local)
+## 9. Arquivos/componentes previstos
 
-- `web/src/db/migrations/0021_concorrencia_worker.sql` e journal;
+- nova migration Web para configuração e telemetria sanitizada;
 - `web/src/db/schema.ts`;
 - `web/src/app/configuracoes/page.tsx` e `actions.ts`;
 - `web/src/lib` para validação e apresentação;
@@ -365,62 +357,47 @@ mostrar parâmetros de CPU/RAM ao usuário comum.
 - `worker/src/fonte_tarefas.py` para ler configuração/estado;
 - `worker/src/servico_coordenado.py` para telemetria/heartbeat;
 - `worker/main.py` para escolher o limite antes de reservar;
-- testes unitários e de projeção/UI. Ainda faltam testes de integração real dos
-  grants/função após migration e teste operacional/E2E após implantação.
+- testes unitários, de grants, de coordenação e E2E da UI.
 
 Não alterar inicialmente `orquestrador.py`; a versão 1 continua passando um
 limite fixo por ciclo.
 
-## 10. Critérios de aceitação e estado
+## 10. Critérios de aceitação da implementação
 
-1. Implementado: Manual 1/2/3 e Automático são lidos entre ciclos; UI limita a
-   preferência ao menor teto administrativo/local.
-2. Implementado: Automático inicia em 1 e somente avança com sinais saudáveis.
-3. Implementado: setter do Worker impede alteração com tarefa ativa; notas
-   iniciadas não são interrompidas.
-4. Implementado: métrica obrigatória ausente/falha força fallback conservador.
-5. Implementado: mesma credencial fiscal não executa em paralelo.
-6. Implementado: reserva coordenada mantém token/lease/dono por executor.
-7. Implementado: resultado fiscal incerto segue conferência humana, sem retry.
-8. Implementado: motivos fechados/sanitizados são armazenados e testados.
-9. Implementado: UI separa preferência pedida, teto liberado e capacidade atual.
-10. Implementado e aplicado em produção e QA: migration 0021 e RPC 0022.
-    Grants remotos foram verificados; Web QA não tem UPDATE direto em workers.
-11. Parcial: testes unitários locais aprovados, mas a atualização da preferência
-    por uma linha Worker QA ainda não foi exercitada; a tabela QA está vazia.
-12. Pendente: Preview Vercel isolado e atualização do pacote do PC servidor.
-13. Pendente: ensaio com duas tarefas fiscais legítimas, emitentes distintos,
-    observando interferência/timeout e telemetria. Não criar nota artificial em
-    produção para satisfazer este critério.
+1. Manual 1/2/3 é aplicado no ciclo seguinte sem restart e respeita o teto
+   administrativo do executor; opções acima dele ficam desabilitadas.
+2. Automático inicia conservador, nunca ultrapassa 3 nem o teto do banco/local.
+3. Redução não cancela tarefas ativas.
+4. No Automático, métrica obrigatória ausente força 1; no Manual, mantém a
+   escolha salvo uma trava universal.
+5. Mesma credencial nunca executa em paralelo.
+6. Nenhuma reserva duplicada em dois executores.
+7. Resultado externo incerto bloqueia retry e força modo seguro.
+8. Toda mudança de limite tem razão sanitizada e testável.
+9. UI distingue solicitado, permitido e efetivo sem jargão.
+10. Benchmarks e testes não criam efeito fiscal real sem autorização.
 
-## 11. Próximos passos de rollout
+## 11. Sequência para GPT-5.6 Terra / Média
 
-Implementação concluída no código da branch de validação; migrations remotas
-0021 e 0022 aplicadas em produção e QA. Modo Automático é opt-in e não altera o
-padrão Manual 1. A lógica nova ainda não foi instalada no PC servidor nem
-validada em emissão real. Produção mantém capacidade reportada 1 e teto 2;
-contingência segue em Manual 1/teto 1 e drenada.
+1. Implementar e testar primeiro o coletor Windows e o módulo puro de decisão,
+   sem ligá-los à emissão.
+2. Criar a migration e os testes de privilégios; não aplicar remotamente sem
+   autorização explícita.
+3. Implementar leitura por ciclo e telemetria, mantendo `MANUAL=2` como
+   comportamento efetivo inicial.
+4. Implementar UI e testes.
+5. Executar Camada A e calibrar thresholds.
+6. Publicar em modo observação: calcula decisão automática, mas não a aplica.
+7. Comparar decisões sugeridas com métricas reais.
+8. Com autorização, habilitar Automático inicialmente com teto liberado 2.
+9. Executar Camada B antes de validar teto 3.
 
-1. Concluído: aplicar/verificar `0021_concorrencia_worker.sql` e
-   `0022_preferencia_concorrencia_worker.sql` em produção e QA; conferir grants
-   mínimos e view sanitizada.
-2. Pendente: configurar variáveis exclusivamente QA no Preview Vercel e
-   confirmar qual papel privado de banco o Web de produção usa para executar
-   a RPC 0022 (sem compartilhar credenciais). O guard de isolamento não deve
-   ser removido.
-3. Publicar o Web compatível na branch/Preview e atualizar o Worker do PC servidor com
-   `psutil==7.2.2` e um teto local definido para a máquina. O teto
-   administrativo atual do PC servidor é 2, mas o modo/capacidade selecionados
-   continuam Manual 1; não aumentá-los até concluir o ensaio controlado.
-4. Validar a página de Configurações em Manual 1 e confirmar que o valor é
-   reportado corretamente. Habilitar 2 somente após teste controlado com
-   emitentes/credenciais diferentes; manter 3 bloqueado até evidência própria.
-5. Só então selecionar Automático e observar decisões/capacidade informada
-   durante ciclos reais. Reverter pela UI para Manual 1 se houver anomalia.
-
-O controlador registra capacidade efetiva e motivo; não há um terceiro modo
-"shadow" nesta implementação. A preferência automática não é ativada por
-migration nem por deploy, e o Worker reinicia em capacidade 1.
+Modo observação é uma flag privada do pacote
+`CONCORRENCIA_ADAPTATIVA_SHADOW=true`, não um terceiro modo na UI. Nele, a
+configuração efetiva permanece Manual 2, enquanto `suggested_capacity`, motivo
+e amostras sanitizadas são registrados em log e `worker_status`. A saída dessa
+fase exige ao menos cinco ciclos com trabalho e nenhuma sugestão que viole os
+guardrails; só então a opção Automático pode ser publicada.
 
 ## 12. Fontes técnicas
 

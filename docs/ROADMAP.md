@@ -32,37 +32,32 @@ histórico: vários itens apontados nela já foram implementados depois.
 - Feedback operacional de trocas, datas e ordem publicado em `491cc80`, com
   164 testes Web e TypeScript aprovados.
 - Data fiscal oficial (`dhEmi`) extraída do XML, normalizada para UTC e ligada à
-  persistência da nota sem migration; código já instalado no PC servidor.
+  persistência da nota sem migration; 334 testes do Worker aprovados. A ativação
+  depende da instalação do próximo pacote no PC servidor.
 - Feedback de uso real incorporado de forma cirúrgica: reposições mais claras,
   Workers compactos no mobile, total físico explícito no roteiro, emitentes em
   área secundária e relatórios operacionais com período personalizado, trocas
   por mercado e histórico de quantidade por produto.
-- A versão Web `56e0130` está em `main` e produção; o checkpoint anterior está
-  marcado pela tag `checkpoint-metricas-concorrencia2-20260923`. `9b404b2` é o
-  rollback operacional imediato; `2bd469e`, marcado pela tag
-  `web-prod-stable-20260922`, permanece como rollback estável mais antigo.
-- O Worker `56e0130aee4dd1c021bb1798203cc61bcb23ca4a` foi instalado no PC
-  servidor em 24/09/2026. Health `ok`, executor `ONLINE`, lease vigente, sem
-  tarefas ativas nem `hold`/`drain`. Backup reversível imediato: release
-  `9b404b25cb9a532eef85ac0f208793563b8b4c6f`. A capacidade reportada continua
-  em 1; nenhuma emissão/cancelamento de teste foi criado.
+- A versão Web `a7884b0` está em `main` e produção; o checkpoint também está
+  marcado pela tag `checkpoint-metricas-concorrencia2-20260923`. `2bd469e`,
+  marcado pela tag `web-prod-stable-20260922`, permanece como rollback estável
+  conhecido.
 - O tempo economizado é dinâmico e identificado como estimativa. Usa baseline
   linear provisório de 337 s/3 notas e throughput de parede dos lotes sem retry;
   isso não mede latência individual e precisa ser recalibrado com benchmark real.
-- O banco permite teto 2 (`capacity_limit=2`), mas o Worker reporta capacidade
-  física 1 e está configurado em Manual 1. A interface agora permite definir a
-  preferência por executor; o modo Automático ainda requer validação antes de
-  elevar a capacidade efetiva.
+- Banco permite capacidade 2 (`capacity_limit=2`), mas o último heartbeat
+  consultado ainda reportou 1. A atualização do `worker.env` físico e validação
+  manual ainda dependem de acesso à máquina; não afirmar concorrência 2 ativa.
 
 ## Em andamento imediato
 
 1. **Concluído:** migration `0020_retry_automatico_pre_emissao.sql` aplicada no
    Supabase de produção em 2026-09-23; índice, ordenação e permissões dos papéis
    `nf_worker_vm`/`nf_worker_local` verificados.
-2. **Concluído:** Worker atualizado no PC servidor para `56e0130`; SHA-256 do
-   pacote conferido antes da instalação e rollback para `9b404b2` preservado.
-3. **Validar operação física segura:** confirmar novamente após reboot, observar
-   logs, retomada e impressão; sem criar emissão artificial em produção.
+2. **Gerar e instalar o próximo pacote do Worker** a partir do commit validado,
+   preservando `hold.request`; comprovar saúde em manutenção e repetir o reboot.
+3. **Validar operação física segura:** logs, retomada, impressão e estabilidade,
+   sem criar emissão artificial em produção.
 4. **Primeira operação legítima em produção:** acompanhar uma distribuição real,
    conferir XML/DANFE, data fiscal, status e documentos. Produção está preparada,
    mas o fluxo completo ainda aguarda essa validação prática.
@@ -74,12 +69,9 @@ histórico: vários itens apontados nela já foram implementados depois.
    isolado; não criar tarefas no banco de produção para QA.
 3. **Alta, analítica:** instrumentar separadamente preparação, fila, autorização
    e documentos; comparar somente com referências manuais equivalentes.
-4. **Média:** validar a nova preferência pela tela autenticada; o valor atual é
-   Manual 1, com capacidade física reportada 1 e teto do banco 2. Só depois de
-   ensaio controlado em homologação ou duas tarefas legítimas independentes
-   considerar Manual 2. Automático permanece limitado a 1 até haver evidência
-   de benefício e estabilidade. Uma terceira tarefa deve permanecer na fila;
-   não elevar a 3.
+4. **Média:** configurar `MAX_CONCORRENCIA=2` no arquivo privado do PC servidor,
+   confirmar `reported_capacity=2`, e validar com duas tarefas legítimas ou em
+   homologação isolada. Uma terceira deve permanecer na fila. Não elevar a 3.
 5. **Média:** classificar causa confirmada separadamente do estado fiscal, com
    evidência e autoria; causa desconhecida por padrão.
 6. **Média:** ensaiar expiração/recuperação e backup/restauração em ambiente seguro.

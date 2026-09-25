@@ -24,12 +24,6 @@ def _origem(tmp_path: Path) -> Path:
     return arquivo
 
 
-def _adicionar_credencial(arquivo: Path, referencia: str) -> None:
-    with arquivo.open("a", encoding="utf-8") as destino:
-        for campo in ("LOGIN", "SENHA", "IDENTIDADE_ESPERADA", "EMITENTE"):
-            destino.write(f"{referencia}_{campo}='valor-{campo}'\n")
-
-
 def test_preserva_defaults_do_pc_servidor(tmp_path: Path) -> None:
     destino = tmp_path / "destino.env"
     preparar(_origem(tmp_path), destino)
@@ -69,19 +63,18 @@ def test_recusa_producao_no_ambiente_de_teste(tmp_path: Path) -> None:
 
 def test_descobre_e_preserva_quantidade_dinamica_de_emitentes(tmp_path: Path) -> None:
     origem = _origem(tmp_path)
-    _adicionar_credencial(origem, "CLIENTE_NOVO")
-    _adicionar_credencial(origem, "EMITENTE_JOAO")
+    with origem.open("a", encoding="utf-8") as arquivo:
+        for campo in ("LOGIN", "SENHA", "IDENTIDADE_ESPERADA", "EMITENTE"):
+            arquivo.write(f"CLIENTE_NOVO_{campo}='valor-{campo}'\n")
 
     destino = tmp_path / "destino.env"
     resultado = preparar(origem, destino)
     valores = dotenv_values(destino, interpolate=False)
 
-    assert resultado["clientes"] == 5
-    assert valores["CLIENTES_ATIVOS"] == "CLIENTE_A,CLIENTE_B,CLIENTE_C,CLIENTE_NOVO,EMITENTE_JOAO"
+    assert resultado["clientes"] == 4
+    assert valores["CLIENTES_ATIVOS"] == "CLIENTE_A,CLIENTE_B,CLIENTE_C,CLIENTE_NOVO"
     assert valores["CLIENTE_NOVO_LOGIN"] == "valor-LOGIN"
     assert valores["CLIENTE_NOVO_SENHA"] == "valor-SENHA"
-    assert valores["EMITENTE_JOAO_LOGIN"] == "valor-LOGIN"
-    assert valores["EMITENTE_JOAO_SENHA"] == "valor-SENHA"
 
 
 def test_recusa_bloco_dinamico_incompleto(tmp_path: Path) -> None:
@@ -97,15 +90,6 @@ def test_recusa_bloco_sem_login(tmp_path: Path) -> None:
     origem = _origem(tmp_path)
     with origem.open("a", encoding="utf-8") as arquivo:
         arquivo.write("CLIENTE_NOVO_SENHA='senha'\n")
-
-    with pytest.raises(RuntimeError, match="origem está incompleta"):
-        preparar(origem, tmp_path / "destino.env")
-
-
-def test_recusa_credencial_generica_incompleta(tmp_path: Path) -> None:
-    origem = _origem(tmp_path)
-    with origem.open("a", encoding="utf-8") as arquivo:
-        arquivo.write("EMITENTE_JOAO_SENHA='senha-de-teste'\n")
 
     with pytest.raises(RuntimeError, match="origem está incompleta"):
         preparar(origem, tmp_path / "destino.env")
