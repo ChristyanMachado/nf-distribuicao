@@ -2197,3 +2197,29 @@ operacionais; o futuro financeiro deve consultar também o estado fiscal da nota
 - Validação local: 173 testes Web e TypeScript aprovados. A build compilou e
   passou pelo TypeScript, mas parou ao coletar páginas porque este worktree não
   possui `DATABASE_URL`.
+
+## Candidata isolada para sessão expirada — 25/09/2026
+
+- Esta worktree parte diretamente do checkpoint `9b404b2`. A correção veio do
+  commit `33f17bb`, sem trazer os commits intermediários de concorrência do
+  Worker. Os únicos arquivos Web aplicados foram `web/src/proxy.ts` e
+  `web/src/proxy.test.ts`; ambos têm blobs idênticos aos do commit de origem.
+- O Proxy encaminha POSTs de Server Action sem sessão para o guarda da própria
+  ação, preservando a resposta nativa do Next. Páginas, formulários comuns e
+  APIs continuam sujeitos ao redirecionamento do Proxy.
+- O cherry-pick encontrou conflito apenas neste handoff, porque o commit de
+  origem acrescentava a nota depois de seções ausentes no checkpoint. Esta
+  seção registra o isolamento sem importar aquele histórico posterior.
+- A hipótese do incidente é que uma sessão expirada levou o Proxy a responder
+  307 a `POST /distribuicao`; os logs não mostram o cabeçalho `next-action`.
+- Validação isolada: 181 testes Web em 30 arquivos, 17 testes de segurança,
+  8 testes específicos do Proxy e `tsc --noEmit` aprovados. A build compilou e
+  passou pela etapa TypeScript, mas parou em `Collecting page data` para
+  `/tarefas`: `DATABASE_URL` está ausente nesta worktree. Nenhuma credencial
+  de produção foi copiada para contornar essa limitação.
+- Esta validação não reproduz no navegador a expiração de sessão durante uma
+  Server Action nem confirma o comportamento em produção; isso requer teste
+  posterior em ambiente isolado e publicação deliberada.
+- Ainda não houve push, deploy, migration ou operação fiscal nesta candidata.
+  A proposta de homologação no mesmo projeto Supabase segue decisão separada;
+  credenciais de produção não são usadas como isolamento de testes.

@@ -32,6 +32,23 @@ export function proxy(request: NextRequest) {
 
   const sessao = validarTokenSessao(request.cookies.get(COOKIE_SESSAO)?.value, auth.segredo);
   if (!sessao) {
+    // Server Functions are POSTed to their page route. A Proxy redirect here
+    // returns a regular login document where the client expects an RSC/Flight
+    // action response. Let the action's mandatory auth guard issue a framework
+    // redirect instead; APIs and non-multipart page/form requests stay protected.
+    const pathname = request.nextUrl.pathname;
+    const eApi = pathname === "/api" || pathname.startsWith("/api/");
+    const contentType = request.headers.get("content-type") ?? "";
+    const postDeServerAction = request.method === "POST"
+      && !eApi
+      && (
+        request.headers.has("next-action")
+        // Progressive-enhancement forms send the action ID in multipart form
+        // data instead of the JavaScript-only `next-action` request header.
+        || /^multipart\/form-data(?:\s*;|$)/i.test(contentType)
+      );
+    if (postDeServerAction) return NextResponse.next();
+
     const destino = request.nextUrl.clone();
     destino.pathname = "/login";
     destino.search = "";
