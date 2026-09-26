@@ -8,10 +8,12 @@ de `c1b6ae3`. A tela de Trocas passa a cadastrar vários produtos escolhendo o
 mercado uma vez e a corrigir/zerar somente o saldo **ainda pendente**. O ajuste
 tem registro próprio e chave idempotente; lançamentos originais e reposições já
 usadas não são apagados. A migration aditiva `0023_trocas_ajustes_pendentes`
-está no código/journal. Foi aplicada somente no projeto Supabase de
-homologação `szakgftippcqtuqwxsox`, incluindo grants/policies mínimos para
-`nf_homologacao_web`; **não foi aplicada em produção**. Não executar o runner
-Drizzle em produção, pelo descompasso histórico descrito abaixo.
+está no código/journal. Foi aplicada no projeto Supabase de homologação
+`szakgftippcqtuqwxsox`, incluindo grants/policies mínimos para
+`nf_homologacao_web`, e em produção `kcukzbszakwrfhbsiihw` em 26/09/2026.
+Na produção, `postgres` é owner e tem SELECT/INSERT; `anon` não tem SELECT e
+`authenticated` não tem INSERT; RLS e índices foram conferidos. Não executar
+o runner Drizzle em produção, pelo descompasso histórico descrito abaixo.
 
 Leitura remota de produção confirmou as colunas de concorrência e os RPCs
 `worker_set_capacity`/`atualizar_preferencia_concorrencia`. O `worker_status`
@@ -25,8 +27,12 @@ Web na RPC e observar uma carga real antes de considerar 2/3 comprovados.
 
 Validação local integrada: TypeScript, 185 testes Web e 17 testes de isolamento
 passaram. A restauração de concorrência passou ainda em 41 testes focados do
-Worker. Nenhum deploy/push, migração de produção ou emissão artificial nesta
-integração. O faturamento diferido por projeto permanece **não implementado**;
+Worker. A build completa de homologação também passou nesta branch. A branch
+`codex/trocas-lote-ajustes` foi enviada ao GitHub em `13145b5`; o Preview
+da Vercel falhou no build e os logs detalhados não ficaram disponíveis pela
+integração, portanto não atribuir uma causa sem evidência. Ainda não houve
+deploy Web em produção nem emissão artificial nesta integração.
+O faturamento diferido por projeto permanece **não implementado**;
 as regras confirmadas pelo cliente e os acoplamentos estão em
 `docs/PLANO-FATURAMENTO-DIFERIDO.md`.
 
