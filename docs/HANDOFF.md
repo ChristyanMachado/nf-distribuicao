@@ -2,16 +2,32 @@
 
 ## Faturamento posterior por mercado — base isolada em 26/09/2026
 
+O segundo incremento local (`0025_faturamento_diferido_emitente`) deixa
+`distribuicoes.emitente_id` nulo somente para uma linha `DIFERIDO`; uma linha
+`IMEDIATO` continua obrigatoriamente vinculada a um emitente. A migration foi
+aplicada **apenas em homologação** e a constraint foi conferida no catálogo.
+Na branch isolada, a Server Action aceita uma linha diferida explicitamente
+marcada somente com `APP_ENVIRONMENT=homologacao` e
+`HABILITAR_FATURAMENTO_DIFERIDO=true`, desde que a política real do mercado
+no banco seja `DIFERIDO`: grava
+a entrega física e o saldo faturável, exclui trocas e não cria tarefa fiscal.
+O formulário ainda não oferece esse modo nem existe fechamento posterior.
+Portanto, isto **não está pronto para uso nem para publicação em produção**.
+O sistema em produção continua na versão anterior sem esse incremento.
+O incremento passou por 190 testes Web, 17 testes de segurança, TypeScript
+e build completo de homologação; não houve ensaio de emissão fiscal.
+
 Na branch `codex/faturamento-diferido`, a migration aditiva
 `0024_faturamento_diferido_base` introduz política por mercado com padrão
 `IMEDIATO`, snapshot da política por linha física e livro de saldo ainda vazio.
 Foi aplicada **somente no Supabase de homologação** `szakgftippcqtuqwxsox`:
 nenhum mercado/linha foi reclassificado, não há saldo criado, RLS está ativo,
 `anon` não lê e `nf_homologacao_web` só pode ler/inserir (não atualizar).
-O Web recusa um mercado marcado `DIFERIDO` enquanto o fechamento não estiver
-completo; isto evita emissão imediata indevida, mas **ainda não permite operar
-a Cooperativa neste modo**. Não aplicar 0024 em produção nem divulgar a opção
-ao usuário como pronta. O deploy Web de `main` em `5b3a022` ficou READY; ele
+O Web exige correspondência entre a política no banco e a intenção explícita
+do formulário, impedindo emissão imediata acidental para mercado diferido.
+**Ainda não permite operar a Cooperativa neste modo**. Não aplicar 0024/0025
+em produção nem divulgar a opção ao usuário como pronta. O deploy Web de
+`main` em `5b3a022` ficou READY; ele
 contém Trocas/concorrência, não faturamento posterior. Rollback Web:
 `backup/web-session-fix-b589f4e-20260925`.
 

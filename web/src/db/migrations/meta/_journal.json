@@ -176,6 +176,13 @@
       "when": 1790415372000,
       "tag": "0024_faturamento_diferido_base",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1790415373000,
+      "tag": "0025_faturamento_diferido_emitente",
+      "breakpoints": true
     }
   ]
 }

@@ -7,7 +7,7 @@ vi.mock("@/lib/auth-server", () => ({ exigirSessaoAdministrativa: mocks.auth }))
 vi.mock("@/server/contrato-tarefa", () => ({ gerarContratoTarefaPendente: mocks.contrato }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 import { processarDistribuicao } from "./actions";
-import { clienteEmitentes, disponibilidades, distribuicoes, lotesDistribuicao, produtos, tarefas, trocasMercado } from "@/db/schema";
+import { clienteEmitentes, clientes, disponibilidades, distribuicoes, lotesDistribuicao, produtos, saldosFaturamento, tarefas, trocasMercado } from "@/db/schema";
 
 const produtoId = "10000000-0000-4000-8000-000000000001";
 const clienteId = "20000000-0000-4000-8000-000000000001";
@@ -26,6 +26,7 @@ function banco(relacoes: Record<string, unknown>[], reutilizado = false, saldoTr
   const tx = {
     select: () => ({ from: (tabela: unknown) => {
       const rows = tabela === produtos ? [{ id: produtoId, regraFiscalId: "regra" }]
+        : tabela === clientes ? [{ id: clienteId, modoFaturamento: relacoes[0]?.modoFaturamento ?? "IMEDIATO" }]
         : tabela === clienteEmitentes ? relacoes.map((relacao) => ({ modoFaturamento: "IMEDIATO", ...relacao })) : tabela === lotesDistribuicao
           ? [{ id: "lote", numero: 1, payloadHash: payloadHashLote }]
           : [];
@@ -40,7 +41,8 @@ function banco(relacoes: Record<string, unknown>[], reutilizado = false, saldoTr
       if (tabela === lotesDistribuicao) payloadHashLote = valores.payloadHash;
       const query = { onConflictDoNothing: () => query, onConflictDoUpdate: () => Promise.resolve(),
         returning: () => Promise.resolve(tabela === lotesDistribuicao
-          ? reutilizado ? [] : [{ id: "lote", numero: 1 }] : [{ id: "disponibilidade" }]),
+          ? reutilizado ? [] : [{ id: "lote", numero: 1 }]
+          : [{ id: tabela === distribuicoes ? "distribuicao" : "disponibilidade" }]),
         then: (resolve: (r: unknown) => unknown) => Promise.resolve().then(resolve) };
       return query;
     } }),
@@ -58,7 +60,11 @@ function banco(relacoes: Record<string, unknown>[], reutilizado = false, saldoTr
   return { escritas, filtros, baixasTroca, confirmou: () => confirmado };
 }
 
-beforeEach(() => vi.resetAllMocks());
+beforeEach(() => {
+  vi.resetAllMocks();
+  delete process.env.HABILITAR_FATURAMENTO_DIFERIDO;
+  delete process.env.APP_ENVIRONMENT;
+});
 describe("distribuição só de trocas no servidor", () => {
   it("aceita vínculo ativo sem exigir dados fiscais nem gerar tarefa", async () => {
     const db = banco([{ clienteId, emitenteId }]);
@@ -82,12 +88,64 @@ describe("distribuição só de trocas no servidor", () => {
     banco([{ clienteId, emitenteId: "outro" }]);
     await expect(processarDistribuicao(input())).rejects.toThrow("vínculo");
   });
-  it("não emite nem registra entrega diferida enquanto o fechamento não estiver pronto", async () => {
+  it("recusa formulário antigo de mercado diferido antes de registrar a entrega", async () => {
+    process.env.APP_ENVIRONMENT = "homologacao";
+    process.env.HABILITAR_FATURAMENTO_DIFERIDO = "true";
     const db = banco([{ clienteId, emitenteId, modoFaturamento: "DIFERIDO" }]);
-    await expect(processarDistribuicao(input())).rejects.toThrow("Faturamento posterior ainda não está disponível");
+    await expect(processarDistribuicao(input())).rejects.toThrow("atualize a distribuição");
     expect(db.escritas).toEqual([]);
     expect(db.confirmou()).toBe(false);
     expect(mocks.contrato).not.toHaveBeenCalled();
+  });
+  it("recusa entrega diferida fora da homologação mesmo se o payload pedir", async () => {
+    const db = banco([{ clienteId, modoFaturamento: "DIFERIDO" }]);
+    const dados = input();
+    const linha = dados.produtos[0].linhas[0] as typeof dados.produtos[0]["linhas"][0] & { modoFaturamento?: "DIFERIDO" };
+    linha.emitenteId = "";
+    linha.modoFaturamento = "DIFERIDO";
+    await expect(processarDistribuicao(dados)).rejects.toThrow("não está disponível");
+    expect(db.escritas).toEqual([]);
+    expect(db.confirmou()).toBe(false);
+  });
+  it("registra entrega diferida faturável e saldo sem gerar tarefa fiscal", async () => {
+    process.env.APP_ENVIRONMENT = "homologacao";
+    process.env.HABILITAR_FATURAMENTO_DIFERIDO = "true";
+    const db = banco([{ clienteId, modoFaturamento: "DIFERIDO" }]);
+    const dados = input();
+    const linha = dados.produtos[0].linhas[0] as typeof dados.produtos[0]["linhas"][0] & { modoFaturamento?: "DIFERIDO" };
+    linha.emitenteId = "";
+    linha.modoFaturamento = "DIFERIDO";
+    linha.quantidadeTroca = 0;
+    expect(await processarDistribuicao(dados)).toMatchObject({ tarefasCriadas: 0 });
+    expect(db.escritas).toContain(distribuicoes);
+    expect(db.escritas).toContain(saldosFaturamento);
+    expect(db.escritas).not.toContain(tarefas);
+    expect(db.confirmou()).toBe(true);
+    expect(mocks.contrato).not.toHaveBeenCalled();
+  });
+  it("não aceita marcar como diferido um mercado cadastrado como imediato", async () => {
+    const db = banco([{ clienteId, emitenteId }]);
+    const dados = input();
+    const linha = dados.produtos[0].linhas[0] as typeof dados.produtos[0]["linhas"][0] & { modoFaturamento?: "DIFERIDO" };
+    linha.emitenteId = "";
+    linha.modoFaturamento = "DIFERIDO";
+    linha.quantidadeTroca = 0;
+    await expect(processarDistribuicao(dados)).rejects.toThrow("exige um emitente");
+    expect(db.escritas).toEqual([]);
+    expect(db.confirmou()).toBe(false);
+  });
+  it("não cria saldo para entrega diferida composta apenas por reposição", async () => {
+    process.env.APP_ENVIRONMENT = "homologacao";
+    process.env.HABILITAR_FATURAMENTO_DIFERIDO = "true";
+    const db = banco([{ clienteId, modoFaturamento: "DIFERIDO" }]);
+    const dados = input();
+    const linha = dados.produtos[0].linhas[0] as typeof dados.produtos[0]["linhas"][0] & { modoFaturamento?: "DIFERIDO" };
+    linha.emitenteId = "";
+    linha.modoFaturamento = "DIFERIDO";
+    expect(await processarDistribuicao(dados)).toMatchObject({ tarefasCriadas: 0 });
+    expect(db.escritas).toContain(distribuicoes);
+    expect(db.escritas).not.toContain(saldosFaturamento);
+    expect(db.escritas).not.toContain(tarefas);
   });
   it("ignora exigências fiscais de pares extras devolvidos pela consulta", async () => {
     banco([{ clienteId, emitenteId }, { clienteId: "nao-selecionado", emitenteId, cnpj: "inválido" }]);

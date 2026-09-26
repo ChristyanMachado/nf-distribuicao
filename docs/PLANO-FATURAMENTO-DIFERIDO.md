@@ -2,15 +2,22 @@
 
 Status: **regra operacional confirmada; base inerte em homologação, fechamento não implementado**.
 
+Incremento seguinte, ainda isolado: `0025_faturamento_diferido_emitente` foi
+aplicado somente no QA. A entrega diferida pode ser registrada pela Server
+Action com emitente vazio e saldo faturável, sem tarefa, se o banco confirmar
+a política do mercado e a instalação for de homologação com
+`HABILITAR_FATURAMENTO_DIFERIDO=true`. A UI não habilita esse caminho e não existe ação de
+fechamento; portanto não ativar mercados reais nem promover à produção.
+
 ## Primeiro incremento técnico (26/09/2026)
 
 `0024_faturamento_diferido_base` cria `clientes.modo_faturamento` e o snapshot
 `distribuicoes.modo_faturamento`, ambos `IMEDIATO` por padrão, além de
 `saldos_faturamento` com quantidade total e alocada em milésimos. Foi aplicado
-somente em homologação. A tabela está vazia; não existe tela para alterar a
-política nem função de fechar saldos. O Web falha fechado se encontrar um
-mercado `DIFERIDO`, para que nenhuma entrega seja registrada sem caminho de
-faturamento. Não aplicar ou habilitar em produção antes do fluxo integral.
+somente em homologação. Não existe tela para alterar a política nem função de
+fechar saldos. O formulário atual não envia o modo diferido; um cadastro
+alterado para `DIFERIDO` é recusado até haver uma UI explícita. Não aplicar ou
+habilitar em produção antes do fluxo integral.
 
 O saldo é **um por linha física**, mas uma linha poderá alimentar muitos
 fechamentos por meio de uma futura tabela de alocações. Portanto, a chave

@@ -16,6 +16,7 @@ import {
   tarefaItens,
   lotesDistribuicao,
   impressoesRoteiro,
+  saldosFaturamento,
 } from "@/db/schema";
 import { calcularFaturavel, validarDistribuicaoTotal } from "@/lib/calculos";
 import {
@@ -159,6 +160,9 @@ export async function carregarDadosDistribuicao() {
     }
   >();
   for (const linha of linhasUltimoLote) {
+    // O atalho de repetição ainda reproduz apenas destinos imediatos.
+    // Fechamentos diferidos não possuem emitente na entrega física.
+    if (!linha.emitenteId) continue;
     let produto = produtosUltimoLote.get(linha.produtoId);
     if (!produto) {
       produto = {
@@ -218,7 +222,9 @@ export async function carregarDadosDistribuicao() {
 
 type LinhaDistribuicao = {
   clienteId: string;
+  // No modo diferido o emitente será escolhido apenas no fechamento.
   emitenteId: string;
+  modoFaturamento?: "DIFERIDO";
   quantidadeDistribuida: number;
   quantidadeTroca: number;
   precoUnitario: number;
@@ -252,6 +258,7 @@ function hashSemanticoDistribuicao(input: {
           .map((linha) => ({
             clienteId: linha.clienteId,
             emitenteId: linha.emitenteId,
+            ...(linha.modoFaturamento === "DIFERIDO" ? { modoFaturamento: "DIFERIDO" } : {}),
             quantidadeDistribuida: deMilesimos(emMilesimos(linha.quantidadeDistribuida, "Quantidade distribuída")),
             quantidadeTroca: deMilesimos(emMilesimos(linha.quantidadeTroca, "Quantidade de troca")),
             precoUnitarioCentavos: Math.round(linha.precoUnitario * 100),
@@ -314,7 +321,12 @@ export async function processarDistribuicao(input: {
     const destinosRecebidos = new Set<string>();
     for (const linha of produto.linhas) {
       exigirUuid(linha.clienteId, "Cliente");
-      if (linha.quantidadeDistribuida > 0) exigirUuid(linha.emitenteId, "Emitente");
+      if (linha.modoFaturamento !== undefined && linha.modoFaturamento !== "DIFERIDO") {
+        throw new Error("Modo de faturamento inválido.");
+      }
+      if (linha.quantidadeDistribuida > 0 && linha.modoFaturamento !== "DIFERIDO") {
+        exigirUuid(linha.emitenteId, "Emitente");
+      }
       const destino = `${linha.clienteId}:${linha.emitenteId}`;
       if (destinosRecebidos.has(destino)) {
         throw new Error("O mesmo cliente e emitente foi repetido no produto.");
@@ -401,11 +413,46 @@ export async function processarDistribuicao(input: {
       if (!regrasDosProdutos.has(produtoId)) throw new Error("Produto não encontrado ou inativo.");
     }
 
+    const clientesSelecionados = [...new Set(input.produtos.flatMap((produto) =>
+      produto.linhas.filter((linha) => linha.quantidadeDistribuida > 0).map((linha) => linha.clienteId)
+    ))];
+    const politicas = clientesSelecionados.length > 0
+      ? await tx.select({ id: clientes.id, modoFaturamento: clientes.modoFaturamento })
+        .from(clientes).where(and(inArray(clientes.id, clientesSelecionados), eq(clientes.ativo, true)))
+      : [];
+    const modoPorCliente = new Map(politicas.map((cliente) => [cliente.id, cliente.modoFaturamento]));
+    if (modoPorCliente.size !== clientesSelecionados.length) {
+      throw new Error("Um mercado selecionado está inativo ou não foi encontrado. Atualize a distribuição.");
+    }
+    if ([...modoPorCliente.values()].includes("DIFERIDO") && (
+      process.env.APP_ENVIRONMENT !== "homologacao"
+      || process.env.HABILITAR_FATURAMENTO_DIFERIDO !== "true"
+    )) {
+      throw new Error("Faturamento posterior está em validação e não está disponível nesta instalação.");
+    }
+    for (const produto of input.produtos) {
+      for (const linha of produto.linhas) {
+        if (linha.quantidadeDistribuida <= 0) continue;
+        const modo = modoPorCliente.get(linha.clienteId);
+        if (modo === "DIFERIDO") {
+          if (linha.modoFaturamento !== "DIFERIDO" || linha.emitenteId !== "") {
+            throw new Error("Este mercado usa faturamento posterior; atualize a distribuição antes de enviar.");
+          }
+        } else if (modo === "IMEDIATO") {
+          if (linha.modoFaturamento || !linha.emitenteId) {
+            throw new Error("Este mercado exige um emitente na distribuição. Atualize o formulário.");
+          }
+        } else {
+          throw new Error("Modo de faturamento do mercado inválido.");
+        }
+      }
+    }
+
     const paresDistribuidos = new Map<string, LinhaDistribuicao>();
     const paresComFaturamento = new Set<string>();
     for (const produto of input.produtos) {
       for (const linha of produto.linhas) {
-        if (linha.quantidadeDistribuida <= 0) continue;
+        if (linha.quantidadeDistribuida <= 0 || modoPorCliente.get(linha.clienteId) === "DIFERIDO") continue;
         const chave = `${linha.clienteId}:${linha.emitenteId}`;
         paresDistribuidos.set(chave, linha);
         if (linha.quantidadeDistribuida > linha.quantidadeTroca) {
@@ -449,13 +496,6 @@ export async function processarDistribuicao(input: {
       );
       if ([...paresDistribuidos.keys()].some((chave) => !chavesValidas.has(chave))) {
         throw new Error("Um cliente ou emitente está inativo, ou o vínculo escolhido não está habilitado. Atualize a distribuição.");
-      }
-      // Fail closed até existir um fechamento fiscal completo e auditável.
-      // Nunca emitir automaticamente para um mercado configurado como diferido.
-      if (relacoesValidas.some((relacao) =>
-        paresDistribuidos.has(`${relacao.clienteId}:${relacao.emitenteId}`)
-        && relacao.modoFaturamento !== "IMEDIATO")) {
-        throw new Error("Faturamento posterior ainda não está disponível. Este mercado não pode ser distribuído até a conclusão do fluxo.");
       }
       for (const cadastro of relacoesValidas) {
         // O filtro por dois conjuntos de IDs pode trazer pares não selecionados.
@@ -540,16 +580,19 @@ export async function processarDistribuicao(input: {
 
         const faturavel = calcularFaturavel(linha);
 
-        await tx.insert(distribuicoes).values({
+        const diferido = modoPorCliente.get(linha.clienteId) === "DIFERIDO";
+        const [distribuicao] = await tx.insert(distribuicoes).values({
           disponibilidadeId: disponibilidade.id,
           clienteId: linha.clienteId,
-          emitenteId: linha.emitenteId,
+          emitenteId: diferido ? null : linha.emitenteId,
+          modoFaturamento: diferido ? "DIFERIDO" : "IMEDIATO",
           quantidadeDistribuida: String(linha.quantidadeDistribuida),
           quantidadeTroca: String(linha.quantidadeTroca),
           quantidadeFaturavel: String(faturavel.quantidadeFaturavel),
           precoUnitario: String(linha.precoUnitario),
           precoPromocional: linha.precoPromocional,
-        });
+        }).returning({ id: distribuicoes.id });
+        if (!distribuicao) throw new Error("Não foi possível registrar a linha da distribuição.");
 
         // Preço promocional é histórico do lote, não referência para o
         // preenchimento seguinte. Isso evita repetir um valor temporário.
@@ -565,6 +608,18 @@ export async function processarDistribuicao(input: {
               target: [precosCliente.produtoId, precosCliente.clienteId],
               set: { preco: String(linha.precoUnitario), atualizadoEm: new Date() },
             });
+        }
+
+        if (diferido) {
+          if (faturavel.quantidadeFaturavel > 0) {
+            await tx.insert(saldosFaturamento).values({
+              distribuicaoId: distribuicao.id,
+              quantidadeTotal: deMilesimos(emMilesimos(faturavel.quantidadeFaturavel, "Quantidade faturável")),
+              quantidadeAlocada: "0",
+            });
+          }
+          // A entrega existe no roteiro, mas não entra na fila fiscal agora.
+          continue;
         }
 
         if (faturavel.quantidadeFaturavel <= 0) continue;

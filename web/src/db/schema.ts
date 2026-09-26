@@ -239,8 +239,8 @@ export const distribuicoes = fiscalSchema.table("distribuicoes", {
   id: uuid("id").primaryKey().defaultRandom(),
   disponibilidadeId: uuid("disponibilidade_id").notNull().references(() => disponibilidades.id),
   clienteId: uuid("cliente_id").notNull().references(() => clientes.id),
-  // Mesmo emitente escolhido para a tarefa originada por esta distribuição.
-  emitenteId: uuid("emitente_id").notNull().references(() => emitentes.id),
+  // Imediato: emitente escolhido na entrega. Diferido: só no fechamento.
+  emitenteId: uuid("emitente_id").references(() => emitentes.id),
   quantidadeDistribuida: numeric("quantidade_distribuida", { precision: 12, scale: 3 }).notNull(),
   quantidadeTroca: numeric("quantidade_troca", { precision: 12, scale: 3 }).notNull().default("0"),
   // quantidadeFaturavel = quantidadeDistribuida - quantidadeTroca (calculado em código, ver lib/calculos.ts)
@@ -250,7 +250,12 @@ export const distribuicoes = fiscalSchema.table("distribuicoes", {
   // Snapshot da política vigente quando esta entrega física foi registrada.
   modoFaturamento: text("modo_faturamento").$type<ModoFaturamento>().notNull().default("IMEDIATO"),
   criadoEm: timestamp("criado_em").notNull().defaultNow(),
-});
+}, (table) => [
+  check("distribuicoes_emitente_por_modo_check", sql`(
+    (${table.modoFaturamento} = 'IMEDIATO' AND ${table.emitenteId} IS NOT NULL)
+    OR (${table.modoFaturamento} = 'DIFERIDO' AND ${table.emitenteId} IS NULL)
+  )`),
+]);
 
 // Livro futuro: somente linhas DIFERIDO terão saldo. O primeiro incremento
 // não habilita essa política nem insere saldos em produção.
