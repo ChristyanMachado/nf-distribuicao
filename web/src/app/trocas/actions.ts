@@ -2,13 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { and, asc, eq, gt, sql } from "drizzle-orm";
+import { and, asc, eq, gt, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { clientes, produtos, trocasLancamentos, trocasMercado } from "@/db/schema";
+import { clientes, produtos, trocasAjustes, trocasLancamentos, trocasMercado } from "@/db/schema";
 import { exigirSessaoAdministrativa } from "@/lib/auth-server";
 import { ErroFormulario, falhaFormulario, type EstadoFormulario } from "@/lib/formularios";
 import { exigirNumeroFinito, exigirUuid } from "@/lib/validacao";
 import { deMilesimos, emMilesimos } from "@/lib/quantidades";
+import { lerItensLoteTrocas } from "./lote";
 
 export async function carregarTrocasMercado() {
   await exigirSessaoAdministrativa();
@@ -108,4 +109,117 @@ export async function adicionarTrocaMercado(
   revalidatePath("/trocas");
   revalidatePath("/distribuicao");
   redirect(reutilizada ? "/trocas?salvo=troca-reutilizada" : "/trocas?salvo=troca-registrada");
+}
+
+/** Inclui vários produtos para o mesmo mercado numa única transação. */
+export async function adicionarTrocasEmLote(
+  _estado: EstadoFormulario,
+  formData: FormData,
+): Promise<EstadoFormulario> {
+  await exigirSessaoAdministrativa();
+  let reutilizados = 0;
+  let total = 0;
+  try {
+    const clienteId = exigirUuid(formData.get("clienteId"), "Mercado");
+    const itens = lerItensLoteTrocas(formData);
+    total = itens.length;
+    const [cliente] = await db.select({ id: clientes.id }).from(clientes)
+      .where(and(eq(clientes.id, clienteId), eq(clientes.ativo, true))).limit(1);
+    if (!cliente) throw new ErroFormulario("Mercado não está disponível.");
+    const produtosAtivos = await db.select({ id: produtos.id }).from(produtos)
+      .where(and(eq(produtos.ativo, true), inArray(produtos.id, itens.map((item) => item.produtoId))));
+    if (produtosAtivos.length !== itens.length) throw new ErroFormulario("Há um produto indisponível no envio.");
+
+    reutilizados = await db.transaction(async (tx) => {
+      let repetidos = 0;
+      for (const item of itens) {
+        const [lancamento] = await tx.insert(trocasLancamentos)
+          .values({ clienteId, produtoId: item.produtoId, quantidade: item.quantidade, chaveIdempotencia: item.chaveIdempotencia })
+          .onConflictDoNothing({ target: trocasLancamentos.chaveIdempotencia })
+          .returning({ id: trocasLancamentos.id });
+        if (!lancamento) {
+          const [existente] = await tx.select({
+            clienteId: trocasLancamentos.clienteId,
+            produtoId: trocasLancamentos.produtoId,
+            quantidade: trocasLancamentos.quantidade,
+          }).from(trocasLancamentos)
+            .where(eq(trocasLancamentos.chaveIdempotencia, item.chaveIdempotencia)).limit(1);
+          if (!existente || existente.clienteId !== clienteId || existente.produtoId !== item.produtoId || existente.quantidade !== item.quantidade) {
+            throw new ErroFormulario("Este envio já foi usado com outros dados. Atualize a página e tente novamente.");
+          }
+          repetidos++;
+          continue;
+        }
+        await tx.insert(trocasMercado)
+          .values({ clienteId, produtoId: item.produtoId, quantidadeDisponivel: item.quantidade })
+          .onConflictDoUpdate({
+            target: [trocasMercado.clienteId, trocasMercado.produtoId],
+            set: {
+              quantidadeDisponivel: sql`${trocasMercado.quantidadeDisponivel} + ${item.quantidade}`,
+              atualizadoEm: new Date(),
+            },
+          });
+      }
+      return repetidos;
+    });
+  } catch (erro) {
+    return falhaFormulario(erro, "Não foi possível registrar as reposições.");
+  }
+  revalidatePath("/trocas");
+  revalidatePath("/distribuicao");
+  redirect(reutilizados === total ? "/trocas?salvo=troca-reutilizada" : "/trocas?salvo=troca-registrada");
+}
+
+/** Altera apenas o saldo ainda pendente, mantendo o histórico já consumido. */
+export async function ajustarSaldoTroca(
+  _estado: EstadoFormulario,
+  formData: FormData,
+): Promise<EstadoFormulario> {
+  await exigirSessaoAdministrativa();
+  let zerado = false;
+  try {
+    const saldoId = exigirUuid(formData.get("saldoId"), "Saldo");
+    const chaveIdempotencia = exigirUuid(formData.get("chaveIdempotencia"), "Identificador do ajuste");
+    const normalizar = (valor: FormDataEntryValue | null, campo: string) => {
+      if (typeof valor !== "string" || !valor.trim()) throw new ErroFormulario(`${campo} obrigatório.`);
+      const numero = exigirNumeroFinito(Number(String(valor ?? "").trim()), campo,
+        { minimo: 0, maximo: 999_999_999.999 });
+      return deMilesimos(emMilesimos(numero, campo));
+    };
+    const quantidadeAntes = normalizar(formData.get("quantidadeAntes"), "Saldo anterior");
+    const quantidadeDepois = normalizar(formData.get("quantidadeDepois"), "Novo saldo");
+    if (quantidadeAntes === quantidadeDepois) throw new ErroFormulario("O novo saldo deve ser diferente do atual.");
+    zerado = quantidadeDepois === "0.000";
+
+    await db.transaction(async (tx) => {
+      const [ajuste] = await tx.insert(trocasAjustes)
+        .values({ saldoId, chaveIdempotencia, quantidadeAntes, quantidadeDepois })
+        .onConflictDoNothing({ target: trocasAjustes.chaveIdempotencia })
+        .returning({ id: trocasAjustes.id });
+      if (!ajuste) {
+        const [existente] = await tx.select({
+          saldoId: trocasAjustes.saldoId,
+          quantidadeAntes: trocasAjustes.quantidadeAntes,
+          quantidadeDepois: trocasAjustes.quantidadeDepois,
+        }).from(trocasAjustes)
+          .where(eq(trocasAjustes.chaveIdempotencia, chaveIdempotencia)).limit(1);
+        if (!existente || existente.saldoId !== saldoId || existente.quantidadeAntes !== quantidadeAntes || existente.quantidadeDepois !== quantidadeDepois) {
+          throw new ErroFormulario("Este ajuste já foi usado com outros dados. Atualize a página e tente novamente.");
+        }
+        return;
+      }
+      const [saldoAtualizado] = await tx.update(trocasMercado)
+        .set({ quantidadeDisponivel: quantidadeDepois, atualizadoEm: new Date() })
+        .where(and(eq(trocasMercado.id, saldoId), eq(trocasMercado.quantidadeDisponivel, quantidadeAntes)))
+        .returning({ id: trocasMercado.id });
+      if (!saldoAtualizado) {
+        throw new ErroFormulario("O saldo mudou desde que esta tela foi aberta. Atualize a página e confira antes de ajustar.");
+      }
+    });
+  } catch (erro) {
+    return falhaFormulario(erro, "Não foi possível ajustar a reposição pendente.");
+  }
+  revalidatePath("/trocas");
+  revalidatePath("/distribuicao");
+  redirect(zerado ? "/trocas?salvo=troca-zerada" : "/trocas?salvo=troca-ajustada");
 }

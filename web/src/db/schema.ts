@@ -10,6 +10,7 @@ import {
   jsonb,
   index,
   uniqueIndex,
+  check,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
@@ -393,6 +394,28 @@ export const trocasLancamentos = fiscalSchema.table(
   (table) => [
     uniqueIndex("trocas_lancamentos_chave_idempotencia_idx").on(table.chaveIdempotencia),
     index("trocas_lancamentos_cliente_produto_idx").on(table.clienteId, table.produtoId),
+  ],
+);
+
+// Correção do saldo ainda pendente. Nunca remove lançamentos anteriores nem
+// reverte a baixa de reposições já usadas em distribuições.
+export const trocasAjustes = fiscalSchema.table(
+  "trocas_ajustes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    chaveIdempotencia: uuid("chave_idempotencia").notNull(),
+    saldoId: uuid("saldo_id").notNull().references(() => trocasMercado.id),
+    quantidadeAntes: numeric("quantidade_antes", { precision: 12, scale: 3 }).notNull(),
+    quantidadeDepois: numeric("quantidade_depois", { precision: 12, scale: 3 }).notNull(),
+    criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("trocas_ajustes_chave_idempotencia_idx").on(table.chaveIdempotencia),
+    index("trocas_ajustes_saldo_criado_idx").on(table.saldoId, table.criadoEm),
+    check("trocas_ajustes_valores_validos", sql`
+      ${table.quantidadeAntes} >= 0 AND ${table.quantidadeDepois} >= 0
+      AND ${table.quantidadeAntes} <> ${table.quantidadeDepois}
+    `),
   ],
 );
 

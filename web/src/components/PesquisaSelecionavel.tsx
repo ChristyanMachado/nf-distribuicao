@@ -10,11 +10,13 @@ function normalizar(valor: string) {
 
 /** Campo pesquisável para formulários server-side: envia somente o id escolhido. */
 export default function PesquisaSelecionavel({
+  id,
   name,
   opcoes,
   placeholder,
   vazio,
 }: {
+  id?: string;
   name: string;
   opcoes: OpcaoPesquisa[];
   placeholder: string;
@@ -40,6 +42,7 @@ export default function PesquisaSelecionavel({
     <div className="relative">
       <input type="hidden" name={name} value={selecionado} />
       <input
+        id={id}
         type="search"
         value={texto}
         placeholder={placeholder}

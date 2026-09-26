@@ -1,6 +1,10 @@
 # Plano de domínio — entrega agora, faturamento depois
 
-Status: **investigação concluída; não implementar sem confirmar as decisões abertas**.
+Status: **regra operacional confirmada em 25/09/2026; implementação ainda não iniciada**.
+
+O histórico foi conferido: `b8d5746` adicionou este plano, não o fluxo. O
+commit `6380de8` habilitou vários emitentes para um mercado no mesmo lote, mas
+continua gerando notas imediatas, sem saldo entre distribuições.
 
 ## Problema de negócio
 
@@ -46,13 +50,52 @@ uma nota com várias entregas sem perder rastreabilidade.
 
 ## Decisões que ainda dependem do cliente
 
-1. Em qual evento o planejado passa a ser considerado efetivamente entregue?
-2. O projeto/destino já é conhecido na distribuição ou apenas no fechamento?
-3. Projeto/destino altera destinatário ou qualquer informação da NFP-e?
-4. Qual preço e regra fiscal valem quando entregas antigas são fechadas?
-5. O emitente é escolhido por parcela, projeto, fechamento ou nota?
-6. Quais combinações de projeto, preço, emitente e período podem compartilhar
-   uma mesma nota?
+O vídeo do cliente e a confirmação do operador em 25/09/2026 resolveram:
+
+1. O saldo torna-se disponível ao **registrar a distribuição no Web**; não
+   depende de confirmação posterior do motorista. Isso representa uma decisão
+   operacional, não prova física de entrega.
+2. Projeto pode ser atribuído no **fechamento posterior**. Partes do mesmo
+   produto/entrega podem ir para projetos diferentes, inclusive fechados em
+   dias distintos. Não criar produtos artificiais para representar projetos.
+3. Projeto não muda o destinatário fiscal; ele determina **notas separadas**.
+   O fechamento pode selecionar só alguns produtos/quantidades elegíveis.
+4. O preço da entrega original é a sugestão inicial, mas o operador pode
+   conferir e alterá-lo antes de confirmar o fechamento. O valor efetivamente
+   usado deve ficar no snapshot fiscal sem reescrever a entrega.
+5. O operador escolhe o emitente no fechamento. A distribuição física não
+   deve criar tarefa fiscal para mercados com política diferida/manual.
+6. A política deve ser configurável por mercado, não codificada pelo nome
+   "Cooperativa". Mercados imediatos continuam no fluxo atual.
+
+Invariantes de agrupamento para o desenho técnico: uma nota tem um único
+destinatário e emitente; projeto diferente gera nota diferente. O operador
+fecha quantidades explícitas; nenhuma parcela pode aparecer em duas notas.
+Preço diferente para o mesmo produto no mesmo fechamento deve continuar
+rastreável por parcela/snapshot, sem fusão silenciosa.
+
+Pontos a validar em homologação antes de produção: como exibir a regra fiscal
+de um produto alterada entre entrega e fechamento; como a Receita reage a duas
+linhas do mesmo produto com preços diferentes; qual evento operacional indica
+que o usuário pode marcar uma entrega registrada como não realizada. Não
+inventar reversão automática de saldo nem prazo fiscal.
+
+## Acoplamentos de código identificados
+
+- `distribuicoes.emitente_id` é obrigatório hoje, embora o emitente diferido
+  só seja escolhido no fechamento. A migração precisará representar ambos os
+  casos sem afetar linhas imediatas existentes.
+- `processarDistribuicao` hoje cria `tarefa_itens` e `tarefas` no mesmo lote.
+  Para mercado diferido, deve salvar a linha física e o saldo faturável sem
+  criar tarefa; para mercado imediato, não alterar a semântica atual.
+- `reservar_tarefas_worker` e o índice da fila exigem `lote_id IS NOT NULL`;
+  `gerarContratoTarefaPendente` faz `INNER JOIN` com lote. Fechamentos de
+  múltiplas distribuições exigem uma origem fiscal própria (`fechamento_id`)
+  nesses contratos e na reserva, sem inventar um lote de entrega artificial.
+- Notas, Tarefas, relatórios e impressão hoje agrupam por `lote_id`; devem
+  separar entrega física de fechamento fiscal para não duplicar indicadores.
+- Alocação por origem precisa de bloqueio transacional e idempotência. Mesmo
+  se houver falha fiscal incerta, não devolver saldo automaticamente.
 
 ## Sequência futura
 
