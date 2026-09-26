@@ -1,6 +1,23 @@
 # Plano de domínio — entrega agora, faturamento depois
 
-Status: **regra operacional confirmada em 25/09/2026; implementação ainda não iniciada**.
+Status: **regra operacional confirmada; base inerte em homologação, fechamento não implementado**.
+
+## Primeiro incremento técnico (26/09/2026)
+
+`0024_faturamento_diferido_base` cria `clientes.modo_faturamento` e o snapshot
+`distribuicoes.modo_faturamento`, ambos `IMEDIATO` por padrão, além de
+`saldos_faturamento` com quantidade total e alocada em milésimos. Foi aplicado
+somente em homologação. A tabela está vazia; não existe tela para alterar a
+política nem função de fechar saldos. O Web falha fechado se encontrar um
+mercado `DIFERIDO`, para que nenhuma entrega seja registrada sem caminho de
+faturamento. Não aplicar ou habilitar em produção antes do fluxo integral.
+
+O saldo é **um por linha física**, mas uma linha poderá alimentar muitos
+fechamentos por meio de uma futura tabela de alocações. Portanto, a chave
+primária `distribuicao_id` do saldo não limita a divisão por projetos. O saldo
+total deverá ser exatamente a `quantidade_faturavel`, excluindo trocas.
+Nenhum ajuste da quantidade alocada foi concedido ao papel Web de QA nesta
+fase; a transação de fechamento precisará estabelecer uma escrita controlada.
 
 O histórico foi conferido: `b8d5746` adicionou este plano, não o fluxo. O
 commit `6380de8` habilitou vários emitentes para um mercado no mesmo lote, mas

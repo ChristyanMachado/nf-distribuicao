@@ -423,6 +423,7 @@ export async function processarDistribuicao(input: {
           clienteId: clienteEmitentes.clienteId,
           emitenteId: clienteEmitentes.emitenteId,
           clienteNome: clientes.nome,
+          modoFaturamento: clientes.modoFaturamento,
           destinatarioNome: clientes.destinatarioNome,
           cnpj: clientes.cnpj,
           indicadorIe: clientes.indicadorIe,
@@ -448,6 +449,13 @@ export async function processarDistribuicao(input: {
       );
       if ([...paresDistribuidos.keys()].some((chave) => !chavesValidas.has(chave))) {
         throw new Error("Um cliente ou emitente está inativo, ou o vínculo escolhido não está habilitado. Atualize a distribuição.");
+      }
+      // Fail closed até existir um fechamento fiscal completo e auditável.
+      // Nunca emitir automaticamente para um mercado configurado como diferido.
+      if (relacoesValidas.some((relacao) =>
+        paresDistribuidos.has(`${relacao.clienteId}:${relacao.emitenteId}`)
+        && relacao.modoFaturamento !== "IMEDIATO")) {
+        throw new Error("Faturamento posterior ainda não está disponível. Este mercado não pode ser distribuído até a conclusão do fluxo.");
       }
       for (const cadastro of relacoesValidas) {
         // O filtro por dois conjuntos de IDs pode trazer pares não selecionados.

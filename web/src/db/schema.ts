@@ -21,6 +21,8 @@ import { sql } from "drizzle-orm";
 
 export const fiscalSchema = pgSchema("fiscal");
 
+export type ModoFaturamento = "IMEDIATO" | "DIFERIDO";
+
 // ---------------------------------------------------------------------------
 // Enums
 // ---------------------------------------------------------------------------
@@ -110,6 +112,9 @@ export const clientes = fiscalSchema.table("clientes", {
   cep: text("cep"),
   numeroEndereco: text("numero_endereco"),
   ativo: boolean("ativo").notNull().default(true),
+  // Política futura por mercado. O fechamento diferido permanece desabilitado
+  // até que o fluxo completo de saldo, projeto e emissão esteja validado.
+  modoFaturamento: text("modo_faturamento").$type<ModoFaturamento>().notNull().default("IMEDIATO"),
   observacoes: text("observacoes"),
   criadoEm: timestamp("criado_em").notNull().defaultNow(),
 });
@@ -242,8 +247,22 @@ export const distribuicoes = fiscalSchema.table("distribuicoes", {
   quantidadeFaturavel: numeric("quantidade_faturavel", { precision: 12, scale: 3 }).notNull(),
   precoUnitario: numeric("preco_unitario", { precision: 12, scale: 2 }).notNull(),
   precoPromocional: boolean("preco_promocional").notNull().default(false),
+  // Snapshot da política vigente quando esta entrega física foi registrada.
+  modoFaturamento: text("modo_faturamento").$type<ModoFaturamento>().notNull().default("IMEDIATO"),
   criadoEm: timestamp("criado_em").notNull().defaultNow(),
 });
+
+// Livro futuro: somente linhas DIFERIDO terão saldo. O primeiro incremento
+// não habilita essa política nem insere saldos em produção.
+export const saldosFaturamento = fiscalSchema.table("saldos_faturamento", {
+  distribuicaoId: uuid("distribuicao_id").primaryKey().references(() => distribuicoes.id),
+  quantidadeTotal: numeric("quantidade_total", { precision: 12, scale: 3 }).notNull(),
+  quantidadeAlocada: numeric("quantidade_alocada", { precision: 12, scale: 3 }).notNull().default("0"),
+  criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
+  atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  check("saldos_faturamento_quantidades_check", sql`${table.quantidadeTotal} > 0 AND ${table.quantidadeAlocada} >= 0 AND ${table.quantidadeAlocada} <= ${table.quantidadeTotal}`),
+]);
 
 // ---------------------------------------------------------------------------
 // RF11 — Tarefa de emissão (agrupa os itens de um cliente num dia, podendo

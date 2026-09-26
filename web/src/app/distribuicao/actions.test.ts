@@ -26,7 +26,7 @@ function banco(relacoes: Record<string, unknown>[], reutilizado = false, saldoTr
   const tx = {
     select: () => ({ from: (tabela: unknown) => {
       const rows = tabela === produtos ? [{ id: produtoId, regraFiscalId: "regra" }]
-        : tabela === clienteEmitentes ? relacoes : tabela === lotesDistribuicao
+        : tabela === clienteEmitentes ? relacoes.map((relacao) => ({ modoFaturamento: "IMEDIATO", ...relacao })) : tabela === lotesDistribuicao
           ? [{ id: "lote", numero: 1, payloadHash: payloadHashLote }]
           : [];
       const query = { innerJoin: () => query, where: (condicao: Parameters<PgDialect["sqlToQuery"]>[0]) => {
@@ -81,6 +81,13 @@ describe("distribuição só de trocas no servidor", () => {
   it("não aceita um vínculo com outro emitente", async () => {
     banco([{ clienteId, emitenteId: "outro" }]);
     await expect(processarDistribuicao(input())).rejects.toThrow("vínculo");
+  });
+  it("não emite nem registra entrega diferida enquanto o fechamento não estiver pronto", async () => {
+    const db = banco([{ clienteId, emitenteId, modoFaturamento: "DIFERIDO" }]);
+    await expect(processarDistribuicao(input())).rejects.toThrow("Faturamento posterior ainda não está disponível");
+    expect(db.escritas).toEqual([]);
+    expect(db.confirmou()).toBe(false);
+    expect(mocks.contrato).not.toHaveBeenCalled();
   });
   it("ignora exigências fiscais de pares extras devolvidos pela consulta", async () => {
     banco([{ clienteId, emitenteId }, { clienteId: "nao-selecionado", emitenteId, cnpj: "inválido" }]);

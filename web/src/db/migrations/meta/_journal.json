@@ -169,6 +169,13 @@
       "when": 1790386719000,
       "tag": "0023_trocas_ajustes_pendentes",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1790415372000,
+      "tag": "0024_faturamento_diferido_base",
+      "breakpoints": true
     }
   ]
 }

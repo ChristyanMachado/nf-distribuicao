@@ -1,5 +1,28 @@
 # Handoff — Estado Atual
 
+## Faturamento posterior por mercado — base isolada em 26/09/2026
+
+Na branch `codex/faturamento-diferido`, a migration aditiva
+`0024_faturamento_diferido_base` introduz política por mercado com padrão
+`IMEDIATO`, snapshot da política por linha física e livro de saldo ainda vazio.
+Foi aplicada **somente no Supabase de homologação** `szakgftippcqtuqwxsox`:
+nenhum mercado/linha foi reclassificado, não há saldo criado, RLS está ativo,
+`anon` não lê e `nf_homologacao_web` só pode ler/inserir (não atualizar).
+O Web recusa um mercado marcado `DIFERIDO` enquanto o fechamento não estiver
+completo; isto evita emissão imediata indevida, mas **ainda não permite operar
+a Cooperativa neste modo**. Não aplicar 0024 em produção nem divulgar a opção
+ao usuário como pronta. O deploy Web de `main` em `5b3a022` ficou READY; ele
+contém Trocas/concorrência, não faturamento posterior. Rollback Web:
+`backup/web-session-fix-b589f4e-20260925`.
+
+TypeScript, 186 testes Web, 17 testes de isolamento e o build completo de
+homologação passaram nesta branch. Isso não equivale a um ensaio fiscal nem
+autoriza publicar o fluxo diferido incompleto.
+Próximo passo: fechar o modelo de alocação N:N e a criação fiscal posterior,
+implementar a tela de fechamento, validar parcelas/projetos/concorrência em QA
+e só então habilitar a política de mercado. Não reutilizar o lote físico como
+fechamento fiscal sem separar relatórios, impressão e contrato do Worker.
+
 ## Integração local de concorrência + Trocas — 25/09/2026
 
 Na branch isolada `codex/trocas-lote-ajustes`, a correção de sessão expirada
