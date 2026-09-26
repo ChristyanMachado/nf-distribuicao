@@ -1,6 +1,14 @@
 # Plano de concorrência adaptativa do Worker
 
-Estado: planejamento aprovado tecnicamente; **não implementado**.
+Estado em 25/09/2026: a implementação dos commits `0444ff9` e `76d0822` foi
+restaurada localmente na branch `codex/restore-concurrency`, baseada em
+`b589f4e`. Não foi instalada nem publicada. O handoff histórico registra as
+migrations 0021/0022 aplicadas em produção e QA. Consulta remota read-only
+posterior encontrou seus nomes na lista Supabase, mas a tabela
+`drizzle.__drizzle_migrations` de produção só registra ids até 13; migrations
+14+ foram aplicadas separadamente. Não executar `drizzle-kit migrate` ou outro
+runner Drizzle: pode reaplicar migrations antigas. O contrato SQL efetivo
+precisa ser conferido read-only antes de publicar o Web restaurado.
 
 Este documento define a fronteira entre investigação e implementação. Nenhuma
 emissão fiscal foi criada para produzir estas conclusões.
@@ -13,19 +21,21 @@ emissão fiscal foi criada para produzir estas conclusões.
   disponível e 43% de memória comprometida. O Valheim usava aproximadamente
   364 MB de working set e os processos Python, 52 MB sem Chromium ativo.
 - Essa amostra é apenas baseline; não prova capacidade sob carga.
-- Concorrência 1 já possui histórico operacional. Concorrência 2 está ativa no
-  PC, mas ainda aguarda uma execução legítima paralela. Concorrência 3 não foi
+- Concorrência 1 é o único nível comprovado operacionalmente. O limite
+  administrativo permite 2, mas a capacidade reportada pelo PC permanece 1 e
+  falta ensaio legítimo com duas credenciais diferentes. Concorrência 3 não foi
   validada neste hardware.
 - O Worker usa um Chromium e um `BrowserContext` independente por tarefa.
   Reservas são atômicas, com token, lease e dono. Tarefas da mesma credencial
   fiscal são serializadas. Um resultado externo incerto não recebe retry
   automático.
-- Hoje cada ciclo reserva até `MAX_CONCORRENCIA` tarefas de uma vez e espera
-  todas terminarem. O limite é fixo durante o ciclo.
+- Cada ciclo reserva até o limite escolhido antes do ciclo e espera todas
+  terminarem. A política pode mudar entre ciclos; o limite permanece fixo
+  durante cada ciclo.
 
-Conclusão vigente: 1 é o nível comprovado; 2 está liberado como ensaio
-operacional monitorado; 3 é apenas teto de projeto e benchmark. Não expor 4 ou
-5 nesta etapa.
+Conclusão vigente: 1 é o nível comprovado; 2 está liberado no teto administrativo,
+mas ainda exige ensaio operacional monitorado; 3 é apenas teto de projeto e
+benchmark. Não expor 4 ou 5 nesta etapa.
 
 ## 2. Decisão de controle
 
@@ -334,8 +344,8 @@ Na tela de Configurações, abaixo do horário:
 
 - **Manual** — “Você escolhe quantas notas podem ser processadas ao mesmo
   tempo.” Opções 1, 2 e 3.
-- **Automático** — “O sistema ajusta entre o mínimo e o máximo conforme o
-  computador e a fila.” Seletores simples de mínimo e máximo.
+- **Automático** — começa em 1 e sobe gradualmente até o máximo escolhido,
+  conforme métricas locais e trabalho compatível. O mínimo é fixo em 1.
 - Texto permanente: “Reduzir não interrompe notas em andamento; apenas novas
   notas aguardam.”
 - Estado: “Usando agora: N por vez”, “Limite liberado neste servidor: N” e, no
@@ -346,23 +356,29 @@ Enquanto `capacity_limit=2`, a opção 3 aparece desabilitada como “aguarda
 validação neste servidor”. Não aceitar e depois reduzir silenciosamente. Não
 mostrar parâmetros de CPU/RAM ao usuário comum.
 
-## 9. Arquivos/componentes previstos
+## 9. Arquivos/componentes restaurados localmente
 
-- nova migration Web para configuração e telemetria sanitizada;
-- `web/src/db/schema.ts`;
-- `web/src/app/configuracoes/page.tsx` e `actions.ts`;
-- `web/src/lib` para validação e apresentação;
-- `worker/src/config.py` para diferenciar teto local de limite efetivo;
-- novo módulo `worker/src/concorrencia_adaptativa.py` puro e testável;
-- `worker/src/fonte_tarefas.py` para ler configuração/estado;
-- `worker/src/servico_coordenado.py` para telemetria/heartbeat;
-- `worker/main.py` para escolher o limite antes de reservar;
-- testes unitários, de grants, de coordenação e E2E da UI.
+- migrations `0021_concorrencia_worker.sql` e
+  `0022_preferencia_concorrencia_worker.sql`, journal local e função RPC;
+- `web/src/app/configuracoes/ConcorrenciaWorkerCard.tsx`, `page.tsx`,
+  `actions.ts`, `workers.server.ts` e `workers-visao.ts`;
+- `worker/src/concorrencia_adaptativa.py`, `fonte_tarefas.py`,
+  `servico_coordenado.py` e integração de teto em `config.py`;
+- dependência `psutil` nos manifests de produção/Windows e preparador do pacote;
+- testes unitários de decisão/projeção e testes de coordenação/preparador.
+
+O código não foi publicado nem instalado. Os testes locais não validam grants
+remotos, a chamada da Server Action com a identidade de produção, nem emissão
+real. O handoff histórico registra ausência de grant a um papel Web dedicado
+em produção; a RPC `atualizar_preferencia_concorrencia` concede explicitamente
+EXECUTE a `nf_homologacao_web` somente quando esse role existe. Confirmar qual
+principal a conexão privada de produção usa antes de considerar o formulário
+operacional.
 
 Não alterar inicialmente `orquestrador.py`; a versão 1 continua passando um
 limite fixo por ciclo.
 
-## 10. Critérios de aceitação da implementação
+## 10. Critérios e estado da restauração
 
 1. Manual 1/2/3 é aplicado no ciclo seguinte sem restart e respeita o teto
    administrativo do executor; opções acima dele ficam desabilitadas.
@@ -375,29 +391,38 @@ limite fixo por ciclo.
 7. Resultado externo incerto bloqueia retry e força modo seguro.
 8. Toda mudança de limite tem razão sanitizada e testável.
 9. UI distingue solicitado, permitido e efetivo sem jargão.
-10. Benchmarks e testes não criam efeito fiscal real sem autorização.
+10. Validação local: 41 testes focados Worker, 181 testes Web e TypeScript
+    passaram; build compilou e passou TypeScript, mas não coletou páginas sem
+    `DATABASE_URL`. Nenhum teste criou efeito fiscal.
+11. A lista Supabase registra 0021/0022 como aplicadas; a tabela
+    `drizzle.__drizzle_migrations` de produção registra somente até id 13.
+    Essas migrações foram aplicadas separadamente via Supabase e não devem ser
+    executadas de novo pelo runner Drizzle.
+12. A interface e a decisão automática permanecem sem validação end-to-end ou
+    instalação no PC servidor. Manual 1 continua sendo o estado operacional
+    documentado; 2 depende de ensaio com credenciais distintas e 3 não está
+    validada.
 
-## 11. Sequência para GPT-5.6 Terra / Média
+## 11. Próximos passos de rollout
 
-1. Implementar e testar primeiro o coletor Windows e o módulo puro de decisão,
-   sem ligá-los à emissão.
-2. Criar a migration e os testes de privilégios; não aplicar remotamente sem
-   autorização explícita.
-3. Implementar leitura por ciclo e telemetria, mantendo `MANUAL=2` como
-   comportamento efetivo inicial.
-4. Implementar UI e testes.
-5. Executar Camada A e calibrar thresholds.
-6. Publicar em modo observação: calcula decisão automática, mas não a aplica.
-7. Comparar decisões sugeridas com métricas reais.
-8. Com autorização, habilitar Automático inicialmente com teto liberado 2.
-9. Executar Camada B antes de validar teto 3.
+1. Concluído nesta restauração: 41 testes Worker e 181 testes Web completos;
+   `tsc --noEmit` passou. A build compilou e passou TypeScript, mas a coleta
+   de páginas exige `DATABASE_URL`, ausente neste checkout.
+2. Conferir read-only a presença das colunas/funções e o contrato SQL em QA e
+   produção. Não usar `drizzle-kit migrate`, `db:migrate` ou
+   `db:migrate:runtime`: o journal Drizzle de produção não reflete as migrations
+   executadas via Supabase.
+3. Validar o formulário no Preview isolado, com linha Worker QA e principal
+   dedicado, sem misturar credenciais de produção.
+4. Gerar pacote Worker compatível e validar a telemetria em manutenção antes de
+   instalar no servidor físico. Preservar Manual 1.
+5. Só considerar concorrência 2 após ensaio autorizado com duas tarefas
+   legítimas de credenciais fiscais diferentes; não elevar para 3 sem evidência.
 
-Modo observação é uma flag privada do pacote
-`CONCORRENCIA_ADAPTATIVA_SHADOW=true`, não um terceiro modo na UI. Nele, a
-configuração efetiva permanece Manual 2, enquanto `suggested_capacity`, motivo
-e amostras sanitizadas são registrados em log e `worker_status`. A saída dessa
-fase exige ao menos cinco ciclos com trabalho e nenhuma sugestão que viole os
-guardrails; só então a opção Automático pode ser publicada.
+O modo Automático é opt-in. A decisão local começa em 1, aumenta um nível por
+vez após janelas saudáveis, requer tarefas de credenciais distintas e retorna
+conservadoramente a 1 diante de telemetria insuficiente ou falhas. A função do
+banco aceita mudança somente entre ciclos e não cancela trabalho ativo.
 
 ## 12. Fontes técnicas
 

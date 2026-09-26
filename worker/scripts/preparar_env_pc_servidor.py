@@ -12,8 +12,8 @@ from dotenv import dotenv_values
 _CAMPO_CREDENCIAL = (
     "LOGIN|SENHA|IDENTIDADE_ESPERADA|EMITENTE|NOME_EMITENTE"
 )
-_CLIENTE = re.compile(
-    rf"^(?P<referencia>CLIENTE_[A-Z0-9_]{{1,55}})_(?P<campo>{_CAMPO_CREDENCIAL})$"
+_CREDENCIAL = re.compile(
+    rf"^(?P<referencia>[A-Z][A-Z0-9_]{{2,63}})_(?P<campo>{_CAMPO_CREDENCIAL})$"
 )
 _WORKER_ID = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 
@@ -45,7 +45,7 @@ def preparar(
     credenciais_encontradas = {
         correspondencia.group("referencia")
         for nome in antigos
-        if (correspondencia := _CLIENTE.fullmatch(nome))
+        if (correspondencia := _CREDENCIAL.fullmatch(nome))
     }
     clientes = sorted(credenciais_encontradas)
     if not clientes or len(clientes) > 20:
@@ -102,7 +102,7 @@ def preparar(
     }
     for nome, valor in antigos.items():
         if (
-            (correspondencia := _CLIENTE.fullmatch(nome))
+            (correspondencia := _CREDENCIAL.fullmatch(nome))
             and correspondencia.group("referencia") in clientes
         ):
             valores[nome] = valor

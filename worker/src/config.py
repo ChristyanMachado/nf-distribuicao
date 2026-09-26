@@ -76,11 +76,13 @@ class Config:
     # normal, fila do banco e modo automático; nunca substitui a confirmação
     # do usuário que cria a distribuição ou solicita um cancelamento no Web.
     habilitar_producao_fiscal: bool
-    # Limite opcional de contextos/abas simultâneos. None = sem limite (hoje
-    # equivalente a len(clientes_ativos), já que só 3 foram testados). Existe
-    # pra quando o worker crescer de 3 pra N tarefas num servidor com CPU/RAM
-    # limitados — configurar explicitamente via MAX_CONCORRENCIA no .env.
+    # Teto de contextos simultâneos instalado nesta máquina. No modo coordenado
+    # ele é preservado em limite_local_concorrencia enquanto max_concorrencia
+    # varia por ciclo. Configurado localmente via MAX_CONCORRENCIA no .env.
     max_concorrencia: int | None
+    # Teto instalado desta máquina. O coordenador pode variar max_concorrencia
+    # por ciclo, mas nunca altera este limite local.
+    limite_local_concorrencia: int | None
     # "teste" usa o ambiente NFP-e TESTES (homologação, sem valor fiscal) da
     # Receita PR — RECOMENDADO durante desenvolvimento pra não poluir o
     # histórico fiscal real com tentativas. "normal" usa produção.
@@ -432,6 +434,7 @@ def carregar_config() -> Config:
         testar_emissao_homologacao=testar_emissao_homologacao,
         habilitar_producao_fiscal=habilitar_producao_fiscal,
         max_concorrencia=max_concorrencia,
+        limite_local_concorrencia=max_concorrencia,
         ambiente_emissao=ambiente_emissao,
         fonte_tarefas=fonte_tarefas,
         worker_database_url=worker_database_url,

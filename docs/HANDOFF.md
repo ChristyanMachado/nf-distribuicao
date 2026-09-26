@@ -1,5 +1,42 @@
 # Handoff — Estado Atual
 
+## Preferência de concorrência restaurada localmente — 25/09/2026
+
+Na branch isolada `codex/restore-concurrency`, baseada em `b589f4e`, foi
+restaurado o controle por Worker removido no rollback: Configurações permite
+Manual 1/2/3 ou Automático, respeitando o limite administrativo e o teto local;
+o Worker aplica decisões somente entre ciclos, começa em 1, reduz a capacidade
+em caso de falha/dados insuficientes e não interrompe tarefas em andamento.
+Concorrência automática exige métricas locais (`psutil`) e não paraleliza tarefas
+com a mesma credencial fiscal. O Proxy para sessões expiradas foi preservado.
+
+Foram restaurados os arquivos de migration `0021_concorrencia_worker.sql` e
+`0022_preferencia_concorrencia_worker.sql`, com entradas 21/22 no journal local.
+O handoff histórico em `5775560` registra aplicação das duas migrations em
+produção e QA. Uma consulta read-only posterior confirmou na lista de migrations
+Supabase `concorrencia_worker` (`20260923220831`) e
+`preferencia_concorrencia_worker` (`20260924094113`). Porém,
+`drizzle.__drizzle_migrations` em produção contém registros somente até o id 13;
+as migrations 14+ foram aplicadas separadamente pelo Supabase. **Não executar
+`drizzle-kit migrate`, `db:migrate` nem `db:migrate:runtime`**: o histórico do
+Drizzle não reconhece as migrations aplicadas via Supabase e pode tentar
+reaplicar migrations antigas. Os SQLs não são idempotentes e não foram
+executados nesta branch. A existência e o contrato SQL efetivo das colunas/RPCs
+devem ser conferidos em leitura antes de publicar o Web restaurado.
+
+Esta é somente uma restauração local de código. Não houve publicação, deploy,
+alteração no PC servidor ou mudança de capacidade real. O PC documentado mantém
+Manual 1/reportado 1 e teto administrativo 2; concorrência 2 ainda depende de
+pacote compatível e ensaio com duas credenciais fiscais diferentes. A gravação
+da preferência pela conexão Web de produção também requer validar o principal
+do banco: o grant dedicado descrito para QA não foi documentado em produção.
+Validação local: 41 testes focados do Worker, 181 testes Web e
+`tsc --noEmit` passaram. A build compilou o app e passou TypeScript, mas falhou
+em `Collecting page data` para `/api/worker/roteiros/[id]` porque esta worktree
+não tem `DATABASE_URL`; não foi preenchida uma URL para contornar a ausência.
+Nenhuma migration foi executada. O principal de produção para a RPC e a
+validação SQL read-only continuam pendentes.
+
 ## KPI abrangente e tentativa de concorrência 2 — 23/09/2026
 
 A estimativa de economia cobre agora todo o trabalho concluído do período:

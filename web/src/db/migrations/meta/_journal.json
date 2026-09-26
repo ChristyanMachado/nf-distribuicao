@@ -148,6 +148,20 @@
       "when": 1790060400000,
       "tag": "0020_retry_automatico_pre_emissao",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1790121600000,
+      "tag": "0021_concorrencia_worker",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1790242762000,
+      "tag": "0022_preferencia_concorrencia_worker",
+      "breakpoints": true
     }
   ]
 }
