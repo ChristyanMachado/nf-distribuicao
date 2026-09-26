@@ -10,6 +10,15 @@ posterior encontrou seus nomes na lista Supabase, mas a tabela
 runner Drizzle: pode reaplicar migrations antigas. O contrato SQL efetivo
 precisa ser conferido read-only antes de publicar o Web restaurado.
 
+Atualização posterior no mesmo dia: a branch local `codex/trocas-lote-ajustes`
+integrou essa restauração. Leitura read-only confirmou colunas/RPCs da
+concorrência em produção e `pc-servidor-01` ONLINE na versão `56e0130`, com
+preferência AUTOMATICO, `automatic_max=3`, limites local/administrativo 3 e
+`reported_capacity=1` no instante consultado. O código do Worker em `56e0130`
+já contém os commits restaurados. Isso atualiza a fotografia de capacidade
+abaixo, mas não comprova 2 ou 3 notas simultâneas sob carga real. Web ainda
+não publicado nesta integração.
+
 Este documento define a fronteira entre investigação e implementação. Nenhuma
 emissão fiscal foi criada para produzir estas conclusões.
 

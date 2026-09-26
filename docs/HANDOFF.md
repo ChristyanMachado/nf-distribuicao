@@ -1,5 +1,35 @@
 # Handoff — Estado Atual
 
+## Integração local de concorrência + Trocas — 25/09/2026
+
+Na branch isolada `codex/trocas-lote-ajustes`, a correção de sessão expirada
+(`b589f4e`) foi preservada e o controle Manual/Automático restaurado a partir
+de `c1b6ae3`. A tela de Trocas passa a cadastrar vários produtos escolhendo o
+mercado uma vez e a corrigir/zerar somente o saldo **ainda pendente**. O ajuste
+tem registro próprio e chave idempotente; lançamentos originais e reposições já
+usadas não são apagados. A migration aditiva `0023_trocas_ajustes_pendentes`
+está no código/journal. Foi aplicada somente no projeto Supabase de
+homologação `szakgftippcqtuqwxsox`, incluindo grants/policies mínimos para
+`nf_homologacao_web`; **não foi aplicada em produção**. Não executar o runner
+Drizzle em produção, pelo descompasso histórico descrito abaixo.
+
+Leitura remota de produção confirmou as colunas de concorrência e os RPCs
+`worker_set_capacity`/`atualizar_preferencia_concorrencia`. O `worker_status`
+mostrou `pc-servidor-01` ONLINE, versão `56e0130`, preferência AUTOMATICO,
+teto administrativo/local 3 e capacidade reportada 1 no momento da consulta;
+`pc-contingencia-local` estava OFFLINE/Manual 1. Isso **substitui** a fotografia
+histórica Manual 1/teto 2 logo abaixo, mas não prova execução simultânea 3.
+O commit `56e0130` contém os commits de concorrência restaurados, portanto o
+Worker instalado já conhece o protocolo; ainda falta validar o principal do
+Web na RPC e observar uma carga real antes de considerar 2/3 comprovados.
+
+Validação local integrada: TypeScript, 185 testes Web e 17 testes de isolamento
+passaram. A restauração de concorrência passou ainda em 41 testes focados do
+Worker. Nenhum deploy/push, migração de produção ou emissão artificial nesta
+integração. O faturamento diferido por projeto permanece **não implementado**;
+as regras confirmadas pelo cliente e os acoplamentos estão em
+`docs/PLANO-FATURAMENTO-DIFERIDO.md`.
+
 ## Preferência de concorrência restaurada localmente — 25/09/2026
 
 Na branch isolada `codex/restore-concurrency`, baseada em `b589f4e`, foi

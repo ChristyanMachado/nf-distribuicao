@@ -1,5 +1,29 @@
 # Roadmap — NF Distribuição
 
+## Estado de integração local — 25/09/2026
+
+- Produção Web permanece no checkpoint `b589f4e` (correção isolada da sessão
+  expirada). A branch local `codex/trocas-lote-ajustes` integra novamente os
+  controles Manual/Automático e prepara Trocas em lote com ajuste auditável do
+  saldo pendente; **ainda não foi publicada**.
+- Migrations 0021/0022 de concorrência já constam em produção e homologação no
+  histórico Supabase; não usar runner Drizzle de produção. Migration 0023 de
+  ajuste das Trocas foi ensaiada somente em homologação. Após revisão final,
+  aplicar 0023 em produção antes de publicar o Web correspondente.
+- O PC servidor já reporta versão `56e0130` com protocolo de concorrência,
+  preferência Automático e teto 3, mas reportava capacidade efetiva 1 na
+  consulta de 25/09. Ensaiar 2 e 3 só com notas legítimas, monitorando erros,
+  memória e separação de credenciais.
+- Faturamento posterior genérico (caso Cooperativa) não foi implementado em
+  nenhum commit. O vídeo confirmou seleção manual de parcelas/produtos e
+  projetos no fechamento, sem emitir nota na distribuição. O contrato e os
+  acoplamentos a fila, Worker e relatórios estão em
+  [PLANO-FATURAMENTO-DIFERIDO.md](PLANO-FATURAMENTO-DIFERIDO.md); implementar
+  em etapas isoladas, sem desviar o fluxo imediato que já está em uso.
+
+O restante abaixo é a fotografia histórica de 23/09 e não substitui a
+atualização acima.
+
 Atualizado em 23/09/2026. O histórico detalhado e as limitações operacionais
 estão no [Handoff](HANDOFF.md). A
 [auditoria de lapidação](AUDITORIA-LAPIDACAO-2026-09-09.md) é um diagnóstico
