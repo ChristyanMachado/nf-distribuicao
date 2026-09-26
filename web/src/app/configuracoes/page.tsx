@@ -5,15 +5,18 @@ import { Label } from "@/components/Field";
 import FormularioComFeedback from "@/components/FormularioComFeedback";
 import PrimaryButton from "@/components/PrimaryButton";
 import { descreverJanela } from "@/lib/janela-operacional";
-import { atualizarJanelaOperacional, obterConfiguracaoOperacional } from "./actions";
+import { carregarWorkers } from "@/lib/workers.server";
+import ConcorrenciaWorkerCard from "./ConcorrenciaWorkerCard";
+import { atualizarConcorrenciaWorker, atualizarJanelaOperacional, obterConfiguracaoOperacional } from "./actions";
 
 export default async function ConfiguracoesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ salvo?: string }>;
+  searchParams: Promise<{ salvo?: string; concorrenciaSalva?: string }>;
 }) {
   const parametros = await searchParams;
   const configuracao = await obterConfiguracaoOperacional();
+  const painelWorkers = await carregarWorkers();
 
   return (
     <div>
@@ -25,6 +28,11 @@ export default async function ConfiguracoesPage({
       {parametros.salvo && (
         <p className="mt-5 rounded-[var(--radius-control)] border border-[var(--field)] bg-[var(--field-tint)] px-4 py-3 text-sm" role="status">
           Horário atualizado. O Worker usará a alteração no próximo ciclo.
+        </p>
+      )}
+      {parametros.concorrenciaSalva && (
+        <p className="mt-5 rounded-[var(--radius-control)] border border-[var(--field)] bg-[var(--field-tint)] px-4 py-3 text-sm" role="status">
+          Preferência salva. O Worker aplicará a mudança no próximo ciclo, sem interromper notas em andamento.
         </p>
       )}
 
@@ -60,6 +68,40 @@ export default async function ConfiguracoesPage({
           </div>
         </FormularioComFeedback>
       </Card>
+
+      <section className="mt-8" aria-labelledby="concorrencia-titulo">
+        <h2 id="concorrencia-titulo" className="text-2xl font-medium">Concorrência dos servidores</h2>
+        <p className="mt-1 text-[15px] leading-relaxed text-[var(--ink-soft)]">
+          Ajuste quantas notas podem avançar ao mesmo tempo em cada servidor registrado.
+        </p>
+        {painelWorkers.situacao === "disponivel" && painelWorkers.workers.length > 0 ? (
+          painelWorkers.workers.map((worker) => (
+            <ConcorrenciaWorkerCard
+              key={worker.id}
+              workerId={worker.id}
+              nome={worker.id === "pc-servidor-01" ? "PC servidor" : worker.id}
+              ativo={worker.estado !== "DISABLED"}
+              capacidadePermitida={worker.capacidadePermitida}
+              capacidadeInformada={worker.capacidadeInformada}
+              modoSolicitado={worker.modoSolicitado}
+              capacidadeManual={worker.capacidadeManual}
+              maximoAutomatico={worker.maximoAutomatico}
+              capacidadeSugerida={worker.capacidadeSugerida}
+              motivoDecisao={worker.motivoDecisao}
+              configuracaoAplicadaEm={worker.configuracaoAplicadaEm}
+              action={atualizarConcorrenciaWorker}
+            />
+          ))
+        ) : (
+          <Card className="mt-5 p-4">
+            <p className="text-sm text-[var(--ink-soft)]">
+              {painelWorkers.situacao === "nao_configurado" || (painelWorkers.situacao === "disponivel" && painelWorkers.workers.length === 0)
+                ? "Nenhum servidor coordenado está cadastrado ainda."
+                : "Não foi possível carregar a configuração dos servidores. A preferência atual não foi alterada."}
+            </p>
+          </Card>
+        )}
+      </section>
     </div>
   );
 }

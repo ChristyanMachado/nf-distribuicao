@@ -6,12 +6,17 @@ const registro: RegistroWorker = {
   heartbeat_at: "2026-09-10T12:00:00Z", lease_expires_at: "2026-09-10T12:02:00Z", version: "abc123",
   draining: false, state: "ONLINE", active_task_ids: [], tasks_completed: "3", last_error_code: null,
   preferred: true, coordination_enabled: true, server_now: "2026-09-10T12:00:31Z",
+  requested_mode: "MANUAL", concurrency_mode: "MANUAL", manual_capacity: 1,
+  automatic_max: 1, local_capacity_limit: 1, suggested_capacity: 1, decision_reason: "BOOTSTRAP",
+  decision_at: null, config_applied_at: null, concurrency_updated_at: null,
 };
 describe("visibilidade dos executores", () => {
   it("usa relógio do banco e projeção que exclui dados extras", () => {
     const view = projetarWorker({...registro, db_role: "privado", senha: "segredo"} as RegistroWorker);
     expect(view.segundosSemContato).toBe(31);
     expect(JSON.stringify(view)).not.toMatch(/privado|segredo|db_role/);
+    expect(view.modoSolicitado).toBe("MANUAL");
+    expect(view.motivoDecisao).toBe("iniciando com segurança");
   });
   it("não imprime erros arbitrários nem versões adulteradas", () => {
     expect(erroWorkerSeguro("senha privada")).not.toContain("senha privada");
